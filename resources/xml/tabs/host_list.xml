@@ -31,7 +31,8 @@
 
                 <brls:Label
                     text="@i18n/akira/hosts/title"
-                    fontSize="24"/>
+                    fontSize="24"
+                    singleLine="true"/>
 
                 <brls:Box
                     width="auto"

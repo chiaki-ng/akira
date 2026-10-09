@@ -9,7 +9,7 @@
     paddingBottom="30">
 
     <brls:Label
-        text="Picture"
+        text="@i18n/akira/settings/picture"
         fontSize="30"
         marginBottom="20"/>
 
@@ -198,13 +198,13 @@
 
                 <brls:BooleanCell
                     id="settings/rcasEnabled"
-                    title="RCAS (Sharpening)"
+                    title="@i18n/akira/settings/rcas_sharpening"
                     marginLeft="15"
                     marginRight="15"/>
 
                 <brls:SliderCell
                     id="settings/rcasSharpness"
-                    title="RCAS Strength"
+                    title="@i18n/akira/settings/rcas_strength"
                     marginLeft="15"
                     marginRight="15"/>
 

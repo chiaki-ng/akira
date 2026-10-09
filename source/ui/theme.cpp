@@ -6,7 +6,7 @@ namespace akira::ui
 {
 static const Palette kPlayStation = {
     .id              = "playstation",
-    .name            = "Cobalt",
+    .name            = "akira/themes/cobalt",
     .background      = nvgRGB(0x0b, 0x1a, 0x3a),
     .backgroundDeep  = nvgRGB(0x08, 0x0f, 0x20),
     .gradientTop     = nvgRGB(0x18, 0x33, 0x6e),
@@ -32,7 +32,7 @@ static const Palette kPlayStation = {
 
 static const Palette kPlayStation30Light = {
     .id              = "ps30-light",
-    .name            = "Anniversary (Light)",
+    .name            = "akira/themes/anniversary_light",
     .background      = nvgRGB(0xe7, 0xe6, 0xdc),
     .backgroundDeep  = nvgRGB(0xdc, 0xdb, 0xd0),
     .gradientTop     = nvgRGB(0xee, 0xed, 0xe4),
@@ -58,7 +58,7 @@ static const Palette kPlayStation30Light = {
 
 static const Palette kPlayStation30 = {
     .id              = "ps30",
-    .name            = "Anniversary (Dark)",
+    .name            = "akira/themes/anniversary_dark",
     .background      = nvgRGB(0x2b, 0x2b, 0x2e),
     .backgroundDeep  = nvgRGB(0x1b, 0x1b, 0x1e),
     .gradientTop     = nvgRGB(0x3a, 0x3a, 0x3e),
