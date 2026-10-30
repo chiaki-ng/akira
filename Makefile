@@ -41,7 +41,8 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/psn/log.cpp \
                 $(CURDIR)/source/core/pair_crypto.cpp \
                 $(CURDIR)/source/input/rumble_profile.cpp \
-                $(CURDIR)/source/input/pad_output_state.cpp
+                $(CURDIR)/source/input/pad_output_state.cpp \
+                $(CURDIR)/source/stream/audio_ring_buffer.cpp
 PAIR_UECC_SRC := $(CURDIR)/source/core/pair/microecc/uECC.c
 PAIR_UECC_OBJ := $(CURDIR)/build/tests/uECC.o
 JSONC_PREFIX ?= $(shell pkg-config --variable=prefix json-c 2>/dev/null || echo /opt/homebrew)

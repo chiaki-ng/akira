@@ -1,0 +1,7 @@
+*
+!Dockerfile
+!library/
+!library/ffmpeg/
+!library/ffmpeg/**
+!library/uam/
+!library/uam/**

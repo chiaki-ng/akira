@@ -1,6 +1,7 @@
 FROM devkitpro/devkita64:latest
 
-RUN apt-get update && apt-get install -y \
+RUN rm -f /etc/apt/sources.list.d/devkitpro.list && \
+    apt-get update && apt-get install -y \
     autoconf automake libtool pkg-config \
     protobuf-compiler python3-protobuf \
     python3 python3-pip \
