@@ -842,6 +842,15 @@ void SettingsManager::parseTomlFile() {
                     host->hostAddr = *val;
                 if (auto val = (*ct)["target"].value<int64_t>())
                     host->setChiakiTarget(static_cast<ChiakiTarget>(*val));
+				if (auto val = (*ct)["console_model"].value<int64_t>()) {
+                    host->setConsoleModel(static_cast<ConsoleModel>(*val));
+                } else {
+                    if (host->getChiakiTarget() == CHIAKI_TARGET_PS4_10) {
+                        host->setConsoleModel(ConsoleModel::PS4Fat);
+                    } else {
+                        host->setConsoleModel(ConsoleModel::PS5Fat);
+                    }
+                }
                 if (auto val = (*ct)["console_pin"].value<std::string>())
                     host->consolePIN = *val;
                 if (auto val = (*ct)["haptic"].value<int64_t>())
@@ -1336,6 +1345,7 @@ int SettingsManager::writeFile() {
             ct.insert("host_addr", host->getHostAddr());
             ct.insert("target", static_cast<int>(host->getChiakiTarget()));
             ct.insert("host_type", std::to_underlying(host->hostType));
+			ct.insert("console_model", std::to_underlying(host->getConsoleModel()));
             if (!host->consolePIN.empty()) ct.insert("console_pin", host->consolePIN);
             if (!host->remoteDuid.empty()) ct.insert("remote_duid", host->remoteDuid);
             if (host->haptic >= 0) ct.insert("haptic", host->haptic);

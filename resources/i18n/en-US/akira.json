@@ -492,6 +492,7 @@
     "language_desc": "Override display language. Requires app restart.",
     "lang_system": "System Default",
     "lang_en": "English",
+    "lang_ru": "Русский",
     "lang_zh_hans": "简体中文",
     "local_network": "Local Network Settings",
     "local_network_desc": "Settings for local network connections (higher bitrate may cause issues)",

@@ -47,11 +47,19 @@
     </brls:Box>
 
     <brls:Button
-        id="add/saveBtn"
-        text="@i18n/akira/add_host/add_console"
-        style="primary"
-        width="200"
-        marginBottom="15"/>
+    id="add/saveBtn"
+    style="primary"
+    width="200"
+    height="64"
+    marginBottom="15"
+    justifyContent="center"
+    alignItems="center">
+    
+    <brls:Label
+        id="add/saveBtnLabel"
+        fontSize="20"
+        horizontalAlign="center"/>
+</brls:Button>
 
     <brls:Label
         id="add/status"

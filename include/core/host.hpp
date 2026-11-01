@@ -50,6 +50,15 @@ enum class HolepunchPhase {
     Punching
 };
 
+enum class ConsoleModel {
+    PS4Fat,
+    PS4Slim,
+    PS4Pro,
+    PS5Fat,
+    PS5Slim,
+    PS5Pro
+};
+
 enum class CouchPadState : uint8_t {
     Idle,
     Joining,
@@ -98,6 +107,7 @@ private:
 
     // Target console type
     ChiakiTarget target = CHIAKI_TARGET_PS4_UNKNOWN;
+	ConsoleModel consoleModel = ConsoleModel::PS5Fat;
     ChiakiDiscoveryHostState state = CHIAKI_DISCOVERY_HOST_STATE_UNKNOWN;
 
     // Registration data
@@ -212,6 +222,10 @@ public:
     void setHostAddr(const std::string& addr) { hostAddr = addr; }
     void setChiakiTarget(ChiakiTarget t) { target = t; }
     void setState(ChiakiDiscoveryHostState s) { state = s; }
+	
+	// Console model getters/setters
+    ConsoleModel getConsoleModel() const { return consoleModel; }
+    void setConsoleModel(ConsoleModel model) { consoleModel = model; }
 
     // Status checks
     bool isDiscovered() const { return discovered; }

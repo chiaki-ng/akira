@@ -9,7 +9,7 @@
     paddingBottom="30">
 
     <brls:Label
-        text="Picture"
+        text="@i18n/akira/settings/picture"
         fontSize="30"
         marginBottom="20"/>
 
@@ -93,9 +93,38 @@
 
             </brls:Box>
 
-            <brls:Header
-                title="@i18n/akira/settings/vpn"
-                marginBottom="10"/>
+			<brls:Box
+				width="auto"
+				height="44"
+				axis="column"
+				marginBottom="10">
+
+				<brls:Box
+					width="auto"
+					axis="row"
+					grow="1.0"
+					alignItems="center">
+					
+					<brls:Box
+						width="5"
+						height="18"
+						marginRight="10"
+						backgroundColor="@theme/brls/header/rectangle"/>
+				
+					<brls:Label
+						text="@i18n/akira/settings/vpn"
+						fontSize="18"
+						singleLine="true" 
+						textColor="@theme/brls/text"/>
+				
+				</brls:Box>
+
+				<brls:Box
+					width="auto"
+					height="1"
+					backgroundColor="@theme/brls/header/border"/>
+
+			</brls:Box>
 
             <brls:Box
                 width="auto"
@@ -166,7 +195,6 @@
                     marginLeft="15"
                     marginRight="15"/>
 
-
             </brls:Box>
 
             <brls:Header
@@ -188,23 +216,21 @@
                     marginLeft="15"
                     marginRight="15"/>
 
-
                 <brls:SliderCell
                     id="settings/ditheringStrength"
                     title="@i18n/akira/settings/dithering_strength"
                     marginLeft="15"
                     marginRight="15"/>
 
-
                 <brls:BooleanCell
                     id="settings/rcasEnabled"
-                    title="RCAS (Sharpening)"
+                    title="@i18n/akira/settings/rcas_sharpening"
                     marginLeft="15"
                     marginRight="15"/>
 
                 <brls:SliderCell
                     id="settings/rcasSharpness"
-                    title="RCAS Strength"
+                    title="@i18n/akira/settings/rcas_strength"
                     marginLeft="15"
                     marginRight="15"/>
 

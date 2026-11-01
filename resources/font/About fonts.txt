@@ -1,0 +1,7 @@
+The font file font.ttf contains a font called “Rubik-Regulal”. 
+It doesn’t break the interface in Russian and English, but it does break it in Chinese... 
+Please help with the proper implementation. 
+1. If necessary, I’ll look for font options with Cyrillic that are similar to the original switch font. 
+2. It seems to me that we need to somehow implement a way to link the Cyrillic font only to the Russian language. 
+However, in this case, when English/Chinese is selected in the language drop‑down list, 
+the word “Russian” will again be written as “Р у с с к и й”...

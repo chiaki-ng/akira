@@ -9,6 +9,7 @@
 #include "input/sample_cadence.hpp"
 
 #include <borealis.hpp>
+#include <borealis/core/i18n.hpp>
 #include <algorithm>
 #include <cstring>
 #include <format>
@@ -73,7 +74,7 @@ static void RegistEventCallback(ChiakiRegistEvent* event, void* user)
 }
 
 Host::Host(const std::string& name)
-    : hostName(name)
+    : hostName(name), consoleModel(ConsoleModel::PS5Fat)
 {
     settings = SettingsManager::getInstance();
     log = settings->getLogger();
@@ -123,11 +124,11 @@ std::string Host::getStateString() const
     switch (state)
     {
         case CHIAKI_DISCOVERY_HOST_STATE_READY:
-            return "Ready";
+            return brls::getStr("akira/hosts/state_ready");
         case CHIAKI_DISCOVERY_HOST_STATE_STANDBY:
-            return "Standby";
+            return brls::getStr("akira/hosts/state_standby");
         default:
-            return "Unknown";
+            return brls::getStr("akira/hosts/state_unknown");
     }
 }
 

@@ -107,11 +107,12 @@ void SettingsGeneralView::initPacketLossMaxSlider() {
 }
 
 void SettingsGeneralView::initLanguageSelector() {
-    static const std::vector<std::string> localeCodes = {"", "en-US", "zh-Hans"};
+    static const std::vector<std::string> localeCodes = {"", "en-US", "ru-RU", "zh-Hans"};
 
     std::vector<std::string> options = {
         "akira/settings/lang_system"_i18n,
         "akira/settings/lang_en"_i18n,
+		"akira/settings/lang_ru"_i18n,
         "akira/settings/lang_zh_hans"_i18n,
     };
 
@@ -133,6 +134,11 @@ void SettingsGeneralView::initLanguageSelector() {
             std::string locale = (selected > 0 && selected < (int)localeCodes.size()) ? localeCodes[selected] : "";
             settings->setDebugLocale(locale);
             settings->writeFile();
+			
+            auto* dialog = new brls::Dialog("akira/settings/lang_restart"_i18n);
+            dialog->setCancelable(false);
+            dialog->addButton("akira/common/ok"_i18n, []() { brls::Application::quit(); });
+            dialog->open();
         }
     );
 }
@@ -144,7 +150,7 @@ void SettingsGeneralView::initThemeSelector() {
     std::vector<std::string> ids;
     for (int i = 0; i < count; i++) {
         const akira::ui::Palette& p = akira::ui::themeAt(i);
-        options.emplace_back(p.name);
+        options.emplace_back(brls::getStr(std::string(p.name)));
         ids.emplace_back(p.id);
     }
 

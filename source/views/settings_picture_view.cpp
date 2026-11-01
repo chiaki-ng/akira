@@ -570,7 +570,7 @@ void SettingsPictureView::initRcasEnabledToggle() {
     bool currentValue = settings->getRcasEnabled();
 
     rcasEnabledToggle->init(
-        "RCAS (Sharpening)",
+        "akira/settings/rcas_sharpening"_i18n,
         currentValue,
         [this](bool isOn) {
             settings->setRcasEnabled(isOn);
@@ -587,7 +587,7 @@ void SettingsPictureView::initRcasSharpnessSlider() {
     rcasSharpnessSlider->detail->setShrink(0);
     rcasSharpnessSlider->slider->setDiscreteStep(0.05f);
     rcasSharpnessSlider->init(
-        "RCAS Strength",
+        "akira/settings/rcas_strength"_i18n,
         normalized,
         [this](float value) {
             float sharpness = (1.0f - value) * 2.0f;

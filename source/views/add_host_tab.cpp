@@ -26,19 +26,34 @@ AddHostTab::AddHostTab() {
         "akira/add_host/ip_hint"_i18n
     );
 
-    std::vector<std::string> targetOptions = {"PS4", "PS5"};
+	std::vector<std::string> targetOptions = {
+    "PlayStation 4 Fat", 
+    "PlayStation 4 Slim", 
+    "PlayStation 4 Pro", 
+    "PlayStation 5 Fat", 
+    "PlayStation 5 Slim", 
+    "PlayStation 5 Pro"
+	};
     targetSelector->init(
         "akira/add_host/console_type"_i18n,
         targetOptions,
-        1,  // Default to PS5
+        3,  // Default to PS5
         [](int selected) {},
         [](int selected) {}
     );
 
-    saveBtn->registerClickAction([this](brls::View* view) {
-        onSaveClicked();
-        return true;
-    });
+    auto* saveBtn = this->getView("add/saveBtn");
+    if (saveBtn) {
+        auto* label = dynamic_cast<brls::Label*>(saveBtn->getView("add/saveBtnLabel"));
+        if (label) {
+            label->setText("akira/add_host/add_console"_i18n);
+            label->setHorizontalAlign(brls::HorizontalAlign::CENTER);
+        }
+        saveBtn->registerClickAction([this](brls::View* view) {
+            onSaveClicked();
+            return true;
+        });
+    };
 }
 
 brls::View* AddHostTab::create() {
@@ -80,8 +95,39 @@ void AddHostTab::onSaveClicked() {
     settings->setHostAddr(host, addr);
     settings->setDiscovered(host, true);
 
-    ChiakiTarget target = targetIndex == 0 ? CHIAKI_TARGET_PS4_10 : CHIAKI_TARGET_PS5_1;
+	ChiakiTarget target;
+    ConsoleModel model;
+    
+    switch (targetIndex) {
+        case 0:
+            target = CHIAKI_TARGET_PS4_10;
+            model = ConsoleModel::PS4Fat;
+            break;
+        case 1:
+            target = CHIAKI_TARGET_PS4_10;
+            model = ConsoleModel::PS4Slim;
+            break;
+        case 2:
+            target = CHIAKI_TARGET_PS4_10;
+            model = ConsoleModel::PS4Pro;
+            break;
+        case 3:
+            target = CHIAKI_TARGET_PS5_1;
+            model = ConsoleModel::PS5Fat;
+            break;
+        case 4:
+            target = CHIAKI_TARGET_PS5_1;
+            model = ConsoleModel::PS5Slim;
+            break;
+        case 5:
+        default:
+            target = CHIAKI_TARGET_PS5_1;
+            model = ConsoleModel::PS5Pro;
+            break;
+    }
+    
     settings->setChiakiTarget(host, target);
+    host->setConsoleModel(model);
 
     settings->writeFile();
 

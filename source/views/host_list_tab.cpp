@@ -130,12 +130,34 @@ public:
         this->setCornerRadius(14);
         this->setFocusable(true);
 
-        consoleImg = new brls::Image();
-        consoleImg->setImageFromRes(host->isPS5() ? "img/console/ps5.png" : "img/console/ps4.png");
-        consoleImg->setScalingType(brls::ImageScalingType::FIT);
-        consoleImg->setDimensions(146, 118);
-        consoleImg->setMarginBottom(12);
-        this->addView(consoleImg);
+		std::string imgPath = "img/console/ps5_fat.png";
+		switch (host->getConsoleModel()) {
+			case ConsoleModel::PS4Fat:
+				imgPath = "img/console/ps4_fat.png";
+				break;
+			case ConsoleModel::PS4Slim:
+				imgPath = "img/console/ps4_slim.png";
+				break;
+			case ConsoleModel::PS4Pro:
+				imgPath = "img/console/ps4_pro.png";
+				break;
+			case ConsoleModel::PS5Fat:
+				imgPath = "img/console/ps5_fat.png";
+				break;
+			case ConsoleModel::PS5Slim:
+				imgPath = "img/console/ps5_slim.png";
+				break;
+			case ConsoleModel::PS5Pro:
+				imgPath = "img/console/ps5_pro.png";
+				break;
+		}
+
+		consoleImg = new brls::Image();
+		consoleImg->setImageFromRes(imgPath);
+		consoleImg->setScalingType(brls::ImageScalingType::FIT);
+		consoleImg->setDimensions(146, 118);
+		consoleImg->setMarginBottom(12);
+		this->addView(consoleImg);
 
         nameLabel = new brls::Label();
         nameLabel->setFontSize(22);

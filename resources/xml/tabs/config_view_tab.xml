@@ -1,29 +1,47 @@
 <brls:Box
-    width="auto"
-    height="auto"
+    width="100%"
+    height="100%"
     axis="column"
-    grow="1.0"
-    paddingTop="@style/brls/tab_frame/content_padding_top_bottom"
-    paddingLeft="@style/brls/tab_frame/content_padding_sides"
-    paddingRight="@style/brls/tab_frame/content_padding_sides"
-    paddingBottom="@style/brls/tab_frame/content_padding_top_bottom">
+    backgroundColor="@theme/brls/background"
+    paddingTop="30"
+    paddingLeft="40"
+    paddingRight="40"
+    paddingBottom="30">
 
-    <brls:Button
-        id="config/revealBtn"
-        text="@i18n/akira/config_view/reveal_secrets"
-        marginBottom="15"/>
+	<brls:Label
+        text="@i18n/akira/settings/config_view_tab"
+        fontSize="30"
+        marginBottom="20"/>
 
     <brls:ScrollingFrame
         width="auto"
         height="auto"
         grow="1.0">
 
-        <brls:Box
-            id="config/container"
+		 <brls:Box
             width="auto"
             height="auto"
-            axis="column"
-            grow="1.0"/>
+            axis="column">
+			
+			<brls:Button
+				id="config/revealBtn"
+				text="@i18n/akira/config_view/reveal_secrets"
+				marginBottom="15"/>
+
+			<brls:Box
+				id="config/container"
+				width="auto"
+				height="auto"
+				axis="column"
+				backgroundColor="@theme/color/card"
+				cornerRadius="14"
+				paddingLeft="30"
+				paddingRight="30"
+				paddingBottom="25"
+				paddingTop="25"
+				grow="1.0"/>
+				
+		</brls:Box>
 
     </brls:ScrollingFrame>
 

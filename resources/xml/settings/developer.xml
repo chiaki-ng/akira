@@ -8,6 +8,11 @@
     paddingRight="40"
     paddingBottom="30">
 
+	<brls:Label
+        text="@i18n/akira/settings/developer"
+        fontSize="30"
+        marginBottom="20"/>
+    
     <brls:ScrollingFrame
         width="auto"
         height="auto"

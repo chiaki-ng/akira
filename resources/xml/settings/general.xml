@@ -9,7 +9,7 @@
     paddingBottom="30">
 
     <brls:Label
-        text="General"
+        text="@i18n/akira/settings/general"
         fontSize="30"
         marginBottom="20"/>
 
