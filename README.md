@@ -12,7 +12,7 @@ This project is not endorsed or certified by Sony Interactive Entertainment LLC.
 
 ## Read the documentation
 
-Please read the docs at [xlanor.github.io/akira](https://xlanor.github.io/akira)
+Please read the docs at [chiaki-ng.github.io/akira](https://chiaki-ng.github.io/akira)
 
 ## Issues
 
@@ -20,7 +20,7 @@ Akira is a personal project developed for myself primarily as the main user. Ple
 
 I am present on chiaki-ng discord's switch-support channel, where StreetPea has graciously allowed me to seed akira amongst existing chiaki-ng users. 
 
-I will not respond to direct pings, please try to use the search button and/or [read the docs](https://xlanor.github.io/akira) first and then post a message with details of what you've tried. 
+I will not respond to direct pings, please try to use the search button and/or [read the docs](https://chiaki-ng.github.io/akira) first and then post a message with details of what you've tried. 
 
 I'd also love to hear if you're using this application and it works well for you.
 
@@ -48,7 +48,7 @@ If you find a bug or have a feature request, please help out and open a PR with 
 - AIA chain repair (when encountering a PSN node with only leaf TLS certs)
 
 ## How to get started
-Please read the docs at [xlanor.github.io/akira](https://xlanor.github.io/akira)
+Please read the docs at [chiaki-ng.github.io/akira](https://chiaki-ng.github.io/akira)
 
 ## Screenshots
 

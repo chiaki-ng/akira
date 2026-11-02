@@ -219,7 +219,7 @@ jobs:
               echo "- **Testers may wish to back up their configs before applying this release.**"
               echo ""
             fi
-            echo "Please read the [README](https://github.com/${{ github.repository }}#readme) and the [documentation](https://xlanor.github.io/akira) before getting started."
+            echo "Please read the [README](https://github.com/${{ github.repository }}#readme) and the [documentation](https://chiaki-ng.github.io/akira) before getting started."
             echo ""
           } > RELEASE_BODY.md
 
