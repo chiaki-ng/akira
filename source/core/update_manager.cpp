@@ -28,7 +28,7 @@ namespace akira {
 namespace {
 
 constexpr const char* kReleasesUrl =
-    "https://api.github.com/repos/xlanor/akira/releases?per_page=30";
+    "https://api.github.com/repos/chiaki-ng/akira/releases?per_page=30";
 
 constexpr const char* kDefaultInstallPath = "sdmc:/switch/akira/akira.nro";
 

@@ -11,10 +11,10 @@ const config = {
     v4: true,
   },
 
-  url: 'https://jingk.ai',
+  url: 'https://chiaki-ng.github.io',
   baseUrl: '/akira/',
 
-  organizationName: 'xlanor',
+  organizationName: 'chiaki-ng',
   projectName: 'akira',
 
   onBrokenLinks: 'throw',
@@ -38,7 +38,7 @@ const config = {
         docs: {
           routeBasePath: '/',
           sidebarPath: './sidebars.js',
-          editUrl: 'https://github.com/xlanor/akira/tree/next/website/',
+          editUrl: 'https://github.com/chiaki-ng/akira/tree/next/website/',
           lastVersion: '0.6.0',
           versions: {
             current: {
@@ -80,7 +80,7 @@ const config = {
             position: 'right',
           },
           {
-            href: 'https://github.com/xlanor/akira',
+            href: 'https://github.com/chiaki-ng/akira',
             label: 'GitHub',
             position: 'right',
           },
@@ -107,7 +107,7 @@ const config = {
           {
             title: 'More',
             items: [
-              {label: 'GitHub', href: 'https://github.com/xlanor/akira'},
+              {label: 'GitHub', href: 'https://github.com/chiaki-ng/akira'},
             ],
           },
         ],
