@@ -5,12 +5,8 @@
 #include "ui/theme.hpp"
 #include "core/discovery_manager.hpp"
 #include "core/trophy_manager.hpp"
-#include "psn/auth.hpp"
-#include "psn/token_refresher.hpp"
+#include "core/chiaki_core.hpp"
 #include "views/settings_frame_view.hpp"
-
-#include <chiaki/base64.h>
-#include <chiaki/regist.h>
 
 #include <borealis/core/i18n.hpp>
 #include <format>
@@ -187,7 +183,10 @@ void SettingsAccountView::initAuthSection() {
         "akira/settings/refresh_token_btn"_i18n,
         "akira/settings/refresh_token_busy"_i18n,
         "akira/settings/refresh_token_wait",
-        []() { return psn::Auth::instance().refreshStatus(); }
+        []() {
+            auto* accounts = akira::ChiakiCore::current().accounts();
+            return accounts ? accounts->refreshStatus() : psn::ActionStatus{};
+        }
     );
 
     refreshTokenBtn->registerClickAction([this](brls::View* view) {
@@ -195,16 +194,15 @@ void SettingsAccountView::initAuthSection() {
             return true;
         }
 
-        std::string refreshToken = settings->getPsnRefreshToken();
-        std::string npsso = settings->getPsnNpsso();
-        if (refreshToken.empty() && npsso.empty()) {
+        auto* accounts = akira::ChiakiCore::current().accounts();
+        if (!accounts || accounts->state() == psn::SessionState::NotLinked) {
             brls::Application::notify("akira/settings/no_refresh_token"_i18n);
             return true;
         }
 
         brls::Application::notify("akira/settings/refreshing_token"_i18n);
 
-        psn::TokenRefresher::instance().refreshNow([]() {
+        accounts->refreshNow([](bool) {
             brls::Application::notify("akira/settings/token_refreshed"_i18n);
             if (SettingsAccountView::currentInstance) {
                 SettingsAccountView::currentInstance->updateCredentialsDisplay();
@@ -228,8 +226,8 @@ void SettingsAccountView::initAuthSection() {
 
         dialog->addButton("akira/settings/clear_all"_i18n, [this, dialog]() {
             dialog->close();
-            settings->clearAllPsnData();
-            settings->writeFile();
+            if (auto* accounts = akira::ChiakiCore::current().accounts())
+                accounts->forget(settings->getPsnAccountId(nullptr));
             updateCredentialsDisplay();
             brls::Application::notify("akira/settings/psn_data_cleared"_i18n);
         });
@@ -270,12 +268,7 @@ void SettingsAccountView::applyLegacyVisibility() {
 }
 
 bool SettingsAccountView::validAccountId(const std::string& accountId) {
-    uint8_t decoded[CHIAKI_PSN_ACCOUNT_ID_SIZE];
-    size_t size = sizeof(decoded);
-    if (chiaki_base64_decode(accountId.c_str(), accountId.length(), decoded, &size)
-        != CHIAKI_ERR_SUCCESS)
-        return false;
-    return size == CHIAKI_PSN_ACCOUNT_ID_SIZE;
+    return libchiaking::AccountId::from_base64(accountId).has_value();
 }
 
 std::string SettingsAccountView::censorString(const std::string& str) {
@@ -291,105 +284,51 @@ void SettingsAccountView::updateCredentialsDisplay() {
     psnAccountIdInput->setValue(maskNames ? settings->maskAccountName(accountId) : accountId);
     psnOnlineIdInput->setValue(maskNames ? settings->maskAccountName(onlineId) : onlineId);
 
+    auto* accounts = akira::ChiakiCore::current().accounts();
+    const psn::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
+    const std::vector<libchiaking::users::HeldCredential> held =
+        user ? user->held_credentials() : std::vector<libchiaking::users::HeldCredential>{};
+
     credAccessTokenCell->setText("akira/settings/access_token"_i18n);
-    std::string accessToken = settings->getPsnAccessToken();
-    if (credentialsRevealed) {
-        if (!accessToken.empty()) {
-            std::string displayToken = accessToken.length() > 40 ? accessToken.substr(0, 36) + "..." : accessToken;
-            credAccessTokenCell->setDetailText(displayToken);
-        } else {
-            credAccessTokenCell->setDetailText("akira/common/not_set"_i18n);
-        }
-    } else {
-        credAccessTokenCell->setDetailText(censorString(accessToken));
-    }
-
+    credAccessTokenCell->setDetailText(secretText(user, CredentialKind::remote_play_token));
     credRefreshTokenCell->setText("akira/settings/refresh_token"_i18n);
-    std::string refreshToken = settings->getPsnRefreshToken();
-    if (credentialsRevealed) {
-        if (!refreshToken.empty()) {
-            std::string displayToken = refreshToken.length() > 40 ? refreshToken.substr(0, 36) + "..." : refreshToken;
-            credRefreshTokenCell->setDetailText(displayToken);
-        } else {
-            credRefreshTokenCell->setDetailText("akira/common/not_set"_i18n);
-        }
-    } else {
-        credRefreshTokenCell->setDetailText(censorString(refreshToken));
-    }
-
+    credRefreshTokenCell->setDetailText(secretText(user, CredentialKind::remote_play_refresh_token));
     credTokenExpiryCell->setText("akira/settings/token_expires"_i18n);
-    int64_t expiresAt = settings->getPsnTokenExpiresAt();
-    if (expiresAt > 0) {
-        std::time_t expTime = static_cast<std::time_t>(expiresAt);
-        std::tm* tm = std::localtime(&expTime);
-        std::ostringstream oss;
-        oss << std::put_time(tm, "%Y-%m-%d %H:%M:%S");
-
-        std::time_t now = std::time(nullptr);
-        if (now > expTime) {
-            credTokenExpiryCell->setDetailText(oss.str() + "akira/settings/expired_suffix"_i18n);
-        } else {
-            credTokenExpiryCell->setDetailText(oss.str());
-        }
-    } else {
-        credTokenExpiryCell->setDetailText("akira/common/not_set"_i18n);
-    }
-
+    credTokenExpiryCell->setDetailText(expiryText(held, CredentialKind::remote_play_token));
     credNpssoCell->setText("akira/settings/npsso"_i18n);
-    std::string npsso = settings->getPsnNpsso();
-    if (credentialsRevealed) {
-        credNpssoCell->setDetailText(npsso.empty()
-            ? "akira/common/not_set"_i18n
-            : (npsso.length() > 40 ? npsso.substr(0, 36) + "..." : npsso));
-    } else {
-        credNpssoCell->setDetailText(censorString(npsso));
-    }
-
+    credNpssoCell->setDetailText(secretText(user, CredentialKind::sign_in_seed));
     credSsoAccessTokenCell->setText("akira/settings/sso_access_token"_i18n);
-    std::string ssoAccess = settings->getPsnMobileSsoAccessToken();
-    if (credentialsRevealed) {
-        credSsoAccessTokenCell->setDetailText(ssoAccess.empty()
-            ? "akira/common/not_set"_i18n
-            : (ssoAccess.length() > 40 ? ssoAccess.substr(0, 36) + "..." : ssoAccess));
-    } else {
-        credSsoAccessTokenCell->setDetailText(censorString(ssoAccess));
-    }
-
+    credSsoAccessTokenCell->setDetailText(secretText(user, CredentialKind::app_token));
     credSsoRefreshTokenCell->setText("akira/settings/sso_refresh_token"_i18n);
-    std::string ssoRefresh = settings->getPsnMobileSsoRefreshToken();
-    if (credentialsRevealed) {
-        credSsoRefreshTokenCell->setDetailText(ssoRefresh.empty()
-            ? "akira/common/not_set"_i18n
-            : (ssoRefresh.length() > 40 ? ssoRefresh.substr(0, 36) + "..." : ssoRefresh));
-    } else {
-        credSsoRefreshTokenCell->setDetailText(censorString(ssoRefresh));
-    }
-
+    credSsoRefreshTokenCell->setDetailText(secretText(user, CredentialKind::app_refresh_token));
     credSsoExpiryCell->setText("akira/settings/sso_expires"_i18n);
-    int64_t ssoExpiresAt = settings->getPsnMobileSsoExpiresAt();
-    if (ssoExpiresAt > 0) {
-        std::time_t ssoExpTime = static_cast<std::time_t>(ssoExpiresAt);
-        std::tm* ssoTm = std::localtime(&ssoExpTime);
-        std::ostringstream ssoOss;
-        ssoOss << std::put_time(ssoTm, "%Y-%m-%d %H:%M:%S");
-        std::time_t now = std::time(nullptr);
-        credSsoExpiryCell->setDetailText(now > ssoExpTime
-            ? ssoOss.str() + "akira/settings/expired_suffix"_i18n
-            : ssoOss.str());
-    } else {
-        credSsoExpiryCell->setDetailText("akira/common/not_set"_i18n);
-    }
-
+    credSsoExpiryCell->setDetailText(expiryText(held, CredentialKind::app_token));
     credDuidCell->setText("akira/settings/duid"_i18n);
-    std::string duid = settings->getGlobalDuid();
-    if (credentialsRevealed) {
-        if (!duid.empty()) {
-            std::string displayDuid = duid.length() > 40 ? duid.substr(0, 36) + "..." : duid;
-            credDuidCell->setDetailText(displayDuid);
-        } else {
-            credDuidCell->setDetailText("akira/common/not_set"_i18n);
-        }
-    } else {
-        credDuidCell->setDetailText(censorString(duid));
-    }
+    credDuidCell->setDetailText(censorString(settings->getCloudDuid()));
+}
+
+std::string SettingsAccountView::secretText(const psn::Accounts::User& user, CredentialKind kind) {
+    if (!user)
+        return "akira/common/not_set"_i18n;
+    const auto secret = user->reveal(kind);
+    if (!secret)
+        return "akira/common/not_set"_i18n;
+    const std::string_view text = secret->view();
+    if (!credentialsRevealed)
+        return text.length() <= 5 ? std::string(text) : "****" + std::string(text.substr(text.length() - 5));
+    return text.length() > 40 ? std::string(text.substr(0, 36)) + "..." : std::string(text);
+}
+
+std::string SettingsAccountView::expiryText(const std::vector<libchiaking::users::HeldCredential>& held,
+                                            CredentialKind kind) {
+    const auto found = std::ranges::find(held, kind, &libchiaking::users::HeldCredential::kind);
+    if (found == held.end() || !found->expires_at)
+        return "akira/common/not_set"_i18n;
+    const std::time_t expTime = std::chrono::system_clock::to_time_t(*found->expires_at);
+    std::tm* tm = std::localtime(&expTime);
+    std::ostringstream oss;
+    oss << std::put_time(tm, "%Y-%m-%d %H:%M:%S");
+    return found->state == libchiaking::users::HeldCredential::State::expired
+        ? oss.str() + "akira/settings/expired_suffix"_i18n
+        : oss.str();
 }

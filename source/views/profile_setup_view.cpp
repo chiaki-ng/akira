@@ -4,6 +4,7 @@
 #include "ui/theme.hpp"
 #include "views/legacy_profile_view.hpp"
 #include "views/pair_view.hpp"
+#include "views/qr_sign_in_view.hpp"
 
 using namespace brls::literals;
 
@@ -31,6 +32,16 @@ void ProfileSetupView::buildOptions() {
     const auto& palette = akira::ui::active();
     const bool createProfile = m_create_profile;
 
+    addOption("\xEE\x8C\xAC",
+              "akira/profile_setup/qr_title"_i18n,
+              "akira/profile_setup/qr_badge"_i18n, palette.accent,
+              "akira/profile_setup/qr_body"_i18n,
+              "akira/profile_setup/qr_note"_i18n,
+              [createProfile]() {
+                  brls::Application::pushActivity(
+                      new brls::Activity(new QrSignInView(createProfile)));
+              });
+
     addOption("\xEE\xA1\x93",
               "akira/profile_setup/companion_title"_i18n,
               "akira/profile_setup/companion_badge"_i18n, palette.accent,
@@ -45,7 +56,7 @@ void ProfileSetupView::buildOptions() {
               "akira/profile_setup/legacy_title"_i18n,
               "akira/profile_setup/legacy_badge"_i18n, palette.warning,
               "akira/profile_setup/legacy_body"_i18n,
-              "akira/profile_setup/legacy_note"_i18n,
+              "",
               []() {
                   brls::Application::pushActivity(
                       new brls::Activity(new LegacyProfileView()));
@@ -105,12 +116,14 @@ void ProfileSetupView::addOption(const std::string& glyphText, const std::string
     bodyLabel->setTextColor(palette.textMuted);
     card->addView(bodyLabel);
 
-    auto* noteLabel = new brls::Label();
-    noteLabel->setText(note);
-    noteLabel->setFontSize(15.0f);
-    noteLabel->setTextColor(palette.textDim);
-    noteLabel->setMarginTop(6.0f);
-    card->addView(noteLabel);
+    if (!note.empty()) {
+        auto* noteLabel = new brls::Label();
+        noteLabel->setText(note);
+        noteLabel->setFontSize(15.0f);
+        noteLabel->setTextColor(palette.textDim);
+        noteLabel->setMarginTop(6.0f);
+        card->addView(noteLabel);
+    }
 
     if (!m_first_option)
         m_first_option = card;

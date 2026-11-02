@@ -13,20 +13,6 @@ struct Profile {
     std::string onlineId;
     std::string accountId;
 
-    std::string refreshToken;
-    std::string accessToken;
-    int64_t tokenExpiresAt = 0;
-
-    std::string mobileSsoRefreshToken;
-    std::string mobileSsoAccessToken;
-    int64_t mobileSsoExpiresAt = 0;
-
-    std::string npsso;
-    int64_t npssoLastCheckedAt = 0;
-    bool npssoValid = false;
-
-    std::string duid;
-
     std::string avatarUrl;
     bool isPlus = false;
     std::string region;
@@ -37,7 +23,7 @@ struct Profile {
 
     std::vector<cloud::Game> cloudShortcuts;
 
-    bool isRemote() const { return !refreshToken.empty(); }
+    bool isRemote() const { return !legacy && !accountId.empty(); }
     bool isLegacy() const { return legacy; }
     bool hasIdentity() const { return !accountId.empty() || !onlineId.empty(); }
 

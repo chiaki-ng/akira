@@ -8,8 +8,6 @@
 #include <functional>
 #include <map>
 #include <mutex>
-#include <chiaki/controller.h>
-#include <chiaki/log.h>
 #include <switch.h>
 
 #include "input/extended_input_manager.hpp"
@@ -19,7 +17,10 @@
 #include "input/sample_cadence.hpp"
 
 #include <memory>
+#include <span>
 #include <vector>
+
+#include <libchiaking/play_types.hpp>
 
 #define SDL_JOYSTICK_COUNT 2
 
@@ -77,14 +78,13 @@ public:
     InputManager(const InputManager&) = delete;
     InputManager& operator=(const InputManager&) = delete;
 
-    void setLogger(ChiakiLog* log);
     void setTargetPS5(bool ps5);
 
     bool init();
     void cleanup();
-    void update(ChiakiControllerState* state, std::map<uint32_t, int8_t>* finger_id_touch_id);
+    void update(libchiaking::controllers::ControllerInput& input, std::map<uint32_t, int8_t>* finger_id_touch_id);
 
-    void readSecondaryPads(ChiakiControllerState* states, uint8_t max_pads, uint8_t& count);
+    void readSecondaryPads(std::span<libchiaking::controllers::ControllerInput> states, uint8_t& count);
 
     static constexpr uint8_t kNoCouchSlot = 0xff;
 
@@ -147,16 +147,18 @@ private:
 
     uint64_t couchNpadMask() const;
 
-    void applyPadInput(akira::input::PadPath* path, ChiakiControllerState* state);
+    static std::uint32_t button(libchiaking::controllers::ControllerButton held) noexcept;
+    static int8_t startTouch(libchiaking::controllers::ControllerInput& input, uint16_t x, uint16_t y) noexcept;
 
-    bool readTouchScreen(ChiakiControllerState* state, std::map<uint32_t, int8_t>* finger_id_touch_id,
+    void applyPadInput(akira::input::PadPath* path, libchiaking::controllers::ControllerState& state);
+
+    bool readTouchScreen(libchiaking::controllers::ControllerInput& input, std::map<uint32_t, int8_t>* finger_id_touch_id,
         akira::input::gesture::TimePoint now);
-    bool readSixAxis(ChiakiControllerState* state);
-    void updateSyntheticSwipes(ChiakiControllerState* state, u64 buttons,
+    bool readSixAxis(libchiaking::controllers::ControllerState& state);
+    void updateSyntheticSwipes(libchiaking::controllers::ControllerInput& state, u64 buttons,
         akira::input::gesture::TimePoint now);
 
     bool m_is_ps5 = false;
-    ChiakiLog* m_log = nullptr;
     SDL_Joystick* m_sdl_joystick_ptr[SDL_JOYSTICK_COUNT] = {nullptr};
 
     ExtendedInputManager m_extended;
@@ -171,6 +173,8 @@ private:
     std::map<HidNpadIdType, uint8_t> m_couch_roster;
     std::map<HidNpadIdType, std::unique_ptr<akira::input::PadPath>> m_secondary_paths;
     std::map<HidNpadIdType, akira::input::timing::TimePoint> m_secondary_missing_since;
+    std::vector<akira::input::PadDescription> m_couch_pads;
+    akira::input::timing::TimePoint m_couch_pads_read{};
     bool m_couch_claim_active = false;
     std::map<HidNpadIdType, akira::input::timing::TimePoint> m_claim_started_at;
     std::function<void(HidNpadIdType, uint8_t)> m_on_couch_joined;
@@ -189,7 +193,7 @@ private:
 
     std::map<uint32_t, PendingBorderTap> m_pending_border_taps;
     TouchpadButtonPulse m_touchpad_button_pulse;
-    void fireDeferredRelease(ChiakiControllerState* state);
+    void fireDeferredRelease(libchiaking::controllers::ControllerInput& input);
 
     int64_t m_overlay_drag_finger = -1;
     int8_t m_deferred_release_touch_id = -1;

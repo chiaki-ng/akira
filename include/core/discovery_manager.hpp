@@ -1,36 +1,32 @@
 #ifndef AKIRA_DISCOVERY_MANAGER_HPP
 #define AKIRA_DISCOVERY_MANAGER_HPP
 
-#include <atomic>
-#include <chrono>
-#include <condition_variable>
+#include <cstdint>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
 
 #include <borealis.hpp>
 
-#include <chiaki/discoveryservice.h>
-#include <chiaki/log.h>
-#include <chiaki/thread.h>
-#include <chiaki/remote/holepunch.h>
+#include <libchiaking/consoles.hpp>
 
+#include "background_work.hpp"
 #include "host.hpp"
-#include "psn/auth.hpp"
-#include "util/http_pool.hpp"
+#include "psn/accounts.hpp"
 
 class SettingsManager;
 
-struct NetworkAddresses {
-    uint32_t local;
-    uint32_t broadcast;
-};
-
 class DiscoveryManager {
 public:
+    struct RemoteRefreshResult {
+        bool success = false;
+        std::string message;
+    };
+
     using HostDiscoveredCallback = std::function<void(Host*)>;
-    using RemoteRefreshCallback = std::function<void(const psn::AuthResult&)>;
+    using RemoteRefreshCallback = std::function<void(const RemoteRefreshResult&)>;
     using HostsChangedCallback = std::function<void()>;
 
     struct SweepStatus {
@@ -40,76 +36,6 @@ public:
         std::string currentTarget;
     };
 
-private:
-    SettingsManager* settings = nullptr;
-    ChiakiLog* log = nullptr;
-    ChiakiLog discoveryLog;
-    ChiakiDiscoveryService service;
-    ChiakiDiscovery discovery;
-
-    struct sockaddr* hostAddr = nullptr;
-    size_t hostAddrLen = 0;
-    bool serviceEnabled = false;
-
-    brls::Event<bool>::Subscription focusSubscription;
-    bool focusSubscribed = false;
-
-    void ensureFocusSubscription();
-
-    HostDiscoveredCallback onHostDiscovered;
-
-    NetworkAddresses getIPv4BroadcastAddr();
-
-    void fetchRemoteDevicesFromPsn();
-    void processRemoteDevice(ChiakiHolepunchDeviceInfo* device, ChiakiHolepunchConsoleType consoleType);
-    void processMainPs4Remote();
-
-    static constexpr int PSN_REMOTE_COOLDOWN_S = 15;
-    static constexpr int PSN_FAILED_COOLDOWN_S = 5;
-
-    mutable std::mutex remoteRefreshMutex;
-    bool remoteRefreshInFlight = false;
-    bool remoteRefreshUserRequested = false;
-    std::vector<RemoteRefreshCallback> remoteRefreshWaiters;
-    std::chrono::steady_clock::time_point remoteRefreshReadyAt{};
-
-    void runRemoteDeviceRefresh(HttpSession& session);
-    void finishRemoteDeviceRefresh(const psn::AuthResult& result);
-
-    ChiakiThread remoteDiscoveryThread;
-    ChiakiBoolPredCond remoteStopCond;
-    std::atomic<bool> remoteDiscoveryEnabled{false};
-    static constexpr uint64_t REMOTE_DISCOVERY_INTERVAL_MS = 45000;
-
-    static void* remoteDiscoveryThreadFunc(void* user);
-    void runRemoteDiscoveryLoop();
-
-    ChiakiThread sweepThread;
-    ChiakiBoolPredCond sweepStopCond;
-    std::atomic<bool> sweepEnabled{false};
-    std::mutex sweepMutex;
-    std::vector<uint32_t> sweepTargets;
-    std::vector<uint32_t> liveForeignHosts;
-    std::vector<std::string> sweepSubnetLabels;
-    std::string sweepCurrentTarget;
-    size_t sweepChunkIndex = 0;
-    static constexpr uint64_t SWEEP_TICK_MS = 1000;
-    static constexpr int SWEEP_SCAN_EVERY_TICKS = 15;
-    static constexpr int SWEEP_CHUNK = 64;
-    static constexpr int SWEEP_MAX_TARGETS = 1024;
-
-    static void* sweepThreadFunc(void* user);
-    void runSweepLoop();
-    void sendSweepChunk();
-    void pingLiveForeignHosts();
-    void pingHostAddrNet(uint32_t addrNet);
-    void noteForeignResponder(uint32_t addrNet);
-
-    HostsChangedCallback onHostsChanged;
-
-    DiscoveryManager();
-
-public:
     static DiscoveryManager* getInstance();
 
     static void appendDiscoveryLog(const std::string& line);
@@ -117,42 +43,92 @@ public:
     static uint64_t getDiscoveryLogVersion();
     static void clearDiscoveryLog();
 
-    ~DiscoveryManager();
-
-    void setLogger(ChiakiLog* logger) { this->log = logger; }
-    ChiakiLog* getLogger() const { return log; }
-
     void setServiceEnabled(bool enable);
     bool isServiceEnabled() const { return serviceEnabled; }
-
-    ChiakiDiscovery* getLiveDiscovery(bool ipv6) {
-        if (!serviceEnabled || ipv6)
-            return nullptr;
-        return &service.discovery;
-    }
-
-    int sendDiscovery();
-    int sendDiscovery(const char* ipAddress);
-    int sendDiscovery(struct sockaddr* addr, size_t addrLen);
+    void restartSearch();
 
     std::string getLocalSubnetCidr();
 
-    void discoveryCallback(ChiakiDiscoveryHost* discoveredHost);
-
-    void setOnHostDiscovered(HostDiscoveredCallback callback) {
-        onHostDiscovered = std::move(callback);
-    }
-
-    void setOnHostsChanged(HostsChangedCallback callback) {
-        onHostsChanged = std::move(callback);
-    }
+    void setOnHostDiscovered(HostDiscoveredCallback callback) { onHostDiscovered = std::move(callback); }
+    void setOnHostsChanged(HostsChangedCallback callback) { onHostsChanged = std::move(callback); }
 
     SweepStatus getSweepStatus();
-    void reconcileDiscoveredHosts(const std::vector<std::string>& liveIds);
 
     void refreshRemoteDevices(RemoteRefreshCallback onComplete = nullptr, bool userInitiated = false);
-
     psn::ActionStatus getRemoteRefreshStatus() const;
+
+private:
+    struct SeenNetwork {
+        std::vector<std::shared_ptr<libchiaking::consoles::Console>> nearby;
+        std::size_t targets = 0;
+        std::size_t visited = 0;
+        std::vector<std::string> unicastRanges;
+    };
+
+    struct SeenAccount {
+        std::string name;
+        std::string deviceUid;
+        libchiaking::consoles::Generation generation;
+        bool remotePlayEnabled = false;
+    };
+
+    class Lookout final : public libchiaking::consoles::NetworkWatcher {
+    public:
+        Lookout(DiscoveryManager& manager, uint64_t generation) : manager(manager), generation(generation) {}
+        void on_view(const libchiaking::consoles::NetworkView& view) override;
+
+    private:
+        DiscoveryManager& manager;
+        uint64_t generation;
+    };
+
+    static constexpr int PSN_REMOTE_COOLDOWN_S = 15;
+    static constexpr int PSN_FAILED_COOLDOWN_S = 5;
+
+    DiscoveryManager();
+
+    void startSearch();
+    void stopSearch();
+    void stopRemoteRefresh();
+    void ensureFocusSubscription();
+    void followBackgroundWork(bool paused);
+    void linkSavedConsoles();
+    auto searchRanges() -> libchiaking::consoles::SearchRanges;
+
+    void applyView(uint64_t generation, const SeenNetwork& seen);
+    Host* hostFor(const libchiaking::consoles::Console& console);
+    void reconcile(const SeenNetwork& seen);
+
+    void runRemoteRefresh(const libchiaking::platform::StopToken& stop, uint64_t generation);
+    void applyAccountConsoles(uint64_t generation, const std::vector<SeenAccount>& seen);
+    void processRemoteDevice(const SeenAccount& device);
+    void processMainPs4Remote();
+    void finishRemoteRefresh(uint64_t generation, const RemoteRefreshResult& result);
+
+    SettingsManager* settings = nullptr;
+    bool serviceEnabled = false;
+
+    brls::Event<bool>::Subscription focusSubscription;
+    bool focusSubscribed = false;
+    bool resumeAfterPause = false;
+    akira::BackgroundWork::Subscription backgroundSubscription;
+
+    HostDiscoveredCallback onHostDiscovered;
+    HostsChangedCallback onHostsChanged;
+
+    uint64_t searchGeneration = 0;
+    libchiaking::platform::Thread searchThread;
+    mutable std::mutex sweepMutex;
+    SweepStatus sweep;
+
+    mutable std::mutex remoteRefreshMutex;
+    uint64_t remoteGeneration = 0;
+    uint64_t remoteCancelledThrough = 0;
+    bool remoteRefreshInFlight = false;
+    bool remoteRefreshUserRequested = false;
+    std::vector<RemoteRefreshCallback> remoteRefreshWaiters;
+    uint64_t remoteRefreshReadyAtMicroseconds = 0;
+    libchiaking::platform::Thread remoteThread;
 };
 
 #endif // AKIRA_DISCOVERY_MANAGER_HPP

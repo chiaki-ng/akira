@@ -2,9 +2,11 @@
 #define AKIRA_IO_VIDEO_DECODER_HPP
 
 #include <cstdint>
+#include <cstddef>
 #include <functional>
 #include <utility>
-#include <chiaki/log.h>
+#include <span>
+#include <vector>
 #include <chrono>
 #include <mutex>
 
@@ -12,6 +14,8 @@ extern "C"
 {
 #include <libavcodec/avcodec.h>
 }
+
+#include "util/av_wrappers.hpp"
 
 class VideoDecoder
 {
@@ -25,7 +29,6 @@ public:
     VideoDecoder(const VideoDecoder&) = delete;
     VideoDecoder& operator=(const VideoDecoder&) = delete;
 
-    void setLogger(ChiakiLog* log) { m_log = log; }
     void setFrameReadyCallback(FrameReadyCallback callback) { m_frame_ready_callback = std::move(callback); }
 
     // Initialize codec (H.264 or HEVC for PS5)
@@ -36,7 +39,7 @@ public:
     bool initVideo(int video_width, int video_height);
 
     // Decode a video packet (returns false if waiting for keyframe)
-    bool decode(uint8_t* buf, size_t buf_size);
+    bool decode(const AVBufferHandle& data, std::size_t size);
 
     // Flush decoder buffers and set waiting-for-keyframe state
     void flush();
@@ -60,6 +63,7 @@ public:
 
     DecoderStats getStats() const;
     std::chrono::steady_clock::time_point lastEmitTime() const { return m_last_emit; }
+    bool lastDecodeCorrupt() const { return m_corrupt_in_call; }
 
 private:
     void noteDecodeSample(std::chrono::steady_clock::duration d);
@@ -75,12 +79,13 @@ private:
     double m_decode_us_accum = 0.0;
     uint64_t m_decode_sample_count = 0;
     uint64_t m_frames_emitted = 0;
+    uint64_t m_corrupt_frames = 0;
+    bool m_corrupt_in_call = false;
     double m_interval_us_accum = 0.0;
     double m_interval_dev_accum = 0.0;
     uint64_t m_interval_count = 0;
     double m_interval_mean_us = 0.0;
 
-    ChiakiLog* m_log = nullptr;
 
     const AVCodec* m_codec = nullptr;
     AVCodecContext* m_codec_context = nullptr;
@@ -102,7 +107,7 @@ private:
     bool m_has_sps = false;
     bool m_has_pps = false;
 
-    bool scanNALUnits(uint8_t* buf, size_t buf_size);
+    bool scanNALUnits(const uint8_t* buf, size_t buf_size);
 };
 
 #endif // AKIRA_IO_VIDEO_DECODER_HPP

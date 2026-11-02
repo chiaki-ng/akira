@@ -20,7 +20,7 @@ public:
     TrophyGameCard();
     ~TrophyGameCard() override;
 
-    void bind(const psn::TrophyTitle& title, std::function<void()> onSelect);
+    void bind(const TrophyManager::Title& title, std::function<void()> onSelect);
     void reset();
 
     static std::unordered_set<TrophyGameCard*> liveCards;
@@ -44,7 +44,7 @@ class TrophyGameRowCell : public RecyclingGridItem {
 public:
     TrophyGameRowCell();
 
-    void bindRow(const std::vector<psn::TrophyTitle>& titles, size_t startIndex);
+    void bindRow(const std::vector<TrophyManager::Title>& titles, size_t startIndex);
     void prepareForReuse() override;
 
     static RecyclingGridItem* create();
@@ -57,7 +57,7 @@ class TrophyProfileCell : public RecyclingGridItem {
 public:
     TrophyProfileCell();
 
-    void bindSummary(const psn::TrophySummary& summary);
+    void bindSummary(const TrophyManager::Summary& summary);
 
     static RecyclingGridItem* create();
 
@@ -70,10 +70,10 @@ private:
 
 class TrophyGridDataSource : public RecyclingGridDataSource {
 public:
-    TrophyGridDataSource(std::vector<psn::TrophyTitle> titles, psn::TrophySummary summary, bool haveSummary);
+    TrophyGridDataSource(std::vector<TrophyManager::Title> titles, TrophyManager::Summary summary, bool haveSummary);
 
-    std::vector<psn::TrophyTitle> titles;
-    psn::TrophySummary summary;
+    std::vector<TrophyManager::Title> titles;
+    TrophyManager::Summary summary;
     bool haveSummary = false;
 
     size_t getItemCount() override;
@@ -123,21 +123,21 @@ private:
     BRLS_BIND(brls::Label, statusLabel, "trophies/status");
 
     void load(bool forceRefresh);
-    void applySummary(const psn::TrophySummary& summary);
-    void applyTitles(const std::vector<psn::TrophyTitle>& titles);
+    void applySummary(const TrophyManager::Summary& summary);
+    void applyTitles(const std::vector<TrophyManager::Title>& titles);
     void rebuildGrid();
     void showSortPicker();
     void showFilterPicker();
     void refreshControlLabels();
     void refreshStatusLine();
 
-    psn::TrophySummary currentSummary;
+    TrophyManager::Summary currentSummary;
     bool haveSummary = false;
     TrophyGridDataSource* currentDataSource = nullptr;
 
     PsnActionButton forceRefreshGate;
 
-    std::vector<psn::TrophyTitle> titles;
+    std::vector<TrophyManager::Title> titles;
     brls::RepeatingTimer statusTimer;
     static TitleSort sortMode;
     static TitleFilter filterMode;
@@ -145,7 +145,7 @@ private:
     bool loading = false;
 };
 
-std::string formatTrophyPlatforms(const std::string& raw);
-std::string formatTrophyCounts(const psn::TrophyCounts& counts);
+std::string formatTrophyPlatforms(const std::vector<libchiaking::trophies::TrophyPlatform>& platforms);
+std::string formatTrophyCounts(const libchiaking::trophies::TrophyCounts& counts);
 
 #endif // AKIRA_TROPHY_LIST_TAB_HPP

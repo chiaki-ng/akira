@@ -4,9 +4,12 @@
 #include <borealis.hpp>
 
 #include <memory>
-#include <set>
+#include <optional>
+#include <vector>
 #include <string>
 
+#include "cloud/fetch_progress.hpp"
+#include "cloud/library_listing.hpp"
 #include "cloud/service.hpp"
 #include "views/vendored/switchfin/recycling_grid.hpp"
 
@@ -23,43 +26,41 @@ private:
     void refresh(bool force);
     void renderSnapshot(const Snapshot& snapshot);
     void showState(const Snapshot& snapshot);
-    void showCatalog(const Catalog& catalog);
+    void showFetch(uint64_t operation, const FetchProgress& progress);
+    void addLoadingLines(brls::Box* panel, const std::string& waitingText);
+    void writeLoadingLines();
+    void dropLoadingLines();
+    void showCatalog(const Snapshot& snapshot);
     void applyFilter();
-    void openPairing();
-    void launchGame(const Game& game, bool forceSkipAttr = false);
-
-    /*
-     * The words the cards already carry. Owned, Catalog and Store are the three
-     * categories the library assigns, so choosing one gives you the cards badged
-     * with that word and nothing has to be inferred. Favorites cuts across them,
-     * and All is where everyone starts.
-     */
-    enum class Filter { All, Owned, Catalog, Store, Favorites };
-
-    Filter filterMode = Filter::All;
-
-    std::set<std::string> favoriteIds;
-    bool isFavorite(const std::string& productId) const;
-    void toggleFavorite(const std::string& productId);
+    void rebuildFilterControls();
+    void pickFilter(LibraryFilter filter);
+    void pickPlatform(PlatformFilter platform);
+    void updateSearchButton();
+    void scheduleUnlock();
+    void openSignIn();
+    void openDetail(const Game& game);
     void toggleShortcut(const Game& game);
-    void loadFavorites();
-    void saveFavorites();
-    std::string searchQuery;
-    std::vector<Game> allGames;
+
+    static auto filterTitle(LibraryFilter filter) -> std::string;
+    static auto platformTitle(PlatformFilter platform) -> std::string;
+    static void styleChip(brls::Button* chip, bool selected);
+
+    LibraryListing listing;
+    brls::Box* controlsRow = nullptr;
+    brls::Box* filterRow = nullptr;
+    brls::Box* platformRow = nullptr;
+    std::vector<LibraryFilter> shownFilters;
+    std::vector<brls::Button*> filterChips;
+    std::vector<brls::Button*> platformChips;
     brls::Button* searchButton = nullptr;
-    brls::Button* filterButton = nullptr;
-    brls::Button* serverButton = nullptr;
     brls::Button* sortButton = nullptr;
     brls::Button* overflowButton = nullptr;
     int sortState = 0;
+    uint64_t unlockGeneration = 0;
 
-    void openServerPicker();
-    void openFilterPicker();
     void openSortPicker();
     void openOverflowMenu();
-    void openLanguagePicker();
     void clearCatalogCache();
-    void updateServerButton();
     void updateSortButton();
     void showAddGameDialog(const Game& game);
 
@@ -72,9 +73,20 @@ private:
     brls::Box* stateBox = nullptr;
     RecyclingGridDataSource* dataSource = nullptr;
 
+    struct LoadingLines {
+        brls::Box* box = nullptr;
+        brls::Label* step = nullptr;
+        brls::Label* detail = nullptr;
+        brls::Label* pages = nullptr;
+        std::string waitingText;
+    };
+
+    FollowedFetch fetch;
+    std::optional<LoadingLines> loadingLines;
+    brls::Animatable stepFade{1.0f};
+
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
-    int generation = 0;
-    bool launching = false;
+    uint64_t generation = 0;
 };
 
 } // namespace cloud

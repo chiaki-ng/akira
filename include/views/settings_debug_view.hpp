@@ -12,6 +12,7 @@ public:
     SettingsDebugView();
 
 private:
+    BRLS_BIND(brls::BooleanCell, silenceAllLogsToggle, "settings/silenceAllLogs");
     BRLS_BIND(brls::BooleanCell, enableFileLoggingToggle, "settings/enableFileLogging");
     BRLS_BIND(brls::BooleanCell, debugLwipLogToggle, "settings/debugLwipLog");
     BRLS_BIND(brls::BooleanCell, debugWireguardLogToggle, "settings/debugWireguardLog");
@@ -23,6 +24,7 @@ private:
 
     SettingsManager* settings = nullptr;
 
+    void initSilenceAllLogsToggle();
     void initEnableFileLoggingToggle();
     void initDebugLwipLogToggle();
     void initDebugWireguardLogToggle();

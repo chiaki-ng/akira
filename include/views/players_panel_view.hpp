@@ -13,10 +13,15 @@
 class Host;
 class InputManager;
 
+namespace akira::stream {
+class Connection;
+}
+
 class PlayersPanelView : public brls::Box
 {
 public:
-    PlayersPanelView(Host* host, InputManager* input, bool claimImmediately = false);
+    PlayersPanelView(Host* host, std::weak_ptr<akira::stream::Connection> connection, InputManager* input,
+                     bool claimImmediately = false);
     ~PlayersPanelView() override;
 
     void draw(NVGcontext* vg, float x, float y, float width, float height,
@@ -37,6 +42,7 @@ private:
     void selectProfile(int64_t profileId);
     void onJoined(HidNpadIdType npad, uint8_t slot);
     void leaveSlot(HidNpadIdType npad);
+    void retryPlayer(uint8_t slot);
 
     void populateRoster();
     void populatePicker();
@@ -51,6 +57,7 @@ private:
     int rosterCount() const;
 
     Host*          m_host    = nullptr;
+    std::weak_ptr<akira::stream::Connection> m_connection;
     InputManager*  m_input   = nullptr;
     brls::Box*     m_panel   = nullptr;
     brls::Box*     m_slots   = nullptr;

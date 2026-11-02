@@ -128,14 +128,14 @@ void ProfileChipView::refresh() {
     auto guard = alive;
 
     TrophyManager::getInstance()->fetchProfile(false,
-        [this, guard](const psn::PsnProfile& prof) {
+        [this, guard](const TrophyManager::Profile& prof) {
             if (!*guard)
                 return;
-            if (!prof.onlineId.empty())
-                nameLabel->setText(settings->maskAccountName(prof.onlineId));
-            plusBadge->setVisibility(prof.isPlus ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
+            if (!prof.online_id.empty())
+                nameLabel->setText(settings->maskAccountName(prof.online_id));
+            plusBadge->setVisibility(prof.membership.is_ps_plus_member().value_or(false) ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
 
-            std::string url = prof.avatarUrl();
+            std::string url = prof.avatar_url.value_or("");
             if (url.empty())
                 return;
 

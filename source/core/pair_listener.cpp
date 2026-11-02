@@ -1,9 +1,12 @@
 #include "core/pair_listener.hpp"
 
+#include "core/chiaki_core.hpp"
 #include "core/pair_crypto.hpp"
 #include "util/net_wrappers.hpp"
 
+#include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <vector>
@@ -17,9 +20,6 @@
 #include <sys/socket.h>
 
 #include <json-c/json.h>
-
-#include <chiaki/base64.h>
-#include <chiaki/regist.h>
 
 namespace akira::pair {
 
@@ -99,30 +99,15 @@ bool parsePayload(const std::vector<uint8_t>& plaintext, PairedCredentials& out)
 
 }  // namespace
 
-bool validAccountId(const std::string& accountId)
-{
-    /*
-     * chiaki decodes this straight into a fixed CHIAKI_PSN_ACCOUNT_ID_SIZE buffer, so a
-     * wrong-length value produces garbage that only fails later at registration, with an
-     * error that names nothing useful. People routinely paste the hex form, the decimal
-     * user id, or their online id here.
-     */
-    uint8_t decoded[CHIAKI_PSN_ACCOUNT_ID_SIZE];
-    size_t size = sizeof(decoded);
-    if (chiaki_base64_decode(accountId.c_str(), accountId.length(), decoded, &size)
-        != CHIAKI_ERR_SUCCESS)
-        return false;
-    return size == CHIAKI_PSN_ACCOUNT_ID_SIZE;
-}
-
 PairListener::~PairListener() {
     stop();
 }
 
 std::string PairListener::generateCode() {
-    uint8_t raw[2] = {0, 0};
-    randomBytes(raw, sizeof(raw));
-    unsigned value = ((static_cast<unsigned>(raw[0]) << 8) | raw[1]) % 10000u;
+    std::array<std::byte, 2> raw{};
+    if (!ChiakiCore::current().random().fill_bytes(raw))
+        raw = {};
+    unsigned value = ((std::to_integer<unsigned>(raw[0]) << 8) | std::to_integer<unsigned>(raw[1])) % 10000u;
     char buf[8];
     std::snprintf(buf, sizeof(buf), "%04u", value);
     return std::string(buf);
@@ -152,17 +137,22 @@ void PairListener::start(int port, const std::string& code, EventCallback onEven
     stop();
     onEvent_ = std::move(onEvent);
     onImport_ = std::move(onImport);
-    running_ = true;
-    thread_ = std::thread(&PairListener::run, this, port, code);
+    auto started = libchiaking::platform::Thread::start(akira::ChiakiCore::current().threading(), "pair-listener",
+        libchiaking::platform::ThreadRole::unspecified,
+        [this, port, code](libchiaking::platform::StopToken stop) { run(port, code, stop); });
+    if (!started) {
+        if (onEvent_) onEvent_(ListenerEvent::Error);
+        return;
+    }
+    thread_ = std::move(started).value();
 }
 
 void PairListener::stop() {
-    running_ = false;
-    if (thread_.joinable())
-        thread_.join();
+    static_cast<void>(thread_.request_stop());
+    thread_ = libchiaking::platform::Thread{};
 }
 
-void PairListener::run(int port, std::string code) {
+void PairListener::run(int port, const std::string& code, const libchiaking::platform::StopToken& stop) {
     SocketGuard listenSock(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
     if (listenSock < 0) {
         if (onEvent_) onEvent_(ListenerEvent::Error);
@@ -190,10 +180,12 @@ void PairListener::run(int port, std::string code) {
 
     if (onEvent_) onEvent_(ListenerEvent::Listening);
 
+    auto& core = ChiakiCore::current();
+    KeyExchange exchange{core.crypto(), core.random()};
     auto startTime = std::chrono::steady_clock::now();
     int tries = 0;
 
-    while (running_) {
+    while (!stop.stop_requested()) {
         auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                            std::chrono::steady_clock::now() - startTime)
                            .count();
@@ -224,8 +216,8 @@ void PairListener::run(int port, std::string code) {
         if (onEvent_) onEvent_(ListenerEvent::ClientConnected);
 
         Hello hello;
-        uint8_t switchPriv[kPrivKeyLen];
-        if (!makeHello(hello, switchPriv)) {
+        auto switchKey = exchange.makeHello(hello);
+        if (!switchKey) {
             if (onEvent_) onEvent_(ListenerEvent::Error);
             continue;
         }
@@ -259,7 +251,7 @@ void PairListener::run(int port, std::string code) {
         }
 
         std::vector<uint8_t> plaintext;
-        OpenResult result = openSealed(hello, switchPriv, buf.data(), buf.size(), code, plaintext);
+        OpenResult result = exchange.openSealed(hello, *switchKey, buf.data(), buf.size(), code, plaintext);
 
         PairedCredentials creds;
         bool parsed = (result == OpenResult::Ok) && parsePayload(plaintext, creds);
@@ -292,8 +284,6 @@ void PairListener::run(int port, std::string code) {
         if (onEvent_) onEvent_(ListenerEvent::Error);
         continue;
     }
-
-    running_ = false;
 }
 
 }

@@ -5,20 +5,25 @@
 
 #include <borealis/core/i18n.hpp>
 
-#include <chiaki/akira/takion_profile.h>
+#include <libchiaking/play_types.hpp>
 
 #include "util/http.hpp"
 #include "util/http_pool.hpp"
 
 #include <algorithm>
+#include <cstdint>
+#include <ranges>
 
 using namespace brls::literals;
 
 namespace {
 
-void runTlsVerifyProbe(HttpSession& session, brls::DetailCell* cell) {
-    auto show = [cell](const std::string& text) {
-        brls::sync([cell, text]() { cell->setDetailText(text); });
+void runTlsVerifyProbe(HttpSession& session, brls::DetailCell* cell, std::shared_ptr<std::atomic<bool>> alive) {
+    auto show = [cell, alive](const std::string& text) {
+        brls::sync([cell, alive, text]() {
+            if (alive->load())
+                cell->setDetailText(text);
+        });
     };
 
     struct Case { const char* url; bool expectOk; const char* what; };
@@ -71,6 +76,31 @@ void runTlsVerifyProbe(HttpSession& session, brls::DetailCell* cell) {
 
 } // namespace
 
+SettingsDeveloperView::~SettingsDeveloperView() {
+    alive->store(false);
+}
+
+void SettingsDeveloperView::initTakionSelector(brls::SelectorCell* cell, TakionTarget target, std::string title,
+    std::vector<std::uint32_t> implemented) {
+    const int current = settings->getTakionVersion(target);
+    std::vector<int> versions{0};
+    for (const std::uint32_t version : implemented)
+        versions.push_back(static_cast<int>(version));
+    if (current != 0 && std::ranges::find(versions, current) == versions.end())
+        versions.push_back(current);
+
+    std::vector<std::string> labels{"akira/settings/dev_takion_version_auto"_i18n};
+    for (size_t i = 1; i < versions.size(); i++)
+        labels.push_back("v" + std::to_string(versions[i]));
+
+    const auto selected = std::ranges::find(versions, current);
+    cell->init(std::move(title), labels, static_cast<int>(selected - versions.begin()),
+        [this, target, versions](int index) {
+            settings->setTakionVersion(target, versions[static_cast<size_t>(index)]);
+            settings->writeFile();
+        });
+}
+
 SettingsDeveloperView::SettingsDeveloperView() {
     this->inflateFromXMLRes("xml/settings/developer.xml");
 
@@ -85,76 +115,18 @@ SettingsDeveloperView::SettingsDeveloperView() {
             HostListTab::notifyActiveProfileChanged();
         });
 
-    static const std::vector<std::string> wsNodes = {
-        "",
-        "44-231-131-164-pushcl.np.communication.playstation.net",
-        "44-234-162-2-pushcl.np.communication.playstation.net",
-        "34-215-159-77-pushcl.np.communication.playstation.net",
-        "44-233-186-110-pushcl.np.communication.playstation.net",
-    };
-
-    std::vector<std::string> wsNodeLabels = { "akira/settings/dev_force_ws_node_off"_i18n };
-    for (size_t i = 1; i < wsNodes.size(); i++)
-        wsNodeLabels.push_back(wsNodes[i].substr(0, wsNodes[i].find("-pushcl")));
-
-    const std::string currentWsNode = settings->getDevForceWsFqdn();
-    int currentWsIndex = 0;
-    for (size_t i = 1; i < wsNodes.size(); i++)
-    {
-        if (wsNodes[i] == currentWsNode)
-        {
-            currentWsIndex = static_cast<int>(i);
-            break;
-        }
-    }
-
-    forceWsNodeSelector->init(
-        "akira/settings/dev_force_ws_node"_i18n,
-        wsNodeLabels,
-        currentWsIndex,
-        [this](int selected) {
-            settings->setDevForceWsFqdn(wsNodes[selected]);
-            settings->writeFile();
-        });
-
-    static const int takionOffered[] = { 12, 15, 20 };
-
-    const int currentTakion = settings->getTakionVersion();
-
-    std::vector<int> takionVersions = { 0 };
-    for (int v : takionOffered)
-    {
-        if (chiaki_akira_takion_version_implemented(static_cast<unsigned int>(v)))
-            takionVersions.push_back(v);
-    }
-    if (currentTakion != 0
-        && std::find(takionVersions.begin(), takionVersions.end(), currentTakion) == takionVersions.end())
-    {
-        takionVersions.push_back(currentTakion);
-    }
-
-    std::vector<std::string> takionLabels = { "akira/settings/dev_takion_version_auto"_i18n };
-    for (size_t i = 1; i < takionVersions.size(); i++)
-        takionLabels.push_back("v" + std::to_string(takionVersions[i]));
-
-    int currentTakionIndex = 0;
-    for (size_t i = 1; i < takionVersions.size(); i++)
-    {
-        if (takionVersions[i] == currentTakion)
-        {
-            currentTakionIndex = static_cast<int>(i);
-            break;
-        }
-    }
-
-    takionVersionSelector->init(
-        "akira/settings/dev_takion_version"_i18n,
-        takionLabels,
-        currentTakionIndex,
-        [this, takionVersions](int selected) {
-            settings->setTakionVersion(takionVersions[selected]);
-            settings->writeFile();
-        });
+    using libchiaking::play::DeveloperTuning;
+    initTakionSelector(takionPs4Selector, TakionTarget::PS4, "akira/settings/dev_takion_version_ps4"_i18n,
+        DeveloperTuning::implemented_protocol_versions(libchiaking::consoles::Generation::ps4));
+    initTakionSelector(takionPs5Selector, TakionTarget::PS5, "akira/settings/dev_takion_version_ps5"_i18n,
+        DeveloperTuning::implemented_protocol_versions(libchiaking::consoles::Generation::ps5));
+    initTakionSelector(takionPs5CloudSelector, TakionTarget::PS5Cloud,
+        "akira/settings/dev_takion_version_ps5_cloud"_i18n,
+        DeveloperTuning::implemented_protocol_versions(libchiaking::catalog::ServiceGeneration::ps5_cloud)
+            | std::views::filter([](std::uint32_t version) { return version <= highestCloudTakion; })
+            | std::ranges::to<std::vector>());
+    initTakionSelector(takionPsNowSelector, TakionTarget::PSNow, "akira/settings/dev_takion_version_ps_now"_i18n,
+        DeveloperTuning::implemented_protocol_versions(libchiaking::catalog::ServiceGeneration::old_service));
 
     simulateUpdateCell->setText("akira/settings/simulate_update"_i18n);
     tlsVerifyProbeCell->setText("akira/settings/dev_tls_verify_probe"_i18n);
@@ -168,8 +140,8 @@ SettingsDeveloperView::SettingsDeveloperView() {
     });
     tlsVerifyProbeCell->registerClickAction([this](brls::View*) {
         brls::DetailCell* cell = this->tlsVerifyProbeCell;
-        HttpPool::instance().submit([cell](HttpSession& session) {
-            runTlsVerifyProbe(session, cell);
+        HttpPool::instance().submit([cell, guard = alive](HttpSession& session) {
+            runTlsVerifyProbe(session, cell, guard);
         });
         return true;
     });

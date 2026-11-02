@@ -1,8 +1,10 @@
 #include "core/wireguard_manager.hpp"
 #include "core/settings_manager.hpp"
-#include "core/thread_affinity.h"
+#include "core/chiaki_core.hpp"
+#include "core/net/tunnel_stack.hpp"
+#include <algorithm>
+#include <array>
 #include <format>
-#include <wg_lwip_relay.hpp>
 #include <borealis.hpp>
 #include <fstream>
 #include <sstream>
@@ -64,6 +66,7 @@ bool WireGuardManager::parseConfigFile(const std::string& path, WgConfig& cfg) {
     uint16_t port = 51820;
     uint16_t keepalive = 25;
     uint16_t mtu = WG_DEFAULT_MTU;
+    std::vector<akira::net::RoutingNetworkProvider::Prefix> allowed;
 
     while (std::getline(file, line)) {
         if (line.empty() || line[0] == '#')
@@ -94,6 +97,20 @@ bool WireGuardManager::parseConfigFile(const std::string& path, WgConfig& cfg) {
             }
             mtu = static_cast<uint16_t>(parsed);
             brls::Logger::info("WG: configured MTU: {}", mtu);
+        } else if (section == "Peer" && key == "AllowedIPs") {
+            std::stringstream list(parseValue(line));
+            std::string entry;
+            while (std::getline(list, entry, ',')) {
+                const auto start = entry.find_first_not_of(" \t");
+                const auto end = entry.find_last_not_of(" \t\r\n");
+                if (start == std::string::npos)
+                    continue;
+                const auto trimmed = entry.substr(start, end - start + 1);
+                if (auto prefix = akira::net::RoutingNetworkProvider::Prefix::parse(trimmed))
+                    allowed.push_back(*prefix);
+                else
+                    brls::Logger::info("WG: AllowedIPs entry {} is not routed through the tunnel", trimmed);
+            }
         } else if (line.find("PrivateKey") != std::string::npos) {
             privateKey = parseValue(line);
             brls::Logger::info("WG: found PrivateKey");
@@ -193,12 +210,15 @@ bool WireGuardManager::parseConfigFile(const std::string& path, WgConfig& cfg) {
     }
 
     tunnelIP = address;
+    allowedIps = std::move(allowed);
     brls::Logger::info("WG: parseConfigFile completed successfully");
     return true;
 }
 
 bool WireGuardManager::loadConfig() {
     std::lock_guard<std::mutex> lock(mutex);
+    if (connecting)
+        return false;
     if (!parseConfigFile(CONFIG_PATH, config))
         return false;
     configLoaded = true;
@@ -207,52 +227,79 @@ bool WireGuardManager::loadConfig() {
 
 bool WireGuardManager::connect() {
     brls::Logger::info("WG: connect() entered, acquiring lock");
-    std::lock_guard<std::mutex> lock(mutex);
-    brls::Logger::info("WG: lock acquired");
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        brls::Logger::info("WG: lock acquired");
 
-    if (connected) {
-        brls::Logger::info("WG: already connected");
-        return true;
-    }
+        if (connected) {
+            brls::Logger::info("WG: already connected");
+            return true;
+        }
 
-    if (!configLoaded) {
-        brls::Logger::info("WG: parsing config file");
-        if (!parseConfigFile(CONFIG_PATH, config)) {
-            brls::Logger::error("WG: parseConfigFile failed: {}", lastError);
+        if (connecting) {
+            brls::Logger::info("WG: a connect is already in progress");
             return false;
         }
-        configLoaded = true;
-        brls::Logger::info("WG: config loaded successfully");
+
+        if (!configLoaded) {
+            brls::Logger::info("WG: parsing config file");
+            if (!parseConfigFile(CONFIG_PATH, config)) {
+                brls::Logger::error("WG: parseConfigFile failed: {}", lastError);
+                return false;
+            }
+            configLoaded = true;
+            brls::Logger::info("WG: config loaded successfully");
+        }
+        connecting = true;
     }
+
+    std::string failure;
+    std::shared_ptr<akira::net::TunnelStack> opened;
 
     brls::Logger::info("WG: calling wg_init");
-    tunnel = wg_init(&config);
-    if (!tunnel) {
-        lastError = "Failed to initialize tunnel";
+    WgTunnel* const handshaking = wg_init(&config);
+    if (!handshaking) {
+        failure = "Failed to initialize tunnel";
         brls::Logger::error("WG: wg_init failed");
+    } else {
+        brls::Logger::info("WG: wg_init succeeded, calling wg_connect");
+        int err = wg_connect(handshaking);
+        if (err != WG_OK) {
+            failure = std::format("Handshake failed: {}", err);
+            brls::Logger::error("WG: wg_connect failed: {}", err);
+        } else {
+            brls::Logger::info("WG: wg_connect succeeded, calling wg_start");
+            err = wg_start(handshaking);
+            if (err != WG_OK) {
+                failure = std::format("Failed to start tunnel: {}", err);
+                brls::Logger::error("WG: wg_start failed: {}", err);
+            } else {
+                std::array<uint8_t, 4> tunnelBytes{};
+                std::memcpy(tunnelBytes.data(), &config.tunnel_ip, tunnelBytes.size());
+                auto& core = akira::ChiakiCore::current();
+                auto started = akira::net::TunnelStack::start(*handshaking,
+                    libchiaking::platform::IpAddress::ipv4(tunnelBytes), core.threading(), core.clock());
+                if (!started) {
+                    failure = "Failed to start the tunnel's network stack";
+                    brls::Logger::error("WG: tunnel stack failed: {}", static_cast<int>(started.error()));
+                    wg_stop(handshaking);
+                } else {
+                    opened = std::move(started).value();
+                }
+            }
+        }
+        if (!opened)
+            wg_close(handshaking);
+    }
+
+    std::lock_guard<std::mutex> lock(mutex);
+    connecting = false;
+    if (!opened) {
+        lastError = std::move(failure);
         return false;
     }
-    brls::Logger::info("WG: wg_init succeeded, calling wg_connect");
-
-    int err = wg_connect(tunnel);
-    if (err != WG_OK) {
-        lastError = std::format("Handshake failed: {}", err);
-        brls::Logger::error("WG: wg_connect failed: {}", err);
-        wg_close(tunnel);
-        tunnel = nullptr;
-        return false;
-    }
-
-    brls::Logger::info("WG: wg_connect succeeded, calling wg_start");
-    err = wg_start(tunnel);
-    if (err != WG_OK) {
-        lastError = std::format("Failed to start tunnel: {}", err);
-        brls::Logger::error("WG: wg_start failed: {}", err);
-        wg_close(tunnel);
-        tunnel = nullptr;
-        return false;
-    }
-
+    tunnel = handshaking;
+    stack = std::move(opened);
     brls::Logger::info("WG: connected and started successfully");
     connected = true;
     lastError.clear();
@@ -262,8 +309,10 @@ bool WireGuardManager::connect() {
 void WireGuardManager::disconnect() {
     std::lock_guard<std::mutex> lock(mutex);
 
-    stopRelays();
-
+    if (stack) {
+        stack->stop();
+        stack.reset();
+    }
     if (tunnel) {
         wg_stop(tunnel);
         wg_close(tunnel);
@@ -286,140 +335,59 @@ std::string WireGuardManager::getLastError() const {
     return lastError;
 }
 
-uint16_t WireGuardManager::startTcpRelay(const std::string& targetIp, uint16_t targetPort, uint16_t localPort) {
+auto WireGuardManager::routesFor(const std::string& consoleAddress) const
+    -> std::vector<akira::net::RoutingNetworkProvider::Prefix> {
+    using Prefix = akira::net::RoutingNetworkProvider::Prefix;
+    std::vector<Prefix> routes = allowedIps;
+    if (const auto address = libchiaking::platform::parse_ip_address(consoleAddress)) {
+        if (auto host = Prefix::host(*address))
+            routes.push_back(*host);
+    }
+    if (routes.empty()) {
+        if (auto everything = Prefix::parse("0.0.0.0/0"))
+            routes.push_back(*everything);
+    }
+    return routes;
+}
+
+auto WireGuardManager::homeNetwork(const std::string& consoleAddress) -> libchiaking::consoles::HomeNetwork {
     std::lock_guard<std::mutex> lock(mutex);
-
-    if (!connected || !tunnel)
-        return 0;
-
-    if (!lwipRelay_) {
-        wgnx::LwipRelayConfig config;
-        config.log_callback = [](wgnx::LogLevel level, const char* msg) {
-            if (level == wgnx::LogLevel::Error) {
-                brls::Logger::error("LwipRelay: {}", msg);
-            } else {
-                brls::Logger::info("LwipRelay: {}", msg);
-            }
-        };
-        config.debug_logging = SettingsManager::getInstance()->getDebugLwipLog();
-        config.thread_affinity_callback = []() {
-            akira_thread_set_affinity(AKIRA_THREAD_NAME_LWIP_LOOP);
-        };
-
-        lwipRelay_ = std::make_unique<wgnx::LwipRelay>(tunnel, config);
-        if (!lwipRelay_->start(tunnelIP, targetIp)) {
-            brls::Logger::error("WG: Failed to start lwIP relay");
-            lwipRelay_.reset();
-            return 0;
-        }
-        targetIp_ = targetIp;
-        relayRunning = true;
-    }
-
-    return lwipRelay_->startTcpRelay(targetPort, localPort);
+    if (!connected || !stack)
+        return {};
+    auto& core = akira::ChiakiCore::current();
+    return libchiaking::consoles::HomeNetwork{std::make_shared<akira::net::RoutingNetworkProvider>(
+        core.network(), core.threading(), core.clock(), stack, routesFor(consoleAddress))};
 }
 
-uint16_t WireGuardManager::startUdpRelay(const std::string& targetIp, uint16_t targetPort, uint16_t localPort) {
+auto WireGuardManager::discoveryNetwork() -> libchiaking::consoles::HomeNetwork {
     std::lock_guard<std::mutex> lock(mutex);
-
-    if (!connected || !tunnel)
-        return 0;
-
-    if (!lwipRelay_) {
-        wgnx::LwipRelayConfig config;
-        config.log_callback = [](wgnx::LogLevel level, const char* msg) {
-            if (level == wgnx::LogLevel::Error) {
-                brls::Logger::error("LwipRelay: {}", msg);
-            } else {
-                brls::Logger::info("LwipRelay: {}", msg);
-            }
-        };
-        config.debug_logging = SettingsManager::getInstance()->getDebugLwipLog();
-        config.thread_affinity_callback = []() {
-            akira_thread_set_affinity(AKIRA_THREAD_NAME_LWIP_LOOP);
-        };
-
-        lwipRelay_ = std::make_unique<wgnx::LwipRelay>(tunnel, config);
-        if (!lwipRelay_->start(tunnelIP, targetIp)) {
-            brls::Logger::error("WG: Failed to start lwIP relay");
-            lwipRelay_.reset();
-            return 0;
-        }
-        targetIp_ = targetIp;
-        relayRunning = true;
-    }
-
-    return lwipRelay_->startUdpRelay(targetPort, localPort);
+    if (!connected || !stack)
+        return {};
+    auto& core = akira::ChiakiCore::current();
+    return libchiaking::consoles::HomeNetwork{
+        akira::net::RoutingNetworkProvider::tunnelOnly(core.network(), core.threading(), core.clock(), stack)};
 }
 
-void WireGuardManager::stopRelays() {
-    if (lwipRelay_) {
-        lwipRelay_->stop();
-        lwipRelay_.reset();
-    }
-    relayRunning = false;
-}
-
-bool WireGuardManager::isRelayRunning() const {
-    return relayRunning;
-}
-
-int WireGuardManager::sendUdpPacket(const std::string& targetIp, uint16_t targetPort, const void* data, size_t len) {
+auto WireGuardManager::tunnels(const std::string& consoleAddress) const -> bool {
+    const auto address = libchiaking::platform::parse_ip_address(consoleAddress);
+    if (!address || !address->is_ipv4() || address->is_unspecified() || address->is_loopback())
+        return false;
     std::lock_guard<std::mutex> lock(mutex);
+    if (!connected || !stack)
+        return false;
+    return std::ranges::any_of(routesFor(consoleAddress), [&address](const auto& prefix) {
+        return prefix.contains(*address);
+    });
+}
 
-    if (!connected || !tunnel)
-        return -1;
-
-    uint32_t dstIp;
-    if (inet_pton(AF_INET, targetIp.c_str(), &dstIp) != 1)
-        return -1;
-
-    uint32_t srcIp = config.tunnel_ip.s_addr;
-    uint16_t srcPort = 9999;
-
-    size_t ipHdrLen = 20;
-    size_t udpHdrLen = 8;
-    size_t totalLen = ipHdrLen + udpHdrLen + len;
-
-    uint8_t buf[2048];
-    if (totalLen > sizeof(buf))
-        return -1;
-
-    uint8_t* ip = buf;
-    ip[0] = 0x45;
-    ip[1] = 0;
-    ip[2] = (totalLen >> 8) & 0xFF;
-    ip[3] = totalLen & 0xFF;
-    ip[4] = ip[5] = 0;
-    ip[6] = ip[7] = 0;
-    ip[8] = 64;
-    ip[9] = IPPROTO_UDP;
-    ip[10] = ip[11] = 0;
-    memcpy(ip + 12, &srcIp, 4);
-    memcpy(ip + 16, &dstIp, 4);
-
-    uint32_t sum = 0;
-    for (int i = 0; i < 20; i += 2) {
-        sum += (ip[i] << 8) | ip[i + 1];
+auto WireGuardManager::allowedHosts() const -> std::vector<libchiaking::platform::IpAddress> {
+    std::lock_guard<std::mutex> lock(mutex);
+    std::vector<libchiaking::platform::IpAddress> hosts;
+    if (!connected || !stack)
+        return hosts;
+    for (const auto& prefix : allowedIps) {
+        if (auto host = prefix.singleHost())
+            hosts.push_back(*host);
     }
-    while (sum >> 16)
-        sum = (sum & 0xFFFF) + (sum >> 16);
-    uint16_t ipCksum = ~sum;
-    ip[10] = (ipCksum >> 8) & 0xFF;
-    ip[11] = ipCksum & 0xFF;
-
-    uint8_t* udp = buf + ipHdrLen;
-    udp[0] = (srcPort >> 8) & 0xFF;
-    udp[1] = srcPort & 0xFF;
-    udp[2] = (targetPort >> 8) & 0xFF;
-    udp[3] = targetPort & 0xFF;
-    uint16_t udpLen = udpHdrLen + len;
-    udp[4] = (udpLen >> 8) & 0xFF;
-    udp[5] = udpLen & 0xFF;
-    udp[6] = udp[7] = 0;
-
-    memcpy(buf + ipHdrLen + udpHdrLen, data, len);
-
-    brls::Logger::info("WG: sendUdpPacket to {}:{}, len={}", targetIp, targetPort, len);
-    return wg_send(tunnel, buf, totalLen);
+    return hosts;
 }

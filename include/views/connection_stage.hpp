@@ -1,7 +1,7 @@
 #ifndef AKIRA_CONNECTION_STAGE_HPP
 #define AKIRA_CONNECTION_STAGE_HPP
 
-#include <chiaki/session.h>
+#include <libchiaking/play_types.hpp>
 
 #include <string>
 
@@ -18,10 +18,11 @@ enum class ConnectionStage : int {
     Connected
 };
 
-ConnectionStage matchConnectionStage(const std::string& logLine, ConnectionStage current);
+ConnectionStage connectionStageOf(libchiaking::play::ConnectStep step);
 const char* connectionStageLabelKey(ConnectionStage stage);
 const char* connectionFailureKeyForStage(ConnectionStage stage);
-const char* connectionFailureKeyForReason(ChiakiQuitReason reason);
+const char* connectionFailureKeyFor(const libchiaking::play::Outcome& outcome);
+const char* quitReasonKey(libchiaking::play::ConsoleQuit::Reason reason);
 void drawConnectionRing(NVGcontext* vg, float cx, float cy, const std::string& label, int stageIndex, int stageTotal);
 void drawConnectionFailure(NVGcontext* vg, float cx, float cy, const std::string& message);
 

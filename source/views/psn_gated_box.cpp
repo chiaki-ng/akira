@@ -1,5 +1,6 @@
 #include "views/psn_gated_box.hpp"
 #include "ui/theme.hpp"
+#include "core/chiaki_core.hpp"
 
 using namespace brls::literals;
 
@@ -23,9 +24,11 @@ PsnGatedBox::PsnGatedBox()
     if (!observerInstalled)
     {
         observerInstalled = true;
-        psn::Auth::instance().setStateObserver([]() {
-            brls::sync([]() { PsnGatedBox::evaluateAll(); });
-        });
+        if (auto* accounts = akira::ChiakiCore::current().accounts()) {
+            accounts->setStateObserver([]() {
+                brls::sync([]() { PsnGatedBox::evaluateAll(); });
+            });
+        }
     }
 }
 
@@ -47,7 +50,8 @@ void PsnGatedBox::evaluateAll()
 
 bool PsnGatedBox::evaluate()
 {
-    applyState(psn::Auth::instance().state());
+    auto* accounts = akira::ChiakiCore::current().accounts();
+    applyState(accounts ? accounts->state() : psn::SessionState::NotLinked);
     return gateOpen;
 }
 

@@ -1,5 +1,6 @@
 #include "views/network_utilities_tab.hpp"
 #include "ui/theme.hpp"
+#include "core/discovery_manager.hpp"
 #include "core/wireguard_manager.hpp"
 #include <format>
 #include <vector>
@@ -139,6 +140,8 @@ void NetworkUtilitiesTab::onWgConnectClicked() {
             if (!*guard)
                 return;
             isWgConnecting = false;
+            if (success)
+                DiscoveryManager::getInstance()->restartSearch();
             updateWireGuardStatus();
         });
     });
@@ -146,6 +149,7 @@ void NetworkUtilitiesTab::onWgConnectClicked() {
 
 void NetworkUtilitiesTab::onWgDisconnectClicked() {
     WireGuardManager::instance().disconnect();
+    DiscoveryManager::getInstance()->restartSearch();
     updateWireGuardStatus();
 }
 

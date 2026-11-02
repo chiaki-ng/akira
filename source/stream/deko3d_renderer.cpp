@@ -7,7 +7,6 @@
 #include "core/wireguard_manager.hpp"
 #include "core/settings_manager.hpp"
 #include "ui/theme.hpp"
-#include "crypto/libnx/gmac.h"
 #include <borealis.hpp>
 #include <borealis/platforms/switch/switch_platform.hpp>
 #include <algorithm>
@@ -173,12 +172,11 @@ Deko3dRenderer::~Deko3dRenderer()
     }
 }
 
-bool Deko3dRenderer::initialize(int frame_width, int frame_height, ChiakiLog* log)
+bool Deko3dRenderer::initialize(int frame_width, int frame_height)
 {
     if (m_initialized)
         return true;
 
-    m_log = log;
     m_frame_width = frame_width;
     m_frame_height = frame_height;
     m_display_width = brls::Application::windowWidth;
@@ -285,6 +283,35 @@ bool Deko3dRenderer::setupTextures(AVFrame* frame)
     brls::Logger::info("Deko3dRenderer::setupTextures: luma_id={}, chroma_id={}, fsr={}",
         m_luma_texture_id, m_chroma_texture_id, m_fsr_enabled);
     return true;
+}
+
+void Deko3dRenderer::releaseTextures()
+{
+    m_queue.waitIdle();
+
+    if (m_current_frame)
+        av_frame_free(&m_current_frame);
+    m_frame_bound = false;
+
+    cleanupFsr();
+    m_fsr_pending = false;
+
+    if (m_luma_texture_id) {
+        m_vctx->freeImageIndex(m_luma_texture_id);
+        m_luma_texture_id = 0;
+    }
+    if (m_chroma_texture_id) {
+        m_vctx->freeImageIndex(m_chroma_texture_id);
+        m_chroma_texture_id = 0;
+    }
+
+    m_frame_mappings.clear();
+    m_current_mapping_index = -1;
+    m_video_cmdlist = 0;
+
+    m_luma_layout = dk::ImageLayout{};
+    m_chroma_layout = dk::ImageLayout{};
+    m_textures_initialized = false;
 }
 
 void Deko3dRenderer::recordStaticVideoCommands()
@@ -668,6 +695,13 @@ void Deko3dRenderer::draw(AVFrame* frame)
     if (!frame || frame->format != AV_PIX_FMT_NVTEGRA)
         return;
 
+    if (m_textures_initialized && (frame->width != m_frame_width || frame->height != m_frame_height))
+    {
+        brls::Logger::info("Deko3dRenderer: frame size changed from {}x{} to {}x{}, rebuilding textures",
+            m_frame_width, m_frame_height, frame->width, frame->height);
+        releaseTextures();
+    }
+
     if (!m_textures_initialized)
     {
         if (!setupTextures(frame))
@@ -741,15 +775,19 @@ void Deko3dRenderer::renderVideo()
     if (!m_fsr_enabled && !m_video_cmdlist)
         return;
 
-    int oldest = m_frame_ring_index;
-    if (m_frame_ring[oldest])
-        av_frame_free(&m_frame_ring[oldest]);
+    AVFrame* bound = m_current_frame;
+    {
+        std::lock_guard lock(m_frame_ring_mutex);
+        const int oldest = m_frame_ring_index;
+        if (m_frame_ring[oldest])
+            av_frame_free(&m_frame_ring[oldest]);
 
-    m_frame_ring[oldest] = m_current_frame;
-    m_current_frame = nullptr;
-    m_frame_ring_index = (m_frame_ring_index + 1) % FRAME_RING_SIZE;
+        m_frame_ring[oldest] = m_current_frame;
+        m_current_frame = nullptr;
+        m_frame_ring_index = (m_frame_ring_index + 1) % FRAME_RING_SIZE;
+    }
 
-    updateFrameBindings(m_frame_ring[oldest]);
+    updateFrameBindings(bound);
 
     if (m_fsr_enabled)
     {
@@ -947,12 +985,15 @@ void Deko3dRenderer::cleanup()
     if (m_current_frame)
         av_frame_free(&m_current_frame);
 
-    for (int i = 0; i < FRAME_RING_SIZE; ++i)
     {
-        if (m_frame_ring[i])
-            av_frame_free(&m_frame_ring[i]);
+        std::lock_guard lock(m_frame_ring_mutex);
+        for (int i = 0; i < FRAME_RING_SIZE; ++i)
+        {
+            if (m_frame_ring[i])
+                av_frame_free(&m_frame_ring[i]);
+        }
+        m_frame_ring_index = 0;
     }
-    m_frame_ring_index = 0;
 
     cleanupFsr();
 
@@ -1079,7 +1120,7 @@ void Deko3dRenderer::rebuildOverlayText()
     m_ov.lost = std::format("{}", m_stats.network_frames_lost);
     m_ov.recovered = std::format("{}", m_stats.frames_recovered);
 
-    m_ov.ghash = (chiaki_libnx_get_ghash_mode() == CHIAKI_LIBNX_GHASH_PMULL) ? "PMULL" : "TABLE";
+    m_ov.ghash = "PMULL";
     m_ov.vpn = wg.isConnected() ? wg.getTunnelIP() : "Off";
 
     m_ov.context = m_connection_context.empty()
@@ -2099,8 +2140,15 @@ bool Deko3dRenderer::captureLastFrame(std::vector<uint8_t>& rgba, int& width, in
     if (!m_initialized)
         return false;
 
-    int newest = (m_frame_ring_index - 1 + FRAME_RING_SIZE) % FRAME_RING_SIZE;
-    AVFrame* src = m_frame_ring[newest];
+    using Frame = std::unique_ptr<AVFrame, decltype([](AVFrame* frame) { av_frame_free(&frame); })>;
+    Frame held;
+    {
+        std::lock_guard lock(m_frame_ring_mutex);
+        const int newest = (m_frame_ring_index - 1 + FRAME_RING_SIZE) % FRAME_RING_SIZE;
+        if (m_frame_ring[newest])
+            held.reset(av_frame_clone(m_frame_ring[newest]));
+    }
+    AVFrame* src = held.get();
     if (!src || src->width <= 0 || src->height <= 0)
         return false;
 
@@ -2111,13 +2159,15 @@ bool Deko3dRenderer::captureLastFrame(std::vector<uint8_t>& rgba, int& width, in
     bool owns_sw = true;
     if (src->hw_frames_ctx)
     {
-        if (av_hwframe_transfer_data(sw, src, 0) < 0)
+        const auto* frames = reinterpret_cast<const AVHWFramesContext*>(src->hw_frames_ctx->data);
+        sw->format = frames->sw_format;
+        sw->width = src->width;
+        sw->height = src->height;
+        if (av_frame_get_buffer(sw, HW_TRANSFER_ALIGNMENT) < 0 || av_hwframe_transfer_data(sw, src, 0) < 0)
         {
             av_frame_free(&sw);
             return false;
         }
-        sw->width = src->width;
-        sw->height = src->height;
     }
     else
     {

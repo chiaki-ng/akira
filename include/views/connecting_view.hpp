@@ -1,6 +1,10 @@
 #ifndef AKIRA_CONNECTING_VIEW_HPP
 #define AKIRA_CONNECTING_VIEW_HPP
 
+#include "util/connection_log.hpp"
+
+#include <optional>
+
 #include <borealis.hpp>
 
 #include <atomic>
@@ -9,6 +13,8 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "views/connect_task.hpp"
 
@@ -36,6 +42,8 @@ public:
 
     /* Called after make_shared, so weak_from_this() is usable by the task. */
     void setupAndStart();
+    static void open(std::unique_ptr<ConnectTask> task);
+    static void askAboutFileLogging(std::unique_ptr<ConnectTask> task);
 
     void draw(NVGcontext* vg, float x, float y, float width, float height,
               brls::Style style, brls::FrameContext* ctx) override;
@@ -60,6 +68,7 @@ private:
 
     std::deque<std::string> logLines;
     mutable std::mutex logMutex;
+    std::vector<std::pair<std::string, std::string>> logMasks;
     static constexpr std::size_t MAX_LOG_LINES = 100;
 
     std::atomic<int> currentStage{0};
@@ -77,13 +86,11 @@ private:
 
     brls::Event<brls::Logger::TimePoint, brls::LogLevel, std::string>::Subscription logSubscription;
 
-    FILE* connectionLogFile = nullptr;
-    FILE* prevLogOutput = nullptr;
+    std::optional<akira::ConnectionLog> connectionLog;
 
     void addLogLine(const std::string& line);
     void renderLogs(NVGcontext* vg, float x, float y, float width, float height);
     void switchToConnectionLog();
-    void restoreMainLog();
     void cancelFromUser();
     void dismissAfterFailure();
 };

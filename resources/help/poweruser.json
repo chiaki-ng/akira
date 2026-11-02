@@ -6,8 +6,6 @@
   "settings/portGuessingSocks": { "title": "Probe socket count", "body": "How many sockets to open while probing.", "image": "" },
   "settings/autoReconnect":     { "title": "Auto reconnect", "body": "Offer to reconnect a dropped direct Remote Play session when Akira regains focus. Cloud sessions are excluded.", "image": "" },
   "settings/hideAccountName":   { "title": "Hide account name", "body": "Mask PSN account names and identifiers throughout Akira to make screenshots safer to share.", "image": "" },
-  "settings/psnRequestBudget":  { "title": "PSN request budget", "body": "Maximum number of governed PSN requests allowed within the configured request window. Higher values increase the risk of server throttling.", "image": "" },
-  "settings/psnRequestWindow":  { "title": "PSN request window", "body": "Rolling time window used by the PSN request limiter. Changing it reconfigures the trophy and party limiters.", "image": "" },
   "settings/runBenchmark":      { "title": "Run benchmark", "body": "Measure GHASH cryptographic throughput on this Switch.", "image": "" },
   "settings/flushTrophyCache":  { "title": "Flush trophy cache", "body": "Delete cached trophy summaries, lists, and details. Akira fetches them again when needed.", "image": "" }
 }

@@ -2,15 +2,15 @@
 #include "core/swipe_direction.hpp"
 #include "core/host.hpp"
 #include "core/migrations/registry.hpp"
+#include "core/core_log.hpp"
+#include "input/remap_target.hpp"
+#include "util/base64.hpp"
 #include "util/http.hpp"
 
 #include <borealis.hpp>
 #include <format>
 #include <ranges>
 #include <utility>
-#include <chiaki/base64.h>
-#include <chiaki/controller.h>
-#include <chiaki/random.h>
 #include <toml++/toml.hpp>
 #include <switch.h>
 
@@ -18,11 +18,15 @@
 #include <cstdio>
 #include <ctime>
 #include <dirent.h>
+#include <filesystem>
 #include <fstream>
 #include <regex>
 #include <sys/stat.h>
 
 namespace {
+
+using akira::input::RemapTarget;
+using akira::input::remapKey;
 
 ChiakiLogVerbosity chiakiLogVerbosityFromString(const std::string& value)
 {
@@ -46,21 +50,6 @@ const char* chiakiLogVerbosityToString(ChiakiLogVerbosity verbosity)
     }
 }
 
-uint32_t chiakiLogMask(ChiakiLogVerbosity verbosity, bool streaming)
-{
-    constexpr uint32_t warnings = CHIAKI_LOG_ERROR | CHIAKI_LOG_WARNING;
-    constexpr uint32_t info = warnings | CHIAKI_LOG_INFO;
-    constexpr uint32_t debug = info | CHIAKI_LOG_DEBUG;
-
-    switch (verbosity) {
-        case ChiakiLogVerbosity::Info:  return info;
-        case ChiakiLogVerbosity::Debug: return debug;
-        case ChiakiLogVerbosity::Trace: return CHIAKI_LOG_ALL;
-        case ChiakiLogVerbosity::Normal:
-        default:                        return streaming ? warnings : info;
-    }
-}
-
 brls::LogLevel borealisLogLevel(ChiakiLogVerbosity verbosity)
 {
     switch (verbosity) {
@@ -81,11 +70,11 @@ akira::input::RumbleSource sourceFromLegacyPreset(HapticPreset preset)
     }
 }
 
-int fsrTargetHeightForResolution(ChiakiVideoResolutionPreset resolution) {
+int fsrTargetHeightForResolution(VideoResolution resolution) {
     switch (resolution) {
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_540p:
+        case VideoResolution::P540:
             return 720;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_720p:
+        case VideoResolution::P720:
             return 1080;
         default:
             return 0;
@@ -160,20 +149,20 @@ uint64_t configStringToHidButton(const std::string& name) {
 
 std::string chiakiButtonToConfigKey(uint32_t button) {
     switch (button) {
-        case CHIAKI_CONTROLLER_BUTTON_CROSS: return "cross";
-        case CHIAKI_CONTROLLER_BUTTON_MOON: return "circle";
-        case CHIAKI_CONTROLLER_BUTTON_BOX: return "square";
-        case CHIAKI_CONTROLLER_BUTTON_PYRAMID: return "triangle";
-        case CHIAKI_CONTROLLER_BUTTON_L1: return "l1";
-        case CHIAKI_CONTROLLER_BUTTON_R1: return "r1";
-        case CHIAKI_CONTROLLER_ANALOG_BUTTON_L2: return "l2";
-        case CHIAKI_CONTROLLER_ANALOG_BUTTON_R2: return "r2";
-        case CHIAKI_CONTROLLER_BUTTON_L3: return "l3";
-        case CHIAKI_CONTROLLER_BUTTON_R3: return "r3";
-        case CHIAKI_CONTROLLER_BUTTON_OPTIONS: return "options";
-        case CHIAKI_CONTROLLER_BUTTON_SHARE: return "share";
-        case CHIAKI_CONTROLLER_BUTTON_TOUCHPAD: return "touchpad";
-        case CHIAKI_CONTROLLER_BUTTON_PS: return "ps";
+        case remapKey(RemapTarget::Cross): return "cross";
+        case remapKey(RemapTarget::Moon): return "circle";
+        case remapKey(RemapTarget::Box): return "square";
+        case remapKey(RemapTarget::Pyramid): return "triangle";
+        case remapKey(RemapTarget::L1): return "l1";
+        case remapKey(RemapTarget::R1): return "r1";
+        case remapKey(RemapTarget::L2): return "l2";
+        case remapKey(RemapTarget::R2): return "r2";
+        case remapKey(RemapTarget::L3): return "l3";
+        case remapKey(RemapTarget::R3): return "r3";
+        case remapKey(RemapTarget::Options): return "options";
+        case remapKey(RemapTarget::Share): return "share";
+        case remapKey(RemapTarget::Touchpad): return "touchpad";
+        case remapKey(RemapTarget::Ps): return "ps";
         case SWIPE_TOUCHPAD_UP: return "swipe_up";
         case SWIPE_TOUCHPAD_DOWN: return "swipe_down";
         case SWIPE_TOUCHPAD_LEFT: return "swipe_left";
@@ -183,37 +172,25 @@ std::string chiakiButtonToConfigKey(uint32_t button) {
 }
 
 uint32_t configKeyToChiakiButton(const std::string& key) {
-    if (key == "cross") return CHIAKI_CONTROLLER_BUTTON_CROSS;
-    if (key == "circle") return CHIAKI_CONTROLLER_BUTTON_MOON;
-    if (key == "square") return CHIAKI_CONTROLLER_BUTTON_BOX;
-    if (key == "triangle") return CHIAKI_CONTROLLER_BUTTON_PYRAMID;
-    if (key == "l1") return CHIAKI_CONTROLLER_BUTTON_L1;
-    if (key == "r1") return CHIAKI_CONTROLLER_BUTTON_R1;
-    if (key == "l2") return CHIAKI_CONTROLLER_ANALOG_BUTTON_L2;
-    if (key == "r2") return CHIAKI_CONTROLLER_ANALOG_BUTTON_R2;
-    if (key == "l3") return CHIAKI_CONTROLLER_BUTTON_L3;
-    if (key == "r3") return CHIAKI_CONTROLLER_BUTTON_R3;
-    if (key == "options") return CHIAKI_CONTROLLER_BUTTON_OPTIONS;
-    if (key == "share") return CHIAKI_CONTROLLER_BUTTON_SHARE;
-    if (key == "touchpad") return CHIAKI_CONTROLLER_BUTTON_TOUCHPAD;
-    if (key == "ps") return CHIAKI_CONTROLLER_BUTTON_PS;
+    if (key == "cross") return remapKey(RemapTarget::Cross);
+    if (key == "circle") return remapKey(RemapTarget::Moon);
+    if (key == "square") return remapKey(RemapTarget::Box);
+    if (key == "triangle") return remapKey(RemapTarget::Pyramid);
+    if (key == "l1") return remapKey(RemapTarget::L1);
+    if (key == "r1") return remapKey(RemapTarget::R1);
+    if (key == "l2") return remapKey(RemapTarget::L2);
+    if (key == "r2") return remapKey(RemapTarget::R2);
+    if (key == "l3") return remapKey(RemapTarget::L3);
+    if (key == "r3") return remapKey(RemapTarget::R3);
+    if (key == "options") return remapKey(RemapTarget::Options);
+    if (key == "share") return remapKey(RemapTarget::Share);
+    if (key == "touchpad") return remapKey(RemapTarget::Touchpad);
+    if (key == "ps") return remapKey(RemapTarget::Ps);
     if (key == "swipe_up") return SWIPE_TOUCHPAD_UP;
     if (key == "swipe_down") return SWIPE_TOUCHPAD_DOWN;
     if (key == "swipe_left") return SWIPE_TOUCHPAD_LEFT;
     if (key == "swipe_right") return SWIPE_TOUCHPAD_RIGHT;
     return 0;
-}
-
-std::vector<std::string> readStringArray(const toml::array* arr) {
-    std::vector<std::string> out;
-    if (!arr)
-        return out;
-
-    for (const auto& node : *arr) {
-        if (auto val = node.value<std::string>(); val && !val->empty())
-            out.push_back(*val);
-    }
-    return out;
 }
 
 std::vector<cloud::Game> readShortcuts(const toml::array* arr) {
@@ -292,6 +269,7 @@ std::vector<cloud::Datacenter> readDatacenters(const toml::array* arr) {
         dc.publicIp = (*t)["public_ip"].value<std::string>().value_or("");
         dc.maxBandwidth = static_cast<int>((*t)["max_bandwidth"].value<int64_t>().value_or(0));
         dc.measured = (*t)["measured"].value<bool>().value_or(false);
+        dc.measuredAtMs = (*t)["measured_at"].value<int64_t>().value_or(0);
 
         if (const auto* rtts = t->get_as<toml::array>("rtts")) {
             for (const auto& rtt : *rtts) {
@@ -323,6 +301,7 @@ toml::array datacentersToToml(const std::vector<cloud::Datacenter>& datacenters)
         t.insert("public_ip", dc.publicIp);
         t.insert("max_bandwidth", dc.maxBandwidth);
         t.insert("measured", dc.measured);
+        if (dc.measuredAtMs > 0) t.insert("measured_at", dc.measuredAtMs);
         arr.push_back(std::move(t));
     }
     return arr;
@@ -336,12 +315,33 @@ SettingsManager::SettingsManager() {
     buttonMapping = getDefaultButtonMapping();
 }
 
-void SettingsManager::setLogger(ChiakiLog* logger) {
-    this->log = logger;
+void SettingsManager::setCoreLog(akira::CoreLog* log) {
+    coreLog = log;
     updateChiakiLogMask();
-    for (auto& [name, host] : hosts) {
-        host->setLogger(logger);
+}
+
+void SettingsManager::ensureCloudDuid(libchiaking::platform::SecureRandomProvider& random) {
+    constexpr std::string_view prefix = "0000000700410080";
+    const bool validCloudDuid = cloudDuid.size() == 48 &&
+        cloudDuid.starts_with(prefix) &&
+        std::ranges::all_of(cloudDuid, [](unsigned char c) {
+            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+        });
+    if (validCloudDuid)
+        return;
+
+    std::array<std::byte, 16> randomBytes{};
+    if (!random.fill_bytes(randomBytes)) {
+        brls::Logger::error("Failed to generate cloud DUID");
+        cloudDuid.clear();
+        return;
     }
+    std::string generated(prefix);
+    for (const std::byte byte : randomBytes)
+        std::format_to(std::back_inserter(generated), "{:02x}", std::to_integer<unsigned>(byte));
+    cloudDuid = std::move(generated);
+    if (writeFile() != 0)
+        brls::Logger::error("Failed to persist cloud DUID");
 }
 
 SettingsManager* SettingsManager::getInstance() {
@@ -350,30 +350,7 @@ SettingsManager* SettingsManager::getInstance() {
         instance = new SettingsManager();
         instance->ensureConfigDir();
         instance->parseFile();
-        constexpr char prefix[] = "0000000700410080";
-        const std::string& duid = instance->cloudDuid;
-        const bool validCloudDuid = duid.size() == 48 &&
-            duid.compare(0, sizeof(prefix) - 1, prefix) == 0 &&
-            std::all_of(duid.begin(), duid.end(), [](unsigned char c) {
-                return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
-            });
-        if (!validCloudDuid) {
-            uint8_t randomBytes[16];
-            if (chiaki_random_bytes_crypt(randomBytes, sizeof(randomBytes)) == CHIAKI_ERR_SUCCESS) {
-                constexpr char hex[] = "0123456789abcdef";
-                std::string generated(prefix);
-                for (uint8_t byte : randomBytes) {
-                    generated += hex[byte >> 4];
-                    generated += hex[byte & 0x0f];
-                }
-                instance->cloudDuid = std::move(generated);
-                if (instance->writeFile() != 0)
-                    brls::Logger::error("Failed to persist cloud DUID");
-            } else {
-                brls::Logger::error("Failed to generate cloud DUID");
-                instance->cloudDuid.clear();
-            }
-        }
+        instance->owned = instance->ownedSettings();
     }
     return instance;
 }
@@ -387,10 +364,6 @@ bool SettingsManager::fileExists(const char* path) {
     return (stat(path, &buffer) == 0);
 }
 
-size_t SettingsManager::getB64EncodeSize(size_t inputSize) {
-    return ((4 * inputSize / 3) + 3) & ~3;
-}
-
 std::map<std::string, std::unique_ptr<Host>>* SettingsManager::getHostsMap() {
     return &hosts;
 }
@@ -400,9 +373,6 @@ Host* SettingsManager::getOrCreateHost(const std::string& hostName) {
 
     if (hosts.find(hostName) == hosts.end()) {
         hosts[hostName] = std::make_unique<Host>(hostName);
-        if (log) {
-            hosts[hostName]->setLogger(log);
-        }
         created = true;
     }
 
@@ -425,11 +395,9 @@ void SettingsManager::removeActiveProfileRegistration(const std::string& hostNam
         return;
 
     int64_t pid = getActiveProfileId();
-    auto& regs = it->second->registrations;
-    regs.erase(std::remove_if(regs.begin(), regs.end(),
-        [pid](const Registration& r) { return r.profileId == pid; }), regs.end());
+    it->second->removeRegistrationsForProfile(pid);
 
-    if (regs.empty())
+    if (!it->second->hasRpKey())
         hosts.erase(it);
 }
 
@@ -476,6 +444,7 @@ void SettingsManager::parseTomlFile() {
         // Best-effort: on failure (e.g. newer config version) load fields as-is
         // and skip the rewrite rather than aborting startup.
         bool configMigrated = false;
+        const int64_t configVersion = config["version"].value_or(int64_t{0});
         try {
             configMigrated =
                 chiaki_migrations::buildSettingsMigrator().migrate(config).changed();
@@ -500,7 +469,7 @@ void SettingsManager::parseTomlFile() {
         if (auto val = config["video"]["remote"]["fps"].value<int64_t>())
             remoteVideoFPS = stringToFps(std::to_string(*val));
         if (auto val = config["video"]["vpn"]["fps"].value<int64_t>())
-            vpnVideoFPS = (*val == 30) ? CHIAKI_VIDEO_FPS_PRESET_30 : CHIAKI_VIDEO_FPS_PRESET_60;
+            vpnVideoFPS = (*val == 30) ? VideoFps::Fps30 : VideoFps::Fps60;
 
         if (auto val = config["video"]["local"]["bitrate"].value<int64_t>())
             localVideoBitrate = static_cast<int>(*val);
@@ -660,18 +629,14 @@ void SettingsManager::parseTomlFile() {
         if (rumbleProfiles.find(akira::input::kRumbleKeyDefault) == rumbleProfiles.end())
             rumbleProfiles[akira::input::kRumbleKeyDefault] = akira::input::DefaultRumbleProfile();
 
-        cloudDatacenterPscloud = config["cloud"]["datacenter_pscloud"].value<std::string>().value_or("");
-        cloudDatacenterPsnow = config["cloud"]["datacenter_psnow"].value<std::string>().value_or("");
         cloudDuid = config["cloud"]["duid"].value<std::string>().value_or("");
-        cloudDatacentersPscloud = readDatacenters(config["cloud"]["datacenters"]["pscloud"].as_array());
-        cloudDatacentersPsnow = readDatacenters(config["cloud"]["datacenters"]["psnow"].as_array());
+        {
+            std::lock_guard<std::mutex> datacenterLock(datacenterMutex);
+            cloudDatacentersPscloud = readDatacenters(config["cloud"]["datacenters"]["pscloud"].as_array());
+            cloudDatacentersPsnow = readDatacenters(config["cloud"]["datacenters"]["psnow"].as_array());
+        }
         cloudSortState = static_cast<int>(config["cloud"]["sort_state"].value<int64_t>().value_or(0));
-        cloudAttrPassed = config["cloud"]["attr_passed"].value<bool>().value_or(false);
-        cloudFilterMode = static_cast<int>(config["cloud"]["filter_mode"].value<int64_t>().value_or(0));
-        cloudStoreLocale = config["cloud"]["store_locale"].value<std::string>().value_or("");
-        cloudStoreLocaleSource = config["cloud"]["store_locale_source"].value<std::string>().value_or("");
-        cloudGameLanguage = config["cloud"]["game_language"].value<std::string>().value_or("");
-        cloudFavorites = readStringArray(config["cloud"]["favorites"].as_array());
+        cloudFilter = config["cloud"]["filter"].value<std::string>().value_or("");
 
         if (auto val = config["network"]["holepunch_retry"].value<bool>())
             holepunchRetry = *val;
@@ -692,8 +657,10 @@ void SettingsManager::parseTomlFile() {
             sleepOnExit = *val;
         if (auto val = config["stream"]["request_idr_on_fec_failure"].value<bool>())
             requestIdrOnFecFailure = *val;
-        if (auto val = config["stream"]["takion_version"].value<int64_t>())
-            takionVersion = static_cast<int>(*val);
+        for (const auto target : {TakionTarget::PS4, TakionTarget::PS5, TakionTarget::PS5Cloud, TakionTarget::PSNow}) {
+            if (auto val = config["stream"]["takion_versions"][takionTargetKey(target)].value<int64_t>())
+                takionVersions[static_cast<size_t>(target)] = static_cast<int>(*val);
+        }
         if (auto val = config["stream"]["packet_loss_max"].value<double>())
             packetLossMax = static_cast<float>(*val);
 
@@ -703,11 +670,6 @@ void SettingsManager::parseTomlFile() {
             hideAccountName = *val;
         if (auto val = config["ui"]["connection_show_stages"].value<bool>())
             connectionShowStages = *val;
-
-        if (auto val = config["psn"]["request_budget"].value<int64_t>())
-            psnRequestBudget = std::clamp(static_cast<int>(*val), 1, 100000);
-        if (auto val = config["psn"]["request_window_seconds"].value<int64_t>())
-            psnRequestWindowSeconds = std::clamp(static_cast<int>(*val), 60, 86400);
 
         if (auto val = config["updates"]["channel"].value<std::string>())
             updateChannel = *val;
@@ -722,8 +684,8 @@ void SettingsManager::parseTomlFile() {
             debugLocale = *val;
         if (auto val = config["debug"]["file_logging"].value<bool>())
             enableFileLogging = *val;
-        if (auto val = config["debug"]["thread_affinity"].value<bool>())
-            enableThreadAffinity = *val;
+        if (auto val = config["debug"]["silence_all_logs"].value<bool>())
+            silenceAllLogs = *val;
         if (auto val = config["debug"]["lwip_log"].value<bool>())
             debugLwipLog = *val;
         if (auto val = config["debug"]["wireguard_log"].value<bool>())
@@ -749,8 +711,6 @@ void SettingsManager::parseTomlFile() {
             unlockBitrateMax = *val;
         if (auto val = config["debug"]["update_server"].value<std::string>())
             devUpdateServer = *val;
-        if (auto val = config["debug"]["force_ws_fqdn"].value<std::string>())
-            devForceWsFqdn = *val;
 
         if (auto mappingTable = config["input"]["button_mapping"].as_table()) {
             for (auto& [key, value] : *mappingTable) {
@@ -796,16 +756,6 @@ void SettingsManager::parseTomlFile() {
 
                 profile.onlineId = (*pt)["online_id"].value<std::string>().value_or("");
                 profile.accountId = (*pt)["account_id"].value<std::string>().value_or("");
-                profile.refreshToken = (*pt)["refresh_token"].value<std::string>().value_or("");
-                profile.accessToken = (*pt)["access_token"].value<std::string>().value_or("");
-                profile.tokenExpiresAt = (*pt)["token_expires_at"].value<int64_t>().value_or(0);
-                profile.mobileSsoRefreshToken = (*pt)["mobile_sso_refresh_token"].value<std::string>().value_or("");
-                profile.mobileSsoAccessToken = (*pt)["mobile_sso_access_token"].value<std::string>().value_or("");
-                profile.mobileSsoExpiresAt = (*pt)["mobile_sso_expires_at"].value<int64_t>().value_or(0);
-                profile.npsso = (*pt)["npsso"].value<std::string>().value_or("");
-                profile.npssoLastCheckedAt = (*pt)["npsso_last_checked_at"].value<int64_t>().value_or(0);
-                profile.npssoValid = (*pt)["npsso_valid"].value<bool>().value_or(false);
-                profile.duid = (*pt)["duid"].value<std::string>().value_or("");
                 profile.avatarUrl = (*pt)["avatar_url"].value<std::string>().value_or("");
                 profile.trophiesEnabled = (*pt)["trophies_enabled"].value<bool>().value_or(true);
                 profile.legacy = (*pt)["legacy"].value<bool>().value_or(false);
@@ -841,7 +791,9 @@ void SettingsManager::parseTomlFile() {
                 if (auto val = (*ct)["host_addr"].value<std::string>())
                     host->hostAddr = *val;
                 if (auto val = (*ct)["target"].value<int64_t>())
-                    host->setChiakiTarget(static_cast<ChiakiTarget>(*val));
+                    host->firmware = firmwareFromTarget(*val);
+                if (auto val = (*ct)["hardware_id"].value<std::string_view>())
+                    host->hardwareId = libchiaking::consoles::HardwareId::parse(*val);
                 if (auto val = (*ct)["console_pin"].value<std::string>())
                     host->consolePIN = *val;
                 if (auto val = (*ct)["haptic"].value<int64_t>())
@@ -863,24 +815,17 @@ void SettingsManager::parseTomlFile() {
                 }
                 if (!host) continue;
 
-                Registration reg;
-                reg.consoleId = consoleId;
-                reg.profileId = (*rt)["profile_id"].value<int64_t>().value_or(0);
+                auto reg = registrationOf(*rt);
+                if (!reg)
+                    continue;
 
-                if (auto val = (*rt)["rp_key"].value<std::string>()) {
-                    size_t sz = sizeof(reg.rpKey);
-                    chiaki_base64_decode(val->c_str(), val->length(), reg.rpKey, &sz);
-                }
-                if (auto val = (*rt)["rp_regist_key"].value<std::string>()) {
-                    size_t sz = sizeof(reg.rpRegistKey);
-                    chiaki_base64_decode(val->c_str(), val->length(),
-                        reinterpret_cast<uint8_t*>(reg.rpRegistKey), &sz);
-                }
-                reg.rpKeyType = static_cast<uint32_t>((*rt)["rp_key_type"].value<int64_t>().value_or(0));
-
-                host->upsertRegistration(reg);
+                host->removeRegistrationsForProfile(reg->profileId);
+                host->legacyRegistrations.push_back(std::move(*reg));
             }
         }
+
+        signInStore.read(config);
+        pairingStore.read(config);
 
         brls::Logger::info("Loaded {} profile(s), {} console(s) from TOML config",
             profiles.size(), hosts.size());
@@ -890,6 +835,7 @@ void SettingsManager::parseTomlFile() {
 
         if (configMigrated) {
             brls::Logger::info("Config migrated to current schema, rewriting");
+            backupConfig(configVersion);
             writeFile();
         }
     } catch (const toml::parse_error& err) {
@@ -951,7 +897,9 @@ void SettingsManager::parseLegacyFile() {
     std::string value;
     Host* currentHost = nullptr;
     bool rpKeySet = false, rpRegistKeySet = false, rpKeyTypeSet = false;
-    Registration legacyReg;
+    std::array<std::byte, libchiaking::consoles::PairingKeys::registration_key_size> legacyRegistKey{};
+    std::array<std::byte, libchiaking::consoles::PairingKeys::remote_play_key_size> legacyKey{};
+    uint32_t legacyKeyType = 0;
 
     while (std::getline(configFile, line)) {
         ConfigItem item = parseLine(line, value);
@@ -985,7 +933,6 @@ void SettingsManager::parseLegacyFile() {
                 currentHost->hostType = migratedType;
                 currentHost->hostName = cleanName;
                 rpKeySet = rpRegistKeySet = rpKeyTypeSet = false;
-                legacyReg = Registration{};
                 break;
             }
             case ConfigItem::HostAddr:
@@ -998,33 +945,24 @@ void SettingsManager::parseLegacyFile() {
                 setPsnAccountId(currentHost, value);
                 break;
             case ConfigItem::PsnRefreshToken:
-                ensureActiveProfile()->refreshToken = value;
-                break;
             case ConfigItem::PsnAccessToken:
-                ensureActiveProfile()->accessToken = value;
                 break;
             case ConfigItem::ConsolePIN:
                 if (currentHost) currentHost->consolePIN = value;
                 break;
             case ConfigItem::RpKey:
-                if (currentHost) {
-                    size_t sz = sizeof(legacyReg.rpKey);
-                    rpKeySet = chiaki_base64_decode(value.c_str(), value.length(),
-                        legacyReg.rpKey, &sz) == CHIAKI_ERR_SUCCESS;
-                }
+                if (currentHost)
+                    rpKeySet = akira::base64::decodeExactly(value, legacyKey);
                 break;
             case ConfigItem::RpKeyType:
                 if (currentHost) {
-                    legacyReg.rpKeyType = static_cast<uint32_t>(std::atoi(value.c_str()));
+                    legacyKeyType = static_cast<uint32_t>(std::atoi(value.c_str()));
                     rpKeyTypeSet = true;
                 }
                 break;
             case ConfigItem::RpRegistKey:
-                if (currentHost) {
-                    size_t sz = sizeof(legacyReg.rpRegistKey);
-                    rpRegistKeySet = chiaki_base64_decode(value.c_str(), value.length(),
-                        reinterpret_cast<uint8_t*>(legacyReg.rpRegistKey), &sz) == CHIAKI_ERR_SUCCESS;
-                }
+                if (currentHost)
+                    rpRegistKeySet = akira::base64::decodeExactly(value, legacyRegistKey);
                 break;
             case ConfigItem::VideoResolution:
                 localVideoResolution = stringToResolution(value);
@@ -1043,28 +981,30 @@ void SettingsManager::parseLegacyFile() {
                 }
                 break;
             case ConfigItem::Target:
-                if (currentHost) setChiakiTarget(currentHost, value);
+                if (currentHost) currentHost->firmware = firmwareFromTarget(std::atoll(value.c_str()));
                 break;
             case ConfigItem::CompanionPort:
                 companionPort = std::atoi(value.c_str());
                 if (companionPort <= 0 || companionPort > 65535) companionPort = 8080;
                 break;
             case ConfigItem::PsnTokenExpiresAt:
-                ensureActiveProfile()->tokenExpiresAt = std::atoll(value.c_str());
-                break;
             case ConfigItem::GlobalDuid:
-                ensureActiveProfile()->duid = value;
                 break;
         }
 
         if (rpKeySet && rpRegistKeySet && rpKeyTypeSet && currentHost) {
-            legacyReg.consoleId = currentHost->consoleId;
-            legacyReg.profileId = ensureActiveProfile()->id;
-            currentHost->upsertRegistration(legacyReg);
+            if (auto keys = libchiaking::consoles::PairingKeys::create(legacyRegistKey, legacyKey, legacyKeyType)) {
+                const int64_t profileId = ensureActiveProfile()->id;
+                currentHost->removeRegistrationsForProfile(profileId);
+                currentHost->legacyRegistrations.push_back(Registration{profileId, std::move(*keys)});
+            }
+            rpKeySet = rpRegistKeySet = rpKeyTypeSet = false;
         }
     }
 
     configFile.close();
+    libchiaking::memory::secure_zero(std::span<std::byte>{legacyRegistKey});
+    libchiaking::memory::secure_zero(std::span<std::byte>{legacyKey});
     brls::Logger::info("Loaded {} host(s) from legacy config", hosts.size());
 }
 
@@ -1077,7 +1017,20 @@ int SettingsManager::writeFile() {
     brls::Logger::info("Writing config file: {}", TOML_CONFIG_FILE);
 
     ensureConfigDir();
+    owned = ownedSettings();
+    return persist(owned);
+}
 
+int SettingsManager::writeStores() {
+    std::lock_guard<std::mutex> writeLock(writeMutex);
+
+    brls::Logger::info("Writing the stores to {}", TOML_CONFIG_FILE);
+
+    ensureConfigDir();
+    return persist(owned);
+}
+
+toml::table SettingsManager::ownedSettings() {
     toml::table config;
 
     config.insert("version", chiaki_migrations::buildSettingsMigrator().latest_version());
@@ -1137,28 +1090,8 @@ int SettingsManager::writeFile() {
     {
         toml::table cloud;
         if (!cloudDuid.empty()) cloud.insert("duid", cloudDuid);
-        if (!cloudDatacenterPscloud.empty()) cloud.insert("datacenter_pscloud", cloudDatacenterPscloud);
-        if (!cloudDatacenterPsnow.empty()) cloud.insert("datacenter_psnow", cloudDatacenterPsnow);
         if (cloudSortState != 0) cloud.insert("sort_state", cloudSortState);
-        if (cloudAttrPassed) cloud.insert("attr_passed", true);
-        if (cloudFilterMode != 0) cloud.insert("filter_mode", cloudFilterMode);
-        if (!cloudStoreLocale.empty()) cloud.insert("store_locale", cloudStoreLocale);
-        if (!cloudStoreLocaleSource.empty()) cloud.insert("store_locale_source", cloudStoreLocaleSource);
-        if (!cloudGameLanguage.empty()) cloud.insert("game_language", cloudGameLanguage);
-        if (!cloudFavorites.empty()) {
-            toml::array favorites;
-            for (const std::string& id : cloudFavorites)
-                favorites.push_back(id);
-            cloud.insert("favorites", std::move(favorites));
-        }
-
-        toml::table datacenters;
-        if (!cloudDatacentersPscloud.empty())
-            datacenters.insert("pscloud", datacentersToToml(cloudDatacentersPscloud));
-        if (!cloudDatacentersPsnow.empty())
-            datacenters.insert("psnow", datacentersToToml(cloudDatacentersPsnow));
-        if (!datacenters.empty())
-            cloud.insert("datacenters", std::move(datacenters));
+        if (!cloudFilter.empty()) cloud.insert("filter", cloudFilter);
 
         if (!cloud.empty())
             config.insert("cloud", std::move(cloud));
@@ -1180,7 +1113,13 @@ int SettingsManager::writeFile() {
         if (!autoReconnect) stream.insert("auto_reconnect", false);
         if (sleepOnExit) stream.insert("sleep_on_exit", true);
         stream.insert("request_idr_on_fec_failure", requestIdrOnFecFailure);
-        if (takionVersion) stream.insert("takion_version", static_cast<int64_t>(takionVersion));
+        toml::table versions;
+        for (const auto target : {TakionTarget::PS4, TakionTarget::PS5, TakionTarget::PS5Cloud, TakionTarget::PSNow}) {
+            if (const int version = getTakionVersion(target))
+                versions.insert(takionTargetKey(target), static_cast<int64_t>(version));
+        }
+        if (!versions.empty())
+            stream.insert("takion_versions", std::move(versions));
         stream.insert("packet_loss_max", static_cast<double>(packetLossMax));
         config.insert("stream", std::move(stream));
     }
@@ -1191,13 +1130,6 @@ int SettingsManager::writeFile() {
         if (hideAccountName) ui.insert("hide_account_name", true);
         ui.insert("connection_show_stages", connectionShowStages);
         config.insert("ui", std::move(ui));
-    }
-
-    {
-        toml::table psn;
-        psn.insert("request_budget", psnRequestBudget);
-        psn.insert("request_window_seconds", psnRequestWindowSeconds);
-        config.insert("psn", std::move(psn));
     }
 
     {
@@ -1213,7 +1145,7 @@ int SettingsManager::writeFile() {
         toml::table debug;
         if (!debugLocale.empty()) debug.insert("locale", debugLocale);
         if (enableFileLogging) debug.insert("file_logging", true);
-        if (enableThreadAffinity) debug.insert("thread_affinity", true);
+        if (silenceAllLogs) debug.insert("silence_all_logs", true);
         if (debugLwipLog) debug.insert("lwip_log", true);
         if (debugWireguardLog) debug.insert("wireguard_log", true);
         if (debugRenderLog) debug.insert("render_log", true);
@@ -1226,7 +1158,6 @@ int SettingsManager::writeFile() {
         if (powerUserMenuUnlocked) debug.insert("power_user_menu_unlocked", true);
         if (unlockBitrateMax) debug.insert("unlock_bitrate_max", true);
         if (!devUpdateServer.empty()) debug.insert("update_server", devUpdateServer);
-        if (!devForceWsFqdn.empty()) debug.insert("force_ws_fqdn", devForceWsFqdn);
         if (!debug.empty())
             config.insert("debug", std::move(debug));
     }
@@ -1299,16 +1230,6 @@ int SettingsManager::writeFile() {
             pt.insert("profile_id", p.id);
             if (!p.onlineId.empty()) pt.insert("online_id", p.onlineId);
             if (!p.accountId.empty()) pt.insert("account_id", p.accountId);
-            if (!p.refreshToken.empty()) pt.insert("refresh_token", p.refreshToken);
-            if (!p.accessToken.empty()) pt.insert("access_token", p.accessToken);
-            if (p.tokenExpiresAt > 0) pt.insert("token_expires_at", p.tokenExpiresAt);
-            if (!p.mobileSsoRefreshToken.empty()) pt.insert("mobile_sso_refresh_token", p.mobileSsoRefreshToken);
-            if (!p.mobileSsoAccessToken.empty()) pt.insert("mobile_sso_access_token", p.mobileSsoAccessToken);
-            if (p.mobileSsoExpiresAt > 0) pt.insert("mobile_sso_expires_at", p.mobileSsoExpiresAt);
-            if (!p.npsso.empty()) pt.insert("npsso", p.npsso);
-            if (p.npssoLastCheckedAt > 0) pt.insert("npsso_last_checked_at", p.npssoLastCheckedAt);
-            if (p.npssoLastCheckedAt > 0) pt.insert("npsso_valid", p.npssoValid);
-            if (!p.duid.empty()) pt.insert("duid", p.duid);
             if (!p.avatarUrl.empty()) pt.insert("avatar_url", p.avatarUrl);
             if (!p.trophiesEnabled) pt.insert("trophies_enabled", false);
             if (p.legacy) pt.insert("legacy", true);
@@ -1334,32 +1255,21 @@ int SettingsManager::writeFile() {
             ct.insert("nickname", name);
             if (!host->serverNickname.empty()) ct.insert("server_nickname", host->serverNickname);
             ct.insert("host_addr", host->getHostAddr());
-            ct.insert("target", static_cast<int>(host->getChiakiTarget()));
+            ct.insert("target", targetOf(host->getFirmware()));
+            if (host->hardwareId) ct.insert("hardware_id", host->hardwareId->text());
             ct.insert("host_type", std::to_underlying(host->hostType));
             if (!host->consolePIN.empty()) ct.insert("console_pin", host->consolePIN);
             if (!host->remoteDuid.empty()) ct.insert("remote_duid", host->remoteDuid);
             if (host->haptic >= 0) ct.insert("haptic", host->haptic);
             consolesArr.push_back(ct);
 
-            for (const Registration& reg : host->registrations) {
+            for (const Registration& reg : host->legacyRegistrations) {
                 toml::table rt;
                 rt.insert("console_id", host->consoleId);
                 rt.insert("profile_id", reg.profileId);
-
-                {
-                    size_t b64Size = getB64EncodeSize(0x10);
-                    char b64[b64Size + 1] = {0};
-                    if (chiaki_base64_encode(reg.rpKey, 0x10, b64, sizeof(b64)) == CHIAKI_ERR_SUCCESS)
-                        rt.insert("rp_key", std::string(b64));
-                }
-                {
-                    size_t b64Size = getB64EncodeSize(CHIAKI_SESSION_AUTH_SIZE);
-                    char b64[b64Size + 1] = {0};
-                    if (chiaki_base64_encode(reinterpret_cast<const uint8_t*>(reg.rpRegistKey),
-                            CHIAKI_SESSION_AUTH_SIZE, b64, sizeof(b64)) == CHIAKI_ERR_SUCCESS)
-                        rt.insert("rp_regist_key", std::string(b64));
-                }
-                rt.insert("rp_key_type", static_cast<int64_t>(reg.rpKeyType));
+                rt.insert("rp_key", akira::base64::encode(reg.keys.remote_play_key()));
+                rt.insert("rp_regist_key", akira::base64::encode(reg.keys.registration_key()));
+                rt.insert("rp_key_type", static_cast<int64_t>(reg.keys.key_type()));
                 registrationsArr.push_back(rt);
             }
         }
@@ -1369,6 +1279,31 @@ int SettingsManager::writeFile() {
         if (!registrationsArr.empty())
             config.insert("registrations", registrationsArr);
     }
+
+    return config;
+}
+
+int SettingsManager::persist(toml::table config) {
+    {
+        toml::table datacenters;
+        std::lock_guard<std::mutex> datacenterLock(datacenterMutex);
+        if (!cloudDatacentersPscloud.empty())
+            datacenters.insert("pscloud", datacentersToToml(cloudDatacentersPscloud));
+        if (!cloudDatacentersPsnow.empty())
+            datacenters.insert("psnow", datacentersToToml(cloudDatacentersPsnow));
+        if (!datacenters.empty()) {
+            if (auto* cloud = config["cloud"].as_table()) {
+                cloud->insert_or_assign("datacenters", std::move(datacenters));
+            } else {
+                toml::table cloudTable;
+                cloudTable.insert("datacenters", std::move(datacenters));
+                config.insert("cloud", std::move(cloudTable));
+            }
+        }
+    }
+
+    signInStore.write(config);
+    pairingStore.write(config);
 
     std::string tmpPath = std::format("{}.{}.tmp", TOML_CONFIG_FILE, writeSeq++);
     {
@@ -1396,103 +1331,103 @@ int SettingsManager::writeFile() {
     return 0;
 }
 
-std::string SettingsManager::resolutionToString(ChiakiVideoResolutionPreset resolution) {
+std::string SettingsManager::resolutionToString(VideoResolution resolution) {
     switch (resolution) {
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_360p: return "360p";
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_540p: return "540p";
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_720p: return "720p";
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_1080p: return "1080p";
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_1440p: return "1440p";
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_2160p: return "2160p";
+        case VideoResolution::P360: return "360p";
+        case VideoResolution::P540: return "540p";
+        case VideoResolution::P720: return "720p";
+        case VideoResolution::P1080: return "1080p";
+        case VideoResolution::P1440: return "1440p";
+        case VideoResolution::P2160: return "2160p";
         default: return "720p";
     }
 }
 
-int SettingsManager::resolutionToInt(ChiakiVideoResolutionPreset resolution) {
+int SettingsManager::resolutionToInt(VideoResolution resolution) {
     switch (resolution) {
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_360p: return 360;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_540p: return 540;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_720p: return 720;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_1080p: return 1080;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_1440p: return 1440;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_2160p: return 2160;
+        case VideoResolution::P360: return 360;
+        case VideoResolution::P540: return 540;
+        case VideoResolution::P720: return 720;
+        case VideoResolution::P1080: return 1080;
+        case VideoResolution::P1440: return 1440;
+        case VideoResolution::P2160: return 2160;
         default: return 720;
     }
 }
 
-ChiakiVideoResolutionPreset SettingsManager::intToResolution(int height) {
-    if (height >= 2160) return CHIAKI_VIDEO_RESOLUTION_PRESET_2160p;
-    if (height >= 1440) return CHIAKI_VIDEO_RESOLUTION_PRESET_1440p;
-    if (height >= 1080) return CHIAKI_VIDEO_RESOLUTION_PRESET_1080p;
-    if (height >= 720) return CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
-    if (height >= 540) return CHIAKI_VIDEO_RESOLUTION_PRESET_540p;
-    return CHIAKI_VIDEO_RESOLUTION_PRESET_360p;
+VideoResolution SettingsManager::intToResolution(int height) {
+    if (height >= 2160) return VideoResolution::P2160;
+    if (height >= 1440) return VideoResolution::P1440;
+    if (height >= 1080) return VideoResolution::P1080;
+    if (height >= 720) return VideoResolution::P720;
+    if (height >= 540) return VideoResolution::P540;
+    return VideoResolution::P360;
 }
 
-ChiakiVideoResolutionPreset SettingsManager::stringToResolution(const std::string& value) {
-    if (value == "2160p") return CHIAKI_VIDEO_RESOLUTION_PRESET_2160p;
-    if (value == "1440p") return CHIAKI_VIDEO_RESOLUTION_PRESET_1440p;
-    if (value == "1080p") return CHIAKI_VIDEO_RESOLUTION_PRESET_1080p;
-    if (value == "720p") return CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
-    if (value == "540p") return CHIAKI_VIDEO_RESOLUTION_PRESET_540p;
-    if (value == "360p") return CHIAKI_VIDEO_RESOLUTION_PRESET_360p;
-    return CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
+VideoResolution SettingsManager::stringToResolution(const std::string& value) {
+    if (value == "2160p") return VideoResolution::P2160;
+    if (value == "1440p") return VideoResolution::P1440;
+    if (value == "1080p") return VideoResolution::P1080;
+    if (value == "720p") return VideoResolution::P720;
+    if (value == "540p") return VideoResolution::P540;
+    if (value == "360p") return VideoResolution::P360;
+    return VideoResolution::P720;
 }
 
 // FPS helpers
-std::string SettingsManager::fpsToString(ChiakiVideoFPSPreset fps) {
+std::string SettingsManager::fpsToString(VideoFps fps) {
     switch (fps) {
-        case CHIAKI_VIDEO_FPS_PRESET_30: return "30";
-        case CHIAKI_VIDEO_FPS_PRESET_60: return "60";
+        case VideoFps::Fps30: return "30";
+        case VideoFps::Fps60: return "60";
         default: return "60";
     }
 }
 
-int SettingsManager::fpsToInt(ChiakiVideoFPSPreset fps) {
+int SettingsManager::fpsToInt(VideoFps fps) {
     switch (fps) {
-        case CHIAKI_VIDEO_FPS_PRESET_30: return 30;
-        case CHIAKI_VIDEO_FPS_PRESET_60: return 60;
+        case VideoFps::Fps30: return 30;
+        case VideoFps::Fps60: return 60;
         default: return 60;
     }
 }
 
-ChiakiVideoFPSPreset SettingsManager::stringToFps(const std::string& value) {
-    if (value == "60") return CHIAKI_VIDEO_FPS_PRESET_60;
-    if (value == "30") return CHIAKI_VIDEO_FPS_PRESET_30;
-    return CHIAKI_VIDEO_FPS_PRESET_60;
+VideoFps SettingsManager::stringToFps(const std::string& value) {
+    if (value == "60") return VideoFps::Fps60;
+    if (value == "30") return VideoFps::Fps30;
+    return VideoFps::Fps60;
 }
 
-int SettingsManager::getDefaultBitrateForResolution(ChiakiVideoResolutionPreset res) {
+int SettingsManager::getDefaultBitrateForResolution(VideoResolution res) {
     switch (res) {
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_2160p: return 50000;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_1440p: return 30000;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_1080p: return 15000;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_720p: return 10000;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_540p: return 5000;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_360p: return 2000;
+        case VideoResolution::P2160: return 50000;
+        case VideoResolution::P1440: return 30000;
+        case VideoResolution::P1080: return 15000;
+        case VideoResolution::P720: return 10000;
+        case VideoResolution::P540: return 5000;
+        case VideoResolution::P360: return 2000;
         default: return 10000;
     }
 }
 
-int SettingsManager::getMaxBitrateForResolution(ChiakiVideoResolutionPreset res) const {
+int SettingsManager::getMaxBitrateForResolution(VideoResolution res) const {
     if (unlockBitrateMax) {
         switch (res) {
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_2160p: return 120000;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_1440p: return 80000;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_1080p: return 50000;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_720p: return 40000;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_540p: return 10000;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_360p: return 5000;
+            case VideoResolution::P2160: return 120000;
+            case VideoResolution::P1440: return 80000;
+            case VideoResolution::P1080: return 50000;
+            case VideoResolution::P720: return 40000;
+            case VideoResolution::P540: return 10000;
+            case VideoResolution::P360: return 5000;
             default: return 40000;
         }
     }
     switch (res) {
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_2160p: return 60000;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_1440p: return 40000;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_1080p: return 25000;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_720p: return 20000;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_540p: return 10000;
-        case CHIAKI_VIDEO_RESOLUTION_PRESET_360p: return 5000;
+        case VideoResolution::P2160: return 60000;
+        case VideoResolution::P1440: return 40000;
+        case VideoResolution::P1080: return 25000;
+        case VideoResolution::P720: return 20000;
+        case VideoResolution::P540: return 10000;
+        case VideoResolution::P360: return 5000;
         default: return 20000;
     }
 }
@@ -1562,13 +1497,7 @@ void SettingsManager::setDiscovered(Host* host, bool value) {
 }
 
 std::string SettingsManager::getPsnOnlineId(Host* host) {
-    if (host) {
-        const Registration* reg = host->activeRegistration();
-        if (reg) {
-            const Profile* p = findProfile(reg->profileId);
-            if (p && !p->onlineId.empty()) return p->onlineId;
-        }
-    }
+    (void)host;
     const Profile* ap = getActiveProfile();
     return ap ? ap->onlineId : "";
 }
@@ -1579,13 +1508,7 @@ void SettingsManager::setPsnOnlineId(Host* host, const std::string& id) {
 }
 
 std::string SettingsManager::getPsnAccountId(Host* host) {
-    if (host) {
-        const Registration* reg = host->activeRegistration();
-        if (reg) {
-            const Profile* p = findProfile(reg->profileId);
-            if (p && !p->accountId.empty()) return p->accountId;
-        }
-    }
+    (void)host;
     const Profile* ap = getActiveProfile();
     return ap ? ap->accountId : "";
 }
@@ -1608,45 +1531,45 @@ void SettingsManager::setConsolePIN(Host* host, const std::string& pin) {
     }
 }
 
-ChiakiVideoResolutionPreset SettingsManager::getVideoResolution(Host* host) {
+VideoResolution SettingsManager::getVideoResolution(Host* host) {
     if (host && host->isRemote()) return remoteVideoResolution;
     return localVideoResolution;
 }
 
-ChiakiVideoResolutionPreset SettingsManager::getLocalVideoResolution() const {
+VideoResolution SettingsManager::getLocalVideoResolution() const {
     return localVideoResolution;
 }
 
-void SettingsManager::setLocalVideoResolution(ChiakiVideoResolutionPreset value) {
+void SettingsManager::setLocalVideoResolution(VideoResolution value) {
     localVideoResolution = value;
 }
 
-ChiakiVideoResolutionPreset SettingsManager::getRemoteVideoResolution() const {
+VideoResolution SettingsManager::getRemoteVideoResolution() const {
     return remoteVideoResolution;
 }
 
-void SettingsManager::setRemoteVideoResolution(ChiakiVideoResolutionPreset value) {
+void SettingsManager::setRemoteVideoResolution(VideoResolution value) {
     remoteVideoResolution = value;
 }
 
-ChiakiVideoFPSPreset SettingsManager::getVideoFPS(Host* host) {
+VideoFps SettingsManager::getVideoFPS(Host* host) {
     if (host && host->isRemote()) return remoteVideoFPS;
     return localVideoFPS;
 }
 
-ChiakiVideoFPSPreset SettingsManager::getLocalVideoFPS() const {
+VideoFps SettingsManager::getLocalVideoFPS() const {
     return localVideoFPS;
 }
 
-void SettingsManager::setLocalVideoFPS(ChiakiVideoFPSPreset value) {
+void SettingsManager::setLocalVideoFPS(VideoFps value) {
     localVideoFPS = value;
 }
 
-ChiakiVideoFPSPreset SettingsManager::getRemoteVideoFPS() const {
+VideoFps SettingsManager::getRemoteVideoFPS() const {
     return remoteVideoFPS;
 }
 
-void SettingsManager::setRemoteVideoFPS(ChiakiVideoFPSPreset value) {
+void SettingsManager::setRemoteVideoFPS(VideoFps value) {
     remoteVideoFPS = value;
 }
 
@@ -1712,22 +1635,13 @@ void SettingsManager::setCloudFsrEnabled(bool pscloud, bool enabled) {
         cloudFsrEnabledPsnow = enabled;
 }
 
-std::string SettingsManager::getCloudDatacenter(bool pscloud) const {
-    return pscloud ? cloudDatacenterPscloud : cloudDatacenterPsnow;
-}
-
-void SettingsManager::setCloudDatacenter(bool pscloud, const std::string& datacenter) {
-    if (pscloud)
-        cloudDatacenterPscloud = datacenter;
-    else
-        cloudDatacenterPsnow = datacenter;
-}
-
-const std::vector<cloud::Datacenter>& SettingsManager::getCloudDatacenters(bool pscloud) const {
+std::vector<cloud::Datacenter> SettingsManager::getCloudDatacenters(bool pscloud) const {
+    std::lock_guard<std::mutex> lock(datacenterMutex);
     return pscloud ? cloudDatacentersPscloud : cloudDatacentersPsnow;
 }
 
 void SettingsManager::setCloudDatacenters(bool pscloud, std::vector<cloud::Datacenter> datacenters) {
+    std::lock_guard<std::mutex> lock(datacenterMutex);
     if (pscloud)
         cloudDatacentersPscloud = std::move(datacenters);
     else
@@ -1742,48 +1656,12 @@ void SettingsManager::setCloudSortState(int value) {
     cloudSortState = value;
 }
 
-bool SettingsManager::getCloudAttrPassed() const {
-    return cloudAttrPassed;
+const std::string& SettingsManager::getCloudFilter() const {
+    return cloudFilter;
 }
 
-void SettingsManager::setCloudAttrPassed(bool value) {
-    cloudAttrPassed = value;
-}
-
-int SettingsManager::getCloudFilterMode() const {
-    return cloudFilterMode;
-}
-
-void SettingsManager::setCloudFilterMode(int value) {
-    cloudFilterMode = value;
-}
-
-std::string SettingsManager::getCloudStoreLocale() const {
-    return cloudStoreLocale;
-}
-
-void SettingsManager::setCloudStoreLocale(const std::string& locale) {
-    cloudStoreLocale = locale;
-}
-
-std::string SettingsManager::getCloudStoreLocaleSource() const {
-    return cloudStoreLocaleSource;
-}
-
-void SettingsManager::setCloudStoreLocaleSource(const std::string& locale) {
-    cloudStoreLocaleSource = locale;
-}
-
-std::string SettingsManager::getCloudGameLanguage() const {
-    return cloudGameLanguage;
-}
-
-void SettingsManager::setCloudGameLanguage(const std::string& language) {
-    cloudGameLanguage = language;
-}
-
-const std::vector<std::string>& SettingsManager::getCloudFavorites() const {
-    return cloudFavorites;
+void SettingsManager::setCloudFilter(std::string filter) {
+    cloudFilter = std::move(filter);
 }
 
 const std::vector<cloud::Game>& SettingsManager::getCloudShortcuts() const {
@@ -1796,23 +1674,19 @@ void SettingsManager::setCloudShortcuts(std::vector<cloud::Game> shortcuts) {
     ensureActiveProfile()->cloudShortcuts = std::move(shortcuts);
 }
 
-void SettingsManager::setCloudFavorites(std::vector<std::string> favorites) {
-    cloudFavorites = std::move(favorites);
-}
-
-ChiakiVideoResolutionPreset SettingsManager::getVpnVideoResolution() const {
+VideoResolution SettingsManager::getVpnVideoResolution() const {
     return vpnVideoResolution;
 }
 
-void SettingsManager::setVpnVideoResolution(ChiakiVideoResolutionPreset value) {
+void SettingsManager::setVpnVideoResolution(VideoResolution value) {
     vpnVideoResolution = value;
 }
 
-ChiakiVideoFPSPreset SettingsManager::getVpnVideoFPS() const {
+VideoFps SettingsManager::getVpnVideoFPS() const {
     return vpnVideoFPS;
 }
 
-void SettingsManager::setVpnVideoFPS(ChiakiVideoFPSPreset value) {
+void SettingsManager::setVpnVideoFPS(VideoFps value) {
     vpnVideoFPS = value;
 }
 
@@ -1933,22 +1807,103 @@ bool SettingsManager::getDirectHapticsInStream() const { return directHapticsInS
 void SettingsManager::setDirectHapticsInStream(bool value) { directHapticsInStream = value; }
 
 
-ChiakiTarget SettingsManager::getChiakiTarget(Host* host) {
-    if (host) return host->getChiakiTarget();
-    return CHIAKI_TARGET_PS4_UNKNOWN;
+std::optional<libchiaking::consoles::Firmware> SettingsManager::firmwareFromTarget(int64_t target) {
+    using Family = libchiaking::consoles::Firmware::Family;
+    if (target >= 1000000)
+        return libchiaking::consoles::Firmware{Family::ps5_1};
+    if (target >= 1000)
+        return libchiaking::consoles::Firmware{Family::ps4_10};
+    if (target >= 900)
+        return libchiaking::consoles::Firmware{Family::ps4_9};
+    if (target >= 800)
+        return libchiaking::consoles::Firmware{Family::ps4_8};
+    return std::nullopt;
 }
 
-bool SettingsManager::setChiakiTarget(Host* host, ChiakiTarget target) {
-    if (host) {
-        host->setChiakiTarget(target);
-        return true;
+int64_t SettingsManager::targetOf(const std::optional<libchiaking::consoles::Firmware>& firmware) {
+    using Family = libchiaking::consoles::Firmware::Family;
+    if (!firmware)
+        return 0;
+    switch (firmware->family()) {
+        case Family::ps4_8: return 800;
+        case Family::ps4_9: return 900;
+        case Family::ps4_10: return 1000;
+        case Family::ps5_1: return 1000100;
     }
-    brls::Logger::error("Cannot setChiakiTarget on nullptr");
-    return false;
+    return 0;
 }
 
-bool SettingsManager::setChiakiTarget(Host* host, const std::string& value) {
-    return setChiakiTarget(host, static_cast<ChiakiTarget>(std::atoi(value.c_str())));
+std::optional<Registration> SettingsManager::registrationOf(const toml::table& row) {
+    std::array<std::byte, libchiaking::consoles::PairingKeys::registration_key_size> registKey{};
+    std::array<std::byte, libchiaking::consoles::PairingKeys::remote_play_key_size> key{};
+    const bool decoded =
+        akira::base64::decodeExactly(row["rp_regist_key"].value_or(std::string_view{}), registKey) &&
+        akira::base64::decodeExactly(row["rp_key"].value_or(std::string_view{}), key);
+    auto keys = decoded
+        ? libchiaking::consoles::PairingKeys::create(registKey, key,
+              static_cast<uint32_t>(row["rp_key_type"].value_or(int64_t{0})))
+        : std::nullopt;
+    libchiaking::memory::secure_zero(std::span<std::byte>{registKey});
+    libchiaking::memory::secure_zero(std::span<std::byte>{key});
+    if (!keys)
+        return std::nullopt;
+    return Registration{row["profile_id"].value_or(int64_t{0}), std::move(*keys)};
+}
+
+bool SettingsManager::adoptLegacyRegistrations(Host& host) {
+    namespace consoles = libchiaking::consoles;
+    if (!host.hardwareId || host.legacyRegistrations.empty())
+        return false;
+    const auto firmware = host.getFirmware();
+    if (!firmware)
+        return false;
+
+    const std::string name = host.serverNickname.empty() ? host.hostName : host.serverNickname;
+    consoles::SavedConsole console{*host.hardwareId, *firmware,
+        consoles::ConsoleName::create(name, consoles::ConsoleName::Source::pairing)
+            .value_or(consoles::ConsoleName::of(firmware->generation()))};
+    if (auto address = consoles::Host::create(host.getHostAddr(), firmware->generation()))
+        console.last_address = std::move(address.value());
+
+    std::vector<consoles::SavedPairing> adopted;
+    {
+        std::lock_guard<std::recursive_mutex> lock(profileMutex);
+        for (const Registration& reg : host.legacyRegistrations) {
+            const Profile* profile = findProfile(reg.profileId);
+            const auto account = profile ? libchiaking::AccountId::from_base64(profile->accountId) : std::nullopt;
+            if (!account)
+                continue;
+            adopted.push_back(consoles::SavedPairing{*account, *host.hardwareId, reg.keys.clone(),
+                consoles::DeviceUid::parse(host.remoteDuid)});
+        }
+    }
+    if (adopted.empty())
+        return false;
+
+    if (!pairingStore.adopt(std::move(console), std::move(adopted))) {
+        brls::Logger::error("Could not adopt the saved registrations of {}", host.hostName);
+        return false;
+    }
+    host.legacyRegistrations.clear();
+    writeFile();
+    brls::Logger::info("Adopted the saved registrations of {} into the core's pairings", host.hostName);
+    return true;
+}
+
+void SettingsManager::backupConfig(int64_t version) {
+    const std::string backupPath = std::format("{}.v{}.bak", TOML_CONFIG_FILE, version);
+    std::ifstream source(TOML_CONFIG_FILE, std::ios::binary);
+    std::ofstream backup(backupPath, std::ios::binary | std::ios::trunc);
+    if (source && backup)
+        backup << source.rdbuf();
+    backup.flush();
+    const auto written = backup.good() ? static_cast<std::streamoff>(backup.tellp()) : std::streamoff{-1};
+    std::error_code error;
+    const auto expected = std::filesystem::file_size(TOML_CONFIG_FILE, error);
+    if (error || written < 0 || static_cast<std::uintmax_t>(written) != expected)
+        brls::Logger::error("Could not back up {} to {} before migrating", TOML_CONFIG_FILE, backupPath);
+    else
+        brls::Logger::info("Backed up {} to {} before migrating", TOML_CONFIG_FILE, backupPath);
 }
 
 int SettingsManager::getCompanionPort() const {
@@ -1961,135 +1916,12 @@ void SettingsManager::setCompanionPort(int port) {
     }
 }
 
-std::string SettingsManager::getPsnRefreshToken() const {
-    const Profile* p = getActiveProfile();
-    return p ? p->refreshToken : "";
-}
-
-void SettingsManager::setPsnRefreshToken(const std::string& token) {
-    ensureActiveProfile()->refreshToken = token;
-}
-
-std::string SettingsManager::getPsnAccessToken() const {
-    const Profile* p = getActiveProfile();
-    return p ? p->accessToken : "";
-}
-
-void SettingsManager::setPsnAccessToken(const std::string& token) {
-    ensureActiveProfile()->accessToken = token;
-}
-
-int64_t SettingsManager::getPsnTokenExpiresAt() const {
-    const Profile* p = getActiveProfile();
-    return p ? p->tokenExpiresAt : 0;
-}
-
-void SettingsManager::setPsnTokenExpiresAt(int64_t expiresAt) {
-    ensureActiveProfile()->tokenExpiresAt = expiresAt;
-}
-
-std::string SettingsManager::getPsnMobileSsoRefreshToken() const {
-    const Profile* p = getActiveProfile();
-    return p ? p->mobileSsoRefreshToken : "";
-}
-
-void SettingsManager::setPsnMobileSsoRefreshToken(const std::string& token) {
-    ensureActiveProfile()->mobileSsoRefreshToken = token;
-}
-
-std::string SettingsManager::getPsnMobileSsoAccessToken() const {
-    const Profile* p = getActiveProfile();
-    return p ? p->mobileSsoAccessToken : "";
-}
-
-void SettingsManager::setPsnMobileSsoAccessToken(const std::string& token) {
-    ensureActiveProfile()->mobileSsoAccessToken = token;
-}
-
-int64_t SettingsManager::getPsnMobileSsoExpiresAt() const {
-    const Profile* p = getActiveProfile();
-    return p ? p->mobileSsoExpiresAt : 0;
-}
-
-void SettingsManager::setPsnMobileSsoExpiresAt(int64_t expiresAt) {
-    ensureActiveProfile()->mobileSsoExpiresAt = expiresAt;
-}
-
-void SettingsManager::clearPsnMobileSsoData() {
-    if (Profile* p = getActiveProfile()) {
-        p->mobileSsoAccessToken.clear();
-        p->mobileSsoRefreshToken.clear();
-        p->mobileSsoExpiresAt = 0;
-    }
-    brls::Logger::info("PSN mobile SSO token data cleared");
-}
-
-std::string SettingsManager::getPsnNpsso() const {
-    const Profile* p = getActiveProfile();
-    return p ? p->npsso : "";
-}
-
-void SettingsManager::setPsnNpsso(const std::string& npsso) {
-    Profile* p = ensureActiveProfile();
-    if (p->npsso != npsso) {
-        p->npsso = npsso;
-        p->npssoLastCheckedAt = 0;
-        p->npssoValid = false;
-    }
-}
-
-int64_t SettingsManager::getPsnNpssoLastCheckedAt() const {
-    const Profile* p = getActiveProfile();
-    return p ? p->npssoLastCheckedAt : 0;
-}
-
-void SettingsManager::setPsnNpssoLastCheckedAt(int64_t checkedAt) {
-    ensureActiveProfile()->npssoLastCheckedAt = checkedAt;
-}
-
-bool SettingsManager::getPsnNpssoValid() const {
-    const Profile* p = getActiveProfile();
-    return p ? p->npssoValid : false;
-}
-
-void SettingsManager::setPsnNpssoValid(bool valid) {
-    ensureActiveProfile()->npssoValid = valid;
-}
-
-void SettingsManager::clearPsnTokenData() {
-    if (Profile* p = getActiveProfile()) {
-        p->accessToken.clear();
-        p->refreshToken.clear();
-        p->tokenExpiresAt = 0;
-    }
-    brls::Logger::info("PSN token data cleared");
-}
-
-void SettingsManager::clearPsnNpssoData() {
-    if (Profile* p = getActiveProfile()) {
-        p->npsso.clear();
-        p->npssoLastCheckedAt = 0;
-        p->npssoValid = false;
-    }
-    brls::Logger::info("PSN NPSSO data cleared");
-}
-
-void SettingsManager::clearAllPsnData() {
-    clearPsnTokenData();
-    clearPsnMobileSsoData();
-    clearPsnNpssoData();
-}
-
-std::string SettingsManager::getGlobalDuid() const {
-    const Profile* p = getActiveProfile();
-    return p ? p->duid : "";
-}
-
-void SettingsManager::setGlobalDuid(const std::string& duid) {
-    ensureActiveProfile()->duid = duid;
-}
-
 const std::vector<Profile>& SettingsManager::getProfiles() const {
+    return profiles;
+}
+
+std::vector<Profile> SettingsManager::profilesSnapshot() const {
+    std::lock_guard<std::recursive_mutex> lock(profileMutex);
     return profiles;
 }
 
@@ -2142,9 +1974,8 @@ void SettingsManager::logProfileCensus(const char* stage) {
     brls::Logger::info("Profile census [{}]: active={} count={}",
         stage, activeProfileId, profiles.size());
     for (const Profile& p : profiles) {
-        brls::Logger::info("  profile id={} label='{}' npsso={} refresh={} account={} shortcuts={}",
-            p.id, p.label(), !p.npsso.empty(), !p.refreshToken.empty(),
-            !p.accountId.empty(), p.cloudShortcuts.size());
+        brls::Logger::info("  profile id={} label='{}' legacy={} account={} shortcuts={}",
+            p.id, p.label(), p.legacy, !p.accountId.empty(), p.cloudShortcuts.size());
     }
 }
 
@@ -2257,22 +2088,6 @@ void SettingsManager::setPortGuessingSocks(int count) {
         portGuessingSocks = count;
 }
 
-int SettingsManager::getPsnRequestBudget() const {
-    return psnRequestBudget;
-}
-
-void SettingsManager::setPsnRequestBudget(int budget) {
-    psnRequestBudget = std::clamp(budget, 1, 100000);
-}
-
-int SettingsManager::getPsnRequestWindowSeconds() const {
-    return psnRequestWindowSeconds;
-}
-
-void SettingsManager::setPsnRequestWindowSeconds(int seconds) {
-    psnRequestWindowSeconds = std::clamp(seconds, 60, 86400);
-}
-
 bool SettingsManager::getPowerUserMenuUnlocked() const {
     return powerUserMenuUnlocked;
 }
@@ -2383,23 +2198,15 @@ void SettingsManager::setDevUpdateServer(const std::string& server) {
     devUpdateServer = server;
 }
 
-std::string SettingsManager::getDevForceWsFqdn() const {
-    return devForceWsFqdn;
-}
-
-void SettingsManager::setDevForceWsFqdn(const std::string& fqdn) {
-    devForceWsFqdn = fqdn;
-}
-
-int SettingsManager::getMinBitrateForResolution(ChiakiVideoResolutionPreset res) const {
+int SettingsManager::getMinBitrateForResolution(VideoResolution res) const {
     if (unlockBitrateMax) {
         switch (res) {
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_2160p: return 10000;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_1440p: return 5000;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_1080p: return 5000;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_720p: return 5000;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_540p: return 1000;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_360p: return 1000;
+            case VideoResolution::P2160: return 10000;
+            case VideoResolution::P1440: return 5000;
+            case VideoResolution::P1080: return 5000;
+            case VideoResolution::P720: return 5000;
+            case VideoResolution::P540: return 1000;
+            case VideoResolution::P360: return 1000;
             default: return 1000;
         }
     }
@@ -2430,12 +2237,26 @@ void SettingsManager::setRequestIdrOnFecFailure(bool enabled) {
     requestIdrOnFecFailure = enabled;
 }
 
-int SettingsManager::getTakionVersion() const {
-    return takionVersion;
+int SettingsManager::getTakionVersion(TakionTarget target) const {
+    return takionVersions[static_cast<size_t>(target)];
 }
 
-void SettingsManager::setTakionVersion(int version) {
-    takionVersion = version;
+void SettingsManager::setTakionVersion(TakionTarget target, int version) {
+    takionVersions[static_cast<size_t>(target)] = version;
+}
+
+auto SettingsManager::takionTargetKey(TakionTarget target) -> std::string_view {
+    switch (target) {
+        case TakionTarget::PS4:
+            return "ps4";
+        case TakionTarget::PS5:
+            return "ps5";
+        case TakionTarget::PS5Cloud:
+            return "ps5_cloud";
+        case TakionTarget::PSNow:
+            return "ps_now";
+    }
+    return "ps5";
 }
 
 float SettingsManager::getPacketLossMax() const {
@@ -2457,7 +2278,7 @@ bool SettingsManager::getEasuEnabled() const {
 }
 
 int SettingsManager::getEasuTargetHeight() const {
-    ChiakiVideoResolutionPreset res;
+    VideoResolution res;
     switch (activeStreamProfile) {
         case StreamProfile::Remote: res = remoteVideoResolution; break;
         case StreamProfile::Vpn: res = vpnVideoResolution; break;
@@ -2527,19 +2348,20 @@ void SettingsManager::setActiveCloudPscloud(bool pscloud) {
 }
 
 bool SettingsManager::getEnableFileLogging() const {
-    return enableFileLogging;
+    return enableFileLogging && !silenceAllLogs;
+}
+
+bool SettingsManager::getSilenceAllLogs() const {
+    return silenceAllLogs;
+}
+
+void SettingsManager::setSilenceAllLogs(bool silenced) {
+    silenceAllLogs = silenced;
+    applyChiakiLogVerbosity();
 }
 
 void SettingsManager::setEnableFileLogging(bool enabled) {
     enableFileLogging = enabled;
-}
-
-bool SettingsManager::getEnableThreadAffinity() const {
-    return enableThreadAffinity;
-}
-
-void SettingsManager::setEnableThreadAffinity(bool enabled) {
-    enableThreadAffinity = enabled;
 }
 
 bool SettingsManager::getEnableDithering() const {
@@ -2613,18 +2435,15 @@ void SettingsManager::setChiakiLogVerbosity(ChiakiLogVerbosity verbosity) {
 }
 
 void SettingsManager::applyChiakiLogVerbosity() {
-    brls::Logger::setLogLevel(borealisLogLevel(chiakiLogVerbosity));
+    brls::Logger::setLogLevel(silenceAllLogs
+        ? static_cast<brls::LogLevel>(static_cast<int>(brls::LogLevel::LOG_ERROR) - 1)
+        : borealisLogLevel(chiakiLogVerbosity));
     updateChiakiLogMask();
 }
 
 void SettingsManager::updateChiakiLogMask() {
-    if (!log)
-        return;
-#ifdef MUTE_CHIAKI_LOGS
-    chiaki_log_set_level(log, 0);
-#else
-    chiaki_log_set_level(log, chiakiLogMask(chiakiLogVerbosity, streamingActive));
-#endif
+    if (coreLog)
+        coreLog->follow(chiakiLogVerbosity, streamingActive, silenceAllLogs);
 }
 
 bool SettingsManager::getDebugChiakiLog() const {
@@ -2674,7 +2493,7 @@ void SettingsManager::setSwipeRightEnabled(bool enabled) { swipeRightEnabled = e
 
 bool SettingsManager::isButtonEnabled(uint32_t chiakiButton) const {
     switch (chiakiButton) {
-        case CHIAKI_CONTROLLER_BUTTON_TOUCHPAD: return touchpadEnabled;
+        case remapKey(RemapTarget::Touchpad): return touchpadEnabled;
         case SWIPE_TOUCHPAD_UP: return swipeUpEnabled;
         case SWIPE_TOUCHPAD_DOWN: return swipeDownEnabled;
         case SWIPE_TOUCHPAD_LEFT: return swipeLeftEnabled;
@@ -2693,20 +2512,20 @@ void SettingsManager::setButtonMapping(const ButtonMapping& mapping) {
 
 ButtonMapping SettingsManager::getDefaultButtonMapping() const {
     ButtonMapping defaults;
-    defaults[CHIAKI_CONTROLLER_BUTTON_CROSS]    = {HidNpadButton_B};
-    defaults[CHIAKI_CONTROLLER_BUTTON_MOON]     = {HidNpadButton_A};
-    defaults[CHIAKI_CONTROLLER_BUTTON_BOX]      = {HidNpadButton_Y};
-    defaults[CHIAKI_CONTROLLER_BUTTON_PYRAMID]  = {HidNpadButton_X};
-    defaults[CHIAKI_CONTROLLER_BUTTON_L1]       = {HidNpadButton_L};
-    defaults[CHIAKI_CONTROLLER_BUTTON_R1]       = {HidNpadButton_R};
-    defaults[CHIAKI_CONTROLLER_ANALOG_BUTTON_L2] = {HidNpadButton_ZL};
-    defaults[CHIAKI_CONTROLLER_ANALOG_BUTTON_R2] = {HidNpadButton_ZR};
-    defaults[CHIAKI_CONTROLLER_BUTTON_L3]       = {HidNpadButton_StickL};
-    defaults[CHIAKI_CONTROLLER_BUTTON_R3]       = {HidNpadButton_StickR};
-    defaults[CHIAKI_CONTROLLER_BUTTON_OPTIONS]  = {HidNpadButton_Plus};
-    defaults[CHIAKI_CONTROLLER_BUTTON_SHARE]    = {};
-    defaults[CHIAKI_CONTROLLER_BUTTON_TOUCHPAD] = {};
-    defaults[CHIAKI_CONTROLLER_BUTTON_PS]       = {HidNpadButton_Minus};
+    defaults[remapKey(RemapTarget::Cross)]    = {HidNpadButton_B};
+    defaults[remapKey(RemapTarget::Moon)]     = {HidNpadButton_A};
+    defaults[remapKey(RemapTarget::Box)]      = {HidNpadButton_Y};
+    defaults[remapKey(RemapTarget::Pyramid)]  = {HidNpadButton_X};
+    defaults[remapKey(RemapTarget::L1)]       = {HidNpadButton_L};
+    defaults[remapKey(RemapTarget::R1)]       = {HidNpadButton_R};
+    defaults[remapKey(RemapTarget::L2)] = {HidNpadButton_ZL};
+    defaults[remapKey(RemapTarget::R2)] = {HidNpadButton_ZR};
+    defaults[remapKey(RemapTarget::L3)]       = {HidNpadButton_StickL};
+    defaults[remapKey(RemapTarget::R3)]       = {HidNpadButton_StickR};
+    defaults[remapKey(RemapTarget::Options)]  = {HidNpadButton_Plus};
+    defaults[remapKey(RemapTarget::Share)]    = {};
+    defaults[remapKey(RemapTarget::Touchpad)] = {};
+    defaults[remapKey(RemapTarget::Ps)]       = {HidNpadButton_Minus};
     defaults[SWIPE_TOUCHPAD_UP]    = {};
     defaults[SWIPE_TOUCHPAD_DOWN]  = {};
     defaults[SWIPE_TOUCHPAD_LEFT]  = {};

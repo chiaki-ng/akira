@@ -2,7 +2,6 @@
 #include "stream/session.hpp"
 #include "core/wireguard_manager.hpp"
 #include <akira/ipc.h>
-#include "crypto/libnx/gmac.h"
 #include <cstring>
 #include <borealis.hpp>
 
@@ -146,7 +145,7 @@ Result IpcStatsService::ServiceHandler(void* userdata, const IpcServerRequest* r
 
             out->stream_duration_seconds = stats.stream_duration_seconds;
 
-            out->ghash_mode = (chiaki_libnx_get_ghash_mode() == CHIAKI_LIBNX_GHASH_PMULL) ? 1 : 0;
+            out->ghash_mode = 1;
 
             auto& wg = WireGuardManager::instance();
             out->vpn_connected = wg.isConnected() ? 1 : 0;

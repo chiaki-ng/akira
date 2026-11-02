@@ -5,17 +5,19 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <mutex>
+#include <optional>
+#include <span>
 #include <string>
 
-#include <chiaki/session.h>
-#include <chiaki/controller.h>
-#include <chiaki/log.h>
+#include <libchiaking/play.hpp>
 #include <switch.h>
 #include <chrono>
 
 #include "core/exception.hpp"
 #include "input/rumble_profile.hpp"
 #include "stream/stream_stats.hpp"
+#include "stream/video_worker.hpp"
 
 class AudioManager;
 class HapticManager;
@@ -31,7 +33,6 @@ protected:
     Session();
 
 private:
-    ChiakiLog* log;
     std::atomic<bool> quit = false;
 
     std::unique_ptr<AudioManager> m_audio_manager;
@@ -39,12 +40,26 @@ private:
     std::unique_ptr<InputManager> m_input_manager;
     std::unique_ptr<VideoDecoder> m_video_decoder;
     std::unique_ptr<IVideoRenderer> m_video_renderer;
+    std::unique_ptr<akira::stream::VideoWorker> m_video_worker;
     std::unique_ptr<IpcStatsService> m_ipc_service;
+    std::optional<libchiaking::media::AudioDecoder> m_audio_decoder;
 
     StatsOverlayMode m_stats_overlay_mode = StatsOverlayMode::Off;
     std::atomic<float> m_present_ms{0.0f};
 
     std::atomic<bool> m_first_frame_received = false;
+    std::atomic<bool> m_presented{false};
+    std::atomic<bool> m_needs_recover{false};
+    bool m_takion_version_logged = false;
+    struct AudioCounts {
+        std::atomic<std::uint64_t> units{0};
+        std::atomic<std::uint64_t> formats{0};
+        std::atomic<std::uint64_t> without_decoder{0};
+        std::atomic<std::uint64_t> decode_failures{0};
+        std::atomic<std::uint64_t> samples_queued{0};
+    };
+    AudioCounts m_audio_counts;
+    std::chrono::steady_clock::time_point m_audio_counts_logged{};
 
     int m_requested_width = 0;
     int m_requested_height = 0;
@@ -52,12 +67,14 @@ private:
     int m_requested_bitrate = 0;
     bool m_requested_hevc = false;
 
-    ChiakiSession* m_session = nullptr;
+    std::mutex m_media_mutex;
+    mutable std::mutex m_play_mutex;
+    std::weak_ptr<libchiaking::play::Session> m_play;
     std::chrono::steady_clock::time_point m_stream_start_time;
-    std::atomic<size_t> m_network_frames_lost = 0;
-    std::atomic<size_t> m_frames_recovered = 0;
 
     void presentDecodedFrame(AVFrame* frame);
+    bool configureAudio(const libchiaking::media::AudioFormat& format, bool raw_pcm);
+    std::shared_ptr<libchiaking::play::Session> attached() const;
 
 public:
     Session(const Session&) = delete;
@@ -76,21 +93,21 @@ public:
     ~Session();
 
     void SetMesaConfig();
-    bool VideoCB(uint8_t* buf, size_t buf_size, int32_t frames_lost, bool frame_recovered, void* user);
-    void InitAudioCB(unsigned int channels, unsigned int rate);
-    void AudioCB(int16_t* buf, size_t samples_count);
+    void describeStream(const libchiaking::media::StreamDescription& description);
+    libchiaking::media::VideoResult submitVideo(const libchiaking::media::VideoUnit& unit);
+    libchiaking::media::AudioResult submitAudio(const libchiaking::media::AudioUnit& unit);
     bool InitVideo(int video_width, int video_height);
-    bool InitAVCodec(bool is_PS5, int video_width = 0, int video_height = 0);
+    bool InitAVCodec(bool hevc, int video_width = 0, int video_height = 0);
     bool FreeVideo();
     bool InitController();
     bool FreeController();
     bool MainLoop();
-    void UpdateControllerState(ChiakiControllerState* state, std::map<uint32_t, int8_t>* finger_id_touch_id);
+    void UpdateControllerState(libchiaking::controllers::ControllerInput& input, std::map<uint32_t, int8_t>* finger_id_touch_id);
 
-    void UpdateSecondaryPads(ChiakiControllerState* states, uint8_t* count);
+    void UpdateSecondaryPads(std::span<libchiaking::controllers::ControllerInput> states, uint8_t& count);
     void SetRumble(uint8_t left, uint8_t right);
 
-    void SetTriggerEffects(const ChiakiTriggerEffectsEvent* effects);
+    void SetTriggerEffects(const libchiaking::controllers::TriggerEffects& effects);
 
     void SetEffectIntensity(uint8_t vibration, uint8_t trigger);
 
@@ -100,11 +117,8 @@ private:
     uint8_t m_trigger_intensity = 1;
 
 public:
-    void HapticCB(uint8_t* buf, size_t buf_size);
+    void HapticCB(std::span<const std::byte> pcm);
     void CleanUpHaptic();
-
-    void SetLogger(ChiakiLog* log);
-    ChiakiLog* GetLogger() { return this->log; }
 
     StreamStats getStreamStats();
     StatsOverlayMode getStatsOverlayMode() const { return m_stats_overlay_mode; }
@@ -120,7 +134,8 @@ public:
     InputManager* getInputManager() { return m_input_manager.get(); }
     IVideoRenderer* getVideoRenderer() { return m_video_renderer.get(); }
 
-    void setSession(ChiakiSession* session);
+    void attach(std::weak_ptr<libchiaking::play::Session> play);
+    void detach();
     void startStreamTimer();
     void resetStreamStats();
 };

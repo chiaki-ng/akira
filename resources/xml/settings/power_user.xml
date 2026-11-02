@@ -80,20 +80,6 @@
                     marginRight="15"/>
 
 
-                <brls:SliderCell
-                    id="settings/psnRequestBudget"
-                    title="@i18n/akira/settings/psn_request_budget"
-                    marginLeft="15"
-                    marginRight="15"/>
-
-
-                <brls:SliderCell
-                    id="settings/psnRequestWindow"
-                    title="@i18n/akira/settings/psn_request_window"
-                    marginLeft="15"
-                    marginRight="15"/>
-
-
                 <brls:Button
                     id="settings/runBenchmark"
                     text="@i18n/akira/settings/run_benchmark"

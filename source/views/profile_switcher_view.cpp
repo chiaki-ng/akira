@@ -4,10 +4,13 @@
 #include "views/profile_setup_view.hpp"
 #include "ui/theme.hpp"
 #include "ui/motion.hpp"
+#include "core/chiaki_core.hpp"
+#include "views/qr_sign_in_view.hpp"
 #include "core/trophy_manager.hpp"
 
 #include <borealis/core/i18n.hpp>
 
+#include <algorithm>
 #include <cctype>
 #include <cstdint>
 #include <vector>
@@ -306,6 +309,7 @@ void ProfileSwitcherView::selectProfile(int64_t id) {
 
     brls::Application::notify("akira/settings/profile_switched"_i18n);
     setExpanded(false);
+    brls::sync([] { QrSignInView::openIfSignInExpired(); });
 }
 
 void ProfileSwitcherView::confirmRemoveProfile(int64_t id, const std::string& label) {
@@ -316,7 +320,15 @@ void ProfileSwitcherView::confirmRemoveProfile(int64_t id, const std::string& la
     dialog->addButton("akira/common/cancel"_i18n, [dialog]() { dialog->close(); });
     dialog->addButton("akira/settings/remove_profile"_i18n, [this, id, dialog]() {
         dialog->close();
+        std::string account;
+        settings->readProfile(id, [&account](const Profile& profile) { account = profile.accountId; });
         settings->removeProfile(id);
+        const bool shared = std::ranges::any_of(settings->getProfiles(),
+            [&account](const Profile& profile) { return profile.accountId == account; });
+        if (!account.empty() && !shared) {
+            if (auto* accounts = akira::ChiakiCore::current().accounts())
+                accounts->forget(account);
+        }
         settings->writeFile();
         TrophyManager::getInstance()->onActiveProfileChanged();
         HostListTab::notifyActiveProfileChanged();

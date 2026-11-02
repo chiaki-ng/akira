@@ -59,16 +59,16 @@ void SettingsPictureView::initLocalResolutionSelector() {
     int currentIndex = 2;
     auto current = settings->getLocalVideoResolution();
     bool fsrOn = settings->getLocalFsrEnabled();
-    if (fsrOn && current == CHIAKI_VIDEO_RESOLUTION_PRESET_540p) {
+    if (fsrOn && current == VideoResolution::P540) {
         currentIndex = 4;
-    } else if (fsrOn && current == CHIAKI_VIDEO_RESOLUTION_PRESET_720p) {
+    } else if (fsrOn && current == VideoResolution::P720) {
         currentIndex = 5;
     } else {
         switch (current) {
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_360p: currentIndex = 0; break;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_540p: currentIndex = 1; break;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_720p: currentIndex = 2; break;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_1080p: currentIndex = 3; break;
+            case VideoResolution::P360: currentIndex = 0; break;
+            case VideoResolution::P540: currentIndex = 1; break;
+            case VideoResolution::P720: currentIndex = 2; break;
+            case VideoResolution::P1080: currentIndex = 3; break;
         }
     }
 
@@ -78,16 +78,16 @@ void SettingsPictureView::initLocalResolutionSelector() {
         currentIndex,
         [](int selected) {},
         [this](int selected) {
-            ChiakiVideoResolutionPreset preset;
+            VideoResolution preset;
             bool fsr = false;
             switch (selected) {
-                case 0: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_360p; break;
-                case 1: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_540p; break;
-                case 2: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_720p; break;
-                case 3: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_1080p; break;
-                case 4: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_540p; fsr = true; break;
-                case 5: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_720p; fsr = true; break;
-                default: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_720p; break;
+                case 0: preset = VideoResolution::P360; break;
+                case 1: preset = VideoResolution::P540; break;
+                case 2: preset = VideoResolution::P720; break;
+                case 3: preset = VideoResolution::P1080; break;
+                case 4: preset = VideoResolution::P540; fsr = true; break;
+                case 5: preset = VideoResolution::P720; fsr = true; break;
+                default: preset = VideoResolution::P720; break;
             }
             settings->setLocalVideoResolution(preset);
             settings->setLocalFsrEnabled(fsr);
@@ -102,7 +102,7 @@ void SettingsPictureView::initLocalFpsSelector() {
     std::vector<std::string> options = {"akira/settings/fps_30"_i18n, "akira/settings/fps_60"_i18n};
 
     int currentIndex = 1;
-    if (settings->getLocalVideoFPS() == CHIAKI_VIDEO_FPS_PRESET_30) {
+    if (settings->getLocalVideoFPS() == VideoFps::Fps30) {
         currentIndex = 0;
     }
 
@@ -112,7 +112,7 @@ void SettingsPictureView::initLocalFpsSelector() {
         currentIndex,
         [](int selected) {},
         [this](int selected) {
-            auto preset = selected == 0 ? CHIAKI_VIDEO_FPS_PRESET_30 : CHIAKI_VIDEO_FPS_PRESET_60;
+            auto preset = selected == 0 ? VideoFps::Fps30 : VideoFps::Fps60;
             settings->setLocalVideoFPS(preset);
             settings->writeFile();
             brls::Logger::info("Local FPS set to {}", SettingsManager::fpsToString(preset));
@@ -186,16 +186,16 @@ void SettingsPictureView::initRemoteResolutionSelector() {
     int currentIndex = 2;
     auto current = settings->getRemoteVideoResolution();
     bool fsrOn = settings->getRemoteFsrEnabled();
-    if (fsrOn && current == CHIAKI_VIDEO_RESOLUTION_PRESET_540p) {
+    if (fsrOn && current == VideoResolution::P540) {
         currentIndex = 4;
-    } else if (fsrOn && current == CHIAKI_VIDEO_RESOLUTION_PRESET_720p) {
+    } else if (fsrOn && current == VideoResolution::P720) {
         currentIndex = 5;
     } else {
         switch (current) {
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_360p: currentIndex = 0; break;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_540p: currentIndex = 1; break;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_720p: currentIndex = 2; break;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_1080p: currentIndex = 3; break;
+            case VideoResolution::P360: currentIndex = 0; break;
+            case VideoResolution::P540: currentIndex = 1; break;
+            case VideoResolution::P720: currentIndex = 2; break;
+            case VideoResolution::P1080: currentIndex = 3; break;
         }
     }
 
@@ -205,16 +205,16 @@ void SettingsPictureView::initRemoteResolutionSelector() {
         currentIndex,
         [](int selected) {},
         [this](int selected) {
-            ChiakiVideoResolutionPreset preset;
+            VideoResolution preset;
             bool fsr = false;
             switch (selected) {
-                case 0: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_360p; break;
-                case 1: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_540p; break;
-                case 2: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_720p; break;
-                case 3: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_1080p; break;
-                case 4: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_540p; fsr = true; break;
-                case 5: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_720p; fsr = true; break;
-                default: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_720p; break;
+                case 0: preset = VideoResolution::P360; break;
+                case 1: preset = VideoResolution::P540; break;
+                case 2: preset = VideoResolution::P720; break;
+                case 3: preset = VideoResolution::P1080; break;
+                case 4: preset = VideoResolution::P540; fsr = true; break;
+                case 5: preset = VideoResolution::P720; fsr = true; break;
+                default: preset = VideoResolution::P720; break;
             }
             settings->setRemoteVideoResolution(preset);
             settings->setRemoteFsrEnabled(fsr);
@@ -229,7 +229,7 @@ void SettingsPictureView::initRemoteFpsSelector() {
     std::vector<std::string> options = {"akira/settings/fps_30"_i18n, "akira/settings/fps_60"_i18n};
 
     int currentIndex = 1;
-    if (settings->getRemoteVideoFPS() == CHIAKI_VIDEO_FPS_PRESET_30) {
+    if (settings->getRemoteVideoFPS() == VideoFps::Fps30) {
         currentIndex = 0;
     }
 
@@ -239,7 +239,7 @@ void SettingsPictureView::initRemoteFpsSelector() {
         currentIndex,
         [](int selected) {},
         [this](int selected) {
-            auto preset = selected == 0 ? CHIAKI_VIDEO_FPS_PRESET_30 : CHIAKI_VIDEO_FPS_PRESET_60;
+            auto preset = selected == 0 ? VideoFps::Fps30 : VideoFps::Fps60;
             settings->setRemoteVideoFPS(preset);
             settings->writeFile();
             brls::Logger::info("Remote FPS set to {}", SettingsManager::fpsToString(preset));
@@ -312,15 +312,15 @@ void SettingsPictureView::initVpnResolutionSelector() {
     int currentIndex = 2;
     auto current = settings->getVpnVideoResolution();
     bool fsrOn = settings->getVpnFsrEnabled();
-    if (fsrOn && current == CHIAKI_VIDEO_RESOLUTION_PRESET_540p) {
+    if (fsrOn && current == VideoResolution::P540) {
         currentIndex = 3;
-    } else if (fsrOn && current == CHIAKI_VIDEO_RESOLUTION_PRESET_720p) {
+    } else if (fsrOn && current == VideoResolution::P720) {
         currentIndex = 4;
     } else {
         switch (current) {
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_360p: currentIndex = 0; break;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_540p: currentIndex = 1; break;
-            case CHIAKI_VIDEO_RESOLUTION_PRESET_720p: currentIndex = 2; break;
+            case VideoResolution::P360: currentIndex = 0; break;
+            case VideoResolution::P540: currentIndex = 1; break;
+            case VideoResolution::P720: currentIndex = 2; break;
             default: currentIndex = 2; break;
         }
     }
@@ -331,15 +331,15 @@ void SettingsPictureView::initVpnResolutionSelector() {
         currentIndex,
         [](int selected) {},
         [this](int selected) {
-            ChiakiVideoResolutionPreset preset;
+            VideoResolution preset;
             bool fsr = false;
             switch (selected) {
-                case 0: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_360p; break;
-                case 1: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_540p; break;
-                case 2: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_720p; break;
-                case 3: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_540p; fsr = true; break;
-                case 4: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_720p; fsr = true; break;
-                default: preset = CHIAKI_VIDEO_RESOLUTION_PRESET_720p; break;
+                case 0: preset = VideoResolution::P360; break;
+                case 1: preset = VideoResolution::P540; break;
+                case 2: preset = VideoResolution::P720; break;
+                case 3: preset = VideoResolution::P540; fsr = true; break;
+                case 4: preset = VideoResolution::P720; fsr = true; break;
+                default: preset = VideoResolution::P720; break;
             }
             settings->setVpnVideoResolution(preset);
             settings->setVpnFsrEnabled(fsr);
@@ -353,7 +353,7 @@ void SettingsPictureView::initVpnFpsSelector() {
     std::vector<std::string> options = {"akira/settings/fps_30"_i18n, "akira/settings/fps_60"_i18n};
 
     int currentIndex = 0;
-    if (settings->getVpnVideoFPS() == CHIAKI_VIDEO_FPS_PRESET_60) {
+    if (settings->getVpnVideoFPS() == VideoFps::Fps60) {
         currentIndex = 1;
     }
 
@@ -363,7 +363,7 @@ void SettingsPictureView::initVpnFpsSelector() {
         currentIndex,
         [](int selected) {},
         [this](int selected) {
-            auto preset = selected == 0 ? CHIAKI_VIDEO_FPS_PRESET_30 : CHIAKI_VIDEO_FPS_PRESET_60;
+            auto preset = selected == 0 ? VideoFps::Fps30 : VideoFps::Fps60;
             settings->setVpnVideoFPS(preset);
             settings->writeFile();
             brls::Logger::info("VPN FPS set to {}", SettingsManager::fpsToString(preset));

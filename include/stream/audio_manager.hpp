@@ -3,7 +3,8 @@
 
 #include <SDL2/SDL.h>
 #include <cstdint>
-#include <chiaki/log.h>
+#include <span>
+#include <vector>
 
 class AudioManager
 {
@@ -14,16 +15,16 @@ public:
     AudioManager(const AudioManager&) = delete;
     AudioManager& operator=(const AudioManager&) = delete;
 
-    void setLogger(ChiakiLog* log) { m_log = log; }
 
     void init(unsigned int channels, unsigned int rate);
-    void play(int16_t* buf, size_t samples_count);
+    void play(std::span<const int16_t> samples);
     void cleanup();
 
     bool isInitialized() const { return m_device_id > 0; }
 
 private:
-    ChiakiLog* m_log = nullptr;
+    unsigned int m_channels = 0;
+    std::vector<int16_t> m_boosted;
     SDL_AudioDeviceID m_device_id = 0;
 };
 

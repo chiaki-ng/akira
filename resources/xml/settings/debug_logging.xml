@@ -33,6 +33,12 @@
                 marginBottom="30">
 
                 <brls:BooleanCell
+                    id="settings/silenceAllLogs"
+                    title="@i18n/akira/settings/silence_all_logs"
+                    marginLeft="15"
+                    marginRight="15"/>
+
+                <brls:BooleanCell
                     id="settings/enableFileLogging"
                     title="@i18n/akira/settings/file_logging"
                     marginLeft="15"

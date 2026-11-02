@@ -1,11 +1,11 @@
 #ifndef AKIRA_PAIR_LISTENER_HPP
 #define AKIRA_PAIR_LISTENER_HPP
 
-#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <string>
-#include <thread>
+
+#include <libchiaking/platform/platform.hpp>
 
 namespace akira::pair {
 
@@ -35,8 +35,6 @@ struct PairedCredentials {
     int64_t mobileExpiresAt = 0;
 };
 
-bool validAccountId(const std::string& accountId);
-
 class PairListener {
 public:
     using EventCallback = std::function<void(ListenerEvent)>;
@@ -55,10 +53,9 @@ public:
     static constexpr int kWindowSeconds = 60;
 
 private:
-    void run(int port, std::string code);
+    void run(int port, const std::string& code, const libchiaking::platform::StopToken& stop);
 
-    std::thread thread_;
-    std::atomic<bool> running_{false};
+    libchiaking::platform::Thread thread_;
     EventCallback onEvent_;
     ImportCallback onImport_;
 };

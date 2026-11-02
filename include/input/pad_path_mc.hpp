@@ -21,7 +21,7 @@ public:
     PadCapabilities capabilities() const override;
 
     bool poll() override;
-    void readTriggers(ChiakiControllerState* state) override;
+    void readTriggers(libchiaking::controllers::ControllerState& state) override;
 
     void sendRumble(float left, float right, float freqLow, float freqHigh) override;
 
@@ -49,9 +49,9 @@ public:
 
     bool poll() override;
 
-    void readButtons(ChiakiControllerState* state) override;
-    void readTriggers(ChiakiControllerState* state) override;
-    bool readTouchpad(ChiakiControllerState* state) override;
+    void readButtons(libchiaking::controllers::ControllerState& state) override;
+    void readTriggers(libchiaking::controllers::ControllerState& state) override;
+    bool readTouchpad(libchiaking::controllers::ControllerInput& input) override;
 
     bool usesButtonMapping() const override { return false; }
 
@@ -76,10 +76,10 @@ private:
     struct TouchSlot {
         bool    active = false;
         uint8_t pad_id = 0;
-        int8_t  chiaki_id = -1;
+        int8_t  touch_id = -1;
     };
 
-    void releaseSlot(ChiakiControllerState* state, TouchSlot& slot);
+    void releaseSlot(libchiaking::controllers::ControllerInput& input, TouchSlot& slot);
 
     const PsModel* m_model;
     bool           m_home_blocked      = false;

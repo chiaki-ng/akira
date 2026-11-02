@@ -4,11 +4,6 @@
     "body": "Persistently add 20 dummy PS5 cards to the host grid for layout testing. They do not represent real consoles.",
     "image": ""
   },
-  "settings/devForceWsNode": {
-    "title": "Force PSN push node",
-    "body": "Override the PSN-assigned WebSocket node used for party push updates. Changing it reconnects the push service immediately.",
-    "image": ""
-  },
   "settings/devTakionVersion": {
     "title": "Takion protocol version",
     "body": "Override the Remote Play streaming protocol version. Leave this on Auto unless testing protocol compatibility; an incompatible version can prevent streaming.",

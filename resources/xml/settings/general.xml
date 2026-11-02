@@ -81,12 +81,6 @@
                 marginBottom="30">
 
                 <brls:BooleanCell
-                    id="settings/enableThreadAffinity"
-                    title="@i18n/akira/settings/thread_affinity"
-                    marginLeft="15"
-                    marginRight="15"/>
-
-                <brls:BooleanCell
                     id="settings/holepunchRetry"
                     title="@i18n/akira/settings/holepunch_retry"
                     marginLeft="15"

@@ -1,0 +1,20 @@
+set(LIBCHIAKING_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(LIBCHIAKING_SYSTEM_SIMDUTF ON CACHE BOOL "" FORCE)
+set(LIBCHIAKING_CURL ON CACHE BOOL "" FORCE)
+set(LIBCHIAKING_CRYPTO_OPENSSL OFF CACHE BOOL "" FORCE)
+set(LIBCHIAKING_CRYPTO_BORINGSSL OFF CACHE BOOL "" FORCE)
+set(LIBCHIAKING_MINIUPNPC OFF CACHE BOOL "" FORCE)
+set(LIBCHIAKING_CRYPTO_LIBNX ON CACHE BOOL "" FORCE)
+set(LIBCHIAKING_KAKUSAN OFF CACHE BOOL "" FORCE)
+
+list(PREPEND CMAKE_PREFIX_PATH
+    $ENV{NX_DEPS}/curl
+    $ENV{NX_DEPS}/nghttp2
+    $ENV{NX_DEPS}/simdutf)
+
+get_directory_property(akira_compile_options COMPILE_OPTIONS)
+separate_arguments(akira_core_flags UNIX_COMMAND "${NX_ARCH_SETTINGS} ${NX_COMMON_FLAGS}")
+add_compile_options(${akira_core_flags})
+set(AKIRA_CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/libchiaki-core CACHE PATH "libchiaki-core source tree")
+add_subdirectory(${AKIRA_CORE_DIR} libchiaki-core EXCLUDE_FROM_ALL)
+set_directory_properties(PROPERTIES COMPILE_OPTIONS "${akira_compile_options}")

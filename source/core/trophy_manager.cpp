@@ -1,53 +1,29 @@
 #include "core/trophy_manager.hpp"
+#include "core/chiaki_core.hpp"
 #include "core/settings_manager.hpp"
-#include "psn/auth.hpp"
-#include "psn/log.hpp"
-
-#include <chiaki/base64.h>
+#include "util/http.hpp"
+#include "util/http_pool.hpp"
 
 #include <borealis.hpp>
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
+#include <filesystem>
 #include <format>
-#include <thread>
-#include <unordered_set>
+#include <ranges>
+#include <system_error>
+#include <utility>
 
 #include <sys/stat.h>
-#include <dirent.h>
 #include <unistd.h>
-#include <switch.h>
 
-#include <json-c/json.h>
-
-#include "util/http.hpp"
-
-static void forwardPsnLog(psn::LogLevel level, const std::string& message)
-{
-    switch (level)
-    {
-        case psn::LogLevel::Info: brls::Logger::info("{}", message); break;
-        case psn::LogLevel::Warning: brls::Logger::warning("{}", message); break;
-        case psn::LogLevel::Error: brls::Logger::error("{}", message); break;
-    }
-}
-
-static std::string psnAccountIdDecimal(const std::string& accountId)
-{
-    uint8_t bytes[8] = {0};
-    size_t size = sizeof(bytes);
-    if (chiaki_base64_decode(accountId.c_str(), accountId.length(), bytes, &size) != CHIAKI_ERR_SUCCESS || size != 8)
-    {
-        brls::Logger::warning("PSN profile: could not decode account id '{}' to decimal", accountId);
-        return accountId;
-    }
-
-    uint64_t id = 0;
-    for (int i = 0; i < 8; i++)
-        id |= static_cast<uint64_t>(bytes[i]) << (8 * i);
-    return std::to_string(id);
-}
+namespace platform = libchiaking::platform;
+namespace trophies = libchiaking::trophies;
+namespace catalog = libchiaking::catalog;
+using libchiaking::users::Unanswered;
 
 TrophyManager* TrophyManager::getInstance()
 {
@@ -58,71 +34,170 @@ TrophyManager* TrophyManager::getInstance()
 TrophyManager::TrophyManager()
 {
     settings = SettingsManager::getInstance();
-    limiter.reconfigure(settings->getPsnRequestBudget(), settings->getPsnRequestWindowSeconds());
-    limiter.retarget(rateLimitPath());
-    psn::setLogSink(forwardPsnLog);
+    dropLegacyCache();
 }
 
-std::string TrophyManager::accountKey() const
+int64_t TrophyManager::nowSeconds()
 {
-    std::string id;
-    if (settings)
+    return static_cast<int64_t>(std::time(nullptr));
+}
+
+void TrophyManager::dropLegacyCache()
+{
+    std::error_code ignored;
+    std::filesystem::remove(LEGACY_RATELIMIT_PATH, ignored);
+
+    std::vector<std::filesystem::path> legacy;
+    for (std::filesystem::directory_iterator entry(TROPHY_CACHE_DIR, ignored), end; !ignored && entry != end;
+         entry.increment(ignored))
     {
-        const Profile* p = settings->getActiveProfile();
-        if (p)
-            id = !p->accountId.empty() ? p->accountId : p->onlineId;
+        if (entry->path().filename() != ICON_DIR_NAME)
+            legacy.push_back(entry->path());
     }
-    if (id.empty())
-        return "default";
 
-    std::string key;
-    key.reserve(id.size());
-    for (char c : id)
+    size_t removed = 0;
+    for (const std::filesystem::path& path : legacy)
     {
-        bool allowed = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') ||
-            (c >= 'a' && c <= 'z') || c == '_' || c == '-';
-        key += allowed ? c : '_';
+        std::error_code failed;
+        if (std::filesystem::remove_all(path, failed) > 0)
+            removed++;
     }
-    return key;
+    if (removed > 0)
+        brls::Logger::info("Trophy: removed {} legacy JSON cache entr(ies)", removed);
 }
 
-std::string TrophyManager::accountCacheDir() const
+const char* TrophyManager::reasonName(Unanswered::Reason reason)
 {
-    return std::string(TROPHY_CACHE_DIR) + "/" + accountKey();
-}
-
-std::string TrophyManager::summaryCachePath() const { return accountCacheDir() + "/summary.json"; }
-std::string TrophyManager::libraryCachePath() const { return accountCacheDir() + "/library.json"; }
-std::string TrophyManager::detailCacheDir() const { return accountCacheDir() + "/detail"; }
-std::string TrophyManager::titleMapPath() const { return accountCacheDir() + "/title_map.json"; }
-std::string TrophyManager::forceStatePath() const { return accountCacheDir() + "/refresh_state.json"; }
-std::string TrophyManager::rateLimitPath() const { return accountCacheDir() + "/ratelimit.json"; }
-
-static void removeCacheTree(const std::string& path)
-{
-    DIR* dir = opendir(path.c_str());
-    if (!dir)
+    switch (reason)
     {
-        remove(path.c_str());
+        case Unanswered::Reason::signed_out: return "signed out";
+        case Unanswered::Reason::sign_in_expired: return "sign-in expired";
+        case Unanswered::Reason::store_access_lapsed: return "store access lapsed";
+        case Unanswered::Reason::remote_play_access_missing: return "remote play access missing";
+        case Unanswered::Reason::cancelled: return "cancelled";
+        case Unanswered::Reason::rate_limited: return "rate limited";
+        case Unanswered::Reason::unavailable: return "unavailable";
+        case Unanswered::Reason::rejected: return "rejected";
+        case Unanswered::Reason::malformed: return "malformed reply";
+        case Unanswered::Reason::old_service_refused: return "old service refused";
+    }
+    return "unknown";
+}
+
+psn::Error TrophyManager::failureOf(const Unanswered& cause)
+{
+    std::string message = cause.http_status != 0
+        ? std::format("{} (HTTP {})", reasonName(cause.reason), cause.http_status)
+        : std::string(reasonName(cause.reason));
+
+    switch (cause.reason)
+    {
+        case Unanswered::Reason::signed_out:
+            return {psn::Status::NotLinked, message};
+        case Unanswered::Reason::sign_in_expired:
+        case Unanswered::Reason::store_access_lapsed:
+        case Unanswered::Reason::remote_play_access_missing:
+            return {psn::Status::SessionExpired, message};
+        case Unanswered::Reason::rate_limited:
+            return {psn::Status::RateLimited, message};
+        case Unanswered::Reason::unavailable:
+            return {cause.http_status == 0 ? psn::Status::Offline : psn::Status::ServerError, message};
+        case Unanswered::Reason::cancelled:
+        case Unanswered::Reason::rejected:
+        case Unanswered::Reason::malformed:
+        case Unanswered::Reason::old_service_refused:
+            break;
+    }
+    return {psn::Status::ServerError, message};
+}
+
+void TrophyManager::deliverNotLinked(const ErrorCallback& onError)
+{
+    brls::sync([onError]() {
+        if (onError)
+            onError(psn::Status::NotLinked, "PSN account not linked");
+    });
+}
+
+auto TrophyManager::trophies() -> trophies::Trophies&
+{
+    return akira::ChiakiCore::current().chiaki().trophies();
+}
+
+auto TrophyManager::catalog() -> catalog::Catalog&
+{
+    return akira::ChiakiCore::current().chiaki().catalog();
+}
+
+auto TrophyManager::requestFor(psn::Accounts::User user) -> Request
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    return Request{std::move(user), generation, stopSource->token()};
+}
+
+auto TrophyManager::begin() -> std::optional<Request>
+{
+    psn::Accounts* accounts = akira::ChiakiCore::current().accounts();
+    psn::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
+    if (!user || !user->has_psn_account())
+        return std::nullopt;
+    return requestFor(std::move(user));
+}
+
+auto TrophyManager::current(const Request& request) const -> bool
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    return request.generation == generation;
+}
+
+template <typename Value>
+void TrophyManager::deliver(const Request& request, Value value, Callback<Value> onSuccess) const
+{
+    const uint64_t asked = request.generation;
+    brls::sync([this, asked, value = std::move(value), onSuccess = std::move(onSuccess)]() {
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (asked != generation)
+                return;
+        }
+        if (onSuccess)
+            onSuccess(value);
+    });
+}
+
+void TrophyManager::deliverFailure(const Request& request, const Unanswered& cause, const char* what,
+                                   ErrorCallback onError) const
+{
+    if (cause.is_cancelled() || !current(request))
         return;
-    }
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != nullptr)
-    {
-        std::string name = entry->d_name;
-        if (name == "." || name == "..")
-            continue;
-        removeCacheTree(path + "/" + name);
-    }
-    closedir(dir);
-    rmdir(path.c_str());
+
+    const psn::Error error = failureOf(cause);
+    brls::Logger::error("Trophy: {} failed with {} ({})", what, psn::statusName(error.status), error.message);
+
+    const uint64_t asked = request.generation;
+    brls::sync([this, asked, error, onError = std::move(onError)]() {
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (asked != generation)
+                return;
+        }
+        if (onError)
+            onError(error.status, error.message);
+    });
 }
 
 void TrophyManager::flushCache()
 {
+    if (auto request = begin())
+        trophies().start_over(*request->user);
+    std::error_code ignored;
+    std::filesystem::remove_all(ICON_CACHE_DIR, ignored);
+    iconCacheDirReady.store(false);
     {
-        std::lock_guard<std::mutex> lock(mutex);
-        removeCacheTree(TROPHY_CACHE_DIR);
+        std::lock_guard<std::mutex> lock(iconMutex);
+        iconCache.clear();
+        iconOrder.clear();
+        iconCacheBytes = 0;
     }
     onActiveProfileChanged();
     brls::Logger::info("Trophy: cache flushed");
@@ -130,35 +205,17 @@ void TrophyManager::flushCache()
 
 void TrophyManager::onActiveProfileChanged()
 {
+    std::shared_ptr<platform::StopSource> previous;
     {
         std::lock_guard<std::mutex> lock(mutex);
-        hasCachedSummary = false;
-        summarySavedAt = 0;
-        cachedSummary = psn::TrophySummary{};
-        hasCachedLibrary = false;
+        generation++;
         librarySavedAt = 0;
-        cachedLibrary.clear();
-        cachedDetails.clear();
-        gameProgress.clear();
-        titleMapLoaded = false;
         forcedAt.clear();
-        forceStateLoaded = false;
-        hasCachedProfile = false;
-        profileSavedAt = 0;
-        cachedProfile = psn::PsnProfile{};
+        playedGames.clear();
+        previous = std::exchange(stopSource, std::make_shared<platform::StopSource>());
     }
-    ensureCacheDirs();
-    limiter.reconfigure(settings->getPsnRequestBudget(), settings->getPsnRequestWindowSeconds());
-    limiter.retarget(rateLimitPath());
-    brls::Logger::info("Trophy: active profile changed, budget repointed to {}", rateLimitPath());
-}
-
-void TrophyManager::ensureCacheDirs()
-{
-    mkdir(CACHE_DIR, 0755);
-    mkdir(TROPHY_CACHE_DIR, 0755);
-    mkdir(accountCacheDir().c_str(), 0755);
-    mkdir(detailCacheDir().c_str(), 0755);
+    static_cast<void>(previous->request_stop());
+    brls::Logger::info("Trophy: active profile changed, in-flight requests dropped");
 }
 
 void TrophyManager::ensureIconCacheDir()
@@ -166,488 +223,32 @@ void TrophyManager::ensureIconCacheDir()
     if (iconCacheDirReady.load())
         return;
 
-    ensureCacheDirs();
+    mkdir(CACHE_DIR, 0755);
+    mkdir(TROPHY_CACHE_DIR, 0755);
     mkdir(ICON_CACHE_DIR, 0755);
 
     iconCacheDirReady.store(true);
 }
 
-bool TrophyManager::cacheEntryFresh(int64_t savedAt, int ttlMinutes)
-{
-    if (savedAt <= 0)
-        return false;
-
-    int64_t now = static_cast<int64_t>(std::time(nullptr));
-
-    if (savedAt > now)
-        return true;
-
-    return (now - savedAt) < static_cast<int64_t>(ttlMinutes) * 60;
-}
-
-static std::string readWholeFile(const std::string& path)
-{
-    FILE* file = fopen(path.c_str(), "rb");
-    if (!file)
-        return std::string();
-
-    std::string body;
-    char buffer[4096];
-    size_t read = 0;
-    while ((read = fread(buffer, 1, sizeof(buffer), file)) > 0)
-        body.append(buffer, read);
-
-    fclose(file);
-    return body;
-}
-
-static bool replaceFile(const std::string& temp, const std::string& path)
-{
-    remove(path.c_str());
-
-    if (rename(temp.c_str(), path.c_str()) == 0)
-        return true;
-
-    brls::Logger::warning("Trophy: rename {} -> {} failed: {}", temp, path, strerror(errno));
-    remove(temp.c_str());
-    return false;
-}
-
-static bool writeWholeFile(const std::string& path, const std::string& body)
-{
-    std::string temp = path + ".tmp";
-
-    FILE* file = fopen(temp.c_str(), "wb");
-    if (!file)
-    {
-        brls::Logger::warning("Trophy: could not open {}: {}", temp, strerror(errno));
-        return false;
-    }
-
-    size_t written = fwrite(body.data(), 1, body.size(), file);
-    fclose(file);
-
-    if (written != body.size())
-    {
-        brls::Logger::warning("Trophy: short write to {} ({}/{} bytes)", temp, written, body.size());
-        remove(temp.c_str());
-        return false;
-    }
-
-    return replaceFile(temp, path);
-}
-
-bool TrophyManager::loadSummaryFromDisk(psn::TrophySummary& outSummary, int64_t& outSavedAt) const
-{
-    psn::Json doc(readWholeFile(summaryCachePath()));
-    if (!doc)
-        return false;
-
-    outSavedAt = psn::jsonInt64(doc.get(), "savedAt");
-
-    json_object* payload = nullptr;
-    if (!psn::jsonField(doc.get(), "summary", &payload))
-        return false;
-
-    return psn::parseSummary(payload, outSummary);
-}
-
-void TrophyManager::saveSummaryToDisk(const psn::TrophySummary& summary) const
-{
-    json_object* root = json_object_new_object();
-    json_object_object_add(root, "savedAt", json_object_new_int64(static_cast<int64_t>(std::time(nullptr))));
-    json_object_object_add(root, "summary", psn::toJson(summary));
-
-    const char* text = json_object_to_json_string(root);
-    if (!writeWholeFile(summaryCachePath(), text ? text : ""))
-        brls::Logger::warning("Trophy: could not write {}", summaryCachePath());
-
-    json_object_put(root);
-}
-
-bool TrophyManager::loadLibraryFromDisk(std::vector<psn::TrophyTitle>& outTitles, int64_t& outSavedAt) const
-{
-    psn::Json doc(readWholeFile(libraryCachePath()));
-    if (!doc)
-        return false;
-
-    outSavedAt = psn::jsonInt64(doc.get(), "savedAt");
-
-    json_object* array = nullptr;
-    if (!psn::jsonField(doc.get(), "titles", &array) || !json_object_is_type(array, json_type_array))
-        return false;
-
-    size_t count = json_object_array_length(array);
-    outTitles.reserve(count);
-
-    for (size_t i = 0; i < count; i++)
-    {
-        psn::TrophyTitle title;
-        if (psn::parseTitle(json_object_array_get_idx(array, i), title))
-            outTitles.push_back(std::move(title));
-    }
-
-    return true;
-}
-
-void TrophyManager::saveLibraryToDisk(const std::vector<psn::TrophyTitle>& titles) const
-{
-    json_object* array = json_object_new_array();
-
-    for (const psn::TrophyTitle& title : titles)
-        json_object_array_add(array, psn::toJson(title));
-
-    json_object* root = json_object_new_object();
-    json_object_object_add(root, "savedAt", json_object_new_int64(static_cast<int64_t>(std::time(nullptr))));
-    json_object_object_add(root, "titles", array);
-
-    const char* text = json_object_to_json_string(root);
-    if (!writeWholeFile(libraryCachePath(), text ? text : ""))
-        brls::Logger::warning("Trophy: could not write {}", libraryCachePath());
-
-    json_object_put(root);
-}
-
-std::string TrophyManager::detailCachePath(const std::string& npCommunicationId) const
-{
-    std::string safe;
-    safe.reserve(npCommunicationId.size());
-
-    for (char c : npCommunicationId)
-    {
-        bool allowed = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') ||
-            (c >= 'a' && c <= 'z') || c == '_' || c == '-';
-        safe += allowed ? c : '_';
-    }
-
-    return std::format("{}/{}.json", detailCacheDir(), safe);
-}
-
-bool TrophyManager::loadDetailFromDisk(const std::string& npCommunicationId,
-    psn::TitleDetail& outDetail, int64_t& outSavedAt) const
-{
-    psn::Json doc(readWholeFile(detailCachePath(npCommunicationId)));
-    if (!doc)
-        return false;
-
-    outSavedAt = psn::jsonInt64(doc.get(), "savedAt");
-    outDetail.npCommunicationId = psn::jsonString(doc.get(), "npCommunicationId");
-    outDetail.npServiceName = psn::jsonString(doc.get(), "npServiceName");
-    outDetail.lastUpdatedDateTime = psn::jsonString(doc.get(), "lastUpdatedDateTime");
-
-    if (outDetail.npCommunicationId != npCommunicationId)
-        return false;
-
-    json_object* groups = nullptr;
-    if (psn::jsonField(doc.get(), "groups", &groups) && json_object_is_type(groups, json_type_array))
-    {
-        size_t count = json_object_array_length(groups);
-        for (size_t i = 0; i < count; i++)
-        {
-            psn::TrophyGroup group;
-            if (psn::parseCachedGroup(json_object_array_get_idx(groups, i), group))
-                outDetail.groups.push_back(std::move(group));
-        }
-    }
-
-    json_object* trophies = nullptr;
-    if (!psn::jsonField(doc.get(), "trophies", &trophies) || !json_object_is_type(trophies, json_type_array))
-        return false;
-
-    size_t count = json_object_array_length(trophies);
-    outDetail.trophies.reserve(count);
-
-    for (size_t i = 0; i < count; i++)
-    {
-        psn::Trophy trophy;
-        if (psn::parseCachedTrophy(json_object_array_get_idx(trophies, i), trophy))
-            outDetail.trophies.push_back(std::move(trophy));
-    }
-
-    return !outDetail.trophies.empty();
-}
-
-void TrophyManager::saveDetailToDisk(const psn::TitleDetail& detail) const
-{
-    json_object* groups = json_object_new_array();
-    for (const psn::TrophyGroup& group : detail.groups)
-        json_object_array_add(groups, psn::toJson(group));
-
-    json_object* trophies = json_object_new_array();
-    for (const psn::Trophy& trophy : detail.trophies)
-        json_object_array_add(trophies, psn::toJson(trophy));
-
-    json_object* root = json_object_new_object();
-    json_object_object_add(root, "savedAt", json_object_new_int64(static_cast<int64_t>(std::time(nullptr))));
-    json_object_object_add(root, "npCommunicationId", json_object_new_string(detail.npCommunicationId.c_str()));
-    json_object_object_add(root, "npServiceName", json_object_new_string(detail.npServiceName.c_str()));
-    json_object_object_add(root, "lastUpdatedDateTime", json_object_new_string(detail.lastUpdatedDateTime.c_str()));
-    json_object_object_add(root, "groups", groups);
-    json_object_object_add(root, "trophies", trophies);
-
-    const char* text = json_object_to_json_string(root);
-    if (!writeWholeFile(detailCachePath(detail.npCommunicationId), text ? text : ""))
-        brls::Logger::warning("Trophy: could not write the detail cache for {}", detail.npCommunicationId);
-
-    json_object_put(root);
-}
-
-PersistedRateLimiter::Status TrophyManager::budgetStatus() const
-{
-    return limiter.status();
-}
-
-void TrophyManager::reconfigureLimiter()
-{
-    limiter.reconfigure(settings->getPsnRequestBudget(), settings->getPsnRequestWindowSeconds());
-}
-
 int64_t TrophyManager::librarySavedAtSeconds() const
 {
     std::lock_guard<std::mutex> lock(mutex);
-    return hasCachedLibrary ? librarySavedAt : 0;
-}
-
-void TrophyManager::loadForceStateLocked()
-{
-    if (forceStateLoaded)
-        return;
-
-    forceStateLoaded = true;
-
-    psn::Json doc(readWholeFile(forceStatePath()));
-    if (!doc)
-        return;
-
-    json_object_object_foreach(doc.get(), key, value)
-    {
-        if (value && json_object_is_type(value, json_type_int))
-            forcedAt[key] = json_object_get_int64(value);
-    }
-}
-
-void TrophyManager::saveForceStateLocked() const
-{
-    json_object* root = json_object_new_object();
-
-    for (const auto& entry : forcedAt)
-        json_object_object_add(root, entry.first.c_str(), json_object_new_int64(entry.second));
-
-    const char* text = json_object_to_json_string(root);
-    if (!writeWholeFile(forceStatePath(), text ? text : ""))
-        brls::Logger::warning("Trophy: could not write {}", forceStatePath());
-
-    json_object_put(root);
-}
-
-void TrophyManager::loadTitleMapLocked()
-{
-    if (titleMapLoaded)
-        return;
-
-    titleMapLoaded = true;
-
-    psn::Json doc(readWholeFile(titleMapPath()));
-    if (!doc)
-        return;
-
-    json_object_object_foreach(doc.get(), key, value)
-    {
-        if (!value || !json_object_is_type(value, json_type_object))
-            continue;
-
-        GameProgress entry;
-        entry.playDurationSeconds = psn::jsonInt64(value, "playDurationSeconds");
-        entry.lastPlayedDateTime = psn::jsonString(value, "lastPlayedDateTime");
-        entry.valid = true;
-        gameProgress[key] = std::move(entry);
-    }
-
-    brls::Logger::info("Trophy: {} game progression entr(ies) restored", gameProgress.size());
-}
-
-void TrophyManager::saveTitleMapLocked() const
-{
-    json_object* root = json_object_new_object();
-
-    for (const auto& entry : gameProgress)
-    {
-        json_object* row = json_object_new_object();
-        json_object_object_add(row, "playDurationSeconds", json_object_new_int64(entry.second.playDurationSeconds));
-        json_object_object_add(row, "lastPlayedDateTime",
-            json_object_new_string(entry.second.lastPlayedDateTime.c_str()));
-        json_object_object_add(root, entry.first.c_str(), row);
-    }
-
-    const char* text = json_object_to_json_string(root);
-    if (!writeWholeFile(titleMapPath(), text ? text : ""))
-        brls::Logger::warning("Trophy: could not write {}", titleMapPath());
-
-    json_object_put(root);
-}
-
-TrophyManager::GameProgress TrophyManager::gameProgressFor(const std::string& npCommunicationId) const
-{
-    std::lock_guard<std::mutex> lock(mutex);
-    const_cast<TrophyManager*>(this)->loadTitleMapLocked();
-
-    auto entry = gameProgress.find(npCommunicationId);
-    return entry == gameProgress.end() ? GameProgress{} : entry->second;
-}
-
-void TrophyManager::resolveGameProgress(const std::vector<psn::TrophyTitle>& titles, std::function<void()> onUpdated)
-{
-    {
-        std::lock_guard<std::mutex> lock(mutex);
-        loadTitleMapLocked();
-
-        if (gameProgressResolving)
-            return;
-
-        size_t missing = 0;
-        for (const psn::TrophyTitle& title : titles)
-        {
-            if (gameProgress.find(title.npCommunicationId) == gameProgress.end())
-                missing++;
-        }
-
-        if (missing == 0)
-            return;
-
-        gameProgressResolving = true;
-        brls::Logger::info("Trophy: {} title(s) have no game progression yet, resolving", missing);
-    }
-
-    HttpPool::instance().submit([this, titles, onUpdated](HttpSession& session) {
-        psn::Client client = clientFor(session);
-
-        std::vector<psn::PlayedGame> games;
-        psn::Error error = client.fetchPlayedGames(games);
-
-        if (!error.ok())
-        {
-            brls::Logger::warning("Trophy: game progression unavailable [{}] {}",
-                psn::statusName(error.status), error.message);
-
-            std::lock_guard<std::mutex> lock(mutex);
-            gameProgressResolving = false;
-            return;
-        }
-
-        std::unordered_set<std::string> wanted;
-        {
-            std::lock_guard<std::mutex> lock(mutex);
-            for (const psn::TrophyTitle& title : titles)
-            {
-                if (gameProgress.find(title.npCommunicationId) == gameProgress.end())
-                    wanted.insert(title.npCommunicationId);
-            }
-        }
-
-        std::unordered_map<std::string, const psn::PlayedGame*> byTitleId;
-        for (const psn::PlayedGame& game : games)
-            byTitleId[game.titleId] = &game;
-
-        int resolved = 0;
-        int batches = 0;
-        std::vector<std::string> batch;
-
-        auto flush = [&]() {
-            if (batch.empty() || wanted.empty())
-            {
-                batch.clear();
-                return true;
-            }
-
-            std::vector<std::pair<std::string, std::string>> mapping;
-            psn::Error mapError = client.fetchTitleMapping(batch, mapping);
-            batches++;
-
-            if (!mapError.ok())
-            {
-                brls::Logger::warning("Trophy: title mapping failed [{}] {}",
-                    psn::statusName(mapError.status), mapError.message);
-                batch.clear();
-                return false;
-            }
-
-            std::lock_guard<std::mutex> lock(mutex);
-
-            for (const auto& pair : mapping)
-            {
-                auto game = byTitleId.find(pair.first);
-                if (game == byTitleId.end())
-                    continue;
-
-                GameProgress entry;
-                entry.playDurationSeconds = game->second->playDurationSeconds;
-                entry.lastPlayedDateTime = game->second->lastPlayedDateTime;
-                entry.valid = true;
-
-                gameProgress[pair.second] = std::move(entry);
-                if (wanted.erase(pair.second) > 0)
-                    resolved++;
-            }
-
-            batch.clear();
-            return true;
-        };
-
-        for (const psn::PlayedGame& game : games)
-        {
-            if (wanted.empty())
-                break;
-
-            batch.push_back(game.titleId);
-
-            if (batch.size() < psn::Client::TITLE_MAP_BATCH)
-                continue;
-
-            if (!flush())
-                break;
-        }
-
-        if (!wanted.empty())
-            flush();
-
-        {
-            std::lock_guard<std::mutex> lock(mutex);
-            gameProgressResolving = false;
-
-            if (resolved > 0)
-            {
-                ensureCacheDirs();
-                saveTitleMapLocked();
-            }
-        }
-
-        brls::Logger::info("Trophy: resolved game progression for {} title(s) over {} mapping call(s), {} unmatched",
-            resolved, batches, wanted.size());
-
-        if (resolved > 0 && onUpdated)
-            brls::sync([onUpdated]() { onUpdated(); });
-    });
+    return librarySavedAt;
 }
 
 psn::ActionStatus TrophyManager::forceRefreshStatus(const std::string& scope)
 {
     std::lock_guard<std::mutex> lock(mutex);
-    loadForceStateLocked();
 
     auto entry = forcedAt.find(scope);
     if (entry == forcedAt.end() || entry->second <= 0)
         return {psn::ActionState::Ready, 0};
 
-    int64_t now = static_cast<int64_t>(std::time(nullptr));
-
+    const int64_t now = nowSeconds();
     if (entry->second > now)
-    {
-        brls::Logger::warning("Trophy: force refresh stamp for '{}' is in the future, restarting the cooldown", scope);
         entry->second = now;
-        saveForceStateLocked();
-    }
 
-    int64_t readyAt = entry->second + static_cast<int64_t>(FORCE_REFRESH_COOLDOWN_MINUTES) * 60;
+    const int64_t readyAt = entry->second + static_cast<int64_t>(FORCE_REFRESH_COOLDOWN_MINUTES) * 60;
     if (readyAt <= now)
         return {psn::ActionState::Ready, 0};
 
@@ -656,13 +257,8 @@ psn::ActionStatus TrophyManager::forceRefreshStatus(const std::string& scope)
 
 void TrophyManager::recordForcedRefresh(const std::string& scope)
 {
-    ensureCacheDirs();
-
     std::lock_guard<std::mutex> lock(mutex);
-    loadForceStateLocked();
-
-    forcedAt[scope] = static_cast<int64_t>(std::time(nullptr));
-    saveForceStateLocked();
+    forcedAt[scope] = nowSeconds();
 
     brls::Logger::info("Trophy: force refresh of '{}' recorded, next available in {} min",
         scope, FORCE_REFRESH_COOLDOWN_MINUTES);
@@ -730,8 +326,12 @@ void TrophyManager::writeIconToDisk(const std::string& path, const std::vector<u
         return;
     }
 
-    if (!replaceFile(temp, path))
+    remove(path.c_str());
+    if (rename(temp.c_str(), path.c_str()) != 0)
+    {
+        remove(temp.c_str());
         stopIconDiskWrites(std::format("could not replace {}", path));
+    }
 }
 
 void TrophyManager::stopIconDiskWrites(const std::string& reason)
@@ -770,197 +370,11 @@ void TrophyManager::storeIconInMemory(const std::string& url, const std::vector<
     }
 }
 
-bool TrophyManager::hasConnectivity() const
-{
-    Result rc = nifmInitialize(NifmServiceType_User);
-    if (R_FAILED(rc))
-        return true;
-
-    NifmInternetConnectionType type = NifmInternetConnectionType_WiFi;
-    NifmInternetConnectionStatus status = NifmInternetConnectionStatus_ConnectingUnknown1;
-    u32 strength = 0;
-
-    rc = nifmGetInternetConnectionStatus(&type, &strength, &status);
-    nifmExit();
-
-    if (R_FAILED(rc))
-        return true;
-
-    return status == NifmInternetConnectionStatus_Connected;
-}
-
-void TrophyManager::awaitBurstSlot()
-{
-    while (true)
-    {
-        std::chrono::steady_clock::time_point waitUntil;
-
-        {
-            std::lock_guard<std::mutex> lock(mutex);
-
-            auto now = std::chrono::steady_clock::now();
-            auto cutoff = now - std::chrono::milliseconds(BURST_WINDOW_MS);
-            while (!burstWindow.empty() && burstWindow.front() <= cutoff)
-                burstWindow.pop_front();
-
-            if (static_cast<int>(burstWindow.size()) < BURST_LIMIT)
-            {
-                burstWindow.push_back(now);
-                return;
-            }
-
-            waitUntil = burstWindow.front() + std::chrono::milliseconds(BURST_WINDOW_MS);
-        }
-
-        std::this_thread::sleep_until(waitUntil);
-    }
-}
-
-static psn::Credential credentialForUrl(const std::string& url)
-{
-    return (url.find("/api/gamelist/") != std::string::npos ||
-            url.find("/api/userProfile/") != std::string::npos)
-        ? psn::Credential::MobileSso
-        : psn::Credential::RemotePlay;
-}
-
-psn::Error TrophyManager::governedGet(HttpSession& session, const std::string& url, std::string& outBody)
-{
-    psn::Auth& auth = psn::Auth::forCredential(credentialForUrl(url));
-
-    int64_t nowSeconds = static_cast<int64_t>(std::time(nullptr));
-    PersistedRateLimiter::Status budget = limiter.status();
-    if (budget.breakerOpen(nowSeconds))
-    {
-        psn::Error blocked{psn::Status::RateLimited,
-            std::format("PSN rate limit cooldown active, {}s remaining", budget.breakerUntil - nowSeconds)};
-        brls::Logger::warning("Trophy: {} blocked, {}", url, blocked.message);
-        return blocked;
-    }
-
-    if (auth.state() == psn::SessionState::NotLinked)
-        return {psn::Status::NotLinked, "PSN account not linked"};
-
-    if (!hasConnectivity())
-    {
-        brls::Logger::info("Trophy: {} skipped, no network connection", url);
-        return {psn::Status::Offline, "No network connection"};
-    }
-
-    psn::Error sessionError = auth.ensureSession(session);
-    if (!sessionError.ok())
-        return sessionError;
-
-    std::string token = auth.accessToken();
-
-    psn::Error result;
-    bool refreshedOn401 = false;
-    int backoffSeconds = 2;
-
-    for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)
-    {
-        std::string budgetReason;
-        if (!limiter.tryAcquire(budgetReason))
-        {
-            brls::Logger::warning("Trophy: {} refused, {}", url, budgetReason);
-            return {psn::Status::RateLimited, budgetReason};
-        }
-
-        awaitBurstSlot();
-
-        HttpResponse response = session.get(url, token, REQUEST_TIMEOUT_S);
-
-        if (!response.transportFailed() && response.status == 200)
-        {
-            outBody = std::move(response.body);
-            return {};
-        }
-
-        if (!response.transportFailed() && response.status == 401)
-        {
-            if (refreshedOn401)
-            {
-                brls::Logger::error("Trophy: {} still 401 after refresh, giving up", url);
-                return {psn::Status::SessionExpired, "PSN rejected the access token after a refresh"};
-            }
-
-            refreshedOn401 = true;
-            brls::Logger::info("Trophy: {} returned 401, refreshing token once", url);
-
-            psn::Error refreshError = auth.ensureSession(session, true);
-            if (!refreshError.ok())
-                return refreshError;
-
-            token = auth.accessToken();
-            continue;
-        }
-
-        if (!response.transportFailed() && response.status == 429)
-        {
-            int cooldown = BREAKER_MINUTES * 60;
-
-            std::string retryAfter = response.header("Retry-After");
-            if (!retryAfter.empty())
-            {
-                try
-                {
-                    cooldown = std::max(cooldown, std::stoi(retryAfter));
-                }
-                catch (const std::exception&)
-                {
-                }
-            }
-
-            cooldown = std::min(cooldown, 60 * 60);
-            limiter.recordThrottle(cooldown);
-
-            brls::Logger::error("Trophy: {} returned 429 (Retry-After '{}'), tripping breaker for {}s",
-                url, retryAfter, cooldown);
-            return {psn::Status::RateLimited,
-                std::format("PSN is rate-limiting, backing off for {}s", cooldown)};
-        }
-
-        bool retryable = response.transportFailed() || response.status >= 500;
-
-        if (response.transportFailed())
-        {
-            result = {psn::Status::Offline, response.error};
-            brls::Logger::warning("Trophy: {} attempt {}/{} transport failure: {}",
-                url, attempt, MAX_ATTEMPTS, response.error);
-        }
-        else
-        {
-            result = {psn::Status::ServerError, std::format("HTTP {}", response.status)};
-            brls::Logger::warning("Trophy: {} attempt {}/{} returned HTTP {}",
-                url, attempt, MAX_ATTEMPTS, response.status);
-        }
-
-        if (!retryable)
-            return result;
-
-        if (attempt < MAX_ATTEMPTS)
-        {
-            brls::Logger::info("Trophy: retrying {} in {}s", url, backoffSeconds);
-            std::this_thread::sleep_for(std::chrono::seconds(backoffSeconds));
-            backoffSeconds *= 2;
-        }
-    }
-
-    return result;
-}
-
-psn::Client TrophyManager::clientFor(HttpSession& session)
-{
-    return psn::Client([this, &session](const std::string& url, std::string& outBody) {
-        return governedGet(session, url, outBody);
-    });
-}
-
-void TrophyManager::logLibrary(const std::vector<psn::TrophyTitle>& titles) const
+void TrophyManager::logLibrary(const std::vector<Title>& titles) const
 {
     int logged = 0;
 
-    for (const psn::TrophyTitle& title : titles)
+    for (const Title& title : titles)
     {
         if (logged >= LIBRARY_LOG_CAP)
         {
@@ -969,417 +383,271 @@ void TrophyManager::logLibrary(const std::vector<psn::TrophyTitle>& titles) cons
             break;
         }
 
-        brls::Logger::info("  [{}] {} {} '{}' svc={} {}% {}/{} (P{}/{} G{}/{} S{}/{} B{}/{}) groups={}({}) hidden={} v{} updated={}",
-            logged, title.npCommunicationId, title.trophyTitlePlatform, title.trophyTitleName,
-            title.npServiceName, title.progress,
-            title.earnedTrophies.total(), title.definedTrophies.total(),
-            title.earnedTrophies.platinum, title.definedTrophies.platinum,
-            title.earnedTrophies.gold, title.definedTrophies.gold,
-            title.earnedTrophies.silver, title.definedTrophies.silver,
-            title.earnedTrophies.bronze, title.definedTrophies.bronze,
-            title.hasTrophyGroups ? "yes" : "no", title.trophyGroupCount,
-            title.hiddenFlag ? "yes" : "no", title.trophySetVersion,
-            title.lastUpdatedDateTime);
+        brls::Logger::info("  [{}] {} '{}' {}% {}/{} (P{}/{} G{}/{} S{}/{} B{}/{}) groups={}({}) hidden={} v{}",
+            logged, title.id.text(), title.name, title.progress,
+            title.earned.total(), title.defined.total(),
+            title.earned.platinum, title.defined.platinum,
+            title.earned.gold, title.defined.gold,
+            title.earned.silver, title.defined.silver,
+            title.earned.bronze, title.defined.bronze,
+            title.has_groups ? "yes" : "no", title.group_count,
+            title.hidden ? "yes" : "no", title.set_version);
 
         logged++;
     }
 }
 
-void TrophyManager::fetchSummary(bool forceRefresh, Callback<psn::TrophySummary> onSuccess, ErrorCallback onError)
+void TrophyManager::fetchSummary(bool forceRefresh, Callback<Summary> onSuccess, ErrorCallback onError)
 {
-    HttpPool::instance().submit([this, forceRefresh, onSuccess, onError](HttpSession& session) {
-        if (!forceRefresh)
-        {
-            psn::TrophySummary cached;
-            bool haveCached = false;
-
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                if (hasCachedSummary)
-                {
-                    cached = cachedSummary;
-                    haveCached = cacheEntryFresh(summarySavedAt, SUMMARY_TTL_MINUTES);
-                }
-            }
-
-            if (!haveCached)
-            {
-                int64_t savedAt = 0;
-                psn::TrophySummary fromDisk;
-                if (loadSummaryFromDisk(fromDisk, savedAt) && cacheEntryFresh(savedAt, SUMMARY_TTL_MINUTES))
-                {
-                    std::lock_guard<std::mutex> lock(mutex);
-                    cachedSummary = fromDisk;
-                    hasCachedSummary = true;
-                    summarySavedAt = savedAt;
-                    cached = fromDisk;
-                    haveCached = true;
-                    brls::Logger::info("Trophy: summary served from disk cache");
-                }
-            }
-
-            if (haveCached)
-            {
-                brls::sync([onSuccess, cached]() { if (onSuccess) onSuccess(cached); });
-                return;
-            }
-        }
-
-        psn::TrophySummary summary;
-        psn::Error error = clientFor(session).fetchSummary(summary);
-
-        if (error.ok())
-        {
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                cachedSummary = summary;
-                hasCachedSummary = true;
-                summarySavedAt = static_cast<int64_t>(std::time(nullptr));
-            }
-
-            ensureCacheDirs();
-            saveSummaryToDisk(summary);
-
-            brls::Logger::info("Trophy summary: level {} tier {} progress {}% points {} ({}/{}) earned {} (P{} G{} S{} B{})",
-                summary.trophyLevel, summary.tier, summary.progress, summary.trophyPoint,
-                summary.trophyLevelBasePoint, summary.trophyLevelNextPoint,
-                summary.earnedTrophies.total(), summary.earnedTrophies.platinum,
-                summary.earnedTrophies.gold, summary.earnedTrophies.silver,
-                summary.earnedTrophies.bronze);
-
-            brls::sync([onSuccess, summary]() { if (onSuccess) onSuccess(summary); });
-            return;
-        }
-
-        brls::Logger::error("Trophy: summary fetch failed with {} ({})",
-            psn::statusName(error.status), error.message);
-
-        brls::sync([onError, error]() { if (onError) onError(error.status, error.message); });
-    });
-}
-
-void TrophyManager::fetchProfile(bool forceRefresh, Callback<psn::PsnProfile> onSuccess, ErrorCallback onError)
-{
-    std::string accountId;
-    if (settings)
+    std::optional<Request> pending = begin();
+    if (!pending)
     {
-        const Profile* p = settings->getActiveProfile();
-        if (p)
-            accountId = p->accountId;
-    }
-
-    if (accountId.empty())
-    {
-        brls::sync([onError]() { if (onError) onError(psn::Status::NotLinked, "No account id for the active profile"); });
+        deliverNotLinked(onError);
         return;
     }
 
-    std::string accountIdDecimal = psnAccountIdDecimal(accountId);
+    HttpPool::instance().submit([this, request = std::move(*pending), forceRefresh, onSuccess, onError](HttpSession&) {
+        if (!current(request))
+            return;
+        if (forceRefresh)
+            trophies().start_over(*request.user);
 
-    HttpPool::instance().submit([this, forceRefresh, accountIdDecimal, onSuccess, onError](HttpSession& session) {
-        if (!forceRefresh)
+        auto summary = trophies().summary_of(*request.user, request.stop);
+        if (!summary)
         {
-            psn::PsnProfile cached;
-            bool haveCached = false;
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                if (hasCachedProfile && cacheEntryFresh(profileSavedAt, PROFILE_TTL_MINUTES))
-                {
-                    cached = cachedProfile;
-                    haveCached = true;
-                }
-            }
-            if (haveCached)
-            {
-                brls::sync([onSuccess, cached]() { if (onSuccess) onSuccess(cached); });
-                return;
-            }
-        }
-
-        psn::PsnProfile profile;
-        psn::Error error = clientFor(session).fetchProfile(accountIdDecimal, profile);
-
-        if (error.ok())
-        {
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                cachedProfile = profile;
-                hasCachedProfile = true;
-                profileSavedAt = static_cast<int64_t>(std::time(nullptr));
-            }
-
-            brls::Logger::info("PSN profile: {} plus={} verified={} avatars={} avatarUrl='{}'",
-                profile.onlineId, static_cast<int>(profile.isPlus),
-                static_cast<int>(profile.isOfficiallyVerified), profile.avatars.size(),
-                profile.avatarUrl());
-
-            brls::sync([onSuccess, profile]() { if (onSuccess) onSuccess(profile); });
+            deliverFailure(request, summary.error(), "summary fetch", onError);
             return;
         }
 
-        brls::Logger::error("PSN profile fetch failed: {} ({})",
-            psn::statusName(error.status), error.message);
-        brls::sync([onError, error]() { if (onError) onError(error.status, error.message); });
+        brls::Logger::info("Trophy summary: level {} tier {} progress {}% earned {} (P{} G{} S{} B{})",
+            summary->level, summary->tier, summary->progress, summary->earned.total(),
+            summary->earned.platinum, summary->earned.gold, summary->earned.silver, summary->earned.bronze);
+
+        deliver(request, std::move(summary).value(), onSuccess);
+    });
+}
+
+void TrophyManager::fetchProfile(bool forceRefresh, Callback<Profile> onSuccess, ErrorCallback onError)
+{
+    static_cast<void>(forceRefresh);
+
+    std::optional<Request> pending = begin();
+    if (!pending)
+    {
+        deliverNotLinked(onError);
+        return;
+    }
+
+    HttpPool::instance().submit([this, request = std::move(*pending), onSuccess, onError](HttpSession&) {
+        if (!current(request))
+            return;
+
+        auto profile = request.user->get_my_profile(request.stop);
+        if (!profile)
+        {
+            deliverFailure(request, profile.error(), "profile fetch", onError);
+            return;
+        }
+
+        brls::Logger::info("PSN profile: {} plus={} avatar={}", profile->online_id,
+            profile->membership.is_ps_plus_member().value_or(false), profile->avatar_url.has_value());
+
+        deliver(request, std::move(profile).value(), onSuccess);
     });
 }
 
 void TrophyManager::fetchProfileForAccount(const std::string& accountId,
-    Callback<psn::PsnProfile> onSuccess, ErrorCallback onError)
+    Callback<Profile> onSuccess, ErrorCallback onError)
 {
-    if (accountId.empty())
+    akira::ChiakiCore& core = akira::ChiakiCore::current();
+    const auto account = libchiaking::AccountId::from_base64(accountId);
+    psn::Accounts::User user = core.opened() && account ? core.chiaki().users().find(*account) : nullptr;
+    if (!user || !user->has_psn_account())
     {
-        brls::sync([onError]() {
-            if (onError)
-                onError(psn::Status::NotLinked, "No account id for the profile");
-        });
+        deliverNotLinked(onError);
         return;
     }
 
-    const std::string accountIdDecimal = psnAccountIdDecimal(accountId);
-    HttpPool::instance().submit([this, accountIdDecimal, onSuccess, onError](HttpSession& session) {
-        psn::PsnProfile profile;
-        psn::Error error = clientFor(session).fetchProfile(accountIdDecimal, profile);
-        if (error.ok())
+    HttpPool::instance().submit([this, request = requestFor(std::move(user)), onSuccess, onError](HttpSession&) {
+        if (!current(request))
+            return;
+
+        auto profile = request.user->get_my_profile(request.stop);
+        if (!profile)
         {
-            brls::sync([onSuccess, profile]() {
-                if (onSuccess)
-                    onSuccess(profile);
-            });
+            deliverFailure(request, profile.error(), "profile lookup", onError);
             return;
         }
-
-        brls::Logger::warning("PSN profile lookup failed: {} ({})",
-            psn::statusName(error.status), error.message);
-        brls::sync([onError, error]() {
-            if (onError)
-                onError(error.status, error.message);
-        });
+        deliver(request, std::move(profile).value(), onSuccess);
     });
 }
 
-void TrophyManager::fetchLibrary(bool forceRefresh, Callback<std::vector<psn::TrophyTitle>> onSuccess, ErrorCallback onError)
+void TrophyManager::fetchLibrary(bool forceRefresh, Callback<std::vector<Title>> onSuccess, ErrorCallback onError)
 {
-    HttpPool::instance().submit([this, forceRefresh, onSuccess, onError](HttpSession& session) {
-        if (!forceRefresh)
+    std::optional<Request> pending = begin();
+    if (!pending)
+    {
+        deliverNotLinked(onError);
+        return;
+    }
+
+    HttpPool::instance().submit([this, request = std::move(*pending), forceRefresh, onSuccess, onError](HttpSession&) {
+        if (!current(request))
+            return;
+        if (forceRefresh)
+            trophies().start_over(*request.user);
+
+        auto titles = trophies().titles_of(*request.user, request.stop);
+        if (!titles)
         {
-            std::vector<psn::TrophyTitle> cached;
-            bool haveCached = false;
-
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                if (hasCachedLibrary && cacheEntryFresh(librarySavedAt, LIBRARY_TTL_MINUTES))
-                {
-                    cached = cachedLibrary;
-                    haveCached = true;
-                }
-            }
-
-            if (!haveCached)
-            {
-                int64_t savedAt = 0;
-                std::vector<psn::TrophyTitle> fromDisk;
-                if (loadLibraryFromDisk(fromDisk, savedAt) && cacheEntryFresh(savedAt, LIBRARY_TTL_MINUTES))
-                {
-                    std::lock_guard<std::mutex> lock(mutex);
-                    cachedLibrary = fromDisk;
-                    hasCachedLibrary = true;
-                    librarySavedAt = savedAt;
-                    cached = std::move(fromDisk);
-                    haveCached = true;
-                    brls::Logger::info("Trophy: {} title(s) served from disk cache", cached.size());
-                }
-            }
-
-            if (haveCached)
-            {
-                prefetchIcons(cached);
-                brls::sync([onSuccess, cached]() { if (onSuccess) onSuccess(cached); });
-                return;
-            }
-        }
-
-        std::vector<psn::TrophyTitle> titles;
-        psn::Error error = clientFor(session).fetchTitles(titles);
-
-        if (error.ok())
-        {
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                cachedLibrary = titles;
-                hasCachedLibrary = true;
-                librarySavedAt = static_cast<int64_t>(std::time(nullptr));
-            }
-
-            ensureCacheDirs();
-            saveLibraryToDisk(titles);
-            logLibrary(titles);
-            prefetchIcons(titles);
-
-            brls::sync([onSuccess, titles]() { if (onSuccess) onSuccess(titles); });
+            deliverFailure(request, titles.error(), "library fetch", onError);
             return;
         }
 
         {
             std::lock_guard<std::mutex> lock(mutex);
-            if (hasCachedLibrary)
-            {
-                brls::Logger::warning("Trophy: library fetch failed with {} ({}), {} stale title(s) held in memory",
-                    psn::statusName(error.status), error.message, cachedLibrary.size());
-            }
-            else
-            {
-                brls::Logger::error("Trophy: library fetch failed with {} ({}), no cache available",
-                    psn::statusName(error.status), error.message);
-            }
+            if (request.generation == generation)
+                librarySavedAt = nowSeconds();
         }
 
-        brls::sync([onError, error]() { if (onError) onError(error.status, error.message); });
+        logLibrary(*titles);
+        prefetchIcons(*titles);
+
+        deliver(request, std::move(titles).value(), onSuccess);
     });
 }
 
-psn::Error TrophyManager::fetchDetailBlocking(HttpSession& session, const psn::TrophyTitle& title,
-    psn::TitleDetail& outDetail)
+void TrophyManager::fetchTitleDetail(const Title& title, bool forceRefresh,
+    Callback<TitleTrophies> onSuccess, ErrorCallback onError)
 {
-    psn::Client client = clientFor(session);
-
-    outDetail.npCommunicationId = title.npCommunicationId;
-    outDetail.npServiceName = title.npServiceName;
-    outDetail.lastUpdatedDateTime = title.lastUpdatedDateTime;
-
-    std::vector<psn::Trophy> definitions;
-    psn::Error error = client.fetchTrophyDefinitions(title.npCommunicationId, title.npServiceName, definitions);
-    if (!error.ok())
-        return error;
-
-    std::vector<psn::Trophy> progress;
-    error = client.fetchTrophyProgress(title.npCommunicationId, title.npServiceName, progress);
-    if (!error.ok())
-        return error;
-
-    psn::mergeTrophies(definitions, progress);
-    outDetail.trophies = std::move(definitions);
-
-    if (!title.hasTrophyGroups)
+    std::optional<Request> pending = begin();
+    if (!pending)
     {
-        psn::TrophyGroup base;
-        base.trophyGroupId = "default";
-        base.trophyGroupName = title.trophyTitleName;
-        base.trophyGroupIconUrl = title.trophyTitleIconUrl;
-        base.definedTrophies = title.definedTrophies;
-        base.earnedTrophies = title.earnedTrophies;
-        base.progress = title.progress;
-        base.lastUpdatedDateTime = title.lastUpdatedDateTime;
-        outDetail.groups.push_back(std::move(base));
-
-        brls::Logger::info("Trophy detail {}: {} trophies, single group",
-            title.npCommunicationId, outDetail.trophies.size());
-        return {};
+        deliverNotLinked(onError);
+        return;
     }
 
-    std::vector<psn::TrophyGroup> groups;
-    error = client.fetchGroupDefinitions(title.npCommunicationId, title.npServiceName, groups);
-    if (!error.ok())
-        return error;
+    HttpPool::instance().submit([this, request = std::move(*pending), title, forceRefresh, onSuccess, onError](HttpSession&) {
+        if (!current(request))
+            return;
+        if (forceRefresh)
+            trophies().start_over(*request.user);
 
-    std::vector<psn::TrophyGroup> groupProgress;
-    psn::Error progressError = client.fetchGroupProgress(title.npCommunicationId, title.npServiceName, groupProgress);
-
-    if (progressError.ok())
-    {
-        psn::mergeGroups(groups, groupProgress);
-    }
-    else
-    {
-        psn::tallyGroupEarned(groups, outDetail.trophies);
-        brls::Logger::warning("Trophy detail {}: group progress failed ({}), earned counts tallied from trophies",
-            title.npCommunicationId, progressError.message);
-    }
-
-    outDetail.groups = std::move(groups);
-
-    brls::Logger::info("Trophy detail {}: {} trophies across {} group(s)",
-        title.npCommunicationId, outDetail.trophies.size(), outDetail.groups.size());
-    return {};
-}
-
-void TrophyManager::fetchTitleDetail(const psn::TrophyTitle& title, bool forceRefresh,
-    Callback<psn::TitleDetail> onSuccess, ErrorCallback onError)
-{
-    HttpPool::instance().submit([this, title, forceRefresh, onSuccess, onError](HttpSession& session) {
-        const std::string& id = title.npCommunicationId;
-
-        if (!forceRefresh)
+        auto detail = trophies().trophies_of(*request.user, title, request.stop);
+        if (!detail)
         {
-            psn::TitleDetail cached;
-            bool haveCached = false;
-
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                auto entry = cachedDetails.find(id);
-                if (entry != cachedDetails.end() && entry->second.lastUpdatedDateTime == title.lastUpdatedDateTime)
-                {
-                    cached = entry->second;
-                    haveCached = true;
-                }
-            }
-
-            if (!haveCached)
-            {
-                int64_t savedAt = 0;
-                psn::TitleDetail fromDisk;
-
-                if (loadDetailFromDisk(id, fromDisk, savedAt))
-                {
-                    bool signalMatches = !title.lastUpdatedDateTime.empty() &&
-                        fromDisk.lastUpdatedDateTime == title.lastUpdatedDateTime;
-
-                    if (signalMatches || cacheEntryFresh(savedAt, DETAIL_TTL_MINUTES))
-                    {
-                        std::lock_guard<std::mutex> lock(mutex);
-                        cachedDetails[id] = fromDisk;
-                        cached = std::move(fromDisk);
-                        haveCached = true;
-
-                        brls::Logger::info("Trophy detail {} served from disk cache ({})",
-                            id, signalMatches ? "unchanged since last fetch" : "within TTL");
-                    }
-                    else
-                    {
-                        brls::Logger::info("Trophy detail {} is stale, refetching", id);
-                    }
-                }
-            }
-
-            if (haveCached)
-            {
-                brls::sync([onSuccess, cached]() { if (onSuccess) onSuccess(cached); });
-                return;
-            }
-        }
-
-        psn::TitleDetail detail;
-        psn::Error error = fetchDetailBlocking(session, title, detail);
-
-        if (error.ok())
-        {
-            {
-                std::lock_guard<std::mutex> lock(mutex);
-                cachedDetails[id] = detail;
-            }
-
-            ensureCacheDirs();
-            mkdir(detailCacheDir().c_str(), 0755);
-            saveDetailToDisk(detail);
-
-            brls::sync([onSuccess, detail]() { if (onSuccess) onSuccess(detail); });
+            deliverFailure(request, detail.error(), "detail fetch", onError);
             return;
         }
 
-        brls::Logger::error("Trophy: detail fetch for {} failed with {} ({})",
-            id, psn::statusName(error.status), error.message);
+        brls::Logger::info("Trophy detail {}: {} trophies across {} group(s)",
+            title.id.text(), detail->trophies.size(), detail->groups.size());
 
-        brls::sync([onError, error]() { if (onError) onError(error.status, error.message); });
+        deliver(request, std::move(detail).value(), onSuccess);
     });
+}
+
+void TrophyManager::resolvePlayedGames(const std::vector<Title>& titles, std::function<void()> onUpdated)
+{
+    std::set<trophies::NpCommunicationId> wanted;
+    for (const Title& title : titles)
+        wanted.insert(title.id);
+
+    std::optional<Request> pending = begin();
+    if (!pending || wanted.empty())
+        return;
+
+    HttpPool::instance().submit([this, request = std::move(*pending), wanted = std::move(wanted),
+                                    onUpdated = std::move(onUpdated)](HttpSession&) mutable {
+        if (!current(request))
+            return;
+
+        auto games = catalog().played_games(*request.user, request.stop);
+        if (!games)
+        {
+            const catalog::PlayedGamesFailure& cause = games.error();
+            if (!cause.is_cancelled() && current(request))
+            {
+                brls::Logger::warning("Trophy: play history unavailable ({}, HTTP {})",
+                    cause.cause() ? reasonName(cause.cause()->reason) : "catalog refused",
+                    cause.http_status());
+            }
+            return;
+        }
+
+        const size_t asked = wanted.size();
+        auto joined = joinPlayedGames(request, *games, std::move(wanted));
+        const size_t resolved = joined.size();
+
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (request.generation != generation)
+                return;
+            playedGames = std::move(joined);
+        }
+
+        brls::Logger::info("Trophy: joined {} played game(s) to {} of {} trophy title(s)",
+            games->size(), resolved, asked);
+
+        const uint64_t generationAsked = request.generation;
+        brls::sync([this, generationAsked, onUpdated = std::move(onUpdated)]() {
+            {
+                std::lock_guard<std::mutex> lock(mutex);
+                if (generationAsked != generation)
+                    return;
+            }
+            if (onUpdated)
+                onUpdated();
+        });
+    });
+}
+
+auto TrophyManager::joinPlayedGames(const Request& request, const std::vector<PlayedGame>& games,
+    std::set<trophies::NpCommunicationId> wanted) -> std::map<trophies::NpCommunicationId, PlayedGame>
+{
+    std::map<trophies::NpCommunicationId, PlayedGame> joined;
+
+    for (auto chunk : games | std::views::chunk(trophies::Trophies::titles_per_request))
+    {
+        if (wanted.empty())
+            break;
+
+        const auto releases = chunk
+            | std::views::transform(&PlayedGame::title)
+            | std::ranges::to<std::vector>();
+
+        auto sets = trophies().titles_for(*request.user, releases, request.stop);
+        if (!sets)
+        {
+            if (!sets.error().is_cancelled())
+                brls::Logger::warning("Trophy: title mapping failed ({})", reasonName(sets.error().reason));
+            break;
+        }
+
+        for (const trophies::TitleSets& entry : *sets)
+        {
+            auto game = std::ranges::find(chunk, entry.title, &PlayedGame::title);
+            if (game == chunk.end())
+                continue;
+
+            for (const trophies::NpCommunicationId& set : entry.sets)
+            {
+                if (wanted.erase(set) > 0)
+                    joined.emplace(set, *game);
+            }
+        }
+    }
+
+    return joined;
+}
+
+auto TrophyManager::playedGameFor(const trophies::NpCommunicationId& title) const -> std::optional<PlayedGame>
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    auto entry = playedGames.find(title);
+    if (entry == playedGames.end())
+        return std::nullopt;
+    return entry->second;
 }
 
 void TrophyManager::fetchIcon(const std::string& url, IconCallback onSuccess)
@@ -1500,12 +768,12 @@ void TrophyManager::discardIcon(const std::string& url)
     brls::Logger::warning("Trophy: discarded the cached icon for {}", url);
 }
 
-void TrophyManager::setSummaryObserver(Callback<psn::TrophySummary> observer)
+void TrophyManager::setSummaryObserver(Callback<Summary> observer)
 {
     summaryObserver = std::move(observer);
 }
 
-void TrophyManager::setLibraryObserver(Callback<std::vector<psn::TrophyTitle>> observer)
+void TrophyManager::setLibraryObserver(Callback<std::vector<Title>> observer)
 {
     libraryObserver = std::move(observer);
 }
@@ -1525,24 +793,17 @@ void TrophyManager::startAutoRefresh()
 
 void TrophyManager::runStaleCheck()
 {
-    bool stale = false;
-
     {
         std::lock_guard<std::mutex> lock(mutex);
-
-        if (!hasCachedLibrary)
+        const int64_t keptFor = std::chrono::duration_cast<std::chrono::seconds>(trophies::Trophies::kept_for).count();
+        if (librarySavedAt == 0 || nowSeconds() - librarySavedAt < keptFor)
             return;
-
-        stale = !cacheEntryFresh(librarySavedAt, LIBRARY_TTL_MINUTES);
     }
 
-    if (!stale)
-        return;
-
-    brls::Logger::info("Trophy: cache passed its TTL, refreshing in the background");
+    brls::Logger::info("Trophy: titles passed the core's cache lifetime, refreshing in the background");
 
     fetchSummary(false,
-        [this](const psn::TrophySummary& summary) {
+        [this](const Summary& summary) {
             if (summaryObserver)
                 summaryObserver(summary);
         },
@@ -1552,7 +813,7 @@ void TrophyManager::runStaleCheck()
         });
 
     fetchLibrary(false,
-        [this](const std::vector<psn::TrophyTitle>& titles) {
+        [this](const std::vector<Title>& titles) {
             if (libraryObserver)
                 libraryObserver(titles);
         },
@@ -1562,14 +823,14 @@ void TrophyManager::runStaleCheck()
         });
 }
 
-void TrophyManager::prefetchIcons(const std::vector<psn::TrophyTitle>& titles)
+void TrophyManager::prefetchIcons(const std::vector<Title>& titles)
 {
     int queued = 0;
     int skipped = 0;
 
-    for (const psn::TrophyTitle& title : titles)
+    for (const Title& title : titles)
     {
-        if (title.trophyTitleIconUrl.empty())
+        if (title.icon_url.empty())
             continue;
 
         if (queued >= ICON_PREFETCH_CAP)
@@ -1579,7 +840,7 @@ void TrophyManager::prefetchIcons(const std::vector<psn::TrophyTitle>& titles)
         }
 
         queued++;
-        fetchIcon(title.trophyTitleIconUrl, nullptr);
+        fetchIcon(title.icon_url, nullptr);
     }
 
     if (skipped > 0)
@@ -1591,21 +852,4 @@ void TrophyManager::prefetchIcons(const std::vector<psn::TrophyTitle>& titles)
     {
         brls::Logger::info("Trophy: prefetching {} icon(s) into the disk cache", queued);
     }
-}
-
-void TrophyManager::clearCache()
-{
-    {
-        std::lock_guard<std::mutex> lock(mutex);
-        hasCachedSummary = false;
-        hasCachedLibrary = false;
-        cachedLibrary.clear();
-        summarySavedAt = 0;
-        librarySavedAt = 0;
-    }
-
-    remove(summaryCachePath().c_str());
-    remove(libraryCachePath().c_str());
-
-    brls::Logger::info("Trophy: cache cleared (memory and disk)");
 }

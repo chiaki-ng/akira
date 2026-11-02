@@ -11,8 +11,6 @@
 
 #include <cstring>
 
-#include <chiaki/packetstats.h>
-
 Session* Session::GetInstance()
 {
     static Session* instance = new Session();
@@ -69,19 +67,8 @@ void Session::setRumbleSource(akira::input::RumbleSource source)
         m_haptic_manager->setRumbleSource(source);
 }
 
-void Session::SetLogger(ChiakiLog* log)
-{
-    this->log = log;
-    if (m_audio_manager) m_audio_manager->setLogger(log);
-    if (m_haptic_manager) m_haptic_manager->setLogger(log);
-    if (m_input_manager) m_input_manager->setLogger(log);
-    if (m_video_decoder) m_video_decoder->setLogger(log);
-}
-
 Session::Session()
 {
-    this->log = nullptr;
-
     m_audio_manager = std::make_unique<AudioManager>();
     m_haptic_manager = std::make_unique<HapticManager>();
     m_input_manager = std::make_unique<InputManager>();
@@ -101,43 +88,128 @@ void Session::SetMesaConfig()
 {
 }
 
-bool Session::VideoCB(uint8_t* buf, size_t buf_size, int32_t frames_lost, bool frame_recovered, void* user)
+void Session::describeStream(const libchiaking::media::StreamDescription& description)
 {
-    if (this->quit || !m_video_decoder)
-        return false;
-
-    if (frames_lost > 0)
-        m_network_frames_lost += frames_lost;
-    if (frame_recovered)
-        m_frames_recovered++;
-
-    return m_video_decoder->decode(buf, buf_size);
-}
-
-void Session::InitAudioCB(unsigned int channels, unsigned int rate)
-{
-    if (m_audio_manager)
+    if (description.picture)
     {
-        m_audio_manager->init(channels, rate);
+        brls::Logger::info("Stream granted {}x{} at {} fps, {} kbps, {}",
+            description.picture->width, description.picture->height,
+            description.picture->max_fps, description.picture->bitrate_kbps,
+            description.picture->codec == libchiaking::media::VideoCodec::h264 ? "H.264" : "HEVC");
     }
+    brls::Logger::info("Stream audio {} channels at {} Hz", description.audio.channels, description.audio.rate);
+    configureAudio(description.audio, false);
 }
 
-void Session::AudioCB(int16_t* buf, size_t samples_count)
+bool Session::configureAudio(const libchiaking::media::AudioFormat& format, bool raw_pcm)
 {
+    auto created = libchiaking::media::AudioDecoder::create(format, raw_pcm);
+    if (!created)
+    {
+        brls::Logger::error("Audio decoder rejected {} channels at {} Hz", format.channels, format.rate);
+        m_audio_decoder.reset();
+        return false;
+    }
+    m_audio_decoder.emplace(std::move(created).value());
     if (m_audio_manager)
     {
-        m_audio_manager->play(buf, samples_count);
+        m_audio_manager->cleanup();
+        m_audio_manager->init(static_cast<unsigned int>(m_audio_decoder->output_channels()),
+                              m_audio_decoder->sample_rate());
+    }
+    return true;
+}
+
+libchiaking::media::VideoResult Session::submitVideo(const libchiaking::media::VideoUnit& unit)
+{
+    using libchiaking::media::VideoVerdict;
+
+    if (this->quit || !m_video_decoder)
+        return {VideoVerdict::dropped, 0};
+
+    if (unit.profile_changed() && unit.hevc() != m_video_decoder->isHEVC())
+        brls::Logger::warning("Stream sent {} video to a {} decoder",
+            unit.hevc() ? "HEVC" : "H.264", m_video_decoder->isHEVC() ? "HEVC" : "H.264");
+
+    if (!m_video_worker || !m_video_worker->submit(unit.profile_header(), unit.frame().bytes()))
+        m_needs_recover.store(true, std::memory_order_relaxed);
+
+    if (!m_takion_version_logged)
+    {
+        if (const auto play = attached())
+        {
+            if (const auto version = play->statistics().protocol_version)
+            {
+                brls::Logger::info("Takion version negotiated: {}", *version);
+                m_takion_version_logged = true;
+            }
+        }
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    if (now - m_audio_counts_logged >= std::chrono::seconds(5))
+    {
+        if (m_audio_counts_logged != std::chrono::steady_clock::time_point{})
+        {
+            brls::Logger::info("audio_units formats={} units={} without_decoder={} decode_failures={} samples_queued={}",
+                m_audio_counts.formats.exchange(0, std::memory_order_relaxed),
+                m_audio_counts.units.exchange(0, std::memory_order_relaxed),
+                m_audio_counts.without_decoder.exchange(0, std::memory_order_relaxed),
+                m_audio_counts.decode_failures.exchange(0, std::memory_order_relaxed),
+                m_audio_counts.samples_queued.exchange(0, std::memory_order_relaxed));
+        }
+        m_audio_counts_logged = now;
+    }
+
+    if (m_needs_recover.exchange(false, std::memory_order_relaxed))
+        return {VideoVerdict::recover, 0};
+
+    return {m_presented.exchange(false, std::memory_order_relaxed) ? VideoVerdict::presented : VideoVerdict::accepted, 0};
+}
+
+libchiaking::media::AudioResult Session::submitAudio(const libchiaking::media::AudioUnit& unit)
+{
+    using libchiaking::media::AudioUnit;
+    using libchiaking::media::AudioVerdict;
+
+    if (unit.kind == AudioUnit::Kind::format)
+    {
+        m_audio_counts.formats.fetch_add(1, std::memory_order_relaxed);
+        if (!configureAudio(unit.format, unit.raw_pcm))
+            return {AudioVerdict::failed, 0};
+        return {};
+    }
+
+    m_audio_counts.units.fetch_add(1, std::memory_order_relaxed);
+    if (!m_audio_decoder)
+    {
+        m_audio_counts.without_decoder.fetch_add(1, std::memory_order_relaxed);
+        return {AudioVerdict::failed, 0};
+    }
+
+    const auto pcm = m_audio_decoder->decode(unit.bytes);
+    if (!pcm)
+    {
+        m_audio_counts.decode_failures.fetch_add(1, std::memory_order_relaxed);
+        return {AudioVerdict::failed, 0};
+    }
+
+    if (m_audio_manager)
+    {
+        m_audio_manager->play(*pcm);
+        m_audio_counts.samples_queued.fetch_add(pcm->size(), std::memory_order_relaxed);
     }
 
     if (m_haptic_manager && m_haptic_manager->isLocked())
-    {
         CleanUpHaptic();
-    }
+
+    return {};
 }
 
 bool Session::InitVideo(int video_width, int video_height)
 {
     brls::Logger::info("load InitVideo");
+    std::lock_guard lock(m_media_mutex);
     this->quit = false;
 
     if (!m_video_decoder || !m_video_decoder->initVideo(video_width, video_height))
@@ -149,7 +221,7 @@ bool Session::InitVideo(int video_width, int video_height)
     brls::Logger::info("Creating Deko3d renderer");
     m_video_renderer = std::make_unique<Deko3dRenderer>();
 
-    if (!m_video_renderer->initialize(video_width, video_height, this->log))
+    if (!m_video_renderer->initialize(video_width, video_height))
     {
         brls::Logger::error("Failed to initialize video renderer");
         m_video_renderer.reset();
@@ -161,12 +233,22 @@ bool Session::InitVideo(int video_width, int video_height)
         av_frame_free(&frame);
     });
 
+    m_needs_recover = false;
+    m_presented = false;
+    m_video_worker = std::make_unique<akira::stream::VideoWorker>(
+        [this](const AVBufferHandle& packet, std::size_t size) {
+            if (!m_video_decoder->decode(packet, size) || m_video_decoder->lastDecodeCorrupt())
+                m_needs_recover.store(true, std::memory_order_relaxed);
+        });
+
     return true;
 }
 
 bool Session::FreeVideo()
 {
     this->quit = true;
+
+    m_video_worker.reset();
 
     if (m_video_decoder)
         m_video_decoder->setFrameReadyCallback(nullptr);
@@ -177,13 +259,16 @@ bool Session::FreeVideo()
     m_first_frame_received = false;
     SettingsManager::getInstance()->setStreamingActive(false);
 
-    if (m_video_renderer)
     {
-        m_video_renderer->waitIdle();
+        std::lock_guard lock(m_media_mutex);
+        if (m_video_renderer)
+            m_video_renderer->waitIdle();
+        m_video_decoder.reset();
+        m_video_renderer.reset();
     }
-
-    m_video_decoder.reset();
-    m_video_renderer.reset();
+    m_audio_decoder.reset();
+    if (m_audio_manager)
+        m_audio_manager->cleanup();
 
     resetStreamStats();
 
@@ -198,9 +283,9 @@ void Session::SetRumble(uint8_t left, uint8_t right)
     }
 }
 
-void Session::SetTriggerEffects(const ChiakiTriggerEffectsEvent* effects)
+void Session::SetTriggerEffects(const libchiaking::controllers::TriggerEffects& effects)
 {
-    if (effects == nullptr || !m_input_manager)
+    if (!m_input_manager)
         return;
 
     if (akira::input::Ds5IntensityFromWire(m_trigger_intensity)
@@ -210,10 +295,10 @@ void Session::SetTriggerEffects(const ChiakiTriggerEffectsEvent* effects)
     akira::input::PadPath::TriggerEffect left;
     akira::input::PadPath::TriggerEffect right;
 
-    left.type = effects->type_left;
-    std::memcpy(left.params, effects->left, sizeof(left.params));
-    right.type = effects->type_right;
-    std::memcpy(right.params, effects->right, sizeof(right.params));
+    left.type = effects.left.mode;
+    std::memcpy(left.params, effects.left.parameters.data(), sizeof(left.params));
+    right.type = effects.right.mode;
+    std::memcpy(right.params, effects.right.parameters.data(), sizeof(right.params));
 
     m_input_manager->sendTriggerEffects(left, right);
 }
@@ -239,11 +324,11 @@ void Session::SetLedColor(uint8_t red, uint8_t green, uint8_t blue)
     m_input_manager->sendLightbar(red, green, blue);
 }
 
-void Session::HapticCB(uint8_t* buf, size_t buf_size)
+void Session::HapticCB(std::span<const std::byte> pcm)
 {
     if (m_haptic_manager)
     {
-        m_haptic_manager->processHapticAudio(buf, buf_size);
+        m_haptic_manager->processHapticAudio(pcm);
     }
 }
 
@@ -270,14 +355,15 @@ void Session::updateActualResolution(int width, int height)
         m_video_renderer->updateResolution(width, height);
 }
 
-bool Session::InitAVCodec(bool is_PS5, int video_width, int video_height)
+bool Session::InitAVCodec(bool hevc, int video_width, int video_height)
 {
+    std::lock_guard lock(m_media_mutex);
     if (!m_video_decoder)
     {
         m_video_decoder = std::make_unique<VideoDecoder>();
     }
 
-    return m_video_decoder->initCodec(is_PS5, video_width, video_height);
+    return m_video_decoder->initCodec(hevc, video_width, video_height);
 }
 
 bool Session::InitController()
@@ -292,19 +378,19 @@ bool Session::FreeController()
     return true;
 }
 
-void Session::UpdateControllerState(ChiakiControllerState* state, std::map<uint32_t, int8_t>* finger_id_touch_id)
+void Session::UpdateControllerState(libchiaking::controllers::ControllerInput& input, std::map<uint32_t, int8_t>* finger_id_touch_id)
 {
     if (m_input_manager)
     {
-        m_input_manager->update(state, finger_id_touch_id);
+        m_input_manager->update(input, finger_id_touch_id);
     }
 }
 
-void Session::UpdateSecondaryPads(ChiakiControllerState* states, uint8_t* count)
+void Session::UpdateSecondaryPads(std::span<libchiaking::controllers::ControllerInput> states, uint8_t& count)
 {
-    if (m_input_manager && count)
+    if (m_input_manager)
     {
-        m_input_manager->readSecondaryPads(states, CHIAKI_COUCH_MAX_PADS, *count);
+        m_input_manager->readSecondaryPads(states, count);
     }
 }
 
@@ -365,10 +451,12 @@ void Session::presentDecodedFrame(AVFrame* frame)
     }
 
     m_video_renderer->presentFrame(frame);
+    m_presented.store(true, std::memory_order_relaxed);
 }
 
 StreamStats Session::getStreamStats()
 {
+    std::lock_guard lock(m_media_mutex);
     StreamStats stats;
 
     stats.requested_width = m_requested_width;
@@ -404,23 +492,26 @@ StreamStats Session::getStreamStats()
 
     stats.renderer_name = "Deko3d";
 
-    if (m_session)
+    if (const auto play = attached())
     {
-        uint64_t received = 0, lost = 0;
-        chiaki_packet_stats_get(&m_session->stream_connection.packet_stats, false, &received, &lost);
-        stats.packets_received = received;
-        stats.packets_lost = lost;
-        if (received + lost > 0)
-            stats.packet_loss_percent = static_cast<float>(lost) / static_cast<float>(received + lost) * 100.0f;
-        stats.measured_bitrate_mbps = static_cast<float>(m_session->stream_connection.measured_bitrate);
-
-        const auto &sc = m_session->stream_connection;
-        stats.rtt_ms = static_cast<float>(sc.rtt_ms);
-        stats.rtt_valid = sc.rtt_sample_count > 0;
-        stats.console_loss = sc.console_loss;
-        stats.upstream_loss = sc.upstream_loss;
-        stats.target_bitrate_kbps = sc.target_bitrate;
-        stats.console_quality_valid = sc.console_quality_valid;
+        const libchiaking::play::Statistics observed = play->statistics();
+        const auto& link = observed.link;
+        if (link.reception.present)
+        {
+            stats.packets_received = link.reception.received;
+            stats.packets_lost = link.reception.lost;
+            stats.packet_loss_percent = static_cast<float>(link.reception.loss_ratio * 100.0);
+        }
+        if (link.video_metrics.present)
+            stats.measured_bitrate_mbps = static_cast<float>(link.video_metrics.throughput_bps) / 1000000.0f;
+        stats.rtt_valid = link.round_trip.present;
+        stats.rtt_ms = static_cast<float>(link.round_trip.smoothed_us) / 1000.0f;
+        stats.console_quality_valid = link.server.present;
+        stats.console_loss = static_cast<uint64_t>(link.server.corrupt_frames);
+        stats.upstream_loss = link.server.upstream_loss_percent;
+        stats.target_bitrate_kbps = link.server.available_down_kbps;
+        stats.network_frames_lost = static_cast<size_t>(observed.video.lost);
+        stats.frames_recovered = static_cast<size_t>(observed.video.recovered);
     }
 
     stats.visual_ms = stats.decode_ms + stats.present_ms;
@@ -430,9 +521,6 @@ StreamStats Session::getStreamStats()
         stats.total_ms = stats.net_ms + stats.visual_ms;
         stats.latency_valid = true;
     }
-
-    stats.network_frames_lost = m_network_frames_lost;
-    stats.frames_recovered = m_frames_recovered;
 
     auto now = std::chrono::steady_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - m_stream_start_time);
@@ -469,9 +557,22 @@ void Session::triggerBorderFlash()
         m_video_renderer->triggerBorderFlash();
 }
 
-void Session::setSession(ChiakiSession* session)
+void Session::attach(std::weak_ptr<libchiaking::play::Session> play)
 {
-    m_session = session;
+    std::lock_guard lock(m_play_mutex);
+    m_play = std::move(play);
+}
+
+void Session::detach()
+{
+    std::lock_guard lock(m_play_mutex);
+    m_play.reset();
+}
+
+std::shared_ptr<libchiaking::play::Session> Session::attached() const
+{
+    std::lock_guard lock(m_play_mutex);
+    return m_play.lock();
 }
 
 void Session::startStreamTimer()
@@ -481,7 +582,5 @@ void Session::startStreamTimer()
 
 void Session::resetStreamStats()
 {
-    m_network_frames_lost = 0;
-    m_frames_recovered = 0;
-    m_session = nullptr;
+    detach();
 }

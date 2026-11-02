@@ -19,8 +19,6 @@ private:
     BRLS_BIND(brls::SliderCell, portGuessingSocksSlider, "settings/portGuessingSocks");
     BRLS_BIND(brls::BooleanCell, autoReconnectToggle, "settings/autoReconnect");
     BRLS_BIND(brls::BooleanCell, hideAccountNameToggle, "settings/hideAccountName");
-    BRLS_BIND(brls::SliderCell, psnRequestBudgetSlider, "settings/psnRequestBudget");
-    BRLS_BIND(brls::SliderCell, psnRequestWindowSlider, "settings/psnRequestWindow");
     BRLS_BIND(brls::Button, runBenchmarkBtn, "settings/runBenchmark");
     BRLS_BIND(brls::Button, flushTrophyCacheBtn, "settings/flushTrophyCache");
 
@@ -33,8 +31,6 @@ private:
     void initPortGuessingToggle();
     void initPortGuessingCountSlider();
     void initPortGuessingSocksSlider();
-    void initPsnRequestBudgetSlider();
-    void initPsnRequestWindowSlider();
     void runGhashBenchmark();
 };
 

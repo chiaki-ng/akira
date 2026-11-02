@@ -131,7 +131,7 @@ HidAnalogStickState HosPadPath::stickPos(int index) const
     return padGetStickPos(&m_pad, index);
 }
 
-void HosPadPath::readTriggers(ChiakiControllerState* state)
+void HosPadPath::readTriggers(libchiaking::controllers::ControllerState& state)
 {
     (void)state;
 }

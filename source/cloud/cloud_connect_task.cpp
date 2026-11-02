@@ -5,43 +5,30 @@
 
 #include "cloud/service.hpp"
 #include "core/host.hpp"
-#include "core/settings_manager.hpp"
 
-#include <cstdio>
 #include <string>
-
-using namespace brls::literals;
 
 namespace cloud {
 
-namespace {
-
-bool parseProvisionStep(const std::string& stage, int& index, int& total, std::string& label)
+CloudConnectTask::CloudConnectTask(const Game& game)
+    : game(game)
 {
-    static const std::string marker = " - Step ";
-    const std::size_t at = stage.rfind(marker);
-    if (at == std::string::npos)
-        return false;
-
-    int parsedIndex = 0;
-    int parsedTotal = 0;
-    if (std::sscanf(stage.c_str() + at + marker.size(), "%d of %d",
-                    &parsedIndex, &parsedTotal) != 2)
-        return false;
-    if (parsedIndex <= 0 || parsedTotal <= 0)
-        return false;
-
-    index = parsedIndex;
-    total = parsedTotal;
-    label = stage.substr(0, at);
-    return true;
 }
 
-} // namespace
-
-CloudConnectTask::CloudConnectTask(const Game& game, bool skipAttr)
-    : game(game), skipAttr(skipAttr)
+CloudConnectTask::CloudConnectTask(std::shared_ptr<CloudLaunch> cleared)
+    : clearedLaunch(std::move(cleared))
 {
+    game.name = clearedLaunch->name();
+}
+
+auto CloudConnectTask::retrying(const CloudLaunch& previous) -> std::unique_ptr<CloudConnectTask>
+{
+    Game game;
+    game.productId = previous.product().text();
+    game.name = previous.name();
+    game.serviceType = previous.ps5() ? "pscloud" : "psnow";
+    game.streamServiceType = game.serviceType;
+    return std::make_unique<CloudConnectTask>(game);
 }
 
 CloudConnectTask::~CloudConnectTask()
@@ -56,89 +43,54 @@ std::string CloudConnectTask::title() const
 
 void CloudConnectTask::start(akira::views::ConnectSink& s)
 {
-    {
-        std::lock_guard<std::mutex> lock(callbackState->mutex);
-        callbackState->sink = &s;
-        callbackState->cancelled.store(false);
-    }
+    cancel();
+    auto state = std::make_shared<CallbackState>();
+    state->sink = &s;
+    callbackState = state;
+
     s.progressStep(0, 0, "");
-    provision();
+
+    if (clearedLaunch)
+    {
+        handOver(state, clearedLaunch);
+        return;
+    }
+
+    Service::instance().clearForLaunch(
+        game, state->stop.token(),
+        [state](std::shared_ptr<CloudLaunch> launch) { handOver(state, std::move(launch)); },
+        [state](const std::string& error) {
+            std::lock_guard<std::mutex> lock(state->mutex);
+            if (!state->stop.stop_requested() && state->sink)
+                state->sink->failed(error);
+        },
+        [state](libchiaking::catalog::LaunchCheck check) {
+            constexpr int total = static_cast<int>(libchiaking::catalog::LaunchCheck::release) + 1;
+            std::lock_guard<std::mutex> lock(state->mutex);
+            if (!state->stop.stop_requested() && state->sink)
+                state->sink->progressStep(static_cast<int>(check) + 1, total,
+                                          brls::getStr("akira/cloud/launch_starting"));
+        });
+}
+
+void CloudConnectTask::handOver(const std::shared_ptr<CallbackState>& state, std::shared_ptr<CloudLaunch> launch)
+{
+    std::lock_guard<std::mutex> lock(state->mutex);
+    if (state->stop.stop_requested() || !state->sink)
+        return;
+
+    auto host = std::make_shared<Host>(launch->name());
+    host->setCloudLaunch(*launch);
+    state->sink->succeeded(host.get(), host);
 }
 
 void CloudConnectTask::cancel()
 {
-    callbackState->cancelled.store(true);
+    if (!callbackState)
+        return;
+    static_cast<void>(callbackState->stop.request_stop());
     std::lock_guard<std::mutex> lock(callbackState->mutex);
     callbackState->sink = nullptr;
-}
-
-void CloudConnectTask::provision()
-{
-    auto state = callbackState;
-
-    Service::instance().launchGame(
-        game,
-        [state](std::shared_ptr<Host> host) {
-            std::lock_guard<std::mutex> lock(state->mutex);
-            if (!state->cancelled.load() && state->sink)
-                state->sink->succeeded(host.get(), host);
-        },
-        [state](const std::string& error) {
-            std::lock_guard<std::mutex> lock(state->mutex);
-            if (!state->cancelled.load() && state->sink)
-                state->sink->failed(error);
-        },
-        [state](const std::string& stage) {
-            if (stage.empty())
-                return;
-
-            brls::Logger::info("{}", stage);
-
-            int index = 0;
-            int total = 0;
-            std::string label;
-            std::lock_guard<std::mutex> lock(state->mutex);
-            if (state->cancelled.load() || !state->sink)
-                return;
-            if (parseProvisionStep(stage, index, total, label))
-                state->sink->progressStep(index, total, label);
-            else
-                state->sink->progressStep(0, 0, stage);
-        },
-        skipAttr,
-        [state]() { return state->cancelled.load(); });
-}
-
-bool CloudConnectTask::presentFailure(const std::string& error,
-                                      akira::views::ConnectSink& s)
-{
-    /*
-     * Only the privacy check is worth offering a way past - it is a choice the
-     * account holder is allowed to make, and the service will honour it on a
-     * second attempt. Every other failure is the shared dialog's business.
-     */
-    const std::string privacyIntro = "akira/cloud/launch_privacy"_i18n;
-    if (error.rfind(privacyIntro, 0) != 0)
-        return false;
-
-    auto* dialog = new brls::Dialog(error);
-
-    dialog->addButton("akira/cloud/try_anyway"_i18n, [this, dialog]() {
-        dialog->close();
-        SettingsManager::getInstance()->setCloudAttrPassed(true);
-        SettingsManager::getInstance()->writeFile();
-        skipAttr = true;
-        provision();
-    });
-
-    dialog->addButton("akira/common/ok"_i18n, [dialog]() {
-        dialog->close();
-        brls::Application::popActivity();
-    });
-
-    dialog->open();
-    (void)s;
-    return true;
 }
 
 } // namespace cloud

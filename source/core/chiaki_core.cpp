@@ -1,0 +1,113 @@
+#include "core/chiaki_core.hpp"
+#include "cloud/service.hpp"
+#include "core/settings_manager.hpp"
+
+#include <borealis.hpp>
+
+#include <cstdint>
+#include <exception>
+
+namespace akira {
+
+namespace platform = libchiaking::platform;
+
+ChiakiCore* ChiakiCore::instance = nullptr;
+
+auto ChiakiCore::threadPlacement() noexcept -> platform::horizon::ThreadPlacementPolicy
+{
+    platform::horizon::ThreadPlacementPolicy policy;
+    const auto session = policy.placement(platform::ThreadRole::session);
+    if (const auto background = platform::horizon::ThreadPlacement::make(
+            session.core(), static_cast<std::uint8_t>(session.priority() + 1), session.stack_size()))
+        policy.place(platform::ThreadRole::unspecified, *background);
+    return policy;
+}
+
+ChiakiCore::ChiakiCore(SettingsManager& settings)
+    : settings(settings),
+      threadingProvider(threadPlacement()),
+      httpProvider(transportSettings(), threadingProvider, steadyClock, &coreLog),
+      webSocketProvider(threadingProvider, steadyClock),
+      factory(platform::PlatformProviders{
+          .threading = &threadingProvider,
+          .clock = &steadyClock,
+          .wall_clock = &systemClock,
+          .random = &secureRandom,
+          .crypto = &cryptoProvider,
+          .http = &httpProvider,
+          .websocket = &webSocketProvider,
+          .diagnostics = &coreLog,
+      }),
+      recordStore(recordRoot),
+      datacenters(settings),
+      chiakiNg(libchiaking::ChiakiNg::open(
+          factory, libchiaking::ChiakiNg::Stores{settings.signIns(), settings.pairings(), datacenters, nullptr,
+                                                 recordStore}))
+{
+    if (instance != nullptr)
+        std::terminate();
+    instance = this;
+    settings.setCoreLog(&coreLog);
+    settings.ensureCloudDuid(random());
+    rememberSaved();
+}
+
+ChiakiCore::~ChiakiCore()
+{
+    settings.setCoreLog(nullptr);
+    instance = nullptr;
+}
+
+auto ChiakiCore::current() noexcept -> ChiakiCore&
+{
+    if (instance == nullptr)
+        std::terminate();
+    return *instance;
+}
+
+auto ChiakiCore::missing() const noexcept -> std::optional<Missing>
+{
+    if (chiakiNg)
+        return std::nullopt;
+    return chiakiNg.error();
+}
+
+auto ChiakiCore::chiaki() -> libchiaking::ChiakiNg&
+{
+    return chiakiNg.value();
+}
+
+auto ChiakiCore::transportSettings() noexcept -> platform::HttpTransportSettings
+{
+    return platform::HttpTransportSettings{
+        .transport = platform::HttpTransport::multi,
+        .multi = {.max_host_connections = 2, .max_total_connections = 6},
+        .pool = {.idle_handles = 2, .connections_per_handle = 1},
+        .tls_handshake_blocks = true,
+    };
+}
+
+void ChiakiCore::rememberSaved()
+{
+    if (!chiakiNg) {
+        brls::Logger::error("[CORE] ChiakiNg did not open: {} provider missing",
+            chiakiNg.error() == Missing::crypto ? "crypto" : "http");
+        return;
+    }
+
+    if (auto returned = chiakiNg->users().welcome_back())
+        brls::Logger::info("[CORE] remembered {} user(s), skipped {}", returned->users.size(), returned->rejected);
+    else
+        brls::Logger::error("[CORE] saved users could not be read");
+
+    if (auto remembered = chiakiNg->consoles().remember_saved())
+        brls::Logger::info("[CORE] remembered {} console(s), skipped {}", remembered->consoles.size(),
+            remembered->rejected);
+    else
+        brls::Logger::error("[CORE] saved consoles could not be read");
+
+    psnAccounts.emplace(*chiakiNg, settings, threadingProvider, steadyClock, random());
+    psnAccounts->setRenewedObserver([] { cloud::Service::instance().refreshInBackground(); });
+}
+
+}

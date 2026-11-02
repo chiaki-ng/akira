@@ -19,7 +19,7 @@ public:
 
     bool poll() override;
     HidAnalogStickState stickPos(int index) const override;
-    void readTriggers(ChiakiControllerState* state) override;
+    void readTriggers(libchiaking::controllers::ControllerState& state) override;
     bool readGyro(HidSixAxisSensorState* out) override;
     void resetMotion() override;
     void sendRumble(float left, float right, float freqLow, float freqHigh) override;

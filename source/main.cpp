@@ -22,11 +22,10 @@
 #include <sstream>
 #include <memory>
 
-#include <chiaki/common.h>
-#include <chiaki/log.h>
 #include <curl/curl.h>
-#include "crypto/libnx/gmac.h"
+#include <optional>
 #include "ui/theme.hpp"
+#include "util/app_log.hpp"
 #include "util/http.hpp"
 #include "util/http_pool.hpp"
 #include "util/sony_dns_checker.hpp"
@@ -45,13 +44,12 @@
 #include "views/profile_setup_view.hpp"
 #include "stream/session.hpp"
 #include "core/settings_manager.hpp"
-#include "cloud/http_bridge.hpp"
+#include "core/chiaki_core.hpp"
+#include "core/wireguard_manager.hpp"
 #include "core/update_manager.hpp"
 #include "core/discovery_manager.hpp"
 #include "ui/akira_header.hpp"
-#include "psn/token_refresher.hpp"
 #include "views/update_flow.hpp"
-#include "core/thread_affinity.h"
 
 #include <borealis/core/i18n.hpp>
 using namespace brls::literals;
@@ -61,7 +59,7 @@ extern "C" {
 }
 
 static void ffmpeg_log_callback(void*, int level, const char* fmt, va_list vl) {
-    if (!SettingsManager::getInstance()->getDebugFfmpegLog())
+    if (SettingsManager::getInstance()->getSilenceAllLogs() || !SettingsManager::getInstance()->getDebugFfmpegLog())
         return;
     if (level > av_log_get_level())
         return;
@@ -202,28 +200,6 @@ void initCustomTheme()
 {
     akira::ui::setActiveTheme(SettingsManager::getInstance()->getUiTheme());
     akira::ui::applyToBorealis();
-}
-
-static void chiaki_to_brls_log(ChiakiLogLevel level, const char* msg, void* user)
-{
-    switch (level)
-    {
-        case CHIAKI_LOG_ERROR:
-            brls::Logger::error("{}", msg);
-            break;
-        case CHIAKI_LOG_WARNING:
-            brls::Logger::warning("{}", msg);
-            break;
-        case CHIAKI_LOG_INFO:
-            brls::Logger::info("{}", msg);
-            break;
-        case CHIAKI_LOG_DEBUG:
-            brls::Logger::debug("{}", msg);
-            break;
-        case CHIAKI_LOG_VERBOSE:
-            brls::Logger::verbose("{}", msg);
-            break;
-    }
 }
 
 static const char* appletTypeToString(AppletType type)
@@ -597,34 +573,17 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    ChiakiErrorCode err = chiaki_lib_init();
-    if (err != CHIAKI_ERR_SUCCESS)
-    {
-        brls::Logger::error("Chiaki lib init failed: {}", chiaki_error_string(err));
-        return EXIT_FAILURE;
-    }
+    std::optional<akira::ChiakiCore> core;
+    core.emplace(*settings);
+    if (!core->opened())
+        brls::Logger::error("[CORE] running without the core: streaming, sign-in and discovery are unavailable");
+    brls::Application::getWindowFocusChangedEvent()->subscribe([&core](bool focused) {
+        if (focused && core)
+            core->http().drop_connections("applet regained focus");
+    });
 
-    if (SettingsManager::getInstance()->getEnableThreadAffinity()) {
-        chiaki_thread_affinity_init();
-        akira_thread_set_affinity(AKIRA_THREAD_NAME_MAIN);
-        brls::Logger::info("Thread affinity enabled");
-    }
-
-    static ChiakiLog chiakiLog;
-    chiaki_log_init(&chiakiLog, 0, chiaki_to_brls_log, nullptr);
-    settings->setLogger(&chiakiLog);
-    Session::GetInstance()->SetLogger(&chiakiLog);
-    cloud::registerHttpBridge();
-
-    static FILE* logFile = nullptr;
-    if (SettingsManager::getInstance()->getEnableFileLogging()) {
-        std::string logPath = SettingsManager::getLogFilePath();
-        logFile = fopen(logPath.c_str(), "w");
-        if (logFile) {
-            brls::Logger::setLogOutput(logFile);
-            brls::Logger::info("File logging enabled: {}", logPath);
-        }
-    }
+    if (SettingsManager::getInstance()->getEnableFileLogging())
+        akira::AppLog::open(SettingsManager::getLogFilePath());
 
     brls::Logger::setAsyncLogging(true);
     if (const curl_version_info_data* curlInfo = curl_version_info(CURLVERSION_NOW))
@@ -652,9 +611,6 @@ int main(int argc, char* argv[])
         }, true);
     });
     brls::Logger::info("Async logging enabled via thread pool");
-
-    chiaki_libnx_set_ghash_mode(CHIAKI_LIBNX_GHASH_PMULL);
-    brls::Logger::info("GHASH mode: PMULL");
 
     brls::Logger::info("Chiaki library initialized");
 
@@ -685,7 +641,6 @@ int main(int argc, char* argv[])
     {
         brls::Application::pushActivity(new MainActivity());
         startSonyDnsStartupCheck();
-        psn::TokenRefresher::instance().start();
     }
     else
     {
@@ -704,10 +659,17 @@ int main(int argc, char* argv[])
     brls::Logger::info("Application exiting");
 
     DiscoveryManager::getInstance()->setServiceEnabled(false);
-
-    psn::TokenRefresher::instance().stop();
+    for (auto& [name, host] : *settings->getHostsMap())
+    {
+        if (host)
+            host->abandonRegistration();
+    }
 
     HttpPool::instance().stop();
+
+    WireGuardManager::instance().disconnect();
+
+    core.reset();
 
     SDL_Quit();
     curl_global_cleanup();

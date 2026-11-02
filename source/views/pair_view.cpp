@@ -1,6 +1,7 @@
 #include "views/pair_view.hpp"
 
 #include "cloud/service.hpp"
+#include "core/chiaki_core.hpp"
 #include "core/settings_manager.hpp"
 #include "core/trophy_manager.hpp"
 #include "ui/theme.hpp"
@@ -214,28 +215,39 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
     if (!creds.accountId.empty())
         settings->setPsnAccountId(nullptr, creds.accountId);
 
-    if (!creds.accessToken.empty())
-        settings->setPsnAccessToken(creds.accessToken);
-    if (!creds.refreshToken.empty())
-        settings->setPsnRefreshToken(creds.refreshToken);
-    if (creds.expiresAt > 0)
-        settings->setPsnTokenExpiresAt(creds.expiresAt);
-    if (!creds.npsso.empty())
-        settings->setPsnNpsso(creds.npsso);
-    if (!creds.duid.empty())
-        settings->setGlobalDuid(creds.duid);
-
-    if (creds.hasMobile) {
-        settings->setPsnMobileSsoAccessToken(creds.mobileAccessToken);
-        settings->setPsnMobileSsoRefreshToken(creds.mobileRefreshToken);
-        if (creds.mobileExpiresAt > 0)
-            settings->setPsnMobileSsoExpiresAt(creds.mobileExpiresAt);
-    }
-
     settings->refreshLegacyGate();
     settings->writeFile();
-    brls::Logger::info("Imported PSN credentials from pairing push");
     settings->logProfileCensus("pair-after");
+
+    auto* accounts = akira::ChiakiCore::current().accounts();
+    if (!accounts || creds.npsso.empty()) {
+        brls::Logger::warning("Pair push carried no usable NPSSO, nothing to sign in with");
+        brls::Application::notify(brls::getStr("akira/hosts/token_refresh_failed", "NPSSO"));
+        return;
+    }
+
+    const int64_t profileId = settings->getActiveProfileId();
+    accounts->signIn(profileId, creds.npsso, creds.duid,
+        [profileId](psn::SignInOutcome outcome, const psn::Accounts::User& user) {
+            if (outcome != psn::SignInOutcome::SignedIn || !user) {
+                brls::Logger::warning("Pair push sign-in for profile {} ended without a user", profileId);
+                if (outcome != psn::SignInOutcome::Superseded)
+                    brls::Application::notify(brls::getStr("akira/hosts/token_refresh_failed", "PSN"));
+                return;
+            }
+            adoptSignedInUser(profileId, user);
+            brls::Logger::info("Signed in to PSN from the pairing push");
+        });
+}
+
+void PairView::adoptSignedInUser(int64_t profileId, const psn::Accounts::User& user) {
+    SettingsManager* settings = SettingsManager::getInstance();
+    settings->updateProfile(profileId, [&user](Profile& profile) {
+        profile.accountId = psn::Accounts::base64Of(user->account_id());
+        profile.onlineId = user->online_id();
+    });
+    settings->refreshLegacyGate();
+    settings->writeFile();
 
     TrophyManager::getInstance()->onActiveProfileChanged();
     /*

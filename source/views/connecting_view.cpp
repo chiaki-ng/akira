@@ -10,6 +10,7 @@
 #include "core/host.hpp"
 #include "core/settings_manager.hpp"
 #include "ui/theme.hpp"
+#include "util/app_log.hpp"
 #include "util/shared_view_holder.hpp"
 #include "views/stream_view.hpp"
 
@@ -29,21 +30,6 @@ void replaceAll(std::string& text, const std::string& needle, const std::string&
         text.replace(position, needle.size(), replacement);
         position += replacement.size();
     }
-}
-
-std::string privacySafeConnectionLine(const std::string& line)
-{
-    SettingsManager* settings = SettingsManager::getInstance();
-    if (!settings->getHideAccountName())
-        return line;
-
-    std::string safe = line;
-    for (const Profile& profile : settings->getProfiles())
-    {
-        replaceAll(safe, profile.onlineId, settings->maskAccountName(profile.onlineId));
-        replaceAll(safe, profile.accountId, settings->maskAccountName(profile.accountId));
-    }
-    return safe;
 }
 
 } // namespace
@@ -94,7 +80,7 @@ ConnectingView::~ConnectingView()
 
     task.reset();
 
-    restoreMainLog();
+    connectionLog.reset();
     SharedViewHolder::release(this);
 }
 
@@ -109,6 +95,16 @@ void ConnectingView::setupAndStart()
                 self->cancelFromUser();
             return true;
         });
+    }
+
+    SettingsManager* settings = SettingsManager::getInstance();
+    if (settings->getHideAccountName())
+    {
+        for (const Profile& profile : settings->getProfiles())
+        {
+            logMasks.emplace_back(profile.onlineId, settings->maskAccountName(profile.onlineId));
+            logMasks.emplace_back(profile.accountId, settings->maskAccountName(profile.accountId));
+        }
     }
 
     logSubscription = brls::Logger::subscribeToLog(
@@ -142,7 +138,9 @@ void ConnectingView::cancelFromUser()
 
 void ConnectingView::addLogLine(const std::string& line)
 {
-    const std::string safeLine = privacySafeConnectionLine(line);
+    std::string safeLine = line;
+    for (const auto& [needle, mask] : logMasks)
+        replaceAll(safeLine, needle, mask);
     {
         std::lock_guard<std::mutex> lock(logMutex);
 
@@ -159,17 +157,6 @@ void ConnectingView::addLogLine(const std::string& line)
         while (logLines.size() > MAX_LOG_LINES)
             logLines.pop_front();
     }
-
-    /*
-     * Read out of the log rather than reported by hand. A route that says
-     * nothing about its stages still gets a ring, because the lines it writes
-     * on the way through name the stages anyway.
-     */
-    if (steppedRoute.load())
-        return;
-
-    currentStage.store(static_cast<int>(
-        matchConnectionStage(safeLine, static_cast<ConnectionStage>(currentStage.load()))));
 }
 
 void ConnectingView::switchToConnectionLog()
@@ -178,27 +165,9 @@ void ConnectingView::switchToConnectionLog()
         return;
 
     const std::string logPath = SettingsManager::getConnectionLogFilePath(task->logKind());
-
-    FILE* newLogFile = fopen(logPath.c_str(), "w");
-    if (newLogFile) {
-        prevLogOutput = brls::Logger::getLogOutput();
-        connectionLogFile = newLogFile;
-        brls::Logger::setLogOutput(newLogFile);
+    connectionLog = akira::ConnectionLog::open(logPath);
+    if (connectionLog)
         brls::Logger::info("Switched to connection log: {}", logPath);
-    }
-}
-
-void ConnectingView::restoreMainLog()
-{
-    if (!connectionLogFile)
-        return;
-
-    brls::Logger::flushAsyncLogs();
-    brls::Logger::setLogOutput(prevLogOutput ? prevLogOutput : stdout);
-    brls::Logger::flushAsyncLogs();
-    fclose(connectionLogFile);
-    connectionLogFile = nullptr;
-    prevLogOutput = nullptr;
 }
 
 void ConnectingView::progress(ConnectionStage stage)
@@ -236,6 +205,9 @@ void ConnectingView::succeeded(Host* host, std::shared_ptr<Host> owner)
 
     auto streamView = SharedViewHolder::holdNew<StreamView>(host, owner);
     streamView->setupCallbacks();
+    if (connectionLog)
+        streamView->adoptConnectionLog(std::move(*connectionLog));
+    connectionLog.reset();
 
     /*
      * Popped and pushed in the same callback, and this is the moment the home
@@ -383,12 +355,38 @@ void ConnectingView::draw(NVGcontext* vg, float x, float y, float width, float h
                logArea->getWidth(), logArea->getHeight());
 }
 
-void startConnecting(std::unique_ptr<ConnectTask> task)
+void ConnectingView::open(std::unique_ptr<ConnectTask> task)
 {
     auto view = SharedViewHolder::holdNew<ConnectingView>(std::move(task));
     stream_nav::markBase();
     brls::Application::pushActivity(new brls::Activity(view.get()));
     view->setupAndStart();
+}
+
+void ConnectingView::askAboutFileLogging(std::unique_ptr<ConnectTask> task)
+{
+    auto pending = std::make_shared<std::unique_ptr<ConnectTask>>(std::move(task));
+    auto* dialog = new brls::Dialog("akira/connection/file_logging_warning"_i18n);
+    dialog->setCancelable(false);
+    dialog->addButton("akira/connection/file_logging_turn_off"_i18n, [pending]() {
+        SettingsManager* settings = SettingsManager::getInstance();
+        settings->setEnableFileLogging(false);
+        settings->writeFile();
+        AppLog::close();
+        open(std::move(*pending));
+    });
+    dialog->addButton("akira/connection/file_logging_keep_on"_i18n, [pending]() {
+        open(std::move(*pending));
+    });
+    dialog->open();
+}
+
+void startConnecting(std::unique_ptr<ConnectTask> task)
+{
+    if (SettingsManager::getInstance()->getEnableFileLogging())
+        ConnectingView::askAboutFileLogging(std::move(task));
+    else
+        ConnectingView::open(std::move(task));
 }
 
 } // namespace akira::views

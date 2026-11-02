@@ -1,18 +1,30 @@
 # WireGuard library
-set(WIREGUARD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/switch-wireguard)
-set(WIREGUARD_LIB ${WIREGUARD_DIR}/libwireguard.a)
+set(WIREGUARD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/switch-wireguard CACHE PATH "switch-wireguard source tree")
 
-add_custom_target(wireguard_build
-    COMMAND make -C ${WIREGUARD_DIR}
-    WORKING_DIRECTORY ${WIREGUARD_DIR}
-    COMMENT "Building libwireguard.a"
-    BYPRODUCTS ${WIREGUARD_LIB}
+file(GLOB WIREGUARD_SRCS CONFIGURE_DEPENDS
+    ${WIREGUARD_DIR}/src/*.c
+    ${WIREGUARD_DIR}/library/crypto/*.c
+)
+add_library(wireguard STATIC ${WIREGUARD_SRCS})
+target_include_directories(wireguard PRIVATE
+    ${WIREGUARD_DIR}/include
+    ${WIREGUARD_DIR}/library/crypto
+    ${WIREGUARD_DIR}/src
+)
+target_compile_options(wireguard PRIVATE
+    -march=armv8-a+crc+crypto
+    -mtune=cortex-a57
+    -mtp=soft
+    -fPIC
+    -O2
+    -Wall
+    -ffunction-sections
 )
 
 ###########################################
 # lwIP library (for WireGuard relay)
 ###########################################
-set(LWIP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/lwip)
+set(LWIP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/lwip CACHE PATH "lwIP source tree")
 
 set(LWIP_SRCS
     ${LWIP_DIR}/src/core/init.c
@@ -35,8 +47,6 @@ set(LWIP_SRCS
 )
 
 set(LWIP_RELAY_SRCS
-    ${WIREGUARD_DIR}/lwip-relay/src/wg_lwip_relay.cpp
     ${WIREGUARD_DIR}/lwip-relay/src/wg_netif.c
     ${WIREGUARD_DIR}/lwip-relay/src/sys_arch.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/source/core/thread_affinity.cpp
 )

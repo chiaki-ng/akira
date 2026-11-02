@@ -12,6 +12,7 @@ SettingsDebugView::SettingsDebugView() {
 
     settings = SettingsManager::getInstance();
 
+    initSilenceAllLogsToggle();
     initEnableFileLoggingToggle();
     initDebugLwipLogToggle();
     initDebugWireguardLogToggle();
@@ -24,6 +25,17 @@ SettingsDebugView::SettingsDebugView() {
         brls::Application::pushActivity(new brls::Activity(new DiscoveryLogView()));
         return true;
     });
+}
+
+void SettingsDebugView::initSilenceAllLogsToggle() {
+    silenceAllLogsToggle->init(
+        "akira/settings/silence_all_logs"_i18n,
+        settings->getSilenceAllLogs(),
+        [this](bool isOn) {
+            settings->setSilenceAllLogs(isOn);
+            settings->writeFile();
+        }
+    );
 }
 
 void SettingsDebugView::initEnableFileLoggingToggle() {

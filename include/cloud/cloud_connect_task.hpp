@@ -1,24 +1,24 @@
 #ifndef AKIRA_CLOUD_CONNECT_TASK_HPP
 #define AKIRA_CLOUD_CONNECT_TASK_HPP
 
-#include <atomic>
 #include <memory>
 #include <mutex>
 #include <string>
 
+#include <libchiaking/platform/platform.hpp>
+
+#include "cloud/cloud_launch.hpp"
 #include "cloud/models.hpp"
 #include "views/connect_task.hpp"
 
 namespace cloud {
 
-/*
- * A cloud session, which has to be provisioned before there is any console to
- * connect to. The service reports its own progress as text, so the stages are
- * read out of that rather than inferred from the log.
- */
 class CloudConnectTask : public akira::views::ConnectTask {
 public:
-    CloudConnectTask(const Game& game, bool skipAttr);
+    explicit CloudConnectTask(const Game& game);
+    explicit CloudConnectTask(std::shared_ptr<CloudLaunch> cleared);
+
+    static auto retrying(const CloudLaunch& previous) -> std::unique_ptr<CloudConnectTask>;
     ~CloudConnectTask() override;
 
     std::string title() const override;
@@ -27,21 +27,18 @@ public:
     void start(akira::views::ConnectSink& sink) override;
     void cancel() override;
 
-    bool presentFailure(const std::string& error,
-                        akira::views::ConnectSink& sink) override;
-
 private:
     struct CallbackState {
         std::mutex mutex;
         akira::views::ConnectSink* sink = nullptr;
-        std::atomic<bool> cancelled{false};
+        libchiaking::platform::StopSource stop;
     };
 
-    Game game;
-    bool skipAttr = false;
-    std::shared_ptr<CallbackState> callbackState = std::make_shared<CallbackState>();
+    static void handOver(const std::shared_ptr<CallbackState>& state, std::shared_ptr<CloudLaunch> launch);
 
-    void provision();
+    Game game;
+    std::shared_ptr<CloudLaunch> clearedLaunch;
+    std::shared_ptr<CallbackState> callbackState;
 };
 
 } // namespace cloud

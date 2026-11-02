@@ -12,6 +12,8 @@
 #include "core/migrations/m004_cloud_datacenter_tables.hpp"
 #include "core/migrations/m005_group_settings_tables.hpp"
 #include "core/migrations/m006_split_cloud_video_by_service.hpp"
+#include "core/migrations/m007_split_psn_sign_ins.hpp"
+#include "core/migrations/registry.hpp"
 
 namespace {
 
@@ -29,6 +31,7 @@ toml::table run_migrate(std::string_view src)
     chiaki_migrations::register_m004_cloud_datacenter_tables(m);
     chiaki_migrations::register_m005_group_settings_tables(m);
     chiaki_migrations::register_m006_split_cloud_video_by_service(m);
+    chiaki_migrations::register_m007_split_psn_sign_ins(m);
 
     toml::table doc = toml::parse(src);
     m.migrate(doc);
@@ -150,15 +153,16 @@ rp_key_type = 0
 
     toml::table doc = run_migrate(src);
 
-    CHECK_EQ(version_of(doc), 7);
+    CHECK_EQ(version_of(doc), 8);
 
     CHECK_EQ(arr_size(doc, "profiles"), 1);
     const toml::table* p0 = nth(doc, "profiles", 0);
     CHECK_EQ(tint(p0, "profile_id"), 1);
     CHECK_EQ(tstr(p0, "account_id"), std::string("QUFBQUFBQUE="));
     CHECK_EQ(tstr(p0, "online_id"), std::string("coolgamer"));
-    CHECK_EQ(tstr(p0, "refresh_token"), std::string("rt-token"));
-    CHECK_EQ(tstr(p0, "duid"), std::string("deadbeef"));
+    CHECK(!p0->contains("refresh_token"));
+    CHECK(!p0->contains("duid"));
+    CHECK_EQ(arr_size(doc, "sign_ins"), -1);
 
     CHECK_EQ(arr_size(doc, "consoles"), 2);
     const toml::table* cPs5 = find_str(doc, "consoles", "nickname", "PS5-123");
@@ -237,7 +241,7 @@ rp_key_type = 0
 
     toml::table doc = run_migrate(src);
 
-    CHECK_EQ(version_of(doc), 7);
+    CHECK_EQ(version_of(doc), 8);
     CHECK_EQ(arr_size(doc, "profiles"), 1);
     CHECK_EQ(tstr(nth(doc, "profiles", 0), "account_id"), std::string("TEVH"));
 
@@ -267,7 +271,7 @@ nickname = "PS5"
 
     toml::table doc = run_migrate(src);
 
-    CHECK_EQ(version_of(doc), 7);
+    CHECK_EQ(version_of(doc), 8);
     CHECK_EQ(arr_size(doc, "profiles"), 1);
     CHECK_EQ(arr_size(doc, "consoles"), 1);
     CHECK_EQ(tstr(nth(doc, "profiles", 0), "account_id"), std::string("WA=="));
@@ -279,7 +283,7 @@ TEST(migration_empty_new_user)
 
     toml::table doc = run_migrate(src);
 
-    CHECK_EQ(version_of(doc), 7);
+    CHECK_EQ(version_of(doc), 8);
     CHECK(!doc.contains("profiles"));
     CHECK(!doc.contains("consoles"));
     CHECK(!doc.contains("active_profile_id"));
@@ -310,7 +314,7 @@ port_guessing = true
 
     toml::table doc = run_migrate(src);
 
-    CHECK_EQ(version_of(doc), 7);
+    CHECK_EQ(version_of(doc), 8);
     CHECK(!doc.contains("hardened_nat_traversal"));
     CHECK(doc["network"]["port_guessing"].value<bool>().value_or(false));
 }
@@ -324,7 +328,7 @@ port_guessing = true
 
     toml::table doc = run_migrate(src);
 
-    CHECK_EQ(version_of(doc), 7);
+    CHECK_EQ(version_of(doc), 8);
     CHECK(!doc.contains("hardened_nat_traversal"));
     CHECK(doc["network"]["port_guessing"].value<bool>().value_or(false));
 }
@@ -339,7 +343,7 @@ cloud_datacenters_psnow = '[{"dataCenter":"lona","rtt":2,"rtts":[2],"mtu_in":145
 
     toml::table doc = run_migrate(src);
 
-    CHECK_EQ(version_of(doc), 7);
+    CHECK_EQ(version_of(doc), 8);
     const toml::array* pscloud = doc["cloud"]["datacenters"]["pscloud"].as_array();
     const toml::array* psnow = doc["cloud"]["datacenters"]["psnow"].as_array();
     CHECK_EQ(size_of(pscloud), 2);
@@ -378,7 +382,7 @@ cloud_datacenters_psnow = '[]'
 
     toml::table doc = run_migrate(src);
 
-    CHECK_EQ(version_of(doc), 7);
+    CHECK_EQ(version_of(doc), 8);
     CHECK(!doc.contains("cloud_datacenters_pscloud"));
     CHECK(!doc.contains("cloud_datacenters_psnow"));
     CHECK(!doc.contains("cloud"));
@@ -433,7 +437,7 @@ cross = [ 'A' ]
 
     toml::table doc = run_migrate(src);
 
-    CHECK_EQ(version_of(doc), 7);
+    CHECK_EQ(version_of(doc), 8);
 
     CHECK_EQ(doc["video"]["local"]["resolution"].value_or(std::string()), std::string("1080p"));
     CHECK_EQ(doc["video"]["local"]["fps"].value_or(int64_t(0)), 60);
@@ -511,7 +515,7 @@ profile_id = 2
 
     toml::table doc = run_migrate(src);
 
-    CHECK_EQ(version_of(doc), 7);
+    CHECK_EQ(version_of(doc), 8);
     CHECK(!doc.contains("cloud_shortcuts"));
 
     const toml::table* p1 = nth(doc, "profiles", 0);
@@ -545,7 +549,7 @@ cloud_fsr_enabled = true
 
     toml::table doc = run_migrate(src);
 
-    CHECK_EQ(version_of(doc), 7);
+    CHECK_EQ(version_of(doc), 8);
     CHECK(!doc["video"]["cloud"].as_table()->contains("resolution"));
 
     for (const char* service : {"pscloud", "psnow"}) {
@@ -572,7 +576,144 @@ bitrate = 5000
 
     toml::table doc = run_migrate(src);
 
-    CHECK_EQ(version_of(doc), 7);
+    CHECK_EQ(version_of(doc), 8);
     CHECK_EQ(doc["video"]["cloud"]["pscloud"]["resolution"].value_or(int64_t(0)), 1080);
     CHECK_EQ(doc["video"]["cloud"]["psnow"]["resolution"].value_or(int64_t(0)), 720);
+}
+
+TEST(migration_moves_psn_tokens_into_sign_ins)
+{
+    static constexpr std::string_view src = R"(
+version = 7
+
+[[profiles]]
+profile_id = 1
+online_id = "player"
+account_id = "AQAAAAAAAAA="
+npsso = "seed"
+access_token = "rp-access"
+refresh_token = "rp-refresh"
+token_expires_at = 1700000000
+mobile_sso_access_token = "app-access"
+mobile_sso_refresh_token = "app-refresh"
+mobile_sso_expires_at = 1700000100
+duid = "0000000700410080abcdef"
+npsso_valid = true
+
+[[profiles]]
+profile_id = 2
+online_id = "local"
+account_id = "AgAAAAAAAAA="
+legacy = true
+)";
+
+    toml::table doc = run_migrate(src);
+
+    CHECK_EQ(version_of(doc), 8);
+    CHECK_EQ(arr_size(doc, "sign_ins"), 1);
+    const toml::table* signIn = nth(doc, "sign_ins", 0);
+    CHECK_EQ(tstr(signIn, "account"), "1");
+    CHECK_EQ(tstr(signIn, "npsso"), "seed");
+    CHECK_EQ(tstr(signIn, "remote_play_token"), "rp-access");
+    CHECK_EQ(tstr(signIn, "remote_play_refresh_token"), "rp-refresh");
+    CHECK_EQ(tint(signIn, "remote_play_token_expires_at"), int64_t(1700000000000));
+    CHECK_EQ(tstr(signIn, "app_token"), "app-access");
+    CHECK_EQ(tint(signIn, "app_token_expires_at"), int64_t(1700000100000));
+    CHECK_EQ(tstr(signIn, "device_id"), "0000000700410080abcdef");
+
+    const toml::table* profile = nth(doc, "profiles", 0);
+    CHECK(!profile->contains("npsso"));
+    CHECK(!profile->contains("access_token"));
+    CHECK(!profile->contains("duid"));
+    CHECK_EQ(tstr(profile, "account_id"), "AQAAAAAAAAA=");
+}
+
+TEST(m008_moves_sign_ins_and_pairings_under_their_profiles)
+{
+    constexpr std::string_view src = R"(
+version = 8
+
+[[profiles]]
+profile_id = 1
+online_id = "first"
+account_id = "AQAAAAAAAAA="
+
+[[profiles]]
+profile_id = 3
+online_id = "third"
+account_id = "AwAAAAAAAAA="
+
+[[sign_ins]]
+account = "1"
+online_id = "first"
+npsso = "seed-one"
+app_refresh_token = "refresh-one"
+
+[[sign_ins]]
+account = "9"
+online_id = "gone"
+npsso = "seed-orphan"
+
+[[pairings]]
+account = "1"
+hardware_id = "aabbccddeeff"
+rp_key = "a2V5"
+
+[[pairings]]
+account = "9"
+hardware_id = "aabbccddeeff"
+rp_key = "b3JwaGFu"
+
+[[paired_consoles]]
+hardware_id = "aabbccddeeff"
+name = "PS5"
+)";
+
+    toml::table doc = toml::parse(src);
+    chiaki_migrations::buildSettingsMigrator().migrate(doc);
+
+    CHECK_EQ(version_of(doc), 10);
+    CHECK(!doc.contains("sign_ins"));
+    CHECK(!doc.contains("pairings"));
+    CHECK_EQ(arr_size(doc, "paired_consoles"), 1);
+
+    const toml::table* first = nth(doc, "profiles", 0);
+    const toml::table* signIn = (*first)["sign_in"].as_table();
+    CHECK(signIn != nullptr);
+    CHECK_EQ(tstr(signIn, "npsso"), "seed-one");
+    CHECK_EQ(tstr(signIn, "app_refresh_token"), "refresh-one");
+    CHECK(!signIn->contains("account"));
+    CHECK(!signIn->contains("online_id"));
+    const toml::array* pairings = (*first)["pairings"].as_array();
+    CHECK_EQ(size_of(pairings), 1);
+    CHECK_EQ(tstr(nth_in(pairings, 0), "rp_key"), "a2V5");
+    CHECK(!nth_in(pairings, 0)->contains("account"));
+
+    const toml::table* third = nth(doc, "profiles", 1);
+    CHECK(!third->contains("sign_in"));
+    CHECK(!third->contains("pairings"));
+}
+
+TEST(m009_splits_the_takion_override_by_target)
+{
+    toml::table doc = toml::parse(R"(
+version = 9
+
+[stream]
+takion_version = 15
+packet_loss_max = 0.05
+)");
+    chiaki_migrations::buildSettingsMigrator().migrate(doc);
+
+    CHECK_EQ(version_of(doc), 10);
+    const toml::table* stream = doc["stream"].as_table();
+    CHECK(!stream->contains("takion_version"));
+    const toml::table* versions = (*stream)["takion_versions"].as_table();
+    CHECK(versions != nullptr);
+    for (const char* target : {"ps4", "ps5", "ps5_cloud", "ps_now"})
+        CHECK_EQ(tint(versions, target), int64_t(15));
+
+    toml::table untouched = toml::parse("version = 9\n[stream]\npacket_loss_max = 0.05\n");
+    chiaki_migrations::buildSettingsMigrator().migrate(untouched);
+    CHECK(!untouched["stream"].as_table()->contains("takion_versions"));
 }

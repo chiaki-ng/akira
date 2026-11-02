@@ -4,11 +4,6 @@
     "body": "在主机网格中持续显示 20 张虚拟 PS5 卡片，用于测试布局。它们并不代表真实主机。",
     "image": ""
   },
-  "settings/devForceWsNode": {
-    "title": "强制指定 PSN 推送节点",
-    "body": "覆盖 PSN 分配的派对推送 WebSocket 节点。更改后会立即重新连接推送服务。",
-    "image": ""
-  },
   "settings/devTakionVersion": {
     "title": "Takion 协议版本",
     "body": "覆盖远程游玩串流协议版本。除非测试协议兼容性，否则请保持自动；不兼容的版本可能导致无法串流。",

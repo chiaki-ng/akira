@@ -3,22 +3,20 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
+
+#include <libchiaking/platform/platform.hpp>
 
 namespace akira::pair {
 
 constexpr std::size_t kPubKeyLen = 64;
-constexpr std::size_t kPrivKeyLen = 32;
 constexpr std::size_t kSharedLen = 32;
 constexpr std::size_t kSaltNonceLen = 16;
 constexpr std::size_t kIvLen = 16;
 constexpr std::size_t kMacLen = 32;
 constexpr std::size_t kKeyLen = 32;
-
-bool randomBytes(uint8_t* out, std::size_t len);
-bool generateKeypair(uint8_t priv[kPrivKeyLen], uint8_t pub[kPubKeyLen]);
-bool ecdhShared(const uint8_t priv[kPrivKeyLen], const uint8_t peerPub[kPubKeyLen], uint8_t shared[kSharedLen]);
 
 void hmacSha256(const uint8_t* key, std::size_t keyLen, const uint8_t* data, std::size_t dataLen, uint8_t out[kMacLen]);
 void hkdfSha256(const uint8_t* ikm, std::size_t ikmLen, const uint8_t* salt, std::size_t saltLen,
@@ -36,10 +34,23 @@ struct Hello {
 
 enum class OpenResult { Ok, Malformed, BadKey, BadMac };
 
-bool makeHello(Hello& out, uint8_t switchPriv[kPrivKeyLen]);
-OpenResult openSealed(const Hello& hello, const uint8_t switchPriv[kPrivKeyLen],
-                      const uint8_t* sealed, std::size_t sealedLen, const std::string& code,
-                      std::vector<uint8_t>& plaintext);
+class KeyExchange {
+public:
+    KeyExchange(libchiaking::platform::CryptoProvider& crypto,
+                libchiaking::platform::SecureRandomProvider& random) noexcept;
+
+    std::unique_ptr<libchiaking::platform::EcdhKeyPair> generateKeypair(uint8_t pub[kPubKeyLen]);
+    static bool ecdhShared(const libchiaking::platform::EcdhKeyPair& key, const uint8_t peerPub[kPubKeyLen],
+                           uint8_t shared[kSharedLen]);
+    std::unique_ptr<libchiaking::platform::EcdhKeyPair> makeHello(Hello& out);
+    OpenResult openSealed(const Hello& hello, const libchiaking::platform::EcdhKeyPair& switchKey,
+                          const uint8_t* sealed, std::size_t sealedLen, const std::string& code,
+                          std::vector<uint8_t>& plaintext);
+
+private:
+    libchiaking::platform::CryptoProvider& crypto_;
+    libchiaking::platform::SecureRandomProvider& random_;
+};
 
 }
 

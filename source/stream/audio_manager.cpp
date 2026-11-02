@@ -19,6 +19,7 @@ void AudioManager::init(unsigned int channels, unsigned int rate)
     want.freq = rate;
     want.format = AUDIO_S16SYS;
     want.channels = channels;
+    m_channels = channels;
     want.samples = 1024;
     want.callback = NULL;
 
@@ -37,9 +38,11 @@ void AudioManager::init(unsigned int channels, unsigned int rate)
     }
 }
 
-void AudioManager::play(int16_t* buf, size_t samples_count)
+void AudioManager::play(std::span<const int16_t> samples)
 {
-    for (size_t x = 0; x < samples_count * 2; x++)
+    m_boosted.assign(samples.begin(), samples.end());
+    int16_t* buf = m_boosted.data();
+    for (size_t x = 0; x < m_boosted.size(); x++)
     {
         // Boost audio volume
         int sample = buf[x] * 1.80;
@@ -67,7 +70,7 @@ void AudioManager::play(int16_t* buf, size_t samples_count)
         SDL_ClearQueuedAudio(m_device_id);
     }
 
-    int success = SDL_QueueAudio(m_device_id, buf, sizeof(int16_t) * samples_count * 2);
+    int success = SDL_QueueAudio(m_device_id, buf, sizeof(int16_t) * m_boosted.size());
     if (success != 0)
     {
         brls::Logger::error("SDL_QueueAudio failed: {}", SDL_GetError());

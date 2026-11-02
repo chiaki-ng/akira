@@ -1,6 +1,10 @@
 #ifndef AKIRA_STREAM_VIEW_HPP
 #define AKIRA_STREAM_VIEW_HPP
 
+#include "util/connection_log.hpp"
+
+#include <optional>
+
 #include <vector>
 #include <cstdint>
 #include <borealis.hpp>
@@ -10,14 +14,23 @@
 #include <memory>
 #include <mutex>
 
+#include "cloud/launch_screen.hpp"
+#include "core/background_work.hpp"
+#include "core/discovery_manager.hpp"
 #include "core/host.hpp"
+#include "input/rumble_profile.hpp"
+#include "stream/connection.hpp"
 #include "stream/session.hpp"
 #include "core/settings_manager.hpp"
 
-class StreamView : public brls::Box, public std::enable_shared_from_this<StreamView> {
+class StreamView : public brls::Box,
+                   public akira::stream::ConnectionListener,
+                   public std::enable_shared_from_this<StreamView> {
 public:
     explicit StreamView(Host* host, std::shared_ptr<Host> hostOwner = {});
     ~StreamView() override;
+
+    void adoptConnectionLog(akira::ConnectionLog log);
 
     // Must be called after make_shared to enable weak_from_this()
     void setupCallbacks();
@@ -41,16 +54,17 @@ private:
 
     Host* host = nullptr;
     std::shared_ptr<Host> hostOwner;
+    akira::BackgroundWork::Pause backgroundPause;
     Session* session = nullptr;
+    std::shared_ptr<akira::stream::Connection> connection;
+    std::optional<akira::ConnectionLog> connectionLog;
+    libchiaking::play::ConsoleHandover handover = libchiaking::play::ConsoleHandover::fresh;
     SettingsManager* settings = nullptr;
     bool streamActive = false;
     bool sessionStarted = false;
     bool sessionPreStarted = false;
     bool padChoiceDone = false;
     bool controllerReady = false;
-    bool wakeAttempted = false;
-    int wakeRetryCount = 0;
-    static constexpr int MAX_WAKE_RETRIES = 4;
 
     bool menuOpen = false;
 
@@ -68,7 +82,6 @@ private:
     bool loginPinEnteredThisSession = false;
     bool couchPasscodeDialogOpen = false;
     bool couchArrivalPromptOpen = false;
-    uint32_t sessionGeneration = 0;
     std::chrono::steady_clock::time_point minusHoldStart;
     bool minusWasHeld = false;
     brls::Event<>::Subscription exitSubscription;
@@ -84,17 +97,23 @@ private:
     void stopLogCapture();
     void renderLogs(NVGcontext* vg, float x, float y, float width, float height);
 
-    void onConnected();
-    void onQuit(ChiakiQuitEvent* event);
-    void onRumble(uint8_t player_index, uint8_t left, uint8_t right);
-    void onLoginPinRequest(bool pinIncorrect);
+    void onConnectProgress(const libchiaking::play::ConnectProgress& progress) override;
+    void onLaunchProgress(const libchiaking::play::LaunchProgress& progress) override;
+    void onPlaying() override;
+    void onEnded(const libchiaking::play::Outcome& outcome) override;
+    void onRefused(const libchiaking::play::StartRefusal& refusal) override;
+    void onLoginPinNeeded(bool previousWasWrong) override;
+    void onSeatPasscodeNeeded(uint8_t slot, bool retry) override;
+    void onSeatRefused(uint8_t slot, const libchiaking::play::SeatRefusal& refusal) override;
+    void onSeatDropped(uint8_t slot) override;
+
+    static akira::input::RumbleProfile activePadProfile();
+    void openConnection();
     void pauseStreamForUi();
     void resumeStreamAfterUi();
     void onPadArrived(HidNpadIdType npad);
     void openCouchClaim();
     void openPrimaryControllerPicker();
-    void onPadPasscodeRequest(uint8_t slot, bool retry);
-    void onPadJoinFailed(uint8_t slot, uint8_t status);
 
     void checkMenuTrigger();
     void prepareVideoPipelineTick();
@@ -102,7 +121,13 @@ private:
     void streamingTick();
     void showDisconnectMenu();
     void disconnectWithSleep(bool sleep);
-    void retryWithWake();
+
+    void drawCloudLaunch(NVGcontext* vg, float x, float y, float width, float height);
+    void pollCloudCancel();
+    void showCloudFailure(const std::string& message, bool retry);
+
+    std::optional<cloud::LaunchScreen> cloudScreen;
+    bool cloudCancelHeld = true;
 
     void onFocusChanged(bool focused);
     void attemptReconnect();

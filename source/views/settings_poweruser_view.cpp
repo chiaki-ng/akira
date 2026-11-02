@@ -21,8 +21,6 @@ SettingsPowerUserView::SettingsPowerUserView() {
     initPortGuessingSocksSlider();
     initAutoReconnectToggle();
     initHideAccountNameToggle();
-    initPsnRequestBudgetSlider();
-    initPsnRequestWindowSlider();
 
     runBenchmarkBtn->registerClickAction([this](brls::View*) {
         runGhashBenchmark();
@@ -145,56 +143,6 @@ void SettingsPowerUserView::initPortGuessingSocksSlider() {
     );
     portGuessingSocksSlider->detail->setText(std::format("{}", current));
     portGuessingSocksSlider->slider->setDiscreteStep(1.0f / 249.0f);
-}
-
-void SettingsPowerUserView::initPsnRequestBudgetSlider() {
-    constexpr int minVal = 1;
-    constexpr int maxVal = 600;
-    int current = std::max(minVal, std::min(maxVal, settings->getPsnRequestBudget()));
-    float normalized = static_cast<float>(current - minVal) / (maxVal - minVal);
-
-    psnRequestBudgetSlider->detail->setWidth(60);
-    psnRequestBudgetSlider->detail->setShrink(0);
-    psnRequestBudgetSlider->init(
-        "akira/settings/psn_request_budget"_i18n,
-        normalized,
-        [this, minVal, maxVal](float value) {
-            int budget = static_cast<int>(minVal + value * (maxVal - minVal));
-            budget = std::max(minVal, std::min(maxVal, budget));
-            settings->setPsnRequestBudget(budget);
-            psnRequestBudgetSlider->detail->setText(std::format("{}", budget));
-            settings->writeFile();
-            TrophyManager::getInstance()->reconfigureLimiter();
-        }
-    );
-    psnRequestBudgetSlider->detail->setText(std::format("{}", current));
-    psnRequestBudgetSlider->slider->setDiscreteStep(1.0f / (maxVal - minVal));
-}
-
-void SettingsPowerUserView::initPsnRequestWindowSlider() {
-    constexpr int minVal = 60;
-    constexpr int maxVal = 3600;
-    constexpr int stepVal = 60;
-    int current = std::max(minVal, std::min(maxVal, settings->getPsnRequestWindowSeconds()));
-    float normalized = static_cast<float>(current - minVal) / (maxVal - minVal);
-
-    psnRequestWindowSlider->detail->setWidth(70);
-    psnRequestWindowSlider->detail->setShrink(0);
-    psnRequestWindowSlider->init(
-        "akira/settings/psn_request_window"_i18n,
-        normalized,
-        [this, minVal, maxVal, stepVal](float value) {
-            int seconds = minVal + static_cast<int>(value * (maxVal - minVal));
-            seconds = (seconds / stepVal) * stepVal;
-            seconds = std::max(minVal, std::min(maxVal, seconds));
-            settings->setPsnRequestWindowSeconds(seconds);
-            psnRequestWindowSlider->detail->setText(brls::getStr("akira/settings/minutes_format", seconds / 60));
-            settings->writeFile();
-            TrophyManager::getInstance()->reconfigureLimiter();
-        }
-    );
-    psnRequestWindowSlider->detail->setText(brls::getStr("akira/settings/minutes_format", current / 60));
-    psnRequestWindowSlider->slider->setDiscreteStep(static_cast<float>(stepVal) / (maxVal - minVal));
 }
 
 void SettingsPowerUserView::runGhashBenchmark() {

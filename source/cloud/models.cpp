@@ -1,46 +1,34 @@
 #include "cloud/models.hpp"
 
-#include "psn/models.hpp"
-
-#include <json-c/json.h>
-
-#include <algorithm>
-#include <unordered_map>
-#include <utility>
-#include <vector>
+#include <format>
 
 namespace cloud {
 
-namespace {
-
-bool parseGame(json_object* obj, Game& out)
+bool Game::awaitsRelease(int64_t nowMs) const
 {
-    out.productId = psn::jsonString(obj, "productId");
-    out.name = psn::jsonString(obj, "name");
-    out.imageUrl = psn::jsonString(obj, "imageUrl");
-    out.landscapeImageUrl = psn::jsonString(obj, "landscapeImageUrl");
-    out.conceptId = psn::jsonString(obj, "conceptId");
-    out.category = psn::jsonString(obj, "category");
-    out.serviceType = psn::jsonString(obj, "serviceType");
-    out.platform = psn::jsonString(obj, "platform");
-    out.isOwned = psn::jsonBool(obj, "isOwned");
-    out.streamServiceType = psn::jsonString(obj, "streamServiceType");
-    out.streamIdentifier = psn::jsonString(obj, "streamIdentifier");
-    out.entitlementId = psn::jsonString(obj, "entitlementId");
-    out.storeProductId = psn::jsonString(obj, "storeProductId");
-    out.conceptUrl = psn::jsonString(obj, "conceptUrl");
-    out.plusCatalog = psn::jsonBool(obj, "plusCatalog");
-    out.availableFromMs = psn::jsonInt64(obj, "availableFromMs");
-    // A PS5 entitlement matched to Sony's main streaming catalog is a strong
-    // initial signal. Confirmed per-profile launch outcomes are applied later by
-    // Service and still override this hint in either direction.
-    if (out.isOwned && out.serviceType == "pscloud" && psn::jsonBool(obj, "streamingSupported"))
-        out.streamabilityStatus = StreamabilityStatus::Streamable;
-
-    return !out.productId.empty() && !out.name.empty();
+    switch (release)
+    {
+        case ReleaseKind::Unrestricted: return false;
+        case ReleaseKind::Unannounced: return true;
+        case ReleaseKind::Scheduled: return availableFromMs > nowMs;
+    }
+    return false;
 }
 
-} // namespace
+std::optional<int64_t> Game::unlockAfter(int64_t nowMs) const
+{
+    if (release == ReleaseKind::Scheduled && availableFromMs > nowMs)
+        return availableFromMs;
+    return std::nullopt;
+}
+
+std::string Game::countdown(int64_t seconds)
+{
+    const int64_t total = seconds < 0 ? 0 : seconds;
+    const std::string clock = std::format("{:02}:{:02}:{:02}", total % 86400 / 3600, total % 3600 / 60, total % 60);
+    const int64_t days = total / 86400;
+    return days == 0 ? clock : std::format("{}d {}", days, clock);
+}
 
 std::string Game::artworkUrl() const
 {
@@ -61,176 +49,6 @@ const Game* Catalog::find(const Game& game) const
         if (candidate.productId == game.productId && candidate.streamServiceType == game.streamServiceType)
             return &candidate;
     return nullptr;
-}
-
-std::vector<Datacenter> parseDatacenters(const std::string& json)
-{
-    std::vector<Datacenter> out;
-    if (json.empty())
-        return out;
-
-    psn::Json doc(json);
-    json_object* root = doc.get();
-    if (!root || !json_object_is_type(root, json_type_array))
-        return out;
-
-    size_t count = json_object_array_length(root);
-    out.reserve(count);
-    for (size_t i = 0; i < count; i++)
-    {
-        json_object* item = json_object_array_get_idx(root, i);
-        if (!item || !json_object_is_type(item, json_type_object))
-            continue;
-        Datacenter dc;
-        dc.name = psn::jsonString(item, "dataCenter");
-        dc.rttMs = psn::jsonInt(item, "rtt");
-        dc.mtuIn = psn::jsonInt(item, "mtu_in");
-        dc.mtuOut = psn::jsonInt(item, "mtu_out");
-        dc.port = psn::jsonInt(item, "port");
-        dc.publicIp = psn::jsonString(item, "publicIp");
-        dc.maxBandwidth = psn::jsonInt(item, "maxBandwidth");
-        dc.measured = psn::jsonBool(item, "measured");
-
-        json_object* rtts = nullptr;
-        if (psn::jsonField(item, "rtts", &rtts) && json_object_is_type(rtts, json_type_array))
-        {
-            size_t rttCount = json_object_array_length(rtts);
-            dc.rttSamples.reserve(rttCount);
-            for (size_t j = 0; j < rttCount; j++)
-            {
-                json_object* rtt = json_object_array_get_idx(rtts, j);
-                if (rtt)
-                    dc.rttSamples.push_back(json_object_get_int(rtt));
-            }
-        }
-
-        if (!dc.name.empty())
-            out.push_back(std::move(dc));
-    }
-
-    std::sort(out.begin(), out.end(), [](const Datacenter& a, const Datacenter& b) {
-        return a.rttMs < b.rttMs;
-    });
-    return out;
-}
-
-std::string serializeDatacenters(const std::vector<Datacenter>& datacenters)
-{
-    if (datacenters.empty())
-        return "";
-
-    json_object* arr = json_object_new_array();
-    for (const Datacenter& dc : datacenters)
-    {
-        json_object* o = json_object_new_object();
-        json_object_object_add(o, "dataCenter", json_object_new_string(dc.name.c_str()));
-        json_object_object_add(o, "rtt", json_object_new_int(dc.rttMs));
-        json_object* rtts = json_object_new_array();
-        for (int sample : dc.rttSamples)
-            json_object_array_add(rtts, json_object_new_int(sample));
-        json_object_object_add(o, "rtts", rtts);
-        json_object_object_add(o, "mtu_in", json_object_new_int(dc.mtuIn));
-        json_object_object_add(o, "mtu_out", json_object_new_int(dc.mtuOut));
-        json_object_object_add(o, "port", json_object_new_int(dc.port));
-        json_object_object_add(o, "publicIp", json_object_new_string(dc.publicIp.c_str()));
-        json_object_object_add(o, "maxBandwidth", json_object_new_int(dc.maxBandwidth));
-        json_object_object_add(o, "measured", json_object_new_boolean(dc.measured));
-        json_object_array_add(arr, o);
-    }
-    const char* s = json_object_to_json_string(arr);
-    std::string result = s ? s : "[]";
-    json_object_put(arr);
-    return result;
-}
-
-bool parseCatalog(const std::string& json, Catalog& out)
-{
-    psn::Json doc(json);
-    json_object* root = doc.get();
-    if (!root)
-        return false;
-
-    out = Catalog{};
-    out.schemaVersion = psn::jsonInt(root, "schemaVersion");
-    out.total = psn::jsonInt(root, "total");
-    out.nativeMode = psn::jsonBool(root, "nativeMode");
-    out.fallbackRegion = psn::jsonString(root, "fallbackRegion");
-    out.resolvedStoreLang = psn::jsonString(root, "resolvedStoreLang");
-    out.settledLocale = psn::jsonString(root, "settledLocale");
-    out.warning = psn::jsonString(root, "warning");
-
-    json_object* gamesObj = nullptr;
-    if (!psn::jsonField(root, "games", &gamesObj) || !json_object_is_type(gamesObj, json_type_array))
-        return true;
-
-    size_t count = json_object_array_length(gamesObj);
-    out.games.reserve(count);
-    for (size_t i = 0; i < count; i++)
-    {
-        json_object* item = json_object_array_get_idx(gamesObj, i);
-        if (!item || !json_object_is_type(item, json_type_object))
-            continue;
-
-        Game game;
-        if (parseGame(item, game))
-            out.games.push_back(std::move(game));
-    }
-
-    std::vector<Game> deduped;
-    deduped.reserve(out.games.size());
-    std::unordered_map<std::string, size_t> byIdentity;
-    for (Game& game : out.games)
-    {
-        // conceptId alone is not a game identity: Sony assigns one concept to
-        // distinct releases such as TimeSplitters 1, 2 and Future Perfect. Mirror
-        // CloudPad's adapter identity and only collapse an exact route duplicate.
-        std::string identity = game.productId + "|" + game.platform + "|" + game.serviceType;
-        auto it = byIdentity.find(identity);
-        if (it == byIdentity.end())
-        {
-            byIdentity.emplace(std::move(identity), deduped.size());
-            deduped.push_back(std::move(game));
-        }
-        else if (!deduped[it->second].launchable() && game.launchable())
-        {
-            deduped[it->second] = std::move(game);
-        }
-    }
-    out.games = std::move(deduped);
-
-    return true;
-}
-
-WarningKind classifyWarning(const std::string& warning)
-{
-    if (warning.empty())
-        return WarningKind::None;
-    if (warning == "Your session has expired. Please log in again to see your owned games.")
-        return WarningKind::SessionExpired;
-    return WarningKind::Other;
-}
-
-LaunchFailureKind classifyLaunchFailure(const std::string& errorMessage)
-{
-    if (errorMessage.empty())
-        return LaunchFailureKind::None;
-    if (errorMessage == "AUTHORIZATION_FAILED")
-        return LaunchFailureKind::AuthorizationFailed;
-    if (errorMessage == "PS_PLUS_SUBSCRIPTION_REQUIRED")
-        return LaunchFailureKind::PsPlusRequired;
-    if (errorMessage == "GAME_NOT_RELEASED")
-        return LaunchFailureKind::GameNotReleased;
-    if (errorMessage.find("noGameForEntitlement") != std::string::npos)
-        return LaunchFailureKind::GameNotStreamable;
-    if (errorMessage.rfind("ACCOUNT_PRIVACY_SETTINGS", 0) == 0)
-        return LaunchFailureKind::PrivacySettings;
-    if (errorMessage == "PING_TIMEOUT")
-        return LaunchFailureKind::PingTimeout;
-    if (errorMessage.find("network error") != std::string::npos)
-        return LaunchFailureKind::NetworkError;
-    if (errorMessage.find("Selected datacenter") != std::string::npos)
-        return LaunchFailureKind::DatacenterUnavailable;
-    return LaunchFailureKind::Other;
 }
 
 std::string platformBadge(const Game& game)

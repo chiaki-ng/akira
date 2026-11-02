@@ -1,11 +1,12 @@
 #include "stream/input_manager.hpp"
+#include "input/sample_cadence.hpp"
 #include "stream/session.hpp"
 #include "stream/video_renderer.hpp"
 #include "core/settings_manager.hpp"
 #include "core/swipe_direction.hpp"
 #include "input/ps_output.hpp"
+#include "input/remap_target.hpp"
 #include <borealis.hpp>
-#include <chiaki/controller.h>
 #include <cmath>
 #include <cstring>
 #include <algorithm>
@@ -20,10 +21,15 @@ InputManager::~InputManager()
     cleanup();
 }
 
-void InputManager::setLogger(ChiakiLog* log)
+std::uint32_t InputManager::button(libchiaking::controllers::ControllerButton held) noexcept
 {
-    std::lock_guard<std::mutex> lock(m_state_mutex);
-    m_log = log;
+    return static_cast<std::uint32_t>(held);
+}
+
+int8_t InputManager::startTouch(libchiaking::controllers::ControllerInput& input, uint16_t x, uint16_t y) noexcept
+{
+    const auto started = input.start_touch(x, y);
+    return started ? static_cast<int8_t>(*started) : int8_t{-1};
 }
 
 void InputManager::setTargetPS5(bool ps5)
@@ -305,11 +311,11 @@ void InputManager::reconcilePathDriver()
     }
 }
 
-void InputManager::applyPadInput(akira::input::PadPath* path, ChiakiControllerState* state)
+void InputManager::applyPadInput(akira::input::PadPath* path, libchiaking::controllers::ControllerState& state)
 {
-    state->buttons = 0;
-    state->l2_state = 0x00;
-    state->r2_state = 0x00;
+    state.buttons = 0;
+    state.l2 = 0x00;
+    state.r2 = 0x00;
 
     const bool mapped = path->usesButtonMapping();
 
@@ -351,10 +357,10 @@ void InputManager::applyPadInput(akira::input::PadPath* path, ChiakiControllerSt
     }
 
     u64 dpadButtons = buttons & ~consumedButtons;
-    if (dpadButtons & HidNpadButton_Left)  state->buttons |= CHIAKI_CONTROLLER_BUTTON_DPAD_LEFT;
-    if (dpadButtons & HidNpadButton_Right) state->buttons |= CHIAKI_CONTROLLER_BUTTON_DPAD_RIGHT;
-    if (dpadButtons & HidNpadButton_Up)    state->buttons |= CHIAKI_CONTROLLER_BUTTON_DPAD_UP;
-    if (dpadButtons & HidNpadButton_Down)  state->buttons |= CHIAKI_CONTROLLER_BUTTON_DPAD_DOWN;
+    if (dpadButtons & HidNpadButton_Left)  state.buttons |= button(libchiaking::controllers::ControllerButton::dpad_left);
+    if (dpadButtons & HidNpadButton_Right) state.buttons |= button(libchiaking::controllers::ControllerButton::dpad_right);
+    if (dpadButtons & HidNpadButton_Up)    state.buttons |= button(libchiaking::controllers::ControllerButton::dpad_up);
+    if (dpadButtons & HidNpadButton_Down)  state.buttons |= button(libchiaking::controllers::ControllerButton::dpad_down);
 
     for (const auto& [chiakiBtn, combo] : mapping) {
         if (combo.empty()) continue;
@@ -371,12 +377,12 @@ void InputManager::applyPadInput(akira::input::PadPath* path, ChiakiControllerSt
         }
 
         if (allHeld) {
-            if (chiakiBtn == CHIAKI_CONTROLLER_ANALOG_BUTTON_L2) {
-                state->l2_state = 0xff;
-            } else if (chiakiBtn == CHIAKI_CONTROLLER_ANALOG_BUTTON_R2) {
-                state->r2_state = 0xff;
+            if (chiakiBtn == akira::input::remapKey(akira::input::RemapTarget::L2)) {
+                state.l2 = 0xff;
+            } else if (chiakiBtn == akira::input::remapKey(akira::input::RemapTarget::R2)) {
+                state.r2 = 0xff;
             } else {
-                state->buttons |= chiakiBtn;
+                state.buttons |= chiakiBtn;
             }
         }
     }
@@ -393,19 +399,19 @@ void InputManager::applyPadInput(akira::input::PadPath* path, ChiakiControllerSt
                                         | HidNpadButton_StickRLeft | HidNpadButton_StickRRight;
 
     if (consumedButtons & leftStickDirs) {
-        state->left_x = 0;
-        state->left_y = 0;
+        state.left_x = 0;
+        state.left_y = 0;
     } else {
-        state->left_x = left.x;
-        state->left_y = -left.y;
+        state.left_x = left.x;
+        state.left_y = -left.y;
     }
 
     if (consumedButtons & rightStickDirs) {
-        state->right_x = 0;
-        state->right_y = 0;
+        state.right_x = 0;
+        state.right_y = 0;
     } else {
-        state->right_x = right.x;
-        state->right_y = -right.y;
+        state.right_x = right.x;
+        state.right_y = -right.y;
     }
 }
 
@@ -422,7 +428,7 @@ uint8_t InputManager::couchJoinLocked(HidNpadIdType npad)
     auto existing = m_couch_roster.find(npad);
     if (existing != m_couch_roster.end())
         return existing->second;
-    for (uint8_t slot = 1; slot < CHIAKI_COUCH_MAX_PADS; slot++)
+    for (uint8_t slot = 1; slot < libchiaking::controllers::SeatNumber::count; slot++)
     {
         bool taken = false;
         for (const auto& entry : m_couch_roster)
@@ -525,22 +531,34 @@ bool InputManager::couchSlotOutputTarget(uint8_t slot, uint8_t out_addr[6], uint
     return false;
 }
 
-void InputManager::readSecondaryPads(ChiakiControllerState* states, uint8_t max_pads, uint8_t& count)
+void InputManager::readSecondaryPads(std::span<libchiaking::controllers::ControllerInput> states, uint8_t& count)
 {
     DeferredCallbacks callbacks;
     std::unique_lock<std::mutex> lock(m_state_mutex);
-    auto pads = describePadsLocked();
+    if (m_couch_roster.empty())
+    {
+        m_secondary_paths.clear();
+        m_couch_pads.clear();
+        count = couchPadCountLocked();
+        return;
+    }
     const auto now = akira::input::timing::Clock::now();
+    if (m_couch_pads.empty() || now - m_couch_pads_read >= akira::input::DirectDiscoveryPeriod)
+    {
+        m_couch_pads = describePadsLocked();
+        m_couch_pads_read = now;
+    }
+    const auto& pads = m_couch_pads;
     std::vector<std::pair<HidNpadIdType, uint8_t>> disconnected;
 
     for (const auto& entry : m_couch_roster)
     {
         HidNpadIdType npad = entry.first;
         uint8_t slot = entry.second;
-        if (slot == 0 || slot >= max_pads)
+        if (slot == 0 || slot >= states.size())
             continue;
 
-        chiaki_controller_state_set_idle(&states[slot]);
+        states[slot].set_idle();
         if (slot + 1 > count)
             count = (uint8_t)(slot + 1);
 
@@ -572,7 +590,7 @@ void InputManager::readSecondaryPads(ChiakiControllerState* states, uint8_t max_
         if (!cached)
             continue;
         cached->poll();
-        applyPadInput(cached.get(), &states[slot]);
+        applyPadInput(cached.get(), states[slot].state());
     }
 
     for (const auto& entry : disconnected)
@@ -689,7 +707,7 @@ void InputManager::promptControllerSetup()
 {
     HidLaControllerSupportArg arg;
     hidLaCreateControllerSupportArg(&arg);
-    arg.hdr.player_count_max = CHIAKI_COUCH_MAX_PADS;
+    arg.hdr.player_count_max = libchiaking::controllers::SeatNumber::count;
     arg.hdr.enable_single_mode = false;
     HidLaControllerSupportResultInfo result;
     hidLaShowControllerSupport(&result, &arg);
@@ -822,7 +840,7 @@ void InputManager::pollCouchClaim(DeferredCallbacks& callbacks)
     }
 }
 
-void InputManager::update(ChiakiControllerState* state, std::map<uint32_t, int8_t>* finger_id_touch_id)
+void InputManager::update(libchiaking::controllers::ControllerInput& input, std::map<uint32_t, int8_t>* finger_id_touch_id)
 {
     DeferredCallbacks callbacks;
     std::unique_lock<std::mutex> lock(m_state_mutex);
@@ -832,7 +850,7 @@ void InputManager::update(ChiakiControllerState* state, std::map<uint32_t, int8_
 
     if (!m_path)
     {
-        chiaki_controller_state_set_idle(state);
+        input.set_idle();
         lock.unlock();
         for (auto& callback : callbacks)
             callback();
@@ -849,52 +867,52 @@ void InputManager::update(ChiakiControllerState* state, std::map<uint32_t, int8_
     m_path->poll();
     m_menu_held.store(m_path->menuHeld(), std::memory_order_release);
 
-    applyPadInput(m_path.get(), state);
+    applyPadInput(m_path.get(), input.state());
 
     u64 buttons = m_path->usesButtonMapping() ? m_path->heldButtons() : 0;
 
-    if (!m_path->readTouchpad(state))
+    if (!m_path->readTouchpad(input))
     {
-        readTouchScreen(state, finger_id_touch_id, now);
-        updateSyntheticSwipes(state, buttons, now);
+        readTouchScreen(input, finger_id_touch_id, now);
+        updateSyntheticSwipes(input, buttons, now);
 
         if (m_touchpad_button_pulse.scheduled)
         {
             if (now >= m_touchpad_button_pulse.releaseAt)
             {
                 m_touchpad_button_pulse.scheduled = false;
-                fireDeferredRelease(state);
+                fireDeferredRelease(input);
             }
             else if (now >= m_touchpad_button_pulse.pressAt)
             {
-                state->buttons |= CHIAKI_CONTROLLER_BUTTON_TOUCHPAD;
+                input.state().buttons |= button(libchiaking::controllers::ControllerButton::touchpad);
             }
         }
         else
         {
-            fireDeferredRelease(state);
+            fireDeferredRelease(input);
         }
     }
 
     if (m_motion_cadence.due(now))
-        readSixAxis(state);
+        readSixAxis(input.state());
 
     lock.unlock();
     for (auto& callback : callbacks)
         callback();
 }
 
-void InputManager::fireDeferredRelease(ChiakiControllerState* state)
+void InputManager::fireDeferredRelease(libchiaking::controllers::ControllerInput& input)
 {
     if (m_deferred_release_touch_id < 0)
         return;
     brls::Logger::info("Touch: deferred stop_touch={} fires now", m_deferred_release_touch_id);
-    chiaki_controller_state_stop_touch(state, (uint8_t)m_deferred_release_touch_id);
+    input.stop_touch(static_cast<uint8_t>(m_deferred_release_touch_id));
     m_deferred_release_touch_id = -1;
     m_active_click_touch_id = -1;
 }
 
-bool InputManager::readTouchScreen(ChiakiControllerState* chiaki_state,
+bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& input,
     std::map<uint32_t, int8_t>* finger_id_touch_id,
     akira::input::gesture::TimePoint now)
 {
@@ -964,7 +982,7 @@ bool InputManager::readTouchScreen(ChiakiControllerState* chiaki_state,
                 else
                 {
                     brls::Logger::debug("Touch: stop touch_id={} for finger_id={}", cur->second, cur->first);
-                    chiaki_controller_state_stop_touch(chiaki_state, (uint8_t)cur->second);
+                    input.stop_touch(static_cast<uint8_t>(cur->second));
                 }
             }
             finger_id_touch_id->erase(cur);
@@ -1061,14 +1079,14 @@ bool InputManager::readTouchScreen(ChiakiControllerState* chiaki_state,
             }
             else
             {
-                fireDeferredRelease(chiaki_state);
-                int8_t touch_id = chiaki_controller_state_start_touch(chiaki_state, x, y);
+                fireDeferredRelease(input);
+                const int8_t touch_id = startTouch(input, x, y);
                 (*finger_id_touch_id)[sw_state.touches[i].finger_id] = touch_id;
                 brls::Logger::info("Touch: new finger_id={} -> touch_id={}, raw=({},{}) mapped=({},{})",
                     sw_state.touches[i].finger_id, touch_id,
                     sw_state.touches[i].x, sw_state.touches[i].y, x, y);
                 if (touch_id < 0)
-                    brls::Logger::warning("Touch: no free touch slots (max {})", CHIAKI_CONTROLLER_TOUCHES_MAX);
+                    brls::Logger::warning("Touch: no free touch slots (max {})", libchiaking::controllers::ControllerState{}.touches.size());
             }
         }
         else if (isPending)
@@ -1079,8 +1097,8 @@ bool InputManager::readTouchScreen(ChiakiControllerState* chiaki_state,
 
             if (moved)
             {
-                fireDeferredRelease(chiaki_state);
-                int8_t touch_id = chiaki_controller_state_start_touch(chiaki_state, x, y);
+                fireDeferredRelease(input);
+                const int8_t touch_id = startTouch(input, x, y);
                 (*finger_id_touch_id)[sw_state.touches[i].finger_id] = touch_id;
                 brls::Logger::info("Touch: border swipe committed finger_id={} -> touch_id={} at mapped=({},{})",
                     sw_state.touches[i].finger_id, touch_id, x, y);
@@ -1088,8 +1106,8 @@ bool InputManager::readTouchScreen(ChiakiControllerState* chiaki_state,
             }
             else if (now - pt->second.downAt >= akira::input::gesture::BorderTapCommitDelay)
             {
-                fireDeferredRelease(chiaki_state);
-                int8_t touch_id = chiaki_controller_state_start_touch(chiaki_state, x, y);
+                fireDeferredRelease(input);
+                const int8_t touch_id = startTouch(input, x, y);
                 (*finger_id_touch_id)[sw_state.touches[i].finger_id] = touch_id;
                 m_touchpad_button_pulse.scheduled = true;
                 m_touchpad_button_pulse.pressAt = now + akira::input::gesture::TouchpadButtonDelay;
@@ -1106,7 +1124,7 @@ bool InputManager::readTouchScreen(ChiakiControllerState* chiaki_state,
         {
             if (it->second != m_active_click_touch_id)
             {
-                chiaki_controller_state_set_touch_pos(chiaki_state, (uint8_t)it->second, x, y);
+                input.move_touch(static_cast<uint8_t>(it->second), x, y);
                 brls::Logger::debug("Touch: move touch_id={} mapped=({},{})", it->second, x, y);
             }
         }
@@ -1115,23 +1133,23 @@ bool InputManager::readTouchScreen(ChiakiControllerState* chiaki_state,
     return ret;
 }
 
-bool InputManager::readSixAxis(ChiakiControllerState* state)
+bool InputManager::readSixAxis(libchiaking::controllers::ControllerState& state)
 {
     HidSixAxisSensorState sixaxis = {0};
     if (!m_path->readGyro(&sixaxis))
         return false;
 
-    state->gyro_x = sixaxis.angular_velocity.x * 2.0f * M_PI;
-    state->gyro_y = sixaxis.angular_velocity.z * 2.0f * M_PI;
-    state->gyro_z = -sixaxis.angular_velocity.y * 2.0f * M_PI;
+    state.gyro_x = sixaxis.angular_velocity.x * 2.0f * M_PI;
+    state.gyro_y = sixaxis.angular_velocity.z * 2.0f * M_PI;
+    state.gyro_z = -sixaxis.angular_velocity.y * 2.0f * M_PI;
 
     m_raw_accel_x = -sixaxis.acceleration.x;
     m_raw_accel_y = -sixaxis.acceleration.z;
     m_raw_accel_z = sixaxis.acceleration.y;
 
-    state->accel_x = m_raw_accel_x - m_accel_zero_x;
-    state->accel_y = m_raw_accel_y - m_accel_zero_y;
-    state->accel_z = m_raw_accel_z - m_accel_zero_z;
+    state.accel_x = m_raw_accel_x - m_accel_zero_x;
+    state.accel_y = m_raw_accel_y - m_accel_zero_y;
+    state.accel_z = m_raw_accel_z - m_accel_zero_z;
 
     // Convert rotation matrix to quaternion
     float (*dm)[3] = sixaxis.direction.direction;
@@ -1169,10 +1187,10 @@ bool InputManager::readSixAxis(ChiakiControllerState* state)
         }
     }
     float fac = 0.5f / sqrt(t);
-    state->orient_x = q[0] * fac;
-    state->orient_y = q[1] * fac;
-    state->orient_z = -q[2] * fac;
-    state->orient_w = q[3] * fac;
+    state.orient_x = q[0] * fac;
+    state.orient_y = q[1] * fac;
+    state.orient_z = -q[2] * fac;
+    state.orient_w = q[3] * fac;
     return true;
 }
 
@@ -1193,7 +1211,7 @@ void InputManager::resetMotionControls()
         m_accel_zero_x, m_accel_zero_y, m_accel_zero_z);
 }
 
-void InputManager::updateSyntheticSwipes(ChiakiControllerState* state, u64 buttons,
+void InputManager::updateSyntheticSwipes(libchiaking::controllers::ControllerInput& state, u64 buttons,
     akira::input::gesture::TimePoint now)
 {
     static constexpr uint32_t swipeConstants[4] = {
@@ -1229,7 +1247,7 @@ void InputManager::updateSyntheticSwipes(ChiakiControllerState* state, u64 butto
             swipe.buttonWasPressed = false;
             if (swipe.phase == SyntheticSwipe::Phase::ACTIVE) {
                 brls::Logger::info("Swipe {}: disabled mid-swipe, stopping touch_id={}", swipeNames[i], swipe.touchId);
-                chiaki_controller_state_stop_touch(state, (uint8_t)swipe.touchId);
+                state.stop_touch(static_cast<uint8_t>(swipe.touchId));
                 swipe.phase = SyntheticSwipe::Phase::IDLE;
                 swipe.touchId = -1;
             }
@@ -1275,7 +1293,7 @@ void InputManager::updateSyntheticSwipes(ChiakiControllerState* state, u64 butto
                 swipe.startY = configs[i].startY;
                 swipe.endX = configs[i].endX;
                 swipe.endY = configs[i].endY;
-                swipe.touchId = chiaki_controller_state_start_touch(state, swipe.startX, swipe.startY);
+                swipe.touchId = startTouch(state, swipe.startX, swipe.startY);
                 if (swipe.touchId >= 0) {
                     swipe.phase = SyntheticSwipe::Phase::ACTIVE;
                     swipe.startedAt = now;
@@ -1292,7 +1310,7 @@ void InputManager::updateSyntheticSwipes(ChiakiControllerState* state, u64 butto
             if (elapsed >= akira::input::gesture::SwipeDuration) {
                 brls::Logger::info("Swipe {}: completed, final pos=({},{}), touch_id={}",
                     swipeNames[i], swipe.endX, swipe.endY, swipe.touchId);
-                chiaki_controller_state_stop_touch(state, (uint8_t)swipe.touchId);
+                state.stop_touch(static_cast<uint8_t>(swipe.touchId));
                 swipe.phase = SyntheticSwipe::Phase::IDLE;
                 swipe.touchId = -1;
                 swipe.buttonWasPressed = comboHeld && stickDirectionValid;
@@ -1301,7 +1319,7 @@ void InputManager::updateSyntheticSwipes(ChiakiControllerState* state, u64 butto
                     swipe.startX, swipe.endX, elapsed, akira::input::gesture::SwipeDuration);
                 const int16_t y = akira::input::gesture::interpolate(
                     swipe.startY, swipe.endY, elapsed, akira::input::gesture::SwipeDuration);
-                chiaki_controller_state_set_touch_pos(state, (uint8_t)swipe.touchId, x, y);
+                state.move_touch(static_cast<uint8_t>(swipe.touchId), x, y);
             }
         }
     }

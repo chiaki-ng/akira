@@ -6,7 +6,8 @@
 #include <string>
 #include <switch.h>
 
-#include <chiaki/common.h>
+#include <libchiaking/play_types.hpp>
+#include <libchiaking/platform/platform.hpp>
 
 #include "akira_input/ipc.h"
 #include "input/pad_output_state.hpp"
@@ -140,7 +141,6 @@ public:
 
 
 private:
-    static void pollThreadFunc(void* arg);
     void poll();
     void pumpDirectOutput();
 
@@ -267,7 +267,7 @@ private:
 
     uint64_t m_reports_seen = 0;
 
-    static constexpr int kMaxRawSlots = CHIAKI_COUCH_MAX_PADS;
+    static constexpr int kMaxRawSlots = libchiaking::controllers::SeatNumber::count;
 
     struct RawSlot {
         mutable std::atomic<uint32_t> seq{0};
@@ -296,8 +296,7 @@ private:
     std::atomic<bool>     m_degraded_notice{false};
 
     Service      m_srv{};
-    Thread       m_thread{};
-    bool         m_thread_started = false;
+    libchiaking::platform::Thread m_thread;
     bool         m_subscribed = false;
     Availability m_availability = Availability::NotInstalled;
     uint32_t     m_mc_version = 0;

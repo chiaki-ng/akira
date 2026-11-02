@@ -18,7 +18,7 @@ public:
     TrophyRowCell();
     ~TrophyRowCell() override;
 
-    void bindTrophy(const psn::Trophy& trophy);
+    void bindTrophy(const libchiaking::trophies::Trophy& trophy);
     void prepareForReuse() override;
     void cacheForReuse() override;
 
@@ -43,7 +43,7 @@ class SummaryCell : public RecyclingGridItem {
 public:
     SummaryCell();
 
-    void bindSummary(int earned, int available, int progress, const psn::TrophyCounts& counts);
+    void bindSummary(int earned, int available, int progress, const libchiaking::trophies::TrophyCounts& counts);
 
     static RecyclingGridItem* create();
 
@@ -68,7 +68,7 @@ private:
 class TrophyDetailSource : public RecyclingGridDataSource {
 public:
     TrophyDetailSource(int earned, int available, int progress,
-        psn::TrophyCounts counts, std::vector<psn::Trophy> trophies);
+        libchiaking::trophies::TrophyCounts counts, std::vector<libchiaking::trophies::Trophy> trophies);
 
     size_t getItemCount() override;
     RecyclingGridItem* cellForRow(RecyclingView* recycler, size_t index) override;
@@ -79,8 +79,8 @@ private:
     int earned;
     int available;
     int progress;
-    psn::TrophyCounts counts;
-    std::vector<psn::Trophy> trophies;
+    libchiaking::trophies::TrophyCounts counts;
+    std::vector<libchiaking::trophies::Trophy> trophies;
 };
 
 enum class TrophySort {
@@ -100,12 +100,12 @@ enum class TrophyFilter {
 
 const char* trophySortLabelKey(TrophySort sort);
 const char* trophyFilterLabelKey(TrophyFilter filter);
-bool trophyMatchesFilter(const psn::Trophy& trophy, TrophyFilter filter);
-void sortTrophies(std::vector<psn::Trophy>& trophies, TrophySort sort);
+bool trophyMatchesFilter(const libchiaking::trophies::Trophy& trophy, TrophyFilter filter);
+void sortTrophies(std::vector<libchiaking::trophies::Trophy>& trophies, TrophySort sort);
 
 class TrophyDetailView : public brls::Box {
 public:
-    explicit TrophyDetailView(const psn::TrophyTitle& title);
+    explicit TrophyDetailView(const TrophyManager::Title& title);
     ~TrophyDetailView() override;
 
     void willAppear(bool resetState) override;
@@ -125,15 +125,16 @@ private:
     BRLS_BIND(PsnGatedBox, gate, "detail/gate");
 
     void load(bool forceRefresh);
-    void applyDetail(const psn::TitleDetail& detail);
+    void applyDetail(const TrophyManager::TitleTrophies& detail);
     void applyGroup(size_t index);
     void showGroupPicker();
     void showSortPicker();
     void showFilterPicker();
     void refreshControlLabels();
 
-    psn::TrophyTitle title;
-    psn::TitleDetail detail;
+    TrophyManager::Title title;
+    std::vector<libchiaking::trophies::TrophyGroup> groups;
+    std::vector<libchiaking::trophies::Trophy> trophies;
     PsnActionButton refreshGate;
 
     size_t selectedGroup = 0;
@@ -143,6 +144,6 @@ private:
     bool loading = false;
 };
 
-std::string formatTrophyRarity(const psn::Trophy& trophy);
+std::string formatTrophyRarity(const libchiaking::trophies::Trophy& trophy);
 
 #endif // AKIRA_TROPHY_DETAIL_VIEW_HPP

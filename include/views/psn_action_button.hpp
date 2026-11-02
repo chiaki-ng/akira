@@ -6,7 +6,7 @@
 #include <functional>
 #include <string>
 
-#include "psn/auth.hpp"
+#include "psn/accounts.hpp"
 
 class PsnActionButton {
 public:

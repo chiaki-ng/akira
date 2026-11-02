@@ -6,6 +6,7 @@
 #include "input/pad_path.hpp"
 #include "views/stream_menu.hpp"
 #include "views/connecting_view.hpp"
+#include "cloud/cloud_connect_task.hpp"
 #include "ui/theme.hpp"
 #include "views/connection_stage.hpp"
 #include "stream/video_renderer.hpp"
@@ -15,12 +16,10 @@
 #include "core/exception.hpp"
 #include "core/wireguard_manager.hpp"
 #include "stream/input_manager.hpp"
-#include "core/discovery_manager.hpp"
-#include "psn/auth.hpp"
+#include "core/chiaki_core.hpp"
 #include "util/shared_view_holder.hpp"
 #include <switch.h>
 #include <algorithm>
-#include <thread>
 #include <chrono>
 #include <borealis/core/i18n.hpp>
 using namespace brls::literals;
@@ -108,6 +107,8 @@ StreamView::StreamView(Host* host, std::shared_ptr<Host> hostOwner)
 {
     this->session = Session::GetInstance();
     this->settings = SettingsManager::getInstance();
+    if (const auto* launch = host->cloudLaunch())
+        cloudScreen.emplace(launch->name());
 
     setFocusable(true);
 }
@@ -115,54 +116,6 @@ StreamView::StreamView(Host* host, std::shared_ptr<Host> hostOwner)
 void StreamView::setupCallbacks()
 {
     auto weak = weak_from_this();
-
-    host->setOnConnected([weak]() {
-        if (auto self = weak.lock()) {
-            self->onConnected();
-        }
-    });
-
-    host->setOnQuit([weak](ChiakiQuitEvent* event) {
-        if (auto self = weak.lock()) {
-            self->onQuit(event);
-        }
-    });
-
-    host->setOnRumble([weak](uint8_t player_index, uint8_t left, uint8_t right) {
-        if (auto self = weak.lock()) {
-            self->onRumble(player_index, left, right);
-        }
-    });
-
-    host->setOnLoginPinRequest([weak](bool pinIncorrect) {
-        if (auto self = weak.lock()) {
-            self->onLoginPinRequest(pinIncorrect);
-        }
-    });
-
-    host->setOnPadPasscodeRequest([weak](uint8_t slot, bool retry) {
-        if (auto self = weak.lock()) {
-            self->onPadPasscodeRequest(slot, retry);
-        }
-    });
-
-    host->setOnPadJoinFailed([weak](uint8_t slot, uint8_t status) {
-        if (auto self = weak.lock()) {
-            self->onPadJoinFailed(slot, status);
-        }
-    });
-
-    host->setOnReadController([weak](ChiakiControllerState* state, std::map<uint32_t, int8_t>* fingerIdTouchId) {
-        if (auto self = weak.lock()) {
-            self->session->UpdateControllerState(state, fingerIdTouchId);
-        }
-    });
-
-    host->setOnReadCouchSecondary([weak](ChiakiControllerState* states, uint8_t* count) {
-        if (auto self = weak.lock()) {
-            self->session->UpdateSecondaryPads(states, count);
-        }
-    });
 
     session->getInputManager()->setTargetPS5(host->isPS5());
 
@@ -176,84 +129,16 @@ void StreamView::setupCallbacks()
     session->getInputManager()->setOnCouchDisconnected([weak](HidNpadIdType, uint8_t slot) {
         brls::sync([weak, slot]() {
             if (auto self = weak.lock()) {
-                if (self->host)
-                    self->host->couchRemovePlayer(slot);
+                if (self->connection)
+                    self->connection->removePlayer(slot);
             }
         });
     });
 
-    host->setOnTriggerEffects([weak](const ChiakiTriggerEffectsEvent* effects) {
-        auto self = weak.lock();
-        if (!self)
-            return;
-
-        if (effects->player_index != 0) {
-            if (!self->host || !self->host->isCouchPadConfirmed(effects->player_index))
-                return;
-            auto* input = self->session ? self->session->getInputManager() : nullptr;
-            if (!input)
-                return;
-
-            uint8_t addr[6];
-            uint16_t vid = 0, pid = 0;
-            if (!input->couchSlotOutputTarget(effects->player_index, addr, &vid, &pid))
-                return;
-
-            input->extendedInput().registerCouchOutput(addr, vid, pid);
-            input->extendedInput().setCouchTriggerEffects(addr,
-                effects->type_left, effects->left,
-                effects->type_right, effects->right);
-            return;
-        }
-        self->session->SetTriggerEffects(effects);
-    });
-
-    host->setOnPadConfirmed([weak](uint8_t index, uint8_t red, uint8_t green, uint8_t blue) {
-        auto self = weak.lock();
-        if (!self || index == 0)
-            return;
-        if (!self->host || !self->host->isCouchPadConfirmed(index))
-            return;
-        if ((red | green | blue) == 0)
-            return;
-
-        auto* input = self->session ? self->session->getInputManager() : nullptr;
-        if (!input)
-            return;
-
-        uint8_t addr[6];
-        uint16_t vid = 0, pid = 0;
-        if (!input->couchSlotOutputTarget(index, addr, &vid, &pid))
-            return;
-
-        input->extendedInput().registerCouchOutput(addr, vid, pid);
-        input->extendedInput().setCouchLightbar(addr, red, green, blue);
-    });
-
-    host->setOnEffectIntensity([weak](uint8_t haptics, uint8_t triggers) {
-        if (auto self = weak.lock()) {
-            self->session->SetEffectIntensity(haptics, triggers);
-        }
-    });
-
-    host->setOnLedColor([weak](uint8_t red, uint8_t green, uint8_t blue) {
-        if (auto self = weak.lock()) {
-            self->session->SetLedColor(red, green, blue);
-        }
-    });
-
-    host->setOnMotionReset([weak]() {
-        if (auto self = weak.lock()) {
-            if (self->session->getInputManager()) {
-                self->session->getInputManager()->resetMotionControls();
-            }
-        }
-    });
-
     exitSubscription = brls::Application::getExitEvent()->subscribe([weak]() {
         if (auto self = weak.lock()) {
-            if (self->sessionStarted && self->settings->getSleepOnExit() && !self->host->isCloud()) {
-                self->host->gotoBed();
+            if (self->sessionStarted && self->settings->getSleepOnExit() && !self->host->isCloud() && self->connection) {
+                self->connection->leave(true);
             }
         }
     });
@@ -281,8 +166,6 @@ void StreamView::startLogCapture()
                 while (self->logLines.size() > MAX_LOG_LINES) {
                     self->logLines.pop_front();
                 }
-                self->currentStage = static_cast<int>(matchConnectionStage(
-                    msg, static_cast<ConnectionStage>(self->currentStage.load())));
             }
         });
     logSubscriptionActive = true;
@@ -297,6 +180,11 @@ void StreamView::stopLogCapture()
     logSubscriptionActive = false;
 }
 
+void StreamView::adoptConnectionLog(akira::ConnectionLog log)
+{
+    connectionLog = std::move(log);
+}
+
 StreamView::~StreamView()
 {
     brls::Application::getExitEvent()->unsubscribe(exitSubscription);
@@ -304,6 +192,8 @@ StreamView::~StreamView()
     stopLogCapture();
 
     stopStream();
+    if (controllerReady)
+        session->FreeController();
 
     // Release shared_ptr held by SharedViewHolder
     SharedViewHolder::release(this);
@@ -504,9 +394,7 @@ void StreamView::startStream()
         auto profile = SettingsManager::StreamProfile::Local;
         if (host->isCloud()) {
             profile = SettingsManager::StreamProfile::Cloud;
-            const auto* cloudConfig = host->getCloudSessionConfig();
-            settings->setActiveCloudPscloud(
-                cloudConfig && cloudConfig->serviceType == CHIAKI_SERVICE_TYPE_PSCLOUD);
+            settings->setActiveCloudPscloud(host->cloudLaunch()->ps5());
         }
         else if (host->isRemote())
             profile = SettingsManager::StreamProfile::Remote;
@@ -524,41 +412,7 @@ void StreamView::startStream()
             controllerReady = true;
         }
 
-        if (host->isRemote())
-        {
-            if (host->getHolepunchSession() != nullptr)
-            {
-                brls::Logger::info("Holepunch already completed, initializing session...");
-            }
-            else
-            {
-                brls::Logger::info("Remote host detected, initiating holepunch connection...");
-
-                if (!psn::Auth::instance().tokenValid())
-                {
-                    brls::Logger::error("PSN token not valid for remote connection");
-                    throw Exception("akira/stream/psn_token_expired"_i18n);
-                }
-
-                ChiakiErrorCode err = host->connectHolepunch();
-                if (err != CHIAKI_ERR_SUCCESS)
-                {
-                    brls::Logger::error("Holepunch connection failed: {}", chiaki_error_string(err));
-                    throw Exception(brls::getStr("akira/stream/holepunch_failed", chiaki_error_string(err)));
-                }
-
-                brls::Logger::info("Holepunch successful!");
-            }
-
-            brls::Logger::info("Initializing session with holepunch...");
-            host->initSessionWithHolepunch(session, host->getHolepunchSession());
-        }
-        else
-        {
-            host->initSession(session);
-        }
-
-        host->startSession();
+        openConnection();
 
         sessionStarted = true;
         streamActive = true;
@@ -572,9 +426,9 @@ void StreamView::startStream()
     {
         brls::Logger::error("Failed to start stream: {}", e.what());
 
+        connection.reset();
         session->FreeController();
-        host->cleanupHolepunch();
-        host->finiSession();
+        session->FreeVideo();
 
         std::string errorMsg = e.what();
         brls::sync([errorMsg]() {
@@ -585,6 +439,110 @@ void StreamView::startStream()
             dialog->open();
             brls::Application::forceUnblockInputs();
         });
+    }
+}
+
+akira::input::RumbleProfile StreamView::activePadProfile()
+{
+    auto* settings = SettingsManager::getInstance();
+    const std::vector<akira::input::PadDescription> pads = akira::input::DescribePads();
+
+    if (pads.empty())
+        return settings->getRumbleProfile(akira::input::kRumbleKeyDefault);
+
+    const akira::input::PadDescription& pad = pads.front();
+    const bool switchNative = pad.kind == akira::input::PadPathKind::JoyCon
+                           || pad.kind == akira::input::PadPathKind::SwitchPro;
+
+    return settings->resolveRumbleProfile(pad.vendor_id, pad.product_id,
+                                          pad.has_address ? pad.bt_addr : nullptr,
+                                          switchNative,
+                                          pad.kind == akira::input::PadPathKind::JoyCon);
+}
+
+void StreamView::openConnection()
+{
+    using akira::stream::Connection;
+    namespace play = libchiaking::play;
+
+    auto* accounts = akira::ChiakiCore::current().accounts();
+    auto player = accounts ? accounts->activeUser() : nullptr;
+    const auto& console = host->getConsole();
+    Connection::Starter starter;
+    int width = 0;
+    int height = 0;
+    int fps = 60;
+    int bitrate = 0;
+    bool hevc = false;
+    if (const auto* launch = host->cloudLaunch()) {
+        auto preferences = Connection::cloudPreferencesFor(*launch, *settings);
+        if (!preferences)
+            throw Exception("akira/connection/fail_generic"_i18n);
+        const auto picture = preferences->picture.on_cloud(launch->service());
+        width = static_cast<int>(picture.width());
+        height = static_cast<int>(picture.height());
+        fps = static_cast<int>(picture.fps());
+        bitrate = static_cast<int>(picture.bitrate_kbps());
+        hevc = picture.codec() != libchiaking::media::VideoCodec::h264;
+        starter = [owner = hostOwner, launch, preferences = *preferences](
+                      libchiaking::media::MediaSink& sink, play::SessionEvents& events,
+                      const libchiaking::platform::StopToken&) -> Connection::Started {
+            return launch->start(preferences, sink, events);
+        };
+    } else {
+        if (!player || !console)
+            throw Exception("akira/connection/fail_regist"_i18n);
+        auto preferences = Connection::preferencesFor(*host, *settings);
+        if (!preferences)
+            throw Exception("akira/connection/fail_generic"_i18n);
+        preferences->handover = handover;
+        const auto picture = preferences->picture.on_console(console->generation());
+        width = static_cast<int>(picture.width());
+        height = static_cast<int>(picture.height());
+        fps = static_cast<int>(picture.fps());
+        bitrate = static_cast<int>(picture.bitrate_kbps());
+        hevc = picture.codec() != libchiaking::media::VideoCodec::h264;
+        starter = Connection::consoleStarter(console, player, *preferences,
+            host->isRemote() ? libchiaking::consoles::Route::internet : libchiaking::consoles::Route::home);
+    }
+    handover = play::ConsoleHandover::fresh;
+
+    brls::Logger::info("StreamView: requesting {}x{} at {} fps, {} kbps, {}", width, height, fps, bitrate,
+                       hevc ? "HEVC" : "H.264");
+    session->setRequestedProfile(width, height, fps, bitrate, hevc);
+
+    const akira::input::RumbleProfile padProfile = activePadProfile();
+    session->setRumbleStrength(padProfile.rumble_source == akira::input::RumbleSource::Off
+                                   ? 0.0f
+                                   : padProfile.strength);
+    session->setRumbleSource(padProfile.rumble_source);
+    session->setHapticBase(akira::input::HapticBaseForIntensity(padProfile.haptic_intensity));
+    session->setRumbleFreqs(padProfile.freq_low, padProfile.freq_high);
+    session->setEnvelopeAttack(padProfile.envelope_attack);
+    session->setEnvelopeDecay(padProfile.envelope_decay);
+    session->setRumbleCeiling(padProfile.ceiling);
+
+    if (!session->InitAVCodec(hevc, width, height))
+        throw Exception("Failed to initiate libav codec");
+    if (!session->InitVideo(width, height))
+        throw Exception("Failed to initiate video");
+
+    const char* platformLabel = host->isPS5() ? "PS5" : "PS4";
+    if (const auto* cloud = host->cloudLaunch()) {
+        session->setConnectionContext(std::format("Cloud \xc2\xb7 {}", cloud->name()));
+    } else if (host->isRemote()) {
+        session->setConnectionContext(std::format("{} \xc2\xb7 Remote", platformLabel));
+    } else if (WireGuardManager::instance().isConnected()) {
+        session->setConnectionContext(std::format("{} \xc2\xb7 VPN", platformLabel));
+    } else {
+        session->setConnectionContext(std::format("{} \xc2\xb7 Direct", platformLabel));
+    }
+
+    std::shared_ptr<akira::stream::ConnectionListener> self = shared_from_this();
+    connection = std::make_shared<Connection>(*session, self, host->isPS5());
+    if (!connection->open(std::move(starter))) {
+        connection.reset();
+        throw Exception("akira/connection/failed_create_thread"_i18n);
     }
 }
 
@@ -608,9 +566,8 @@ void StreamView::stopStream()
 
     streamActive = false;
 
-    host->stopSession();
-    host->finiSession();
-    host->cleanupHolepunch();
+    settings->setStreamingActive(false);
+    connection.reset();
 
     session->FreeController();
     session->FreeVideo();
@@ -685,6 +642,12 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
     if (settings->getDebugRenderLog() && drawCount % 60 == 0) {
         brls::Logger::info("StreamView::draw #{}: streamActive={}, sessionStarted={}, menuOpen={}",
             drawCount, streamActive, sessionStarted, menuOpen);
+    }
+
+    if (cloudScreen && (!streamActive || !sessionStarted || !session->hasReceivedFirstFrame()))
+    {
+        drawCloudLaunch(vg, x, y, width, height);
+        return;
     }
 
     if (!streamActive || !sessionStarted)
@@ -823,181 +786,220 @@ void StreamView::streamingTick()
         brls::Application::setLimitedFPS(0);
         videoPipelineActive = false;
         intentionalDisconnect = true;
-        brls::sync([this]() {
-            stopStream();
+        brls::sync([weak = weak_from_this()]() {
+            if (auto self = weak.lock())
+                self->stopStream();
             akira::views::stream_nav::unwindToBase();
         });
     }
 }
 
-void StreamView::onConnected()
+void StreamView::onPlaying()
 {
     std::string hostName = host->getHostName();
     brls::Logger::info("Connected to {}", hostName);
-    brls::sync([hostName]() {
-        brls::Application::notify(brls::getStr("akira/stream/connected_to", hostName));
-    });
+    currentStage = static_cast<int>(ConnectionStage::Connected);
+    if (cloudScreen)
+        cloudScreen->playing();
+    brls::Application::notify(brls::getStr("akira/stream/connected_to", hostName));
 }
 
-void StreamView::onQuit(ChiakiQuitEvent* event)
+void StreamView::drawCloudLaunch(NVGcontext* vg, float x, float y, float width, float height)
 {
-    brls::Logger::info("Session quit: reason={}", static_cast<int>(event->reason));
+    cloudScreen->draw(vg, x, y, width, height);
+    if (!streamActive || !sessionStarted)
+        return;
+    checkMenuTrigger();
+    if (menuOpen)
+        return;
+    pollCloudCancel();
+    if (sessionStarted)
+        session->MainLoop();
+}
 
-    streamActive = false;
-    const bool ps4NicknameMismatch = host->takeTransientPs4NicknameMismatch();
+void StreamView::pollCloudCancel()
+{
+    PadState pad;
+    padInitializeDefault(&pad);
+    padUpdate(&pad);
+    const bool held = (padGetButtons(&pad) & HidNpadButton_B) != 0;
+    const bool pressed = held && !cloudCancelHeld;
+    cloudCancelHeld = held;
+    if (!pressed)
+        return;
+    brls::Logger::info("Cloud launch cancelled from the launch screen");
+    disconnectWithSleep(false);
+}
 
+void StreamView::showCloudFailure(const std::string& message, bool retry)
+{
+    std::optional<cloud::CloudLaunch> again;
+    if (retry && host->cloudLaunch())
+        again = *host->cloudLaunch();
 
-    std::string reasonStr;
-    switch (event->reason)
+    auto* dialog = new brls::Dialog(brls::getStr("akira/cloud/start_stopped", message));
+    dialog->setCancelable(false);
+    dialog->addButton("akira/cloud/start_back"_i18n, []() {
+        akira::views::stream_nav::unwindToBase();
+    });
+    if (again)
     {
-        case CHIAKI_QUIT_REASON_NONE:
-            reasonStr = "akira/stream/quit_none"_i18n;
-            break;
-        case CHIAKI_QUIT_REASON_STOPPED:
-            reasonStr = "akira/stream/quit_stopped"_i18n;
-            break;
-        case CHIAKI_QUIT_REASON_SESSION_REQUEST_UNKNOWN:
-            reasonStr = "akira/stream/quit_request_unknown"_i18n;
-            break;
-        case CHIAKI_QUIT_REASON_SESSION_REQUEST_CONNECTION_REFUSED:
-            reasonStr = "akira/stream/quit_connection_refused"_i18n;
-            break;
-        case CHIAKI_QUIT_REASON_SESSION_REQUEST_RP_IN_USE:
-            reasonStr = "akira/stream/quit_rp_in_use"_i18n;
-            break;
-        case CHIAKI_QUIT_REASON_SESSION_REQUEST_RP_CRASH:
-            reasonStr = "akira/stream/quit_rp_crash"_i18n;
-            break;
-        case CHIAKI_QUIT_REASON_SESSION_REQUEST_RP_VERSION_MISMATCH:
-            reasonStr = "akira/stream/quit_version_mismatch"_i18n;
-            break;
-        case CHIAKI_QUIT_REASON_CTRL_UNKNOWN:
-            reasonStr = "akira/stream/quit_ctrl_unknown"_i18n;
-            break;
-        case CHIAKI_QUIT_REASON_CTRL_CONNECT_FAILED:
-            reasonStr = "akira/stream/quit_ctrl_connect_failed"_i18n;
-            break;
-        case CHIAKI_QUIT_REASON_CTRL_CONNECTION_REFUSED:
-            reasonStr = "akira/stream/quit_ctrl_connection_refused"_i18n;
-            break;
-        case CHIAKI_QUIT_REASON_STREAM_CONNECTION_UNKNOWN:
-            reasonStr = "akira/stream/quit_stream_unknown"_i18n;
-            break;
-        case CHIAKI_QUIT_REASON_STREAM_CONNECTION_REMOTE_DISCONNECTED:
-            reasonStr = "akira/stream/quit_remote_disconnected"_i18n;
-            break;
-        case CHIAKI_QUIT_REASON_STREAM_CONNECTION_REMOTE_SHUTDOWN:
-            reasonStr = "akira/stream/quit_remote_shutdown"_i18n;
-            break;
-        case CHIAKI_QUIT_REASON_PSN_REGIST_FAILED:
-            reasonStr = "akira/stream/quit_psn_regist_failed"_i18n;
-            break;
-        default:
-            reasonStr = brls::getStr("akira/stream/quit_unknown", static_cast<int>(event->reason));
-            break;
+        dialog->addButton("akira/cloud/start_retry"_i18n, [again = std::move(*again)]() {
+            akira::views::stream_nav::unwindToBase();
+            brls::sync([again]() {
+                akira::views::startConnecting(cloud::CloudConnectTask::retrying(again));
+            });
+        });
+    }
+    brls::Application::forceUnblockInputs();
+    dialog->open();
+}
+
+void StreamView::onLaunchProgress(const libchiaking::play::LaunchProgress& progress)
+{
+    brls::Logger::info("Launch progress: phase {} activity {}", static_cast<int>(progress.phase()),
+                       progress.activity() ? static_cast<int>(*progress.activity()) : -1);
+    if (cloudScreen)
+        cloudScreen->progress(progress);
+}
+
+void StreamView::onConnectProgress(const libchiaking::play::ConnectProgress& progress)
+{
+    brls::Logger::info("Connect progress: step {} attempt {}{}", static_cast<int>(progress.step), progress.attempt,
+                       progress.reconnecting ? " (reconnecting)" : "");
+    const int stage = static_cast<int>(connectionStageOf(progress.step));
+    if (progress.reconnecting || stage > currentStage.load())
+        currentStage = stage;
+}
+
+void StreamView::onRefused(const libchiaking::play::StartRefusal& refusal)
+{
+    using Kind = libchiaking::play::StartRefusal::Kind;
+    if (!sessionStarted)
+        return;
+
+    const char* key = "akira/connection/fail_generic";
+    switch (refusal.kind()) {
+        case Kind::needs_psn_sign_in:
+        case Kind::sign_in_expired: key = "akira/stream/psn_token_expired"; break;
+        case Kind::remote_play_disabled: key = "akira/connection/fail_rp_disabled"; break;
+        case Kind::not_paired: key = "akira/connection/fail_regist"; break;
+        case Kind::console_unreachable: key = "akira/connection/fail_unreachable"; break;
+        case Kind::busy: key = "akira/connection/fail_in_use"; break;
+        default: break;
     }
 
-    ChiakiQuitReason reason = event->reason;
+    std::string text = brls::getStr(key);
+    if (refusal.launch() && host->cloudLaunch())
+        text = cloud::CloudLaunch::refusalText(*refusal.launch(), host->cloudLaunch()->name());
 
-    uint32_t gen = sessionGeneration;
-    auto weak = weak_from_this();
-    brls::sync([weak, reasonStr, reason, gen, ps4NicknameMismatch]() {
-        auto self = weak.lock();
-        if (!self) {
-            brls::Logger::info("onQuit: StreamView already destroyed, skipping");
-            return;
-        }
+    stopStream();
+    SharedViewHolder::release(this);
 
-        if (gen != self->sessionGeneration) {
-            brls::Logger::info("onQuit: stale session (gen {} vs {}), skipping", gen, self->sessionGeneration);
-            return;
-        }
-
-        if (!self->sessionStarted) {
-            brls::Logger::info("onQuit: session already stopped via menu, skipping");
-            return;
-        }
-
-        bool rejectedWhileAwake = self->host->isAwake() &&
-            reason == CHIAKI_QUIT_REASON_SESSION_REQUEST_UNKNOWN;
-
-        if (!self->host->isCloud() && !rejectedWhileAwake &&
-            (reason == CHIAKI_QUIT_REASON_SESSION_REQUEST_CONNECTION_REFUSED ||
-             reason == CHIAKI_QUIT_REASON_SESSION_REQUEST_UNKNOWN) &&
-            self->wakeRetryCount < MAX_WAKE_RETRIES) {
-            brls::Logger::info("Connection failed (reason={}) - attempting wake and retry ({}/{})",
-                              static_cast<int>(reason), self->wakeRetryCount + 1, MAX_WAKE_RETRIES);
-            self->retryWithWake();
-            return;
-        }
-
-        if (self->loginPinEnteredThisSession && reason != CHIAKI_QUIT_REASON_STOPPED) {
-            brls::Logger::info("onQuit: first-time login PIN was entered, auto-reconnecting");
-            self->loginPinEnteredThisSession = false;
-            self->attemptReconnect();
-            return;
-        }
-
-        bool duringConnect = !self->videoPipelineActive;
-
-        self->stopStream();
-
-        // Release early to invalidate weak_ptrs before popActivity
-        SharedViewHolder::release(self.get());
-
-        if (ps4NicknameMismatch) {
-            auto* dialog = new brls::Dialog("akira/stream/ps4_console_unregistered"_i18n);
-            dialog->setCloseCallback([]() {
-                akira::views::stream_nav::unwindToBase();
-            });
-            dialog->addButton("OK", []() {
-                akira::views::stream_nav::unwindToBase();
-            });
-            brls::Application::forceUnblockInputs();
-            dialog->open();
-        } else if (reason == CHIAKI_QUIT_REASON_STOPPED) {
-            brls::Application::notify(reasonStr);
-            akira::views::stream_nav::unwindToBase();
-        } else {
-            std::string body = duringConnect
-                ? brls::getStr("akira/connection/connect_failed_title",
-                    brls::getStr(rejectedWhileAwake
-                        ? "akira/connection/fail_rp_disabled"
-                        : connectionFailureKeyForReason(reason)))
-                : brls::getStr("akira/stream/session_ended", reasonStr);
-            auto* dialog = new brls::Dialog(body);
-            dialog->setCloseCallback([]() {
-                akira::views::stream_nav::unwindToBase();
-            });
-            dialog->addButton("OK", []() {
-                akira::views::stream_nav::unwindToBase();
-            });
-            brls::Application::forceUnblockInputs();
-            dialog->open();
-        }
-    });
-}
-
-void StreamView::onRumble(uint8_t player_index, uint8_t left, uint8_t right)
-{
-    if (player_index != 0)
+    if (cloudScreen)
     {
-        if (!host || !host->isCouchPadConfirmed(player_index))
-            return;
-        auto* input = session ? session->getInputManager() : nullptr;
-        if (!input)
-            return;
-
-        uint8_t addr[6];
-        uint16_t vid = 0, pid = 0;
-        if (!input->couchSlotOutputTarget(player_index, addr, &vid, &pid))
-            return;
-
-        input->extendedInput().registerCouchOutput(addr, vid, pid);
-        input->extendedInput().setCouchRumble(addr, left, right);
+        cloudScreen->failed();
+        showCloudFailure(text, true);
         return;
     }
-    session->SetRumble(left, right);
+
+    auto* dialog = new brls::Dialog(brls::getStr("akira/stream/connection_failed", text));
+    dialog->addButton("OK", []() {
+        akira::views::stream_nav::unwindToBase();
+    });
+    brls::Application::forceUnblockInputs();
+    dialog->open();
+}
+
+void StreamView::onEnded(const libchiaking::play::Outcome& outcome)
+{
+    using libchiaking::play::ConsoleQuit;
+    using libchiaking::play::EndReason;
+
+    brls::Logger::info("Session ended: ending={} cause={}", static_cast<int>(outcome.ending()),
+                       outcome.cause() ? static_cast<int>(*outcome.cause()) : -1);
+
+    streamActive = false;
+
+    if (!sessionStarted) {
+        brls::Logger::info("onEnded: session already stopped via menu, skipping");
+        return;
+    }
+
+    const auto& quit = outcome.quit();
+    const bool stoppedByConsole = quit && quit->reason() == ConsoleQuit::Reason::stopped;
+    const bool stopped = outcome.was_left() || stoppedByConsole;
+    const std::string reasonStr = quit
+        ? brls::getStr(quitReasonKey(quit->reason()))
+        : brls::getStr(connectionFailureKeyFor(outcome));
+    const bool rejectedWhileAwake = host->isAwake() && quit &&
+        quit->reason() == ConsoleQuit::Reason::session_request_unknown;
+    const bool unpairedConsole = outcome.cause() == EndReason::Cause::unpaired_console;
+
+    if (loginPinEnteredThisSession && !stopped && !unpairedConsole) {
+        brls::Logger::info("onEnded: first-time login PIN was entered, auto-reconnecting");
+        loginPinEnteredThisSession = false;
+        attemptReconnect();
+        return;
+    }
+
+    const bool duringConnect = !videoPipelineActive;
+
+    stopStream();
+
+    SharedViewHolder::release(this);
+
+    if (unpairedConsole) {
+        auto* dialog = new brls::Dialog("akira/stream/ps4_console_unregistered"_i18n);
+        dialog->setCloseCallback([]() {
+            akira::views::stream_nav::unwindToBase();
+        });
+        dialog->addButton("OK", []() {
+            akira::views::stream_nav::unwindToBase();
+        });
+        brls::Application::forceUnblockInputs();
+        dialog->open();
+    } else if (stopped) {
+        brls::Application::notify("akira/stream/quit_stopped"_i18n);
+        akira::views::stream_nav::unwindToBase();
+    } else if (cloudScreen) {
+        cloudScreen->failed();
+        const bool endsPlayTime = quit && (quit->reason() == ConsoleQuit::Reason::time_limit_reached ||
+                                           quit->reason() == ConsoleQuit::Reason::trial_ended);
+        std::string message = duringConnect
+            ? brls::getStr(connectionFailureKeyFor(outcome))
+            : brls::getStr("akira/stream/session_ended", reasonStr);
+        if (outcome.launch_refused())
+            message = cloud::CloudLaunch::refusalText(*outcome.launch_refused(), host->cloudLaunch()->name());
+        showCloudFailure(message, !endsPlayTime);
+    } else if (outcome.launch_refused() && host->cloudLaunch()) {
+        auto* dialog = new brls::Dialog(brls::getStr("akira/stream/connection_failed",
+            cloud::CloudLaunch::refusalText(*outcome.launch_refused(), host->cloudLaunch()->name())));
+        dialog->setCloseCallback([]() {
+            akira::views::stream_nav::unwindToBase();
+        });
+        dialog->addButton("OK", []() {
+            akira::views::stream_nav::unwindToBase();
+        });
+        brls::Application::forceUnblockInputs();
+        dialog->open();
+    } else {
+        std::string body = duringConnect
+            ? brls::getStr("akira/connection/connect_failed_title",
+                brls::getStr(rejectedWhileAwake
+                    ? "akira/connection/fail_rp_disabled"
+                    : connectionFailureKeyFor(outcome)))
+            : brls::getStr("akira/stream/session_ended", reasonStr);
+        auto* dialog = new brls::Dialog(body);
+        dialog->setCloseCallback([]() {
+            akira::views::stream_nav::unwindToBase();
+        });
+        dialog->addButton("OK", []() {
+            akira::views::stream_nav::unwindToBase();
+        });
+        brls::Application::forceUnblockInputs();
+        dialog->open();
+    }
 }
 
 void StreamView::pauseStreamForUi()
@@ -1019,7 +1021,7 @@ void StreamView::resumeStreamAfterUi()
 
 void StreamView::onPadArrived(HidNpadIdType npad)
 {
-    if (!host || !host->isCouchPadSlotAvailable()) {
+    if (!connection || !connection->couchSlotAvailable()) {
         brls::Logger::info("Couch: pad arrived on npad {} but no slot is free", (int)npad);
         return;
     }
@@ -1082,7 +1084,7 @@ void StreamView::openCouchClaim()
     }
 
     auto weak = weak_from_this();
-    auto* panel = new PlayersPanelView(host, input, true);
+    auto* panel = new PlayersPanelView(host, connection, input, true);
     panel->setOnClosed([weak]() {
         auto self = weak.lock();
         if (!self)
@@ -1137,7 +1139,7 @@ void StreamView::openPrimaryControllerPicker()
                                     brls::TransitionAnimation::NONE);
 }
 
-void StreamView::onPadPasscodeRequest(uint8_t slot, bool retry)
+void StreamView::onSeatPasscodeNeeded(uint8_t slot, bool retry)
 {
     brls::Logger::info("Couch passcode request for player {} (retry: {})", slot + 1, retry);
 
@@ -1147,44 +1149,56 @@ void StreamView::onPadPasscodeRequest(uint8_t slot, bool retry)
     }
     couchPasscodeDialogOpen = true;
 
-    Host* hostPtr = host;
     auto weak = weak_from_this();
+    auto* pinView = new EnterPinView(host, PinViewType::CouchPasscode, retry);
 
-    brls::sync([weak, hostPtr, slot, retry]() {
-        auto* pinView = new EnterPinView(hostPtr, PinViewType::CouchPasscode, retry);
-
-        pinView->setOnPinEntered([weak, hostPtr, slot](const std::string& pin) {
-            brls::Logger::info("Couch passcode entered for player {}", slot + 1);
-            if (auto self = weak.lock())
-                self->couchPasscodeDialogOpen = false;
-            hostPtr->couchSendPasscode(slot, pin);
-        });
-
-        pinView->setOnCancel([weak, hostPtr, slot]() {
-            brls::Logger::info("Couch passcode cancelled for player {}, releasing the pad", slot + 1);
-            if (auto self = weak.lock())
-                self->couchPasscodeDialogOpen = false;
-            hostPtr->couchRemovePlayer(slot);
-        });
-
-        brls::Application::pushActivity(new brls::Activity(pinView));
+    pinView->setOnPinEntered([weak, slot](const std::string& pin) {
+        brls::Logger::info("Couch passcode entered for player {}", slot + 1);
+        if (auto self = weak.lock()) {
+            self->couchPasscodeDialogOpen = false;
+            if (self->connection)
+                self->connection->sendSeatPasscode(slot, pin);
+        }
     });
+
+    pinView->setOnCancel([weak, slot]() {
+        brls::Logger::info("Couch passcode cancelled for player {}, releasing the pad", slot + 1);
+        if (auto self = weak.lock()) {
+            self->couchPasscodeDialogOpen = false;
+            if (self->connection)
+                self->connection->removePlayer(slot);
+        }
+    });
+
+    brls::Application::pushActivity(new brls::Activity(pinView));
 }
 
-void StreamView::onPadJoinFailed(uint8_t slot, uint8_t status)
+void StreamView::onSeatRefused(uint8_t slot, const libchiaking::play::SeatRefusal& refusal)
 {
+    using Kind = libchiaking::play::SeatRefusal::Kind;
+    uint8_t status = 0;
+    switch (refusal.kind()) {
+        case Kind::account_not_on_console: status = 1; break;
+        case Kind::refused_by_console: status = refusal.console_status().value_or(0); break;
+        case Kind::passcode_attempts_used: status = libchiaking::play::SeatRefusal::passcode_attempts_status; break;
+        case Kind::timed_out: status = libchiaking::play::SeatRefusal::timed_out_status; break;
+        default: break;
+    }
     brls::Logger::error("Couch join failed for player {} with status {}", slot + 1, status);
 
-    std::string message = status == 1
+    brls::Application::notify(status == 1
         ? brls::getStr("akira/couch/join_failed_not_signed_in", slot + 1)
-        : brls::getStr("akira/couch/join_failed_status", slot + 1, status);
-
-    brls::sync([message]() {
-        brls::Application::notify(message);
-    });
+        : brls::getStr("akira/couch/join_failed_status", slot + 1, status));
 }
 
-void StreamView::onLoginPinRequest(bool pinIncorrect)
+void StreamView::onSeatDropped(uint8_t slot)
+{
+    brls::Logger::info("Couch: console dropped player {}, withdrawing the pad", slot + 1);
+    brls::Application::notify(brls::getStr("akira/couch/join_failed_status", slot + 1,
+        libchiaking::play::SeatRefusal::passcode_attempts_status));
+}
+
+void StreamView::onLoginPinNeeded(bool pinIncorrect)
 {
     brls::Logger::info("Login PIN request (incorrect: {})", pinIncorrect);
 
@@ -1195,12 +1209,9 @@ void StreamView::onLoginPinRequest(bool pinIncorrect)
 
     if (!pinIncorrect) {
         std::string savedPin = settings->getConsolePIN(host);
-        if (!savedPin.empty()) {
-            Host* hostPtr = host;
-            brls::sync([hostPtr, savedPin]() {
-                brls::Logger::info("Using saved Console PIN for auto-login");
-                hostPtr->setLoginPIN(savedPin);
-            });
+        if (!savedPin.empty() && connection) {
+            brls::Logger::info("Using saved Console PIN for auto-login");
+            connection->submitLoginPin(savedPin);
             return;
         }
     }
@@ -1209,27 +1220,29 @@ void StreamView::onLoginPinRequest(bool pinIncorrect)
     SettingsManager* settingsPtr = settings;
     auto weak = weak_from_this();
 
-    brls::sync([weak, hostPtr, settingsPtr, pinIncorrect]() {
-        auto* pinView = new EnterPinView(hostPtr, PinViewType::Login, pinIncorrect);
+    auto* pinView = new EnterPinView(hostPtr, PinViewType::Login, pinIncorrect);
 
-        pinView->setOnPinEntered([weak, hostPtr, settingsPtr](const std::string& pin) {
-            brls::Logger::info("Login PIN entered, sending to session");
-            hostPtr->setLoginPIN(pin);
+    pinView->setOnPinEntered([weak, hostPtr, settingsPtr](const std::string& pin) {
+        brls::Logger::info("Login PIN entered, sending to session");
+        if (auto self = weak.lock()) {
+            if (self->connection)
+                self->connection->submitLoginPin(pin);
+            self->loginPinEnteredThisSession = true;
+        }
 
-            if (auto self = weak.lock())
-                self->loginPinEnteredThisSession = true;
-
-            settingsPtr->setConsolePIN(hostPtr, pin);
-            settingsPtr->writeFile();
-        });
-
-        pinView->setOnCancel([hostPtr]() {
-            brls::Logger::info("Login PIN cancelled, stopping session");
-            hostPtr->stopSession();
-        });
-
-        brls::Application::pushActivity(new brls::Activity(pinView));
+        settingsPtr->setConsolePIN(hostPtr, pin);
+        settingsPtr->writeFile();
     });
+
+    pinView->setOnCancel([weak]() {
+        brls::Logger::info("Login PIN cancelled, stopping session");
+        if (auto self = weak.lock()) {
+            if (self->connection)
+                self->connection->leave(false);
+        }
+    });
+
+    brls::Application::pushActivity(new brls::Activity(pinView));
 }
 
 void StreamView::checkMenuTrigger()
@@ -1282,7 +1295,8 @@ void StreamView::showDisconnectMenu()
             SettingsManager::getInstance()->writeFile();
     }
     menuOpen = true;
-    host->setInputSuppressed(true);
+    if (connection)
+        connection->setInputSuppressed(true);
     session->setVideoPaused(true);
     session->CleanUpHaptic();
     brls::Application::forceUnblockInputs();
@@ -1329,7 +1343,7 @@ void StreamView::showDisconnectMenu()
             brls::Logger::warning("StreamMenu: no input manager for players panel");
             return;
         }
-        auto* panel = new PlayersPanelView(self->host, input);
+        auto* panel = new PlayersPanelView(self->host, self->connection, input);
         brls::Application::pushActivity(new brls::Activity(panel), brls::TransitionAnimation::NONE);
     });
 
@@ -1345,7 +1359,8 @@ void StreamView::showDisconnectMenu()
             brls::Logger::info("Menu dismissed");
             self->session->setVideoPaused(false);
             self->menuOpen = false;
-            self->host->setInputSuppressed(false);
+            if (self->connection)
+                self->connection->setInputSuppressed(false);
             brls::Application::blockInputs(true);
         }
     });
@@ -1380,9 +1395,8 @@ void StreamView::disconnectWithSleep(bool sleep)
     menuOpen = false;
     brls::Application::blockInputs(true);
 
-    if (sleep && !host->isCloud()) {
-        host->gotoBed();
-    }
+    if (connection)
+        connection->leave(sleep && !host->isCloud());
 
     stopStream();
 
@@ -1419,68 +1433,6 @@ void StreamView::renderLogs(NVGcontext* vg, float x, float y, float width, float
     }
 }
 
-void StreamView::retryWithWake()
-{
-    wakeRetryCount++;
-    wakeAttempted = true;
-
-    host->finiSession();
-    session->FreeController();
-
-    if (wakeRetryCount == 1) {
-        int wakeResult = host->wakeup();
-        if (wakeResult != 0) {
-            brls::Logger::error("Wake failed with code {}", wakeResult);
-            stopStream();
-            SharedViewHolder::release(this);
-            auto* dialog = new brls::Dialog("akira/stream/wake_failed"_i18n);
-            dialog->addButton("OK", []() {
-                akira::views::stream_nav::unwindToBase();
-            });
-            brls::Application::forceUnblockInputs();
-            dialog->open();
-            return;
-        }
-        brls::Logger::info("Wake sent, retrying connection...");
-    }
-
-    int delaySeconds = 5 + (wakeRetryCount - 1) * 3;
-    brls::Logger::info("Wake retry attempt {}/{}, waiting {} seconds...",
-                       wakeRetryCount, MAX_WAKE_RETRIES, delaySeconds);
-    brls::Application::notify(brls::getStr("akira/stream/waking_attempt", wakeRetryCount, MAX_WAKE_RETRIES));
-
-    std::this_thread::sleep_for(std::chrono::seconds(delaySeconds));
-
-    sessionStarted = false;
-    streamActive = false;
-
-    try {
-        if (!session->InitController()) {
-            throw Exception("akira/stream/failed_init_controller"_i18n);
-        }
-        host->initSession(session);
-        host->startSession();
-        sessionStarted = true;
-        streamActive = true;
-        brls::Logger::info("Retry connection started");
-    } catch (const Exception& e) {
-        brls::Logger::error("Retry attempt {} failed: {}", wakeRetryCount, e.what());
-        session->FreeController();
-        host->finiSession();
-
-        if (wakeRetryCount >= MAX_WAKE_RETRIES) {
-            SharedViewHolder::release(this);
-            std::string errorMsg = e.what();
-            auto* dialog = new brls::Dialog(brls::getStr("akira/stream/connection_failed_attempts", MAX_WAKE_RETRIES, errorMsg));
-            dialog->addButton("OK", []() {
-                akira::views::stream_nav::unwindToBase();
-            });
-            brls::Application::forceUnblockInputs();
-            dialog->open();
-        }
-    }
-}
-
 void StreamView::onFocusChanged(bool focused)
 {
     if (!focused)
@@ -1489,11 +1441,13 @@ void StreamView::onFocusChanged(bool focused)
     if (intentionalDisconnect || !settings->getAutoReconnect() || !sessionStarted || host->isCloud())
         return;
 
-    bool socketHealthy = host->isSessionSocketHealthy();
-    brls::Logger::info("StreamView::onFocusChanged(InFocus): streamActive={}, socketHealthy={}",
-                       streamActive, socketHealthy);
+    const auto state = connection ? connection->state() : std::nullopt;
+    const bool sessionAlive = state && (*state == libchiaking::play::SessionState::playing ||
+                                        *state == libchiaking::play::SessionState::connecting);
+    brls::Logger::info("StreamView::onFocusChanged(InFocus): streamActive={}, sessionAlive={}",
+                       streamActive, sessionAlive);
 
-    if (!streamActive || !socketHealthy) {
+    if (!streamActive || !sessionAlive) {
         brls::Logger::info("Stream dead on focus regain, prompting user");
         stopStream();
         brls::Application::forceUnblockInputs();
@@ -1527,10 +1481,9 @@ void StreamView::attemptReconnect()
     brls::Logger::info("Auto-reconnect: tearing down old session");
     stopStream();
 
-    sessionGeneration++;
-    wakeRetryCount = 0;
-    wakeAttempted = false;
+    currentStage = static_cast<int>(ConnectionStage::Idle);
 
+    handover = libchiaking::play::ConsoleHandover::just_left;
     brls::Application::notify("akira/stream/reconnecting"_i18n);
     startStream();
 

@@ -1,16 +1,25 @@
 #ifndef AKIRA_CLOUD_SERVICE_HPP
 #define AKIRA_CLOUD_SERVICE_HPP
 
+#include <chrono>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
-#include "cloud/models.hpp"
+#include <libchiaking/catalog.hpp>
 
-class Host;
+#include "cloud/cloud_launch.hpp"
+#include "cloud/fetch_progress.hpp"
+#include "cloud/game_actions.hpp"
+#include "cloud/library_listing.hpp"
+#include "cloud/models.hpp"
+#include "core/background_work.hpp"
+
 class SettingsManager;
 
 namespace cloud {
@@ -39,19 +48,36 @@ struct Status {
     PlusMembership plusMembership = PlusMembership::Unknown;
 };
 
+struct TitleRefresh {
+    enum class Outcome {
+        Added,
+        NotInLibrary,
+        Failed
+    };
+
+    Outcome outcome = Outcome::Failed;
+    std::optional<Game> game;
+    std::string message;
+};
+
 struct Snapshot {
     Status status;
     Catalog catalog;
+    std::vector<RecentlyPlayed> recentlyPlayed;
     bool hasCatalog = false;
 };
 
 class Service {
 public:
     using SnapshotCallback = std::function<void(const Snapshot&)>;
-    using HostCallback = std::function<void(std::shared_ptr<Host>)>;
+    using ClearedCallback = std::function<void(std::shared_ptr<CloudLaunch>)>;
     using ErrorCallback = std::function<void(const std::string&)>;
-    using ProgressCallback = std::function<void(const std::string&)>;
-    using CancelCallback = std::function<bool()>;
+    using ProgressCallback = std::function<void(libchiaking::catalog::LaunchCheck check)>;
+    using DetailCallback = std::function<void(std::optional<GameDetail>)>;
+    using ImageCallback = std::function<void(std::vector<uint8_t>)>;
+    using CardCheckCallback = std::function<void(CardCheck)>;
+    using TitleCallback = std::function<void(TitleRefresh)>;
+    using FetchCallback = std::function<void(const FetchProgress&)>;
 
     static Service& instance();
 
@@ -59,45 +85,89 @@ public:
 
     void markActiveProfileDirty();
     void clearCatalogCache();
-    void refreshActiveProfile(bool force, SnapshotCallback onDone = {});
-    void launchGame(const Game& game, HostCallback onSuccess, ErrorCallback onError,
-        ProgressCallback onProgress = {}, bool forceSkipAttrCheck = false,
-        CancelCallback isCancelled = {});
+    void refreshActiveProfile(bool force, SnapshotCallback onDone = {}, FetchCallback onFetch = {});
+    void refreshInBackground();
+    void clearForLaunch(const Game& game, const libchiaking::platform::StopToken& stop,
+                        ClearedCallback onCleared, ErrorCallback onError, ProgressCallback onProgress);
+
+    void detailsOf(const Game& game, const libchiaking::platform::StopToken& stop, DetailCallback onDone);
+    void imageOf(const std::string& url, int width, const libchiaking::platform::StopToken& stop,
+                 ImageCallback onDone);
+    void checkStorefront(const Game& game, const libchiaking::platform::StopToken& stop,
+                         CardCheckCallback onDone);
+    void refreshTitle(const Game& game, const libchiaking::platform::StopToken& stop, TitleCallback onDone);
+
+    std::optional<int64_t> trustedNowMs() const;
+    bool signedIn() const;
+
+    static Snapshot snapshotOf(const FetchFailure& failure);
 
 private:
+    using User = std::shared_ptr<libchiaking::users::PsUser>;
+
+    struct Waiter {
+        SnapshotCallback onDone;
+        FetchCallback onFetch;
+    };
+
+    struct Refresh {
+        uint64_t generation = 0;
+        libchiaking::platform::StopSource stop;
+        std::vector<Waiter> waiters;
+    };
+
+    struct Held {
+        bool wanted = false;
+        bool force = false;
+        std::vector<Waiter> waiters;
+    };
+
     struct Entry {
         Snapshot snapshot;
-        bool refreshing = false;
-        int generation = 0;
+        std::optional<Refresh> refresh;
+        std::optional<std::chrono::steady_clock::time_point> fetchedAt;
+        uint64_t generation = 0;
         PlusMembership plusMembership = PlusMembership::Unknown;
-        bool streamabilityLoaded = false;
-        std::map<std::string, bool> streamability;
-        std::vector<SnapshotCallback> pending;
-        std::string psnowDatacentersJson;
-        std::string pscloudDatacentersJson;
     };
+
+    static constexpr std::chrono::hours freshFor{1};
+    static constexpr const char* LEGACY_CACHE_DIR = "sdmc:/switch/akira/cache/cloud";
 
     Service();
 
-    Snapshot defaultSnapshotForActiveProfile() const;
-    Snapshot defaultSnapshotForProfile(bool hasProfile, bool paired) const;
-    std::string consoleLocale() const;
-    std::string catalogLocale() const;
-    std::string streamLanguage() const;
-    std::string reconcileCatalogLocale(int64_t profileId) const;
-    void noteSettledLocale(const std::string& settled) const;
-    std::string cacheRoot() const;
-    std::string cacheDirForProfile(int64_t profileId) const;
-    std::string streamabilityCachePath(int64_t profileId) const;
-    void ensureCacheDirsForProfile(int64_t profileId) const;
+    static Snapshot defaultSnapshotForProfile(bool hasProfile, bool paired);
+    static Snapshot snapshotOf(const libchiaking::catalog::MyGames& games, libchiaking::catalog::Catalog& catalog,
+                               libchiaking::users::PsUser& user, PlusMembership plusMembership);
+    static auto failureOf(const libchiaking::catalog::GamesFailure& cause) -> FetchFailure;
+    static auto progressOf(const libchiaking::catalog::FetchState& state) -> FetchProgress;
+    static auto stepOf(libchiaking::catalog::FetchStep step) -> FetchProgress::Step;
+    static auto activityOf(libchiaking::catalog::FetchActivity activity) -> FetchProgress::Activity;
+    static auto outcomeOf(libchiaking::catalog::StepOutcome outcome) -> FetchProgress::Outcome;
+    static Game gameOf(const libchiaking::catalog::MyGame& game, libchiaking::catalog::Catalog& catalog,
+                       libchiaking::users::PsUser& user);
+    static Standing standingOf(libchiaking::catalog::Standing standing);
+    static auto recentlyPlayedOf(libchiaking::users::PsUser& user) -> std::vector<RecentlyPlayed>;
+    static Status statusOf(const Catalog& catalog, PlusMembership plusMembership);
+    static auto detailOf(const libchiaking::catalog::GameDetails& details) -> GameDetail;
+    static auto sizedImage(const std::string& url, int width) -> std::optional<libchiaking::catalog::ImageRef>;
+    void replaceGame(int64_t profileId, const Game& game);
+    static auto catalogOf() -> libchiaking::catalog::Catalog&;
 
-    void storeSnapshot(int64_t profileId, const Snapshot& snapshot);
-    void storeLaunchOutcome(int64_t profileId, const std::string& productId, bool streamable);
+    auto activeUser() const -> User;
+    void runRefresh(int64_t profileId, uint64_t generation, User user, bool force,
+                    libchiaking::platform::StopToken stop);
+    void finishRefresh(int64_t profileId, uint64_t generation, Snapshot snapshot, bool fetched);
+    auto fetchCallbacksOf(int64_t profileId, uint64_t generation) const -> std::vector<FetchCallback>;
+    bool isCurrent(int64_t profileId, uint64_t generation) const;
+    void followBackgroundWork(bool paused);
 
     SettingsManager* settings = nullptr;
 
     mutable std::mutex mutex;
     std::map<int64_t, Entry> entries;
+    bool paused = false;
+    Held held;
+    akira::BackgroundWork::Subscription backgroundSubscription;
 };
 
 } // namespace cloud

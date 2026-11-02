@@ -1,6 +1,7 @@
 #include "views/legacy_profile_view.hpp"
 
-#include "core/pair_listener.hpp"
+#include <libchiaking/users_types.hpp>
+
 #include "core/profile.hpp"
 #include "core/settings_manager.hpp"
 #include "ui/theme.hpp"
@@ -109,7 +110,7 @@ brls::Label* LegacyProfileView::addField(const std::string& title, const std::st
 void LegacyProfileView::askAccountId() {
     brls::Application::getImeManager()->openForText(
         [this](std::string text) {
-            if (!text.empty() && !akira::pair::validAccountId(text)) {
+            if (!text.empty() && !libchiaking::AccountId::from_base64(text)) {
                 brls::Application::notify("akira/pair/status_bad_payload"_i18n);
                 return;
             }
@@ -141,7 +142,7 @@ void LegacyProfileView::askName() {
 }
 
 void LegacyProfileView::create() {
-    if (!akira::pair::validAccountId(m_account_id)) {
+    if (!libchiaking::AccountId::from_base64(m_account_id)) {
         brls::Application::notify("akira/pair/status_bad_payload"_i18n);
         return;
     }

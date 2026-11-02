@@ -34,16 +34,6 @@
     "body": "在 Akira 各处遮盖 PSN 账号名称和标识符，使截图更适合分享。",
     "image": ""
   },
-  "settings/psnRequestBudget": {
-    "title": "PSN 请求配额",
-    "body": "在设定的请求时间窗口内允许发出的受控 PSN 请求数上限。数值越高，被服务器限流的风险越大。",
-    "image": ""
-  },
-  "settings/psnRequestWindow": {
-    "title": "PSN 请求时间窗口",
-    "body": "PSN 请求限流器使用的滚动时间窗口。更改后会重新配置奖杯和派对限流器。",
-    "image": ""
-  },
   "settings/runBenchmark": {
     "title": "运行基准测试",
     "body": "测量此 Switch 的 GHASH 加密吞吐量。",

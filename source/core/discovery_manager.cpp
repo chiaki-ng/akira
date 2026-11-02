@@ -1,26 +1,22 @@
 #include "core/discovery_manager.hpp"
-#include "core/discovery_sweep.hpp"
+#include "core/chiaki_core.hpp"
 #include "core/settings_manager.hpp"
+#include "core/wireguard_manager.hpp"
 
 #include <borealis.hpp>
 #include <ctime>
 #include <format>
 
-#include <cstring>
-#include <cstdlib>
+#include <algorithm>
+#include <utility>
+#include <atomic>
 #include <cstdint>
 #include <deque>
 #include <vector>
 #include <switch.h>
 
 #include <arpa/inet.h>
-#include <netdb.h>
-#include <netinet/in.h>
-
-#include <json-c/json.h>
-
-#include "util/http.hpp"
-#include "util/http_pool.hpp"
+#include <sys/socket.h>
 
 static std::mutex g_discoveryLogMutex;
 static std::deque<std::string> g_discoveryLogLines;
@@ -54,35 +50,9 @@ void DiscoveryManager::clearDiscoveryLog()
     g_discoveryLogVersion.fetch_add(1, std::memory_order_relaxed);
 }
 
-static void discovery_log_cb(ChiakiLogLevel level, const char* msg, void* user)
-{
-    if (!SettingsManager::getInstance()->getDebugDiscoveryLog())
-        return;
 
-    if (msg)
-        DiscoveryManager::appendDiscoveryLog(msg);
-
-    ChiakiLog* mainLog = static_cast<ChiakiLog*>(user);
-    if (mainLog)
-        chiaki_log(mainLog, level, "%s", msg);
-}
-
-#define PING_MS 500
-#define HOSTS_MAX 16
-#define DROP_PINGS 3
-
-static void DiscoveryServiceCallback(ChiakiDiscoveryHost* discovered_hosts, size_t hosts_count, void* user)
-{
-    DiscoveryManager* dm = static_cast<DiscoveryManager*>(user);
-    std::vector<std::string> liveIds;
-    for (size_t i = 0; i < hosts_count; i++)
-    {
-        dm->discoveryCallback(&discovered_hosts[i]);
-        if (discovered_hosts[i].host_id)
-            liveIds.emplace_back(discovered_hosts[i].host_id);
-    }
-    dm->reconcileDiscoveredHosts(liveIds);
-}
+namespace consoles = libchiaking::consoles;
+namespace platform = libchiaking::platform;
 
 DiscoveryManager* DiscoveryManager::getInstance()
 {
@@ -93,38 +63,26 @@ DiscoveryManager* DiscoveryManager::getInstance()
 DiscoveryManager::DiscoveryManager()
 {
     settings = SettingsManager::getInstance();
-    log = settings->getLogger();
-
-    if (log)
-    {
-        brls::Logger::info("DiscoveryManager created with logger");
-    }
-    else
-    {
-        brls::Logger::warning("DiscoveryManager created WITHOUT logger!");
-    }
-
-    memset(&service, 0, sizeof(service));
-    memset(&discovery, 0, sizeof(discovery));
+    backgroundSubscription = akira::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
 }
 
-DiscoveryManager::~DiscoveryManager()
+void DiscoveryManager::followBackgroundWork(bool paused)
 {
-    if (focusSubscribed)
+    if (paused)
     {
-        brls::Application::getWindowFocusChangedEvent()->unsubscribe(focusSubscription);
-        focusSubscribed = false;
+        const bool wasEnabled = serviceEnabled;
+        if (wasEnabled)
+        {
+            brls::Logger::info("Discovery: paused for the stream");
+            setServiceEnabled(false);
+        }
+        resumeAfterPause = wasEnabled;
+        return;
     }
-
-    if (serviceEnabled)
+    if (std::exchange(resumeAfterPause, false))
     {
-        setServiceEnabled(false);
-    }
-
-    if (hostAddr)
-    {
-        free(hostAddr);
-        hostAddr = nullptr;
+        brls::Logger::info("Discovery: resumed after the stream");
+        setServiceEnabled(true);
     }
 }
 
@@ -137,7 +95,7 @@ void DiscoveryManager::ensureFocusSubscription()
         if (!focused || !serviceEnabled)
             return;
 
-        brls::Logger::info("Discovery: applet back in focus, restarting service on fresh sockets");
+        brls::Logger::info("Discovery: applet back in focus, restarting the search on fresh sockets");
         setServiceEnabled(false);
         setServiceEnabled(true);
     });
@@ -154,203 +112,611 @@ void DiscoveryManager::setServiceEnabled(bool enable)
         return;
     }
 
-    serviceEnabled = enable;
-
-    if (enable)
+    if (enable && akira::BackgroundWork::paused())
     {
-        NetworkAddresses addresses = getIPv4BroadcastAddr();
-        brls::Logger::info("Broadcast addr: {:08x}, local: {:08x}", addresses.broadcast, addresses.local);
-
-        ChiakiDiscoveryServiceOptions options;
-        memset(&options, 0, sizeof(options));
-        options.ping_ms = PING_MS;
-        options.ping_initial_ms = PING_MS;
-        options.hosts_max = HOSTS_MAX;
-        options.host_drop_pings = DROP_PINGS;
-        options.cb = DiscoveryServiceCallback;
-        options.cb_user = this;
-
-        std::vector<struct sockaddr_storage> targets;
-
-        struct sockaddr_in addr_broadcast = {};
-        addr_broadcast.sin_family = AF_INET;
-        addr_broadcast.sin_addr.s_addr = addresses.broadcast;
-        struct sockaddr_storage broadcastStore = {};
-        memcpy(&broadcastStore, &addr_broadcast, sizeof(addr_broadcast));
-        targets.push_back(broadcastStore);
-
-        auto* hostsForDiscovery = settings->getHostsMap();
-        if (hostsForDiscovery) {
-            for (auto& entry : *hostsForDiscovery) {
-                Host* h = entry.second.get();
-                if (!h || !h->isManual())
-                    continue;
-                std::string addr = h->getHostAddr();
-                if (addr.empty())
-                    continue;
-                struct sockaddr_in unicast = {};
-                unicast.sin_family = AF_INET;
-                if (inet_pton(AF_INET, addr.c_str(), &unicast.sin_addr) == 1) {
-                    struct sockaddr_storage unicastStore = {};
-                    memcpy(&unicastStore, &unicast, sizeof(unicast));
-                    targets.push_back(unicastStore);
-                    brls::Logger::info("Discovery: added manual unicast target {}", addr);
-                }
-            }
-        }
-
-        std::vector<uint32_t> flatTargets;
-        std::vector<std::string> labels;
-
-        std::string subnetsCfg = settings->getDiscoverySubnets();
-        size_t start = 0;
-        while (start < subnetsCfg.size()) {
-            size_t end = subnetsCfg.find_first_of(", \t\n", start);
-            std::string token = subnetsCfg.substr(start, end == std::string::npos ? std::string::npos : end - start);
-            start = (end == std::string::npos) ? subnetsCfg.size() : end + 1;
-            if (token.empty())
-                continue;
-
-            uint32_t base = 0;
-            int prefix = 0;
-            if (!akira::discovery::parseSweepCidr(token, base, prefix))
-                continue;
-
-            if (akira::discovery::subnetContainsLocal(addresses.local, base, prefix)) {
-                brls::Logger::info("Discovery: subnet {} is local, covered by broadcast", token);
-                continue;
-            }
-
-            uint32_t firstOff = 0;
-            uint32_t lastOff = 0;
-            akira::discovery::sweepHostOffsets(prefix, firstOff, lastOff);
-            for (uint32_t off = firstOff; off <= lastOff && flatTargets.size() < static_cast<size_t>(SWEEP_MAX_TARGETS); off++)
-                flatTargets.push_back(akira::discovery::sweepAddrNet(base, off));
-
-            if (flatTargets.size() >= static_cast<size_t>(SWEEP_MAX_TARGETS))
-                brls::Logger::warning("Discovery: sweep target cap {} reached, remaining hosts skipped", SWEEP_MAX_TARGETS);
-            labels.push_back(akira::discovery::normalizeSweepCidr(token));
-            brls::Logger::info("Discovery: added foreign sweep subnet {} ({} hosts)", token, akira::discovery::sweepHostCount(prefix));
-        }
-
-        {
-            std::lock_guard<std::mutex> lk(sweepMutex);
-            sweepTargets = std::move(flatTargets);
-            sweepSubnetLabels = std::move(labels);
-            liveForeignHosts.clear();
-            sweepCurrentTarget.clear();
-            sweepChunkIndex = 0;
-        }
-
-        options.broadcast_addrs = static_cast<struct sockaddr_storage*>(malloc(targets.size() * sizeof(struct sockaddr_storage)));
-        memcpy(options.broadcast_addrs, targets.data(), targets.size() * sizeof(struct sockaddr_storage));
-        options.broadcast_num = targets.size();
-
-        struct sockaddr_in in_addr = {};
-        in_addr.sin_family = AF_INET;
-        in_addr.sin_addr.s_addr = 0xffffffff;
-        struct sockaddr_storage addr;
-        memcpy(&addr, &in_addr, sizeof(in_addr));
-        options.send_addr = &addr;
-        options.send_addr_size = sizeof(in_addr);
-        options.send_host = nullptr;
-
-        chiaki_log_init(&discoveryLog, CHIAKI_LOG_ALL, discovery_log_cb, log);
-
-        brls::Logger::info("Calling chiaki_discovery_service_init...");
-        ChiakiErrorCode err = chiaki_discovery_service_init(&service, &options, &discoveryLog);
-        free(options.broadcast_addrs);
-        if (err != CHIAKI_ERR_SUCCESS)
-        {
-            brls::Logger::error("Discovery service init FAILED: {}", chiaki_error_string(err));
-            serviceEnabled = false;
-            return;
-        }
-        brls::Logger::info("Discovery service started successfully!");
-
-        ensureFocusSubscription();
-
-        bool haveSweep = false;
-        {
-            std::lock_guard<std::mutex> lk(sweepMutex);
-            haveSweep = !sweepTargets.empty();
-        }
-        if (haveSweep && !sweepEnabled.load())
-        {
-            if (chiaki_bool_pred_cond_init(&sweepStopCond) == CHIAKI_ERR_SUCCESS)
-            {
-                sweepEnabled.store(true);
-                if (chiaki_thread_create(&sweepThread, sweepThreadFunc, this) != CHIAKI_ERR_SUCCESS)
-                {
-                    sweepEnabled.store(false);
-                    chiaki_bool_pred_cond_fini(&sweepStopCond);
-                    brls::Logger::error("Failed to start discovery sweep thread");
-                }
-                else
-                {
-                    brls::Logger::info("Discovery sweep thread started");
-                }
-            }
-        }
+        brls::Logger::info("Discovery: held until the stream ends");
+        resumeAfterPause = true;
+        return;
     }
-    else
+
+    if (!enable)
     {
-        if (sweepEnabled.load())
-        {
-            brls::Logger::info("Stopping discovery sweep thread...");
-            sweepEnabled.store(false);
-            chiaki_bool_pred_cond_signal(&sweepStopCond);
-            chiaki_thread_join(&sweepThread, nullptr);
-            chiaki_bool_pred_cond_fini(&sweepStopCond);
-            brls::Logger::info("Discovery sweep thread stopped");
-        }
-
-        if (remoteDiscoveryEnabled.load())
-        {
-            brls::Logger::info("Stopping remote discovery thread...");
-            remoteDiscoveryEnabled.store(false);
-            chiaki_bool_pred_cond_signal(&remoteStopCond);
-            chiaki_thread_join(&remoteDiscoveryThread, nullptr);
-            chiaki_bool_pred_cond_fini(&remoteStopCond);
-            brls::Logger::info("Remote discovery thread stopped");
-        }
-
-        chiaki_discovery_service_fini(&service);
-
-        {
-            std::lock_guard<std::mutex> lk(sweepMutex);
-            sweepTargets.clear();
-            sweepSubnetLabels.clear();
-            liveForeignHosts.clear();
-            sweepCurrentTarget.clear();
-            sweepChunkIndex = 0;
-        }
+        resumeAfterPause = false;
+        serviceEnabled = false;
+        stopSearch();
+        stopRemoteRefresh();
+        return;
     }
+
+    if (!akira::ChiakiCore::current().opened())
+    {
+        brls::Logger::error("Discovery: the core is not open, nothing to search with");
+        return;
+    }
+
+    serviceEnabled = true;
+    linkSavedConsoles();
+    startSearch();
+    ensureFocusSubscription();
 }
 
-NetworkAddresses DiscoveryManager::getIPv4BroadcastAddr()
+void DiscoveryManager::linkSavedConsoles()
 {
-    NetworkAddresses result = {0, 0};
+    auto& known = akira::ChiakiCore::current().chiaki().consoles();
+    auto* hostsMap = settings->getHostsMap();
+    bool changed = false;
 
-    uint32_t current_addr = 0;
-    uint32_t subnet_mask = 0;
-
-    Result rc = nifmInitialize(NifmServiceType_User);
-    if (R_SUCCEEDED(rc))
+    for (auto& [name, host] : *hostsMap)
     {
-        rc = nifmGetCurrentIpConfigInfo(&current_addr, &subnet_mask, NULL, NULL, NULL);
-        nifmExit();
+        if (!host || host->console || !host->hardwareId || host->isRemote())
+            continue;
+        if (auto console = known.find(*host->hardwareId))
+        {
+            host->linkConsole(std::move(console));
+            changed = true;
+        }
+    }
+
+    for (const auto& console : known.everything())
+    {
+        if (!console->is_saved())
+            continue;
+        if (hostFor(*console))
+            continue;
+        Host* host = settings->getOrCreateHost(console->name());
+        host->setHostType(HostType::Auto);
+        host->linkConsole(console);
+        changed = true;
+    }
+
+    if (changed)
+        settings->writeFile();
+}
+
+auto DiscoveryManager::searchRanges() -> consoles::SearchRanges
+{
+    std::vector<std::string> cidrs;
+    const std::string local = getLocalSubnetCidr();
+    const auto localSubnet = consoles::Subnet::parse(local);
+
+    const std::string configured = settings->getDiscoverySubnets();
+    size_t start = 0;
+    while (start < configured.size())
+    {
+        const size_t end = configured.find_first_of(", \t\n", start);
+        std::string token = configured.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        start = end == std::string::npos ? configured.size() : end + 1;
+        if (token.empty())
+            continue;
+        const auto subnet = consoles::Subnet::parse(token);
+        if (!subnet)
+        {
+            brls::Logger::warning("Discovery: ignoring subnet {}", token);
+            continue;
+        }
+        if (localSubnet && *subnet == *localSubnet)
+        {
+            brls::Logger::info("Discovery: subnet {} is local, covered by broadcast", token);
+            continue;
+        }
+        cidrs.push_back(subnet->text());
+    }
+
+    auto& wireGuard = WireGuardManager::instance();
+    std::vector<std::string> tunnelled;
+    for (auto& [name, host] : *settings->getHostsMap())
+    {
+        if (!host || !host->isManual())
+            continue;
+        const auto address = platform::parse_ip_address(host->getHostAddr());
+        if (!address || !address->is_ipv4())
+            continue;
+        const std::string text = platform::to_string(*address);
+        cidrs.push_back(text + "/32");
+        if (wireGuard.tunnels(text))
+        {
+            tunnelled.push_back(text + "/32");
+            brls::Logger::info("Discovery: added manual unicast target {} through the WireGuard tunnel", text);
+        }
+        else
+        {
+            brls::Logger::info("Discovery: added manual unicast target {}", text);
+        }
+    }
+
+    for (const auto& address : wireGuard.allowedHosts())
+    {
+        const std::string text = platform::to_string(address);
+        cidrs.push_back(text + "/32");
+        tunnelled.push_back(text + "/32");
+        brls::Logger::info("Discovery: added WireGuard host {} through the tunnel", text);
+    }
+
+    auto ranges = consoles::SearchRanges::parse(cidrs, true);
+    if (!ranges)
+    {
+        brls::Logger::error("Discovery: the extra subnets are not searchable (reason {}), broadcasting only",
+            static_cast<int>(ranges.error()));
+        return consoles::SearchRanges{};
+    }
+    if (tunnelled.empty())
+        return std::move(ranges).value();
+
+    const auto tunnel = wireGuard.discoveryNetwork();
+    if (!tunnel.network())
+    {
+        brls::Logger::error("Discovery: WireGuard has no tunnel network; its hosts are probed on the local network");
+        return std::move(ranges).value();
+    }
+    auto searched = std::move(ranges).value();
+    const auto subnets = searched.subnets();
+    for (const auto& subnet : subnets)
+    {
+        if (std::ranges::find(tunnelled, subnet.text()) == tunnelled.end())
+            continue;
+        auto routed = searched.over(subnet, tunnel);
+        if (!routed)
+        {
+            brls::Logger::error("Discovery: {} cannot be probed through the tunnel (reason {})", subnet.text(),
+                static_cast<int>(routed.error()));
+            continue;
+        }
+        searched = std::move(routed).value();
+    }
+    return searched;
+}
+
+void DiscoveryManager::restartSearch()
+{
+    if (!serviceEnabled)
+        return;
+    stopSearch();
+    startSearch();
+}
+
+void DiscoveryManager::startSearch()
+{
+    const uint64_t generation = ++searchGeneration;
+    auto ranges = searchRanges();
+    {
+        std::lock_guard<std::mutex> lock(sweepMutex);
+        sweep = SweepStatus{};
+        sweep.serviceRunning = true;
+        sweep.sweepActive = !ranges.subnets().empty();
+        for (const auto& subnet : ranges.subnets())
+            sweep.subnets.push_back(subnet.text());
+    }
+
+    auto& core = akira::ChiakiCore::current();
+    auto started = platform::Thread::start(core.threading(), "discovery", platform::ThreadRole::discovery,
+        [this, ranges = std::move(ranges), generation, &core](platform::StopToken stop) {
+            Lookout lookout{*this, generation};
+            const auto searched = core.chiaki().consoles().find_on_my_network(ranges, lookout, stop);
+            if (!searched)
+                brls::Logger::error("Discovery: the search ended (reason {})", static_cast<int>(searched.error()));
+        });
+    if (!started)
+    {
+        brls::Logger::error("Discovery: the search thread could not start");
+        serviceEnabled = false;
+        std::lock_guard<std::mutex> lock(sweepMutex);
+        sweep.serviceRunning = false;
+        return;
+    }
+    searchThread = std::move(started).value();
+    brls::Logger::info("Discovery: searching");
+}
+
+void DiscoveryManager::stopSearch()
+{
+    ++searchGeneration;
+    searchThread = platform::Thread{};
+    std::lock_guard<std::mutex> lock(sweepMutex);
+    sweep = SweepStatus{};
+}
+
+void DiscoveryManager::Lookout::on_view(const consoles::NetworkView& view)
+{
+    SeenNetwork seen;
+    seen.nearby = view.nearby;
+    seen.targets = view.targets;
+    seen.visited = view.visited;
+    for (const auto& subnet : view.unicast_ranges)
+        seen.unicastRanges.push_back(subnet.text());
+
+    DiscoveryManager& owner = manager;
+    const uint64_t viewGeneration = generation;
+    brls::sync([&owner, viewGeneration, seen = std::move(seen)]() {
+        owner.applyView(viewGeneration, seen);
+    });
+}
+
+void DiscoveryManager::applyView(uint64_t generation, const SeenNetwork& seen)
+{
+    if (generation != searchGeneration)
+        return;
+
+    {
+        std::lock_guard<std::mutex> lock(sweepMutex);
+        sweep.sweepActive = !seen.unicastRanges.empty();
+        sweep.subnets = seen.unicastRanges;
+        sweep.currentTarget = seen.targets > 0 ? std::format("{}/{}", seen.visited, seen.targets) : std::string{};
+    }
+
+    const bool logging = settings->getDebugDiscoveryLog();
+    bool adopted = false;
+    for (const auto& console : seen.nearby)
+    {
+        Host* host = hostFor(*console);
+        if (!host)
+        {
+            host = settings->getOrCreateHost(console->name());
+            host->setHostType(HostType::Auto);
+        }
+
+        host->linkConsole(console);
+        host->presence = console->presence();
+        host->discovered = true;
+        adopted = settings->adoptLegacyRegistrations(*host) || adopted;
+
+        if (logging)
+        {
+            appendDiscoveryLog(std::format("{} {} at {} ({})", console->hardware_id().text(), console->name(),
+                host->getHostAddr(), host->getStateString()));
+        }
+
+        if (onHostDiscovered)
+            onHostDiscovered(host);
+    }
+
+    if (adopted)
+    {
+        auto remembered = akira::ChiakiCore::current().chiaki().consoles().remember_saved();
+        if (remembered)
+            brls::Logger::info("Discovery: adopted saved registrations, {} console(s) remembered",
+                remembered->consoles.size());
+        else
+            brls::Logger::error("Discovery: adopted registrations could not be remembered");
+    }
+
+    reconcile(seen);
+}
+
+Host* DiscoveryManager::hostFor(const consoles::Console& console)
+{
+    auto* hostsMap = settings->getHostsMap();
+    const auto hardwareId = console.hardware_id();
+    for (auto& [name, host] : *hostsMap)
+    {
+        if (host && !host->isRemote() && host->hardwareId == hardwareId)
+            return host.get();
+    }
+
+    const std::string name = console.name();
+    if (auto it = hostsMap->find(name); it != hostsMap->end() && it->second && !it->second->hardwareId)
+        return it->second.get();
+
+    if (const auto address = console.last_address())
+    {
+        for (auto& [hostName, host] : *hostsMap)
+        {
+            if (host && !host->isRemote() && !host->hardwareId && host->getHostAddr() == address->text())
+                return host.get();
+        }
+    }
+    return nullptr;
+}
+
+void DiscoveryManager::reconcile(const SeenNetwork& seen)
+{
+    bool changed = false;
+    for (auto& [name, host] : *settings->getHostsMap())
+    {
+        if (!host || !host->hardwareId || host->isRemote())
+            continue;
+
+        const bool present = std::ranges::any_of(seen.nearby, [&](const auto& console) {
+            return console->hardware_id() == *host->hardwareId;
+        });
+
+        if (!present && host->presence != Host::Presence::unknown)
+        {
+            host->presence = Host::Presence::unknown;
+            changed = true;
+        }
+
+        if (host->hasRpKey() || host->isManual() || !host->isDiscovered())
+            continue;
+
+        if (!present)
+        {
+            host->discovered = false;
+            changed = true;
+        }
+    }
+
+    if (changed && onHostsChanged)
+        onHostsChanged();
+}
+
+DiscoveryManager::SweepStatus DiscoveryManager::getSweepStatus()
+{
+    std::lock_guard<std::mutex> lock(sweepMutex);
+    SweepStatus status = sweep;
+    status.serviceRunning = serviceEnabled;
+    return status;
+}
+
+psn::ActionStatus DiscoveryManager::getRemoteRefreshStatus() const
+{
+    std::lock_guard<std::mutex> lock(remoteRefreshMutex);
+    if (remoteRefreshInFlight)
+        return psn::ActionStatus{psn::ActionState::Busy, 0};
+    const uint64_t now = akira::ChiakiCore::current().clock().now_microseconds();
+    if (now < remoteRefreshReadyAtMicroseconds)
+        return psn::ActionStatus{psn::ActionState::CoolingDown,
+            static_cast<int>((remoteRefreshReadyAtMicroseconds - now + 999'999) / 1'000'000)};
+    return psn::ActionStatus{};
+}
+
+void DiscoveryManager::refreshRemoteDevices(RemoteRefreshCallback onComplete, bool userInitiated)
+{
+    brls::Logger::info("DiscoveryManager::refreshRemoteDevices() called");
+
+    uint64_t generation = 0;
+    {
+        std::lock_guard<std::mutex> lock(remoteRefreshMutex);
+
+        if (onComplete)
+            remoteRefreshWaiters.push_back(std::move(onComplete));
+
+        if (userInitiated)
+            remoteRefreshUserRequested = true;
+
+        if (remoteRefreshInFlight)
+        {
+            brls::Logger::info("Remote device refresh already running, joining in-flight request");
+            return;
+        }
+
+        remoteRefreshInFlight = true;
+        generation = ++remoteGeneration;
+    }
+
+    auto& core = akira::ChiakiCore::current();
+    if (!core.opened())
+    {
+        finishRemoteRefresh(generation, {false, "core unavailable"});
+        return;
+    }
+
+    remoteThread = platform::Thread{};
+    auto started = platform::Thread::start(core.threading(), "psn-consoles", platform::ThreadRole::unspecified,
+        [this, generation](platform::StopToken stop) { runRemoteRefresh(stop, generation); });
+    if (!started)
+    {
+        finishRemoteRefresh(generation, {false, "thread unavailable"});
+        return;
+    }
+    remoteThread = std::move(started).value();
+}
+
+void DiscoveryManager::runRemoteRefresh(const platform::StopToken& stop, uint64_t generation)
+{
+    auto& core = akira::ChiakiCore::current();
+    auto* accounts = core.accounts();
+    if (settings->isLegacyProfileActive() || !accounts)
+    {
+        brls::Logger::info("Legacy profile: skipping PSN remote device discovery");
+        finishRemoteRefresh(generation, {true, ""});
+        return;
+    }
+
+    if (!accounts->staySignedIn(stop))
+    {
+        brls::Logger::warning("Cannot discover remote devices: the PSN sign-in is not usable");
+        finishRemoteRefresh(generation, {false, "PSN sign-in expired"});
+        return;
+    }
+
+    const auto user = accounts->activeUser();
+    if (!user)
+    {
+        finishRemoteRefresh(generation, {false, "no PSN account"});
+        return;
+    }
+
+    brls::Logger::info("Querying PSN for remote devices...");
+    auto listed = core.chiaki().consoles().consoles_on_account(*user, consoles::Generation::ps5, stop);
+    if (!listed)
+    {
+        brls::Logger::error("Failed to list PS5 devices (reason {})", static_cast<int>(listed.error().reason));
+        finishRemoteRefresh(generation, {false, std::format("PSN refused the console list ({})",
+            listed.error().http_status)});
+        return;
+    }
+
+    std::vector<SeenAccount> seen;
+    for (const auto& console : *listed)
+        seen.push_back({console.name(), console.device_uid().text(), console.generation(), console.remote_play_enabled()});
+    brls::Logger::info("Found {} PS5 remote device(s)", seen.size());
+
+    brls::sync([this, generation, seen = std::move(seen)]() { applyAccountConsoles(generation, seen); });
+    finishRemoteRefresh(generation, {true, ""});
+}
+
+void DiscoveryManager::applyAccountConsoles(uint64_t generation, const std::vector<SeenAccount>& seen)
+{
+    {
+        std::lock_guard<std::mutex> lock(remoteRefreshMutex);
+        if (generation <= remoteCancelledThrough)
+            return;
+    }
+    for (const SeenAccount& device : seen)
+        processRemoteDevice(device);
+
+    /*
+     * Sony does not expose PS4s through the device-list endpoint. PS4 PSN
+     * remote play always targets the account's main PS4, and the holepunch
+     * library resolves its real DUID after the console joins the session.
+     * Mirror chiaki-ng's desktop frontend by offering one synthetic remote
+     * host whenever this profile has a locally registered PS4.
+     */
+    processMainPs4Remote();
+}
+
+void DiscoveryManager::processMainPs4Remote()
+{
+    auto* hostsMap = settings->getHostsMap();
+    if (!hostsMap)
+        return;
+
+    std::vector<Host*> registeredPs4s;
+    for (auto& entry : *hostsMap)
+    {
+        Host* host = entry.second.get();
+        if (host && !host->isRemote() && !host->isCloud() &&
+            !host->isPS5() && host->hasRpKey())
+        {
+            registeredPs4s.push_back(host);
+        }
+    }
+
+    static const std::string mainPs4RemoteName = std::string(consoles::AccountConsole::main_ps4_name) + " (Remote)";
+
+    auto existing = hostsMap->find(mainPs4RemoteName);
+    if (registeredPs4s.empty())
+    {
+        if (existing != hostsMap->end())
+        {
+            Host* remote = existing->second.get();
+            remote->discovered = false;
+            remote->setNeedsLink(false);
+            // Remove keys written by older Akira builds. The PS4 PSN flow
+            // obtains fresh session-only keys from chiaki-ng instead.
+            remote->legacyRegistrations.clear();
+            settings->writeFile();
+            if (onHostsChanged)
+                onHostsChanged();
+        }
+
+        brls::Logger::info("No registered PS4 for the active profile; hiding main PS4 remote host");
+        return;
+    }
+
+    Host* remote = settings->getOrCreateHost(mainPs4RemoteName);
+    remote->setHostType(HostType::Remote);
+    remote->setFirmware(Host::Firmware::newest(consoles::Generation::ps4));
+    remote->setRemoteDuid(consoles::DeviceUid::main_ps4().text());
+    remote->setPsnRemotePlayDisabled(false);
+    remote->discovered = true;
+    remote->presence = Host::Presence::unknown;
+    remote->setNeedsLink(false);
+    // PS4-over-PSN always transiently registers during session startup.
+    // Never copy or persist a local console's Remote Play keys here.
+    remote->legacyRegistrations.clear();
+
+    settings->writeFile();
+
+    if (onHostDiscovered)
+        onHostDiscovered(remote);
+}
+
+void DiscoveryManager::processRemoteDevice(const SeenAccount& device)
+{
+    brls::Logger::info("Remote device: name='{}', uid='{}', type={}, remoteplay={}",
+        device.name, device.deviceUid,
+        device.generation == consoles::Generation::ps5 ? "PS5" : "PS4",
+        device.remotePlayEnabled ? "enabled" : "disabled");
+
+    auto* hostsMap = settings->getHostsMap();
+    for (auto& entry : *hostsMap)
+    {
+        Host* h = entry.second.get();
+        if (h && (h->getHostName() == device.name || h->getRemoteDuid() == device.deviceUid))
+            h->setPsnRemotePlayDisabled(!device.remotePlayEnabled);
+    }
+
+    if (!device.remotePlayEnabled)
+    {
+        brls::Logger::info("Skipping device '{}' - remote play not enabled", device.name);
+        return;
+    }
+
+    Host* localHost = nullptr;
+    auto it = hostsMap->find(device.name);
+    if (it != hostsMap->end() && it->second->hasRpKey() && !it->second->isRemote())
+    {
+        localHost = it->second.get();
+        if (localHost->getRemoteDuid().empty())
+        {
+            localHost->setRemoteDuid(device.deviceUid);
+            brls::Logger::info("Updated local host '{}' with remote DUID", device.name);
+        }
+    }
+
+    Host* host = settings->getOrCreateHost(device.name + " (Remote)");
+    host->setHostType(HostType::Remote);
+    host->discovered = true;
+    host->setRemoteDuid(device.deviceUid);
+    host->setFirmware(Host::Firmware::newest(device.generation));
+
+    if (localHost)
+    {
+        host->copyRegistrationFrom(localHost);
+        host->setNeedsLink(false);
     }
     else
     {
-        brls::Logger::error("Failed to get nintendo nifmGetCurrentIpConfigInfo");
-        return result;
+        host->setNeedsLink(true);
+        brls::Logger::info("Remote device '{}' needs linking to a local host", device.name);
     }
 
-    result.broadcast = current_addr | (~subnet_mask);
-    result.local = current_addr;
+    host->presence = Host::Presence::unknown;
 
-    return result;
+    settings->writeFile();
+
+    if (onHostDiscovered)
+        onHostDiscovered(host);
+}
+
+void DiscoveryManager::finishRemoteRefresh(uint64_t generation, const RemoteRefreshResult& result)
+{
+    std::vector<RemoteRefreshCallback> waiters;
+    {
+        std::lock_guard<std::mutex> lock(remoteRefreshMutex);
+        if (generation != remoteGeneration)
+            return;
+        waiters.swap(remoteRefreshWaiters);
+        remoteRefreshInFlight = false;
+
+        if (remoteRefreshUserRequested)
+        {
+            remoteRefreshReadyAtMicroseconds = akira::ChiakiCore::current().clock().now_microseconds() +
+                static_cast<uint64_t>(result.success ? PSN_REMOTE_COOLDOWN_S : PSN_FAILED_COOLDOWN_S) * 1'000'000;
+            remoteRefreshUserRequested = false;
+        }
+    }
+
+    if (waiters.empty())
+        return;
+
+    brls::sync([waiters = std::move(waiters), result]() {
+        for (const auto& waiter : waiters)
+            waiter(result);
+    });
+}
+
+void DiscoveryManager::stopRemoteRefresh()
+{
+    {
+        std::lock_guard<std::mutex> lock(remoteRefreshMutex);
+        remoteCancelledThrough = ++remoteGeneration;
+        remoteRefreshInFlight = false;
+        remoteRefreshUserRequested = false;
+        remoteRefreshWaiters.clear();
+    }
+    remoteThread = platform::Thread{};
 }
 
 std::string DiscoveryManager::getLocalSubnetCidr()
@@ -382,690 +748,4 @@ std::string DiscoveryManager::getLocalSubnetCidr()
         return "";
 
     return std::string(buf) + "/" + std::to_string(prefix);
-}
-
-int DiscoveryManager::sendDiscovery(struct sockaddr* addr, size_t addrLen)
-{
-    if (!addr)
-    {
-        brls::Logger::error("Null sockaddr");
-        return 1;
-    }
-
-    ChiakiDiscoveryPacket packet;
-    memset(&packet, 0, sizeof(packet));
-    packet.cmd = CHIAKI_DISCOVERY_CMD_SRCH;
-
-    chiaki_discovery_send(&discovery, &packet, addr, addrLen);
-    return 0;
-}
-
-int DiscoveryManager::sendDiscovery(const char* ipAddress)
-{
-    struct addrinfo* host_addrinfos;
-    int r = getaddrinfo(ipAddress, NULL, NULL, &host_addrinfos);
-    if (r != 0)
-    {
-        brls::Logger::error("getaddrinfo failed");
-        return 1;
-    }
-
-    for (struct addrinfo* ai = host_addrinfos; ai; ai = ai->ai_next)
-    {
-        if (ai->ai_protocol != IPPROTO_UDP)
-            continue;
-        if (ai->ai_family != AF_INET)
-            continue;
-
-        hostAddrLen = ai->ai_addrlen;
-        if (hostAddr)
-        {
-            free(hostAddr);
-        }
-        hostAddr = static_cast<struct sockaddr*>(malloc(hostAddrLen));
-        if (!hostAddr)
-            break;
-        memcpy(hostAddr, ai->ai_addr, hostAddrLen);
-    }
-
-    freeaddrinfo(host_addrinfos);
-
-    if (!hostAddr)
-    {
-        brls::Logger::error("Failed to get addr for hostname");
-        return 1;
-    }
-    return sendDiscovery(hostAddr, hostAddrLen);
-}
-
-int DiscoveryManager::sendDiscovery()
-{
-    struct sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = getIPv4BroadcastAddr().broadcast;
-
-    hostAddrLen = sizeof(sockaddr_in);
-    if (hostAddr)
-    {
-        free(hostAddr);
-    }
-    hostAddr = static_cast<struct sockaddr*>(malloc(hostAddrLen));
-    memcpy(hostAddr, &addr, hostAddrLen);
-
-    return sendDiscovery(hostAddr, hostAddrLen);
-}
-
-void DiscoveryManager::discoveryCallback(ChiakiDiscoveryHost* discoveredHost)
-{
-    struct DiscoveredHostData {
-        std::string hostName;
-        std::string hostAddr;
-        std::string hostId;
-        std::string systemVersion;
-        std::string deviceDiscoveryProtocolVersion;
-        ChiakiDiscoveryHostState state;
-        bool hasSystemVersion;
-    };
-
-    auto data = std::make_shared<DiscoveredHostData>();
-    data->hostName = discoveredHost->host_name ? discoveredHost->host_name : "Unknown";
-    data->hostAddr = discoveredHost->host_addr ? discoveredHost->host_addr : "";
-    data->hostId = discoveredHost->host_id ? discoveredHost->host_id : "";
-    data->systemVersion = discoveredHost->system_version ? discoveredHost->system_version : "";
-    data->deviceDiscoveryProtocolVersion = discoveredHost->device_discovery_protocol_version ? discoveredHost->device_discovery_protocol_version : "";
-    data->state = discoveredHost->state;
-    data->hasSystemVersion = discoveredHost->system_version && discoveredHost->device_discovery_protocol_version;
-
-    if (!data->hostAddr.empty())
-    {
-        struct in_addr hostIna = {};
-        if (inet_pton(AF_INET, data->hostAddr.c_str(), &hostIna) == 1)
-        {
-            uint32_t addrNet = hostIna.s_addr;
-            bool isSweepTarget = false;
-            {
-                std::lock_guard<std::mutex> lk(sweepMutex);
-                for (uint32_t t : sweepTargets)
-                {
-                    if (t == addrNet)
-                    {
-                        isSweepTarget = true;
-                        break;
-                    }
-                }
-            }
-            if (isSweepTarget)
-                noteForeignResponder(addrNet);
-        }
-    }
-
-    ChiakiTarget target = CHIAKI_TARGET_PS4_UNKNOWN;
-    if (data->hasSystemVersion)
-    {
-        target = chiaki_discovery_host_system_version_target(discoveredHost);
-    }
-
-    brls::Logger::info("--");
-    brls::Logger::info("Discovered Host:");
-    brls::Logger::info("State:                             {}", chiaki_discovery_host_state_string(data->state));
-    if (data->hasSystemVersion)
-    {
-        brls::Logger::info("System Version:                    {}", data->systemVersion);
-        brls::Logger::info("Device Discovery Protocol Version: {}", data->deviceDiscoveryProtocolVersion);
-        brls::Logger::info("PlayStation ChiakiTarget Version:  {}", static_cast<int>(target));
-    }
-    if (!data->hostAddr.empty())
-    {
-        brls::Logger::info("Host Addr:                         {}", data->hostAddr);
-    }
-    if (!data->hostName.empty())
-    {
-        brls::Logger::info("Host Name:                         {}", data->hostName);
-    }
-    if (!data->hostId.empty())
-    {
-        brls::Logger::info("Host ID:                           {}", data->hostId);
-    }
-    brls::Logger::info("--");
-
-    brls::sync([this, data, target]() {
-        auto* hostsMap = settings->getHostsMap();
-
-        Host* host = nullptr;
-        auto it = hostsMap->find(data->hostName);
-        if (it != hostsMap->end()) {
-            host = it->second.get();
-        } else if (!data->hostAddr.empty()) {
-            for (auto& entry : *hostsMap) {
-                if (entry.second && entry.second->getHostAddr() == data->hostAddr) {
-                    host = entry.second.get();
-                    break;
-                }
-            }
-        }
-        if (!host) {
-            host = settings->getOrCreateHost(data->hostName);
-            host->setHostType(HostType::Auto);
-        }
-
-        host->state = data->state;
-        host->discovered = true;
-
-        if (data->hasSystemVersion)
-        {
-            host->setChiakiTarget(target);
-        }
-
-        if (!data->hostAddr.empty())
-        {
-            host->hostAddr = data->hostAddr;
-        }
-
-        if (!data->hostId.empty())
-        {
-            host->hostId = data->hostId;
-        }
-
-        if (onHostDiscovered)
-        {
-            onHostDiscovered(host);
-        }
-    });
-}
-
-psn::ActionStatus DiscoveryManager::getRemoteRefreshStatus() const
-{
-    std::lock_guard<std::mutex> lock(remoteRefreshMutex);
-    return psn::actionStatus(remoteRefreshInFlight, remoteRefreshReadyAt);
-}
-
-void DiscoveryManager::refreshRemoteDevices(RemoteRefreshCallback onComplete, bool userInitiated)
-{
-    brls::Logger::info("DiscoveryManager::refreshRemoteDevices() called");
-
-    {
-        std::lock_guard<std::mutex> lock(remoteRefreshMutex);
-
-        if (onComplete)
-            remoteRefreshWaiters.push_back(std::move(onComplete));
-
-        if (userInitiated)
-            remoteRefreshUserRequested = true;
-
-        if (remoteRefreshInFlight)
-        {
-            brls::Logger::info("Remote device refresh already running, joining in-flight request");
-            return;
-        }
-
-        remoteRefreshInFlight = true;
-    }
-
-    HttpPool::instance().submit([this](HttpSession& session) { runRemoteDeviceRefresh(session); });
-}
-
-void DiscoveryManager::runRemoteDeviceRefresh(HttpSession& session)
-{
-    psn::Error sessionError = psn::Auth::instance().ensureSession(session);
-    if (!sessionError.ok())
-    {
-        brls::Logger::warning("Cannot discover remote devices: {}", sessionError.message);
-
-        psn::AuthError kind = sessionError.status == psn::Status::Offline
-            ? psn::AuthError::Transient
-            : psn::AuthError::Invalid;
-
-        finishRemoteDeviceRefresh({false, kind, sessionError.message});
-        return;
-    }
-
-    fetchRemoteDevicesFromPsn();
-    finishRemoteDeviceRefresh({true, psn::AuthError::Transient, ""});
-}
-
-void DiscoveryManager::finishRemoteDeviceRefresh(const psn::AuthResult& result)
-{
-    std::vector<RemoteRefreshCallback> waiters;
-
-    {
-        std::lock_guard<std::mutex> lock(remoteRefreshMutex);
-        waiters.swap(remoteRefreshWaiters);
-        remoteRefreshInFlight = false;
-
-        if (remoteRefreshUserRequested)
-        {
-            remoteRefreshReadyAt = std::chrono::steady_clock::now() +
-                std::chrono::seconds(result.success ? PSN_REMOTE_COOLDOWN_S : PSN_FAILED_COOLDOWN_S);
-            remoteRefreshUserRequested = false;
-        }
-    }
-
-    if (waiters.empty())
-        return;
-
-    brls::sync([waiters, result]() {
-        for (const auto& waiter : waiters)
-            waiter(result);
-    });
-}
-
-void DiscoveryManager::fetchRemoteDevicesFromPsn()
-{
-    if (settings->isLegacyProfileActive())
-    {
-        brls::Logger::info("Legacy profile: skipping PSN remote device discovery");
-        return;
-    }
-
-    std::string accessToken = settings->getPsnAccessToken();
-    if (accessToken.empty())
-    {
-        brls::Logger::error("No access token available for remote device discovery");
-        return;
-    }
-
-    brls::Logger::info("Querying PSN for remote devices...");
-
-    ChiakiHolepunchDeviceInfo* ps5Devices = nullptr;
-    size_t ps5Count = 0;
-    ChiakiErrorCode ps5Err = chiaki_holepunch_list_devices(
-        accessToken.c_str(),
-        CHIAKI_HOLEPUNCH_CONSOLE_TYPE_PS5,
-        &ps5Devices,
-        &ps5Count,
-        log
-    );
-
-    if (ps5Err == CHIAKI_ERR_SUCCESS)
-    {
-        brls::Logger::info("Found {} PS5 remote device(s)", ps5Count);
-        for (size_t i = 0; i < ps5Count; i++)
-        {
-            processRemoteDevice(&ps5Devices[i], CHIAKI_HOLEPUNCH_CONSOLE_TYPE_PS5);
-        }
-        chiaki_holepunch_free_device_list(&ps5Devices);
-    }
-    else
-    {
-        brls::Logger::error("Failed to list PS5 devices: {}", chiaki_error_string(ps5Err));
-    }
-
-    /*
-     * Sony does not expose PS4s through the device-list endpoint. PS4 PSN
-     * remote play always targets the account's main PS4, and the holepunch
-     * library resolves its real DUID after the console joins the session.
-     * Mirror chiaki-ng's desktop frontend by offering one synthetic remote
-     * host whenever this profile has a locally registered PS4.
-     */
-    processMainPs4Remote();
-}
-
-void DiscoveryManager::processMainPs4Remote()
-{
-    brls::sync([this]() {
-        auto* hostsMap = settings->getHostsMap();
-        if (!hostsMap)
-            return;
-
-        std::vector<Host*> registeredPs4s;
-        for (auto& entry : *hostsMap)
-        {
-            Host* host = entry.second.get();
-            if (host && !host->isRemote() && !host->isCloud() &&
-                !host->isPS5() && host->hasRpKey())
-            {
-                registeredPs4s.push_back(host);
-            }
-        }
-
-        static const std::string mainPs4Name = "Main PS4 Console";
-        static const std::string mainPs4RemoteName = mainPs4Name + " (Remote)";
-        // chiaki-ng uses 32 ASCII 'A' bytes as a placeholder. The PS4 path
-        // ignores this value and learns the console's real DUID from PSN.
-        static const std::string placeholderDuid =
-            "4141414141414141414141414141414141414141414141414141414141414141";
-
-        auto existing = hostsMap->find(mainPs4RemoteName);
-        if (registeredPs4s.empty())
-        {
-            if (existing != hostsMap->end())
-            {
-                Host* remote = existing->second.get();
-                remote->discovered = false;
-                remote->setNeedsLink(false);
-                // Remove keys written by older Akira builds. The PS4 PSN flow
-                // obtains fresh session-only keys from chiaki-ng instead.
-                remote->registrations.clear();
-                settings->writeFile();
-                if (onHostsChanged)
-                    onHostsChanged();
-            }
-
-            brls::Logger::info("No registered PS4 for the active profile; hiding main PS4 remote host");
-            return;
-        }
-
-        Host* remote = settings->getOrCreateHost(mainPs4RemoteName);
-        remote->setHostType(HostType::Remote);
-        remote->setChiakiTarget(CHIAKI_TARGET_PS4_10);
-        remote->setRemoteDuid(placeholderDuid);
-        remote->setPsnRemotePlayDisabled(false);
-        remote->discovered = true;
-        remote->state = CHIAKI_DISCOVERY_HOST_STATE_UNKNOWN;
-        remote->setNeedsLink(false);
-        // PS4-over-PSN always transiently registers during session startup.
-        // Never copy or persist a local console's Remote Play keys here.
-        remote->registrations.clear();
-
-        settings->writeFile();
-
-        if (onHostDiscovered)
-            onHostDiscovered(remote);
-    });
-}
-
-void DiscoveryManager::processRemoteDevice(ChiakiHolepunchDeviceInfo* device, ChiakiHolepunchConsoleType consoleType)
-{
-    if (!device)
-        return;
-
-    std::string deviceName = device->device_name;
-    bool remotePlayEnabled = device->remoteplay_enabled;
-
-    std::string deviceUid;
-    deviceUid.reserve(64);
-    for (size_t j = 0; j < 32; j++)
-    {
-        std::format_to(std::back_inserter(deviceUid), "{:02x}", device->device_uid[j]);
-    }
-
-    brls::Logger::info("Remote device: name='{}', uid='{}', type={}, remoteplay={}",
-        deviceName, deviceUid,
-        consoleType == CHIAKI_HOLEPUNCH_CONSOLE_TYPE_PS5 ? "PS5" : "PS4",
-        remotePlayEnabled ? "enabled" : "disabled");
-
-    if (!remotePlayEnabled)
-    {
-        brls::Logger::info("Skipping device '{}' - remote play not enabled", deviceName);
-        brls::sync([this, deviceName, deviceUid]() {
-            auto* hostsMap = settings->getHostsMap();
-            if (!hostsMap)
-                return;
-            for (auto& entry : *hostsMap)
-            {
-                Host* h = entry.second.get();
-                if (!h)
-                    continue;
-                if (h->getHostName() == deviceName || h->getRemoteDuid() == deviceUid)
-                    h->setPsnRemotePlayDisabled(true);
-            }
-        });
-        return;
-    }
-
-    brls::sync([this, deviceName, deviceUid, consoleType]() {
-        auto* hostsMap = settings->getHostsMap();
-        Host* localHost = nullptr;
-
-        for (auto& entry : *hostsMap)
-        {
-            Host* h = entry.second.get();
-            if (h && (h->getHostName() == deviceName || h->getRemoteDuid() == deviceUid))
-                h->setPsnRemotePlayDisabled(false);
-        }
-
-        auto it = hostsMap->find(deviceName);
-        if (it != hostsMap->end() && it->second->hasRpKey() && !it->second->isRemote())
-        {
-            localHost = it->second.get();
-            if (localHost->getRemoteDuid().empty())
-            {
-                localHost->setRemoteDuid(deviceUid);
-                brls::Logger::info("Updated local host '{}' with remote DUID", deviceName);
-            }
-        }
-
-        std::string remoteName = deviceName + " (Remote)";
-        Host* host = settings->getOrCreateHost(remoteName);
-
-        host->setHostType(HostType::Remote);
-        host->discovered = true;
-        host->setRemoteDuid(deviceUid);
-
-        if (consoleType == CHIAKI_HOLEPUNCH_CONSOLE_TYPE_PS5)
-            host->setChiakiTarget(CHIAKI_TARGET_PS5_1);
-        else
-            host->setChiakiTarget(CHIAKI_TARGET_PS4_10);
-
-        if (localHost)
-        {
-            host->copyRegistrationFrom(localHost);
-            host->setNeedsLink(false);
-        }
-        else
-        {
-            host->setNeedsLink(true);
-            brls::Logger::info("Remote device '{}' needs linking to a local host", deviceName);
-        }
-
-        host->state = CHIAKI_DISCOVERY_HOST_STATE_UNKNOWN;
-
-        settings->writeFile();
-
-        brls::Logger::info("Calling onHostDiscovered for '{}'", host->getHostName());
-        if (onHostDiscovered)
-            onHostDiscovered(host);
-        else
-            brls::Logger::warning("onHostDiscovered callback is null");
-    });
-}
-
-void* DiscoveryManager::remoteDiscoveryThreadFunc(void* user)
-{
-    DiscoveryManager* dm = static_cast<DiscoveryManager*>(user);
-    dm->runRemoteDiscoveryLoop();
-    return nullptr;
-}
-
-void DiscoveryManager::runRemoteDiscoveryLoop()
-{
-    brls::Logger::info("Remote discovery loop started");
-
-    ChiakiErrorCode err = chiaki_bool_pred_cond_lock(&remoteStopCond);
-    if (err != CHIAKI_ERR_SUCCESS)
-    {
-        brls::Logger::error("Failed to lock remote discovery condition");
-        return;
-    }
-
-    err = chiaki_bool_pred_cond_timedwait(&remoteStopCond, 5000);
-
-    while (err == CHIAKI_ERR_TIMEOUT && remoteDiscoveryEnabled.load())
-    {
-        std::string refreshToken = settings->getPsnRefreshToken();
-        if (!refreshToken.empty())
-        {
-            brls::Logger::debug("Remote discovery: checking PSN devices...");
-            refreshRemoteDevices();
-        }
-
-        err = chiaki_bool_pred_cond_timedwait(&remoteStopCond, REMOTE_DISCOVERY_INTERVAL_MS);
-    }
-
-    chiaki_bool_pred_cond_unlock(&remoteStopCond);
-    brls::Logger::info("Remote discovery loop exiting");
-}
-
-void* DiscoveryManager::sweepThreadFunc(void* user)
-{
-    DiscoveryManager* dm = static_cast<DiscoveryManager*>(user);
-    dm->runSweepLoop();
-    return nullptr;
-}
-
-void DiscoveryManager::runSweepLoop()
-{
-    brls::Logger::info("Discovery sweep loop started");
-
-    ChiakiErrorCode err = chiaki_bool_pred_cond_lock(&sweepStopCond);
-    if (err != CHIAKI_ERR_SUCCESS)
-    {
-        brls::Logger::error("Failed to lock sweep condition");
-        return;
-    }
-
-    int tick = 0;
-    err = chiaki_bool_pred_cond_timedwait(&sweepStopCond, 2000);
-
-    while (err == CHIAKI_ERR_TIMEOUT && sweepEnabled.load())
-    {
-        pingLiveForeignHosts();
-        if (tick % SWEEP_SCAN_EVERY_TICKS == 0)
-            sendSweepChunk();
-        tick++;
-
-        err = chiaki_bool_pred_cond_timedwait(&sweepStopCond, SWEEP_TICK_MS);
-    }
-
-    chiaki_bool_pred_cond_unlock(&sweepStopCond);
-    brls::Logger::info("Discovery sweep loop exiting");
-}
-
-void DiscoveryManager::pingHostAddrNet(uint32_t addrNet)
-{
-    struct in_addr ina = {};
-    ina.s_addr = addrNet;
-    char buf[INET_ADDRSTRLEN] = {};
-    if (inet_ntop(AF_INET, &ina, buf, sizeof(buf)))
-    {
-        std::lock_guard<std::mutex> lk(sweepMutex);
-        sweepCurrentTarget = buf;
-    }
-
-    struct sockaddr_in dst = {};
-    dst.sin_family = AF_INET;
-    dst.sin_addr.s_addr = addrNet;
-
-    ChiakiDiscoveryPacket packet;
-    memset(&packet, 0, sizeof(packet));
-    packet.cmd = CHIAKI_DISCOVERY_CMD_SRCH;
-
-    packet.protocol_version = const_cast<char*>(CHIAKI_DISCOVERY_PROTOCOL_VERSION_PS4);
-    dst.sin_port = htons(CHIAKI_DISCOVERY_PORT_PS4);
-    chiaki_discovery_send(&service.discovery, &packet, reinterpret_cast<struct sockaddr*>(&dst), sizeof(dst));
-
-    packet.protocol_version = const_cast<char*>(CHIAKI_DISCOVERY_PROTOCOL_VERSION_PS5);
-    dst.sin_port = htons(CHIAKI_DISCOVERY_PORT_PS5);
-    chiaki_discovery_send(&service.discovery, &packet, reinterpret_cast<struct sockaddr*>(&dst), sizeof(dst));
-}
-
-void DiscoveryManager::pingLiveForeignHosts()
-{
-    std::vector<uint32_t> hosts;
-    {
-        std::lock_guard<std::mutex> lk(sweepMutex);
-        hosts = liveForeignHosts;
-    }
-    for (uint32_t addr : hosts)
-    {
-        if (!sweepEnabled.load())
-            return;
-        pingHostAddrNet(addr);
-    }
-}
-
-void DiscoveryManager::noteForeignResponder(uint32_t addrNet)
-{
-    std::lock_guard<std::mutex> lk(sweepMutex);
-    for (uint32_t existing : liveForeignHosts)
-    {
-        if (existing == addrNet)
-            return;
-    }
-    if (liveForeignHosts.size() >= static_cast<size_t>(SWEEP_MAX_TARGETS))
-        return;
-    liveForeignHosts.push_back(addrNet);
-}
-
-void DiscoveryManager::sendSweepChunk()
-{
-    std::vector<uint32_t> targets;
-    size_t chunk = 0;
-    {
-        std::lock_guard<std::mutex> lk(sweepMutex);
-        if (sweepTargets.empty())
-            return;
-        int numChunks = akira::discovery::sweepChunkCount(static_cast<int>(sweepTargets.size()), SWEEP_CHUNK);
-        chunk = sweepChunkIndex;
-        sweepChunkIndex = (sweepChunkIndex + 1) % (numChunks > 0 ? static_cast<size_t>(numChunks) : 1);
-        targets = sweepTargets;
-    }
-
-    size_t startIdx = chunk * SWEEP_CHUNK;
-    size_t endIdx = startIdx + SWEEP_CHUNK;
-    if (endIdx > targets.size())
-        endIdx = targets.size();
-
-    for (size_t i = startIdx; i < endIdx && sweepEnabled.load(); i++)
-        pingHostAddrNet(targets[i]);
-}
-
-DiscoveryManager::SweepStatus DiscoveryManager::getSweepStatus()
-{
-    SweepStatus s;
-    s.serviceRunning = serviceEnabled;
-    s.sweepActive = sweepEnabled.load();
-    std::lock_guard<std::mutex> lk(sweepMutex);
-    s.subnets = sweepSubnetLabels;
-    s.currentTarget = sweepCurrentTarget;
-    return s;
-}
-
-void DiscoveryManager::reconcileDiscoveredHosts(const std::vector<std::string>& liveIds)
-{
-    auto ids = std::make_shared<std::vector<std::string>>(liveIds);
-    brls::sync([this, ids]() {
-        auto* hostsMap = settings->getHostsMap();
-        if (!hostsMap)
-            return;
-
-        bool changed = false;
-        for (auto& entry : *hostsMap)
-        {
-            Host* host = entry.second.get();
-            if (!host || host->hostId.empty())
-                continue;
-
-            bool present = false;
-            for (const auto& id : *ids)
-            {
-                if (!id.empty() && id == host->hostId)
-                {
-                    present = true;
-                    break;
-                }
-            }
-
-            if (!present && host->state != CHIAKI_DISCOVERY_HOST_STATE_UNKNOWN)
-            {
-                host->state = CHIAKI_DISCOVERY_HOST_STATE_UNKNOWN;
-                changed = true;
-            }
-
-            if (host->hasRpKey() || host->isManual() || host->isRemote())
-                continue;
-            if (!host->isDiscovered())
-                continue;
-
-            if (!present)
-            {
-                host->discovered = false;
-                changed = true;
-            }
-        }
-
-        if (changed && onHostsChanged)
-            onHostsChanged();
-    });
 }

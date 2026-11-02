@@ -2,9 +2,11 @@
 #define AKIRA_HOST_CONNECT_TASK_HPP
 
 #include <atomic>
+#include <functional>
+#include <memory>
 #include <string>
 
-#include <chiaki/thread.h>
+#include <libchiaking/platform/platform.hpp>
 
 #include "views/connect_task.hpp"
 
@@ -33,17 +35,16 @@ public:
     void cancel() override;
 
 private:
-    static constexpr int WAKEUP_WAIT_SECONDS = 20;
-
     Host* host = nullptr;
     ConnectSink* sink = nullptr;
 
-    ChiakiThread thread{};
-    std::atomic<bool> threadStarted{false};
     std::atomic<bool> running{false};
+    std::shared_ptr<const bool> alive = std::make_shared<const bool>(true);
+    const std::weak_ptr<const bool> aliveToken = alive;
+    libchiaking::platform::Thread worker;
 
-    static void* threadFunc(void* user);
-    void run();
+    void run(const libchiaking::platform::StopToken& stop);
+    void post(std::function<void(ConnectSink&)> work);
 };
 
 } // namespace akira::views

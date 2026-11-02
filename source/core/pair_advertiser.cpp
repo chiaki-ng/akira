@@ -1,5 +1,6 @@
 #include "core/pair_advertiser.hpp"
 
+#include "core/chiaki_core.hpp"
 #include "util/net_wrappers.hpp"
 
 #include <cstring>
@@ -141,17 +142,19 @@ PairAdvertiser::~PairAdvertiser() {
 
 void PairAdvertiser::start(int port) {
     stop();
-    running_ = true;
-    thread_ = std::thread(&PairAdvertiser::run, this, port);
+    auto started = libchiaking::platform::Thread::start(akira::ChiakiCore::current().threading(), "pair-advertiser",
+        libchiaking::platform::ThreadRole::discovery_service,
+        [this, port](libchiaking::platform::StopToken stop) { run(port, stop); });
+    if (started)
+        thread_ = std::move(started).value();
 }
 
 void PairAdvertiser::stop() {
-    running_ = false;
-    if (thread_.joinable())
-        thread_.join();
+    static_cast<void>(thread_.request_stop());
+    thread_ = libchiaking::platform::Thread{};
 }
 
-void PairAdvertiser::run(int port) {
+void PairAdvertiser::run(int port, const libchiaking::platform::StopToken& stop) {
     uint32_t addr = localAddr();
     if (addr == 0)
         return;
@@ -182,7 +185,7 @@ void PairAdvertiser::run(int port) {
 
     std::vector<uint8_t> pkt = buildAnnouncement(port, addr);
 
-    while (running_) {
+    while (!stop.stop_requested()) {
         sendto(sock, pkt.data(), pkt.size(), 0,
                reinterpret_cast<struct sockaddr*>(&mcast), sizeof(mcast));
 

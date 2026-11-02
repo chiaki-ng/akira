@@ -8,7 +8,7 @@
 #include <set>
 #include <string>
 #include <switch.h>
-#include <chiaki/controller.h>
+#include "input/remap_target.hpp"
 
 class SettingsManager;
 

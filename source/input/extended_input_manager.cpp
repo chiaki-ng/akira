@@ -10,7 +10,7 @@
 #include <mutex>
 
 #include "core/settings_manager.hpp"
-#include "core/thread_affinity.h"
+#include "core/chiaki_core.hpp"
 #include "input/pad_path.hpp"
 #include "input/ps_output.hpp"
 
@@ -378,18 +378,17 @@ bool ExtendedInputManager::initializeOptional()
     m_subscribed = true;
 
     m_running.store(true, std::memory_order_release);
-    rc = threadCreate(&m_thread, pollThreadFunc, this, nullptr, 0x4000, 0x2C, -2);
-    if (R_FAILED(rc) || R_FAILED(threadStart(&m_thread))) {
-        brls::Logger::warning("analog triggers: poll thread failed (0x{:x})", rc);
-        if (R_SUCCEEDED(rc)) {
-            threadClose(&m_thread);
-        }
+    auto started = libchiaking::platform::Thread::start(akira::ChiakiCore::current().threading(),
+        "extended-input", libchiaking::platform::ThreadRole::feedback,
+        [this](libchiaking::platform::StopToken) { poll(); });
+    if (!started) {
+        brls::Logger::warning("analog triggers: poll thread failed");
         m_running.store(false, std::memory_order_release);
         m_availability = Availability::Failed;
         shutdown();
         return false;
     }
-    m_thread_started = true;
+    m_thread = std::move(started).value();
 
     m_availability = Availability::Available;
     brls::Logger::info("analog triggers: available (mc 0x{:06x})", m_mc_version);
@@ -400,11 +399,7 @@ void ExtendedInputManager::shutdown()
 {
     m_running.store(false, std::memory_order_release);
 
-    if (m_thread_started) {
-        threadWaitForExit(&m_thread);
-        threadClose(&m_thread);
-        m_thread_started = false;
-    }
+    m_thread = libchiaking::platform::Thread{};
 
     if (serviceIsActive(&m_srv)) {
         if (m_direct_addr_valid) {
@@ -1352,12 +1347,6 @@ void ExtendedInputManager::refreshTrackedDevices()
     }
 
     m_tracked_count = count;
-}
-
-void ExtendedInputManager::pollThreadFunc(void* arg)
-{
-    akira_thread_set_affinity(AKIRA_THREAD_NAME_EXTENDED_INPUT);
-    static_cast<ExtendedInputManager*>(arg)->poll();
 }
 
 void ExtendedInputManager::logStatus(const char* when)

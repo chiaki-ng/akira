@@ -1,8 +1,9 @@
 #ifndef AKIRA_INPUT_PAD_PATH_HPP
 #define AKIRA_INPUT_PAD_PATH_HPP
 
-#include <chiaki/controller.h>
 #include <switch.h>
+
+#include <libchiaking/play_types.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -46,17 +47,17 @@ public:
 
     virtual bool poll() = 0;
 
-    virtual void readButtons(ChiakiControllerState* state) { (void)state; }
+    virtual void readButtons(libchiaking::controllers::ControllerState& state) { (void)state; }
 
     virtual HidAnalogStickState stickPos(int index) const = 0;
 
-    virtual void readTriggers(ChiakiControllerState* state) = 0;
+    virtual void readTriggers(libchiaking::controllers::ControllerState& state) = 0;
 
     virtual bool readGyro(HidSixAxisSensorState* out) = 0;
 
     virtual void resetMotion() = 0;
 
-    virtual bool readTouchpad(ChiakiControllerState* state) { (void)state; return false; }
+    virtual bool readTouchpad(libchiaking::controllers::ControllerInput& input) { (void)input; return false; }
 
     virtual void sendRumble(float left, float right, float freqLow, float freqHigh) = 0;
 

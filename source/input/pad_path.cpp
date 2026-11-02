@@ -105,13 +105,13 @@ public:
         return padGetStickPos(&m_pad, index);
     }
 
-    void readTriggers(ChiakiControllerState* state) override
+    void readTriggers(libchiaking::controllers::ControllerState& state) override
     {
         if (!m_extended.hasFreshAnalogState())
             return;
 
-        state->l2_state = m_extended.l2();
-        state->r2_state = m_extended.r2();
+        state.l2 = m_extended.l2();
+        state.r2 = m_extended.r2();
     }
 
     bool readGyro(HidSixAxisSensorState* out) override

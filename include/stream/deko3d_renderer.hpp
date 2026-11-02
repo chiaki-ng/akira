@@ -33,8 +33,7 @@ public:
     Deko3dRenderer();
     ~Deko3dRenderer() override;
 
-    bool initialize(int frame_width, int frame_height,
-                   ChiakiLog* log) override;
+    bool initialize(int frame_width, int frame_height) override;
     bool isInitialized() const override { return m_initialized; }
     void draw(AVFrame* frame) override;
     void presentFrame(AVFrame* frame) override;
@@ -139,7 +138,6 @@ private:
 
 
     bool m_initialized = false;
-    ChiakiLog* m_log = nullptr;
 
     int m_frame_width = 0;
     int m_frame_height = 0;
@@ -265,6 +263,7 @@ private:
     bool m_textures_initialized = false;
 
     bool setupTextures(AVFrame* frame);
+    void releaseTextures();
     void updateFrameBindings(AVFrame* frame);
     void recordStaticVideoCommands();
 
@@ -320,7 +319,9 @@ private:
     bool m_frame_bound = false;
 
     static constexpr int CAPTURE_WIDTH = 640;
+    static constexpr int HW_TRANSFER_ALIGNMENT = 256;
     static constexpr int FRAME_RING_SIZE = 3;
+    std::mutex m_frame_ring_mutex;
     AVFrame* m_frame_ring[FRAME_RING_SIZE] = {};
     int m_frame_ring_index = 0;
     AVFrame* m_current_frame = nullptr;

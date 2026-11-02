@@ -1,26 +1,48 @@
 #ifndef AKIRA_SETTINGS_MANAGER_HPP
 #define AKIRA_SETTINGS_MANAGER_HPP
 
+#include <array>
 #include <atomic>
 #include <map>
 #include <memory>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
-#include <chiaki/common.h>
-#include <chiaki/session.h>
-#include <chiaki/log.h>
+#include <libchiaking/platform/platform.hpp>
 
 #include "cloud/models.hpp"
+#include "core/pairing_store.hpp"
+#include "core/sign_in_store.hpp"
 #include "profile.hpp"
+#include "registration.hpp"
 
 // Forward declaration
 #include "input/rumble_profile.hpp"
 
 class Host;
+
+namespace akira {
+class CoreLog;
+}
+
+enum class VideoResolution : uint32_t {
+    P360 = 360,
+    P540 = 540,
+    P720 = 720,
+    P1080 = 1080,
+    P1440 = 1440,
+    P2160 = 2160
+};
+
+enum class VideoFps : uint32_t {
+    Fps30 = 30,
+    Fps60 = 60
+};
 
 enum class HapticPreset {
     Disabled = 0,
@@ -34,6 +56,13 @@ enum class GyroSource {
     Auto = 0,
     Left = 1,
     Right = 2
+};
+
+enum class TakionTarget : uint8_t {
+    PS4,
+    PS5,
+    PS5Cloud,
+    PSNow,
 };
 
 enum class ChiakiLogVerbosity {
@@ -62,14 +91,14 @@ private:
     static constexpr const char* TOML_CONFIG_FILE = "sdmc:/switch/akira/akira.toml";
     static constexpr const char* LEGACY_CONFIG_FILE = "sdmc:/switch/akira/akira.conf";
 
-    ChiakiLog* log = nullptr;
+    akira::CoreLog* coreLog = nullptr;
     std::map<std::string, std::unique_ptr<Host>> hosts;
 
     // Global settings (defaults)
-    ChiakiVideoResolutionPreset localVideoResolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
-    ChiakiVideoResolutionPreset remoteVideoResolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
-    ChiakiVideoFPSPreset localVideoFPS = CHIAKI_VIDEO_FPS_PRESET_60;
-    ChiakiVideoFPSPreset remoteVideoFPS = CHIAKI_VIDEO_FPS_PRESET_60;
+    VideoResolution localVideoResolution = VideoResolution::P720;
+    VideoResolution remoteVideoResolution = VideoResolution::P720;
+    VideoFps localVideoFPS = VideoFps::Fps60;
+    VideoFps remoteVideoFPS = VideoFps::Fps60;
     std::vector<Profile> profiles;
     int64_t activeProfileId = 0;
     int64_t nextProfileId = 1;
@@ -95,50 +124,20 @@ private:
     int cloudVideoResolutionPsnow = 1080;
     bool cloudFsrEnabledPscloud = false;
     bool cloudFsrEnabledPsnow = false;
-    std::string cloudDatacenterPscloud;
-    std::string cloudDatacenterPsnow;
     std::string cloudDuid;
+    mutable std::mutex datacenterMutex;
     std::vector<cloud::Datacenter> cloudDatacentersPscloud;
     std::vector<cloud::Datacenter> cloudDatacentersPsnow;
     int cloudSortState = 0;
-    bool cloudAttrPassed = false;
 
-    /*
-     * Which of the library view's filters is showing: 0 all, 1 owned,
-     * 2 catalog, 3 store, 4 favorites. All by default, because the three
-     * category filters each hide most of a catalog and none of them is the
-     * question someone opening the library is asking.
-     */
-    int cloudFilterMode = 0;
-
-    /*
-     * Two locales, because they answer different questions.
-     *
-     * cloudStoreLocale is what the catalog library settled on: it re-bases the
-     * locale we hand it on the account's own country and returns the result,
-     * which is the locale the next fetch should start from. cloudGameLanguage is
-     * the language the console speaks during a stream, empty meaning follow the
-     * store. Keeping them apart is what stops a stream-language pick from
-     * moving the account to another region's storefront.
-     *
-     * cloudStoreLocaleSource records the console locale that produced the
-     * settled one, so a system language change can be told apart from the
-     * library's own re-basing and drop the cache instead of serving another
-     * region's catalog for a day.
-     */
-    std::string cloudStoreLocale;
-    std::string cloudStoreLocaleSource;
-    std::string cloudGameLanguage;
-    std::vector<std::string> cloudFavorites;
-    ChiakiVideoResolutionPreset vpnVideoResolution = CHIAKI_VIDEO_RESOLUTION_PRESET_720p;
-    ChiakiVideoFPSPreset vpnVideoFPS = CHIAKI_VIDEO_FPS_PRESET_30;
+    std::string cloudFilter;
+    VideoResolution vpnVideoResolution = VideoResolution::P720;
+    VideoFps vpnVideoFPS = VideoFps::Fps30;
     bool holepunchRetry = false;
     bool connectionShowStages = true;
     bool portGuessing = true;
     int portGuessingCount = 75;
     int portGuessingSocks = 120;
-    int psnRequestBudget = 300;
-    int psnRequestWindowSeconds = 900;
     bool powerUserMenuUnlocked = false;
     bool ipcStatsEnabled = false;
     bool unlockBitrateMax = false;
@@ -152,14 +151,13 @@ private:
     int64_t lastUpdateCheck = 0;
     std::string updateInstallPath;
     std::string devUpdateServer;
-    std::string devForceWsFqdn;
     GyroSource globalGyroSource = GyroSource::Auto;
     bool sleepOnExit = false;
     bool requestIdrOnFecFailure = true;
-    int takionVersion = 0;
+    std::array<int, 4> takionVersions{};
     float packetLossMax = 0.05f;
     bool enableFileLogging = false;
-    bool enableThreadAffinity = false;
+    bool silenceAllLogs = false;
     std::string debugLocale;
 
     // Picture adjustments
@@ -198,9 +196,19 @@ private:
     bool swipeLeftEnabled = true;
     bool swipeRightEnabled = true;
 
+    akira::SignInStore signInStore{*this};
+    akira::PairingStore pairingStore{*this};
+    toml::table owned;
+
+    toml::table ownedSettings();
+    int persist(toml::table config);
+
     void parseTomlFile();
     void parseLegacyFile();
-    static size_t getB64EncodeSize(size_t inputSize);
+    void backupConfig(int64_t version);
+    static std::optional<libchiaking::consoles::Firmware> firmwareFromTarget(int64_t target);
+    static int64_t targetOf(const std::optional<libchiaking::consoles::Firmware>& firmware);
+    static std::optional<Registration> registrationOf(const toml::table& row);
     static bool fileExists(const char* path);
     void updateChiakiLogMask();
 
@@ -209,11 +217,14 @@ public:
     void operator=(const SettingsManager&) = delete;
     static SettingsManager* getInstance();
 
-    void setLogger(ChiakiLog* logger);
-    ChiakiLog* getLogger() const { return log; }
+    void setCoreLog(akira::CoreLog* log);
+    void ensureCloudDuid(libchiaking::platform::SecureRandomProvider& random);
+    akira::SignInStore& signIns() { return signInStore; }
+    akira::PairingStore& pairings() { return pairingStore; }
 
     void parseFile();
     int writeFile();
+    int writeStores();
     static std::mutex writeMutex;
     static std::atomic<uint64_t> writeSeq;
     void ensureConfigDir();
@@ -223,19 +234,20 @@ public:
     Host* findHostByDuid(const std::string& duid);
     void removeHost(const std::string& hostName);
     void removeActiveProfileRegistration(const std::string& hostName);
+    bool adoptLegacyRegistrations(Host& host);
     void renameHost(const std::string& oldName, const std::string& newName);
 
-    static std::string resolutionToString(ChiakiVideoResolutionPreset resolution);
-    static int resolutionToInt(ChiakiVideoResolutionPreset resolution);
-    static ChiakiVideoResolutionPreset intToResolution(int height);
-    static ChiakiVideoResolutionPreset stringToResolution(const std::string& value);
+    static std::string resolutionToString(VideoResolution resolution);
+    static int resolutionToInt(VideoResolution resolution);
+    static VideoResolution intToResolution(int height);
+    static VideoResolution stringToResolution(const std::string& value);
 
-    static std::string fpsToString(ChiakiVideoFPSPreset fps);
-    static int fpsToInt(ChiakiVideoFPSPreset fps);
-    static ChiakiVideoFPSPreset stringToFps(const std::string& value);
+    static std::string fpsToString(VideoFps fps);
+    static int fpsToInt(VideoFps fps);
+    static VideoFps stringToFps(const std::string& value);
 
-    static int getDefaultBitrateForResolution(ChiakiVideoResolutionPreset res);
-    int getMaxBitrateForResolution(ChiakiVideoResolutionPreset res) const;
+    static int getDefaultBitrateForResolution(VideoResolution res);
+    int getMaxBitrateForResolution(VideoResolution res) const;
 
     static bool isValidIPv4(const std::string& addr);
     static bool isValidFQDN(const std::string& addr);
@@ -252,50 +264,11 @@ public:
     std::string getPsnAccountId(Host* host);
     void setPsnAccountId(Host* host, const std::string& id);
 
-    std::string getPsnRefreshToken() const;
-    void setPsnRefreshToken(const std::string& token);
 
-    std::string getPsnAccessToken() const;
-    void setPsnAccessToken(const std::string& token);
-
-    int64_t getPsnTokenExpiresAt() const;
-    void setPsnTokenExpiresAt(int64_t expiresAt);
-    void clearPsnTokenData();
-
-    std::string getPsnMobileSsoRefreshToken() const;
-    void setPsnMobileSsoRefreshToken(const std::string& token);
-
-    std::string getPsnMobileSsoAccessToken() const;
-    void setPsnMobileSsoAccessToken(const std::string& token);
-
-    int64_t getPsnMobileSsoExpiresAt() const;
-    void setPsnMobileSsoExpiresAt(int64_t expiresAt);
-
-    void clearPsnMobileSsoData();
-
-    std::string getPsnNpsso() const;
-    void setPsnNpsso(const std::string& npsso);
-
-    int64_t getPsnNpssoLastCheckedAt() const;
-    void setPsnNpssoLastCheckedAt(int64_t checkedAt);
-
-    bool getPsnNpssoValid() const;
-    void setPsnNpssoValid(bool valid);
-
-    void clearPsnNpssoData();
-    void clearAllPsnData();
-
-    int getPsnRequestBudget() const;
-    void setPsnRequestBudget(int budget);
-
-    int getPsnRequestWindowSeconds() const;
-    void setPsnRequestWindowSeconds(int seconds);
-
-    std::string getGlobalDuid() const;
-    void setGlobalDuid(const std::string& duid);
     const std::string& getCloudDuid() const { return cloudDuid; }
 
     const std::vector<Profile>& getProfiles() const;
+    std::vector<Profile> profilesSnapshot() const;
     Profile* findProfile(int64_t id);
     const Profile* findProfile(int64_t id) const;
     Profile* getActiveProfile();
@@ -329,17 +302,17 @@ public:
     std::string getConsolePIN(Host* host);
     void setConsolePIN(Host* host, const std::string& pin);
 
-    ChiakiVideoResolutionPreset getVideoResolution(Host* host);
-    ChiakiVideoResolutionPreset getLocalVideoResolution() const;
-    void setLocalVideoResolution(ChiakiVideoResolutionPreset value);
-    ChiakiVideoResolutionPreset getRemoteVideoResolution() const;
-    void setRemoteVideoResolution(ChiakiVideoResolutionPreset value);
+    VideoResolution getVideoResolution(Host* host);
+    VideoResolution getLocalVideoResolution() const;
+    void setLocalVideoResolution(VideoResolution value);
+    VideoResolution getRemoteVideoResolution() const;
+    void setRemoteVideoResolution(VideoResolution value);
 
-    ChiakiVideoFPSPreset getVideoFPS(Host* host);
-    ChiakiVideoFPSPreset getLocalVideoFPS() const;
-    void setLocalVideoFPS(ChiakiVideoFPSPreset value);
-    ChiakiVideoFPSPreset getRemoteVideoFPS() const;
-    void setRemoteVideoFPS(ChiakiVideoFPSPreset value);
+    VideoFps getVideoFPS(Host* host);
+    VideoFps getLocalVideoFPS() const;
+    void setLocalVideoFPS(VideoFps value);
+    VideoFps getRemoteVideoFPS() const;
+    void setRemoteVideoFPS(VideoFps value);
 
     int getVideoBitrate(Host* host) const;
     int getLocalVideoBitrate() const;
@@ -354,31 +327,19 @@ public:
     void setCloudVideoResolution(bool pscloud, int value);
     bool getCloudFsrEnabled(bool pscloud) const;
     void setCloudFsrEnabled(bool pscloud, bool enabled);
-    std::string getCloudDatacenter(bool pscloud) const;
-    void setCloudDatacenter(bool pscloud, const std::string& datacenter);
-    const std::vector<cloud::Datacenter>& getCloudDatacenters(bool pscloud) const;
+    std::vector<cloud::Datacenter> getCloudDatacenters(bool pscloud) const;
     void setCloudDatacenters(bool pscloud, std::vector<cloud::Datacenter> datacenters);
     int getCloudSortState() const;
     void setCloudSortState(int value);
-    bool getCloudAttrPassed() const;
-    void setCloudAttrPassed(bool value);
 
-    int getCloudFilterMode() const;
-    void setCloudFilterMode(int value);
-    std::string getCloudStoreLocale() const;
-    void setCloudStoreLocale(const std::string& locale);
-    std::string getCloudStoreLocaleSource() const;
-    void setCloudStoreLocaleSource(const std::string& locale);
-    std::string getCloudGameLanguage() const;
-    void setCloudGameLanguage(const std::string& language);
-    const std::vector<std::string>& getCloudFavorites() const;
-    void setCloudFavorites(std::vector<std::string> favorites);
+    const std::string& getCloudFilter() const;
+    void setCloudFilter(std::string filter);
     const std::vector<cloud::Game>& getCloudShortcuts() const;
     void setCloudShortcuts(std::vector<cloud::Game> shortcuts);
-    ChiakiVideoResolutionPreset getVpnVideoResolution() const;
-    void setVpnVideoResolution(ChiakiVideoResolutionPreset value);
-    ChiakiVideoFPSPreset getVpnVideoFPS() const;
-    void setVpnVideoFPS(ChiakiVideoFPSPreset value);
+    VideoResolution getVpnVideoResolution() const;
+    void setVpnVideoResolution(VideoResolution value);
+    VideoFps getVpnVideoFPS() const;
+    void setVpnVideoFPS(VideoFps value);
 
     HapticPreset getHaptic(Host* host);
     void setHaptic(Host* host, HapticPreset value);
@@ -406,10 +367,6 @@ public:
                            const akira::input::RumbleProfile* inheritFrom = nullptr);
 
     void resetRumbleProfile(const std::string& key);
-
-    ChiakiTarget getChiakiTarget(Host* host);
-    bool setChiakiTarget(Host* host, ChiakiTarget target);
-    bool setChiakiTarget(Host* host, const std::string& value);
 
     int getCompanionPort() const;
     void setCompanionPort(int port);
@@ -461,9 +418,7 @@ public:
     void setUpdateInstallPath(const std::string& path);
     std::string getDevUpdateServer() const;
     void setDevUpdateServer(const std::string& server);
-    std::string getDevForceWsFqdn() const;
-    void setDevForceWsFqdn(const std::string& fqdn);
-    int getMinBitrateForResolution(ChiakiVideoResolutionPreset res) const;
+    int getMinBitrateForResolution(VideoResolution res) const;
 
 
     bool getSleepOnExit() const;
@@ -472,17 +427,18 @@ public:
     bool getRequestIdrOnFecFailure() const;
     void setRequestIdrOnFecFailure(bool enabled);
 
-    int getTakionVersion() const;
-    void setTakionVersion(int version);
+    int getTakionVersion(TakionTarget target) const;
+    void setTakionVersion(TakionTarget target, int version);
+    static auto takionTargetKey(TakionTarget target) -> std::string_view;
 
     float getPacketLossMax() const;
     void setPacketLossMax(float value);
 
     bool getEnableFileLogging() const;
     void setEnableFileLogging(bool enabled);
+    bool getSilenceAllLogs() const;
+    void setSilenceAllLogs(bool silenced);
 
-    bool getEnableThreadAffinity() const;
-    void setEnableThreadAffinity(bool enabled);
 
     bool getEnableDithering() const;
     void setEnableDithering(bool enabled);

@@ -4,7 +4,6 @@
   "settings/theme": { "title": "Theme", "body": "Choose the interface color theme. Akira exits after a change; relaunch it to apply the new theme.", "image": "" },
   "settings/version":  { "title": "App version", "body": "Current build. Tap seven times to unlock the Power User menu.", "image": "" },
 
-  "settings/enableThreadAffinity":   { "title": "Thread affinity", "body": "Pin streaming threads to specific CPU cores. Restart Akira to apply a change.", "image": "" },
   "settings/holepunchRetry":         { "title": "Holepunch retry", "body": "Try NAT traversal up to four times instead of stopping after the first failed attempt.", "image": "" },
   "settings/requestIdrOnFecFailure": { "title": "Request IDR on FEC failure", "body": "Request a fresh keyframe when forward error correction cannot reconstruct a video frame. Recovery may briefly pause video.", "image": "" },
   "settings/packetLossMax":          { "title": "Reported packet-loss cap", "body": "Cap the packet-loss percentage reported to the console. Lower values may prevent aggressive bitrate reductions, but can cause freezes or unrecoverable frames on poor networks.", "image": "" }

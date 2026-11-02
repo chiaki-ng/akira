@@ -1,6 +1,8 @@
 #include "stream/video_decoder.hpp"
 
+#include <bit>
 #include <chrono>
+#include <cstring>
 #include "core/exception.hpp"
 #include "core/settings_manager.hpp"
 #include "util/av_wrappers.hpp"
@@ -52,7 +54,7 @@ bool VideoDecoder::initCodec(bool is_PS5, int width, int height)
     if (m_hw_accel_enabled)
     {
         m_codec_context->skip_loop_filter = AVDISCARD_ALL;
-        m_codec_context->flags |= AV_CODEC_FLAG_LOW_DELAY;
+        m_codec_context->flags |= AV_CODEC_FLAG_LOW_DELAY | AV_CODEC_FLAG_OUTPUT_CORRUPT;
         m_codec_context->flags2 |= AV_CODEC_FLAG2_FAST;
         m_codec_context->thread_type = FF_THREAD_SLICE;
         m_codec_context->thread_count = 1;
@@ -78,7 +80,7 @@ bool VideoDecoder::initCodec(bool is_PS5, int width, int height)
     }
     else
     {
-        m_codec_context->flags |= AV_CODEC_FLAG_LOW_DELAY;
+        m_codec_context->flags |= AV_CODEC_FLAG_LOW_DELAY | AV_CODEC_FLAG_OUTPUT_CORRUPT;
         m_codec_context->flags2 |= AV_CODEC_FLAG2_FAST;
         m_codec_context->thread_type = FF_THREAD_SLICE;
         m_codec_context->thread_count = 4;
@@ -184,8 +186,12 @@ void VideoDecoder::publishStats(std::chrono::steady_clock::time_point now)
     m_interval_count = 0;
 }
 
-bool VideoDecoder::decode(uint8_t* buf, size_t buf_size)
+bool VideoDecoder::decode(const AVBufferHandle& data, std::size_t size)
 {
+    const uint8_t* buf = data.get()->data;
+    const size_t buf_size = size;
+
+    m_corrupt_in_call = false;
     auto decode_entry = std::chrono::steady_clock::now();
     notePacketArrival(decode_entry);
     publishStats(decode_entry);
@@ -230,6 +236,15 @@ bool VideoDecoder::decode(uint8_t* buf, size_t buf_size)
             int receive_result = avcodec_receive_frame(m_codec_context, m_tmp_frame);
             if (receive_result == 0)
             {
+                if (m_tmp_frame->flags & AV_FRAME_FLAG_CORRUPT)
+                {
+                    m_corrupt_in_call = true;
+                    if (std::has_single_bit(++m_corrupt_frames))
+                        brls::Logger::warning("VideoDecoder: held a frame decoded from a missing reference ({} so far)",
+                            m_corrupt_frames);
+                    av_frame_unref(m_tmp_frame);
+                    continue;
+                }
                 AVFrame* queued_frame = av_frame_alloc();
                 if (!queued_frame)
                 {
@@ -264,8 +279,11 @@ bool VideoDecoder::decode(uint8_t* buf, size_t buf_size)
     };
 
     AVPacketGuard packet;
-    packet->data = buf;
-    packet->size = buf_size;
+    packet->buf = av_buffer_ref(data.get());
+    if (!packet->buf)
+        return false;
+    packet->data = data.get()->data;
+    packet->size = static_cast<int>(buf_size);
 
     while (true)
     {
@@ -296,7 +314,7 @@ void VideoDecoder::flush()
     }
 }
 
-bool VideoDecoder::scanNALUnits(uint8_t* buf, size_t buf_size)
+bool VideoDecoder::scanNALUnits(const uint8_t* buf, size_t buf_size)
 {
     if (buf_size < 5)
         return false;
@@ -329,6 +347,8 @@ bool VideoDecoder::scanNALUnits(uint8_t* buf, size_t buf_size)
                 else if (nal_type == 33) m_has_sps = true;
                 else if (nal_type == 34) m_has_pps = true;
                 else if (nal_type == 19 || nal_type == 20) has_idr = true;
+                if (nal_type < 32)
+                    break;
             }
             else
             {
@@ -336,6 +356,8 @@ bool VideoDecoder::scanNALUnits(uint8_t* buf, size_t buf_size)
                 if (nal_type == 7) m_has_sps = true;
                 else if (nal_type == 8) m_has_pps = true;
                 else if (nal_type == 5) has_idr = true;
+                if (nal_type >= 1 && nal_type <= 5)
+                    break;
             }
         }
         else

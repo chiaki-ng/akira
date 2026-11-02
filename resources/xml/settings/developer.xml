@@ -33,14 +33,23 @@
                     marginRight="15"/>
 
                 <brls:SelectorCell
-                    id="settings/devForceWsNode"
-                    title="@i18n/akira/settings/dev_force_ws_node"
+                    id="settings/devTakionVersionPs4"
+                    title="@i18n/akira/settings/dev_takion_version_ps4"
                     marginLeft="15"
                     marginRight="15"/>
-
                 <brls:SelectorCell
-                    id="settings/devTakionVersion"
-                    title="@i18n/akira/settings/dev_takion_version"
+                    id="settings/devTakionVersionPs5"
+                    title="@i18n/akira/settings/dev_takion_version_ps5"
+                    marginLeft="15"
+                    marginRight="15"/>
+                <brls:SelectorCell
+                    id="settings/devTakionVersionPs5Cloud"
+                    title="@i18n/akira/settings/dev_takion_version_ps5_cloud"
+                    marginLeft="15"
+                    marginRight="15"/>
+                <brls:SelectorCell
+                    id="settings/devTakionVersionPsNow"
+                    title="@i18n/akira/settings/dev_takion_version_ps_now"
                     marginLeft="15"
                     marginRight="15"/>
 

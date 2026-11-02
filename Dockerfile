@@ -1,18 +1,17 @@
-FROM devkitpro/devkita64:latest
+ARG BASE=ghcr.io/chiaki-ng/devkita64@sha256:3a978bfec72c624aed88b8197f3f46b7288e091f3c28f0e5697b7c211df9c969
+FROM ${BASE}
 
-RUN apt-get update && apt-get install -y \
-    autoconf automake libtool pkg-config \
-    protobuf-compiler python3-protobuf \
-    python3 python3-pip \
-    python3-mako ninja-build bison flex \
+ARG NX_DEPS_RELEASE=nx-deps-241026
+ARG NX_DEPS_SHA256=f8887c1ea570f1a90fc8db3c986ca785770fa06a71401321788732cb3e167000
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bison flex python3-mako python3-pip \
     && rm -rf /var/lib/apt/lists/* \
-    && pip3 install --break-system-packages meson>=1.3.0
+    && pip3 install --break-system-packages 'meson>=1.3.0'
 
 RUN dkp-pacman -Syu --noconfirm && \
-    dkp-pacman -S --noconfirm \
-    switch-dev \
+    dkp-pacman -S --noconfirm --needed \
     switch-sdl2 \
-    switch-mbedtls \
     switch-zlib \
     switch-bzip2 \
     switch-freetype \
@@ -25,66 +24,23 @@ RUN dkp-pacman -Syu --noconfirm && \
     switch-libjson-c \
     switch-dav1d \
     switch-libopus \
-    switch-miniupnpc \
     switch-libssh2 \
-    switch-pkg-config \
-    dkp-toolchain-vars \
-    && dkp-pacman -Rdd --noconfirm switch-ffmpeg switch-libmpv || true \
+    && for package in switch-ffmpeg switch-libmpv switch-curl; do \
+        dkp-pacman -Rdd --noconfirm "$package" || true; \
+    done \
     && dkp-pacman -Scc --noconfirm
 
-WORKDIR /build/ffmpeg
-COPY library/ffmpeg /build/ffmpeg
+COPY scripts/docker /opt/akira-docker
 
-# Akira only opens H.264 and HEVC video streams. Keep their parsers and
-# Switch nvtegra paths, not FFmpeg's full codec registry.
-RUN bash -c '\
-    source /opt/devkitpro/switchvars.sh && \
-    ./configure \
-        --prefix=$PORTLIBS_PREFIX \
-        --enable-gpl \
-        --disable-shared \
-        --enable-static \
-        --cross-prefix=aarch64-none-elf- \
-        --enable-cross-compile \
-        --arch=aarch64 \
-        --cpu=cortex-a57 \
-        --target-os=horizon \
-        --enable-pic \
-        --extra-cflags="-D__SWITCH__ -D_GNU_SOURCE -O2 -march=armv8-a -mtune=cortex-a57 -mtp=soft -fPIC -ftls-model=local-exec" \
-        --extra-cxxflags="-D__SWITCH__ -D_GNU_SOURCE -O2 -march=armv8-a -mtune=cortex-a57 -mtp=soft -fPIC -ftls-model=local-exec" \
-        --extra-ldflags="-fPIE -L${PORTLIBS_PREFIX}/lib -L${DEVKITPRO}/libnx/lib" \
-        --disable-runtime-cpudetect \
-        --disable-programs \
-        --disable-debug \
-        --disable-doc \
-        --enable-asm \
-        --enable-neon \
-        --disable-autodetect \
-        --disable-everything \
-        --enable-version3 \
-        --disable-avdevice \
-        --disable-encoders \
-        --disable-muxers \
-        --enable-decoder=h264,hevc \
-        --enable-hwaccel=h264_nvtegra,hevc_nvtegra \
-        --enable-parser=h264,hevc \
-        --enable-swscale \
-        --enable-swresample \
-        --disable-network \
-        --enable-nvtegra && \
-    make -j$(nproc) && \
-    make install'
+RUN curl -fsSL -o /tmp/nx-deps.tar.gz \
+        "https://github.com/chiaki-ng/native-deps/releases/download/${NX_DEPS_RELEASE}/build.tar.gz" \
+    && echo "${NX_DEPS_SHA256}  /tmp/nx-deps.tar.gz" | sha256sum -c - \
+    && mkdir -p /tmp/nx-deps-pool \
+    && tar -xzf /tmp/nx-deps.tar.gz -C /tmp/nx-deps-pool \
+    && bash /opt/akira-docker/install-nx-deps.sh pool /tmp/nx-deps-pool \
+    && rm -rf /tmp/nx-deps.tar.gz /tmp/nx-deps-pool
 
-WORKDIR /build/uam
-COPY library/uam /build/uam
+ENV NX_DEPS=/opt/nx-deps
 
-RUN echo "option('build_as_library', type : 'boolean', value : false)" > meson_options.txt && \
-    sed -i "/static_library/,/^[[:space:]]*)/{s/include_directories: uam_incs$/include_directories: uam_incs, install: true/}" meson.build && \
-    bash -c '\
-    source /opt/devkitpro/switchvars.sh && \
-    /opt/devkitpro/meson-cross.sh switch crossfile_dkp build -Dbuild_as_library=true && \
-    meson compile -C build && \
-    meson install -C build && \
-    cp source/uam.h $PORTLIBS_PREFIX/include/'
-
-WORKDIR /build
+COPY library/uam /tmp/uam
+RUN bash /opt/akira-docker/build-uam.sh /tmp/uam && rm -rf /tmp/uam

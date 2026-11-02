@@ -1,7 +1,9 @@
 #ifndef AKIRA_CLOUD_MODELS_HPP
 #define AKIRA_CLOUD_MODELS_HPP
 
+#include <array>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -13,15 +15,43 @@ enum class PlusMembership {
     SomeTier
 };
 
-inline PlusMembership observePlusMembership(bool isPlus)
+inline PlusMembership observePlusMembership(std::optional<bool> isPlus)
 {
-    return isPlus ? PlusMembership::SomeTier : PlusMembership::None;
+    if (!isPlus)
+        return PlusMembership::Unknown;
+    return *isPlus ? PlusMembership::SomeTier : PlusMembership::None;
 }
 
 enum class StreamabilityStatus {
     Unknown,
     Streamable,
     NotStreamable
+};
+
+enum class ReleaseKind {
+    Unrestricted,
+    Scheduled,
+    Unannounced
+};
+
+enum class Standing {
+    MayStream,
+    InLibrary,
+    Included,
+    Store,
+    OwnershipUnknown
+};
+
+enum class LaunchBlock {
+    None,
+    ChooseAGame,
+    Refused
+};
+
+struct BundledGame {
+    std::string productId;
+    std::string entitlementId;
+    bool launchable = false;
 };
 
 struct Game {
@@ -40,48 +70,70 @@ struct Game {
     std::string storeProductId;
     std::string conceptUrl;
     bool plusCatalog = false;
+    bool needsLibraryAdd = false;
     int64_t availableFromMs = 0;
+    ReleaseKind release = ReleaseKind::Unrestricted;
+    Standing standing = Standing::MayStream;
+    LaunchBlock launchBlock = LaunchBlock::None;
+    bool canBeAddedToLibrary = false;
+    bool needsStorefrontCheck = false;
+    bool isTrial = false;
+    bool trialEnded = false;
+    bool refused = false;
+    std::vector<BundledGame> bundle;
     StreamabilityStatus streamabilityStatus = StreamabilityStatus::Unknown;
 
-    bool launchable() const { return !streamServiceType.empty() && !streamIdentifier.empty(); }
-    bool requiresLibraryAdd() const { return streamServiceType == "pscloud" && !isOwned; }
+    bool launchable() const { return !productId.empty() && !streamServiceType.empty(); }
+    bool requiresLibraryAdd() const { return needsLibraryAdd; }
     bool streamableNow() const { return launchable() && (isOwned || category != "purchaseable"); }
-    bool releasedAt(int64_t nowMs) const { return !isOwned || availableFromMs <= nowMs; }
+    bool awaitsRelease(int64_t nowMs) const;
+    std::optional<int64_t> unlockAfter(int64_t nowMs) const;
+    bool isOwnedPS5() const { return isOwned && platform == "ps5"; }
+    bool isInCatalog() const { return platform != "ps5" || streamServiceType == "psnow" || plusCatalog; }
+    bool isStoreOnly() const { return !isInCatalog() && !isOwned; }
+    bool isBundle() const { return !bundle.empty(); }
+    bool opensBundlePicker() const { return isBundle() && launchBlock == LaunchBlock::ChooseAGame; }
     std::string artworkUrl() const;
+
+    static std::string countdown(int64_t seconds);
+};
+
+struct GameDetail {
+    enum class Art {
+        None,
+        Layered,
+        GameHub
+    };
+
+    struct Rating {
+        double average = 0;
+        std::string averageText;
+        int64_t count = 0;
+        std::array<int, 5> percentByStars{};
+    };
+
+    struct Age {
+        std::string name;
+        std::string descriptors;
+        std::string icon;
+    };
+
+    Art art = Art::None;
+    std::string background;
+    std::string hero;
+    std::string logo;
+    std::optional<Rating> rating;
+    std::optional<Age> age;
+    std::string publisher;
+    std::optional<int64_t> releasedMs;
+    std::vector<std::string> genres;
 };
 
 struct Catalog {
-    int schemaVersion = 0;
-    int total = 0;
-    bool nativeMode = false;
-    std::string fallbackRegion;
-    std::string resolvedStoreLang;
-    std::string settledLocale;
-    std::string warning;
     std::vector<Game> games;
 
-    bool foreignAccountCatalog() const { return !nativeMode; }
     int launchableCount() const;
     const Game* find(const Game& game) const;
-};
-
-enum class WarningKind {
-    None,
-    SessionExpired,
-    Other
-};
-
-enum class LaunchFailureKind {
-    None,
-    AuthorizationFailed,
-    PsPlusRequired,
-    GameNotStreamable,
-    GameNotReleased,
-    PrivacySettings,
-    NetworkError,
-    PingTimeout,
-    DatacenterUnavailable,
-    Other
 };
 
 struct Datacenter {
@@ -94,14 +146,8 @@ struct Datacenter {
     std::string publicIp;
     int maxBandwidth = 0;
     bool measured = false;
+    int64_t measuredAtMs = 0;
 };
-
-std::vector<Datacenter> parseDatacenters(const std::string& json);
-std::string serializeDatacenters(const std::vector<Datacenter>& datacenters);
-
-bool parseCatalog(const std::string& json, Catalog& out);
-WarningKind classifyWarning(const std::string& warning);
-LaunchFailureKind classifyLaunchFailure(const std::string& errorMessage);
 
 std::string platformBadge(const Game& game);
 std::string categoryBadge(const Game& game);

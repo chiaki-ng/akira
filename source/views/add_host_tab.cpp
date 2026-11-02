@@ -80,8 +80,8 @@ void AddHostTab::onSaveClicked() {
     settings->setHostAddr(host, addr);
     settings->setDiscovered(host, true);
 
-    ChiakiTarget target = targetIndex == 0 ? CHIAKI_TARGET_PS4_10 : CHIAKI_TARGET_PS5_1;
-    settings->setChiakiTarget(host, target);
+    host->setFirmware(Host::Firmware::newest(targetIndex == 0 ? libchiaking::consoles::Generation::ps4
+                                                              : libchiaking::consoles::Generation::ps5));
 
     settings->writeFile();
 

@@ -3,37 +3,24 @@
 
 #include <borealis.hpp>
 
-#include <cctype>
 #include <cmath>
 
-ConnectionStage matchConnectionStage(const std::string& logLine, ConnectionStage current)
+ConnectionStage connectionStageOf(libchiaking::play::ConnectStep step)
 {
-    std::string s;
-    s.reserve(logLine.size());
-    for (char c : logLine)
-        s += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-
-    auto has = [&](const char* sub) { return s.find(sub) != std::string::npos; };
-
-    ConnectionStage cand = ConnectionStage::Idle;
-    if (has("chiaki_event_connected") || has("first video frame"))
-        cand = ConnectionStage::Connected;
-    else if (has("senkusha"))
-        cand = ConnectionStage::Tuning;
-    else if (has("streamconnection") || has("takion connected") || has("received bang") ||
-             has("streaminfo") || has("switch to stream"))
-        cand = ConnectionStage::Starting;
-    else if (has("session request") || has("starting ctrl") || has("ctrl connected") ||
-             has("valid session id"))
-        cand = ConnectionStage::Authenticating;
-    else if (has("punching ctrl hole") || has("hole punched") || has("connection established"))
-        cand = ConnectionStage::Linking;
-    else if (has("upnp discovery") || has("holepunch session") || has("ctrl offer"))
-        cand = ConnectionStage::Finding;
-    else if (has("waking") || has("wakeup"))
-        cand = ConnectionStage::Waking;
-
-    return static_cast<int>(cand) > static_cast<int>(current) ? cand : current;
+    using libchiaking::play::ConnectStep;
+    switch (step) {
+        case ConnectStep::waking_console: return ConnectionStage::Waking;
+        case ConnectStep::finding_console:
+        case ConnectStep::opening_account_session: return ConnectionStage::Finding;
+        case ConnectStep::reaching_console:
+        case ConnectStep::opening_stream_route: return ConnectionStage::Linking;
+        case ConnectStep::pairing:
+        case ConnectStep::requesting_session:
+        case ConnectStep::opening_control: return ConnectionStage::Authenticating;
+        case ConnectStep::measuring_connection: return ConnectionStage::Tuning;
+        case ConnectStep::starting_stream: return ConnectionStage::Starting;
+    }
+    return ConnectionStage::Idle;
 }
 
 const char* connectionStageLabelKey(ConnectionStage stage)
@@ -63,27 +50,64 @@ const char* connectionFailureKeyForStage(ConnectionStage stage)
     }
 }
 
-const char* connectionFailureKeyForReason(ChiakiQuitReason reason)
+const char* connectionFailureKeyFor(const libchiaking::play::Outcome& outcome)
 {
+    using libchiaking::play::ConsoleQuit;
+    using libchiaking::play::EndReason;
+
+    if (const auto& quit = outcome.quit()) {
+        switch (quit->reason()) {
+            case ConsoleQuit::Reason::console_in_use: return "akira/connection/fail_in_use";
+            case ConsoleQuit::Reason::session_request_connection_refused:
+            case ConsoleQuit::Reason::control_connect_failed:
+            case ConsoleQuit::Reason::control_connection_refused: return "akira/connection/fail_unreachable";
+            case ConsoleQuit::Reason::remote_play_version_mismatch: return "akira/connection/fail_version";
+            case ConsoleQuit::Reason::remote_play_crashed: return "akira/connection/fail_crash";
+            case ConsoleQuit::Reason::internet_pairing_failed: return "akira/connection/fail_regist";
+            case ConsoleQuit::Reason::stream_unknown:
+            case ConsoleQuit::Reason::console_disconnected:
+            case ConsoleQuit::Reason::console_shut_down: return "akira/connection/fail_stream";
+            default: break;
+        }
+    }
+
+    const auto cause = outcome.cause();
+    if (!cause)
+        return "akira/connection/fail_generic";
+    switch (*cause) {
+        case EndReason::Cause::session_request_in_use: return "akira/connection/fail_in_use";
+        case EndReason::Cause::session_request_connection_refused:
+        case EndReason::Cause::control_connection_refused:
+        case EndReason::Cause::session_request_network_failure:
+        case EndReason::Cause::session_request_timeout:
+        case EndReason::Cause::control_network_failure:
+        case EndReason::Cause::control_timeout:
+        case EndReason::Cause::route_failed: return "akira/connection/fail_unreachable";
+        case EndReason::Cause::session_request_version_mismatch: return "akira/connection/fail_version";
+        case EndReason::Cause::pairing_rejected: return "akira/connection/fail_regist";
+        case EndReason::Cause::pipeline_failed: return "akira/connection/fail_stream";
+        default: return "akira/connection/fail_generic";
+    }
+}
+
+const char* quitReasonKey(libchiaking::play::ConsoleQuit::Reason reason)
+{
+    using Reason = libchiaking::play::ConsoleQuit::Reason;
     switch (reason) {
-        case CHIAKI_QUIT_REASON_SESSION_REQUEST_RP_IN_USE:
-            return "akira/connection/fail_in_use";
-        case CHIAKI_QUIT_REASON_SESSION_REQUEST_CONNECTION_REFUSED:
-        case CHIAKI_QUIT_REASON_CTRL_CONNECT_FAILED:
-        case CHIAKI_QUIT_REASON_CTRL_CONNECTION_REFUSED:
-            return "akira/connection/fail_unreachable";
-        case CHIAKI_QUIT_REASON_SESSION_REQUEST_RP_VERSION_MISMATCH:
-            return "akira/connection/fail_version";
-        case CHIAKI_QUIT_REASON_SESSION_REQUEST_RP_CRASH:
-            return "akira/connection/fail_crash";
-        case CHIAKI_QUIT_REASON_PSN_REGIST_FAILED:
-            return "akira/connection/fail_regist";
-        case CHIAKI_QUIT_REASON_STREAM_CONNECTION_UNKNOWN:
-        case CHIAKI_QUIT_REASON_STREAM_CONNECTION_REMOTE_DISCONNECTED:
-        case CHIAKI_QUIT_REASON_STREAM_CONNECTION_REMOTE_SHUTDOWN:
-            return "akira/connection/fail_stream";
-        default:
-            return "akira/connection/fail_generic";
+        case Reason::stopped: return "akira/stream/quit_stopped";
+        case Reason::session_request_unknown: return "akira/stream/quit_request_unknown";
+        case Reason::session_request_connection_refused: return "akira/stream/quit_connection_refused";
+        case Reason::console_in_use: return "akira/stream/quit_rp_in_use";
+        case Reason::remote_play_crashed: return "akira/stream/quit_rp_crash";
+        case Reason::remote_play_version_mismatch: return "akira/stream/quit_version_mismatch";
+        case Reason::control_unknown: return "akira/stream/quit_ctrl_unknown";
+        case Reason::control_connect_failed: return "akira/stream/quit_ctrl_connect_failed";
+        case Reason::control_connection_refused: return "akira/stream/quit_ctrl_connection_refused";
+        case Reason::stream_unknown: return "akira/stream/quit_stream_unknown";
+        case Reason::console_disconnected: return "akira/stream/quit_remote_disconnected";
+        case Reason::console_shut_down: return "akira/stream/quit_remote_shutdown";
+        case Reason::internet_pairing_failed: return "akira/stream/quit_psn_regist_failed";
+        default: return "akira/stream/quit_none";
     }
 }
 

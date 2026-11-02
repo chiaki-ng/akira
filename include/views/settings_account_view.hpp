@@ -52,6 +52,10 @@ private:
     static bool validAccountId(const std::string& accountId);
     void updateCredentialsDisplay();
     std::string censorString(const std::string& str);
+
+    using CredentialKind = libchiaking::users::CredentialKind;
+    std::string secretText(const psn::Accounts::User& user, CredentialKind kind);
+    static std::string expiryText(const std::vector<libchiaking::users::HeldCredential>& held, CredentialKind kind);
 };
 
 #endif // AKIRA_SETTINGS_ACCOUNT_VIEW_HPP

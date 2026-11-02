@@ -5,7 +5,7 @@
 
 #include <unordered_set>
 
-#include "psn/auth.hpp"
+#include "psn/accounts.hpp"
 
 class PsnGatedBox : public brls::Box {
 public:

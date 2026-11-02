@@ -2,15 +2,11 @@
 
 #include "util/sha256.hpp"
 
-#include "pair/microecc/uECC.h"
-
+#include <array>
 #include <cstring>
-
-#ifdef __SWITCH__
-#include <switch.h>
-#else
-#include <sys/random.h>
-#endif
+#include <memory>
+#include <span>
+#include <utility>
 
 namespace akira::pair {
 
@@ -134,31 +130,11 @@ bool constTimeEq(const uint8_t* a, const uint8_t* b, std::size_t n) {
     return diff == 0;
 }
 
-int ueccRng(uint8_t* dest, unsigned size) {
-    return randomBytes(dest, size) ? 1 : 0;
 }
 
-}
-
-bool randomBytes(uint8_t* out, std::size_t len) {
-#ifdef __SWITCH__
-    csrngInitialize();
-    Result rc = csrngGetRandomBytes(out, len);
-    csrngExit();
-    return R_SUCCEEDED(rc);
-#else
-    std::size_t off = 0;
-    while (off < len) {
-        std::size_t chunk = len - off;
-        if (chunk > 256)
-            chunk = 256;
-        if (getentropy(out + off, chunk) != 0)
-            return false;
-        off += chunk;
-    }
-    return true;
-#endif
-}
+KeyExchange::KeyExchange(libchiaking::platform::CryptoProvider& crypto,
+                         libchiaking::platform::SecureRandomProvider& random) noexcept
+    : crypto_(crypto), random_(random) {}
 
 void hmacSha256(const uint8_t* key, std::size_t keyLen, const uint8_t* data, std::size_t dataLen, uint8_t out[kMacLen]) {
     uint8_t k[64] = {0};
@@ -246,13 +222,20 @@ void aes256CtrXor(const uint8_t key[kKeyLen], const uint8_t iv[kIvLen], const ui
     }
 }
 
-bool ecdhShared(const uint8_t priv[kPrivKeyLen], const uint8_t peerPub[kPubKeyLen], uint8_t shared[kSharedLen]) {
-    return uECC_shared_secret(peerPub, priv, shared, uECC_secp256r1()) != 0;
+bool KeyExchange::ecdhShared(const libchiaking::platform::EcdhKeyPair& key, const uint8_t peerPub[kPubKeyLen],
+                             uint8_t shared[kSharedLen]) {
+    return key.derive_secret(std::as_bytes(std::span{peerPub, kPubKeyLen}),
+                             std::as_writable_bytes(std::span{shared, kSharedLen}))
+        .has_value();
 }
 
-bool generateKeypair(uint8_t priv[kPrivKeyLen], uint8_t pub[kPubKeyLen]) {
-    uECC_set_rng(ueccRng);
-    return uECC_make_key(pub, priv, uECC_secp256r1()) != 0;
+std::unique_ptr<libchiaking::platform::EcdhKeyPair> KeyExchange::generateKeypair(uint8_t pub[kPubKeyLen]) {
+    auto made = crypto_.generate_ecdh(libchiaking::platform::EcdhCurve::secp256r1);
+    if (!made)
+        return nullptr;
+    if (!made.value()->public_coordinates(std::as_writable_bytes(std::span{pub, kPubKeyLen})))
+        return nullptr;
+    return std::move(made.value());
 }
 
 void deriveKeys(const uint8_t shared[kSharedLen], const uint8_t* saltNonce, std::size_t saltNonceLen,
@@ -289,15 +272,18 @@ bool Hello::decode(const uint8_t* data, std::size_t len, Hello& out) {
     return true;
 }
 
-bool makeHello(Hello& out, uint8_t switchPriv[kPrivKeyLen]) {
-    if (!generateKeypair(switchPriv, out.switchPub))
-        return false;
-    return randomBytes(out.saltNonce, kSaltNonceLen);
+std::unique_ptr<libchiaking::platform::EcdhKeyPair> KeyExchange::makeHello(Hello& out) {
+    auto key = generateKeypair(out.switchPub);
+    if (!key)
+        return nullptr;
+    if (!random_.fill_bytes(std::as_writable_bytes(std::span{out.saltNonce})))
+        return nullptr;
+    return key;
 }
 
-OpenResult openSealed(const Hello& hello, const uint8_t switchPriv[kPrivKeyLen],
-                      const uint8_t* sealed, std::size_t sealedLen, const std::string& code,
-                      std::vector<uint8_t>& plaintext) {
+OpenResult KeyExchange::openSealed(const Hello& hello, const libchiaking::platform::EcdhKeyPair& switchKey,
+                                   const uint8_t* sealed, std::size_t sealedLen, const std::string& code,
+                                   std::vector<uint8_t>& plaintext) {
     if (sealedLen < kSealedMin)
         return OpenResult::Malformed;
     if (std::memcmp(sealed, kMagic, 4) != 0 || sealed[4] != kVersion)
@@ -318,7 +304,7 @@ OpenResult openSealed(const Hello& hello, const uint8_t switchPriv[kPrivKeyLen],
     const uint8_t* mac = sealed + ctOff + ctLen;
 
     uint8_t shared[kSharedLen];
-    if (!ecdhShared(switchPriv, desktopPub, shared))
+    if (!ecdhShared(switchKey, desktopPub, shared))
         return OpenResult::BadKey;
 
     uint8_t keyEnc[kKeyLen], keyMac[kKeyLen];

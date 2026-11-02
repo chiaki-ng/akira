@@ -6,6 +6,8 @@
 #include <borealis/core/touch/tap_gesture.hpp>
 #include <borealis/core/i18n.hpp>
 using namespace brls::literals;
+using akira::input::RemapTarget;
+using akira::input::remapKey;
 
 #include <algorithm>
 
@@ -73,20 +75,20 @@ brls::View* ControllerRemapView::create()
 void ControllerRemapView::initRemappableButtons()
 {
     remappableButtons = {
-        {CHIAKI_CONTROLLER_BUTTON_CROSS,    "akira/remap/cross"_i18n,    false},
-        {CHIAKI_CONTROLLER_BUTTON_MOON,     "akira/remap/circle"_i18n,   false},
-        {CHIAKI_CONTROLLER_BUTTON_BOX,      "akira/remap/square"_i18n,   false},
-        {CHIAKI_CONTROLLER_BUTTON_PYRAMID,  "akira/remap/triangle"_i18n, false},
-        {CHIAKI_CONTROLLER_BUTTON_L1,       "akira/remap/l1"_i18n,       false},
-        {CHIAKI_CONTROLLER_BUTTON_R1,       "akira/remap/r1"_i18n,       false},
-        {CHIAKI_CONTROLLER_ANALOG_BUTTON_L2, "akira/remap/l2"_i18n,      true},
-        {CHIAKI_CONTROLLER_ANALOG_BUTTON_R2, "akira/remap/r2"_i18n,      true},
-        {CHIAKI_CONTROLLER_BUTTON_L3,       "akira/remap/l3"_i18n,       false},
-        {CHIAKI_CONTROLLER_BUTTON_R3,       "akira/remap/r3"_i18n,       false},
-        {CHIAKI_CONTROLLER_BUTTON_OPTIONS,  "akira/remap/options"_i18n,  false},
-        {CHIAKI_CONTROLLER_BUTTON_SHARE,    "akira/remap/share"_i18n,    false},
-        {CHIAKI_CONTROLLER_BUTTON_TOUCHPAD, "akira/remap/touchpad"_i18n, false},
-        {CHIAKI_CONTROLLER_BUTTON_PS,       "akira/remap/ps"_i18n,       false},
+        {remapKey(RemapTarget::Cross),    "akira/remap/cross"_i18n,    false},
+        {remapKey(RemapTarget::Moon),     "akira/remap/circle"_i18n,   false},
+        {remapKey(RemapTarget::Box),      "akira/remap/square"_i18n,   false},
+        {remapKey(RemapTarget::Pyramid),  "akira/remap/triangle"_i18n, false},
+        {remapKey(RemapTarget::L1),       "akira/remap/l1"_i18n,       false},
+        {remapKey(RemapTarget::R1),       "akira/remap/r1"_i18n,       false},
+        {remapKey(RemapTarget::L2), "akira/remap/l2"_i18n,      true},
+        {remapKey(RemapTarget::R2), "akira/remap/r2"_i18n,      true},
+        {remapKey(RemapTarget::L3),       "akira/remap/l3"_i18n,       false},
+        {remapKey(RemapTarget::R3),       "akira/remap/r3"_i18n,       false},
+        {remapKey(RemapTarget::Options),  "akira/remap/options"_i18n,  false},
+        {remapKey(RemapTarget::Share),    "akira/remap/share"_i18n,    false},
+        {remapKey(RemapTarget::Touchpad), "akira/remap/touchpad"_i18n, false},
+        {remapKey(RemapTarget::Ps),       "akira/remap/ps"_i18n,       false},
         {SWIPE_TOUCHPAD_UP,                 "akira/remap/swipe_up"_i18n,    false},
         {SWIPE_TOUCHPAD_DOWN,               "akira/remap/swipe_down"_i18n,  false},
         {SWIPE_TOUCHPAD_LEFT,               "akira/remap/swipe_left"_i18n,  false},
@@ -147,7 +149,7 @@ void ControllerRemapView::buildUI()
                 settings->isButtonEnabled(target),
                 [this, target](bool isOn) {
                     switch (target) {
-                        case CHIAKI_CONTROLLER_BUTTON_TOUCHPAD:
+                        case remapKey(RemapTarget::Touchpad):
                             settings->setTouchpadEnabled(isOn); break;
                         case SWIPE_TOUCHPAD_UP:
                             settings->setSwipeUpEnabled(isOn); break;
@@ -328,20 +330,20 @@ std::string ControllerRemapView::getButtonImagePath(uint64_t button)
 std::string ControllerRemapView::getPS5ButtonImagePath(uint32_t chiakiButton)
 {
     switch (chiakiButton) {
-        case CHIAKI_CONTROLLER_BUTTON_CROSS:    return "img/ps5/cross.png";
-        case CHIAKI_CONTROLLER_BUTTON_MOON:     return "img/ps5/circle.png";
-        case CHIAKI_CONTROLLER_BUTTON_BOX:      return "img/ps5/square.png";
-        case CHIAKI_CONTROLLER_BUTTON_PYRAMID:  return "img/ps5/triangle.png";
-        case CHIAKI_CONTROLLER_BUTTON_L1:       return "img/ps5/l1.png";
-        case CHIAKI_CONTROLLER_BUTTON_R1:       return "img/ps5/r1.png";
-        case CHIAKI_CONTROLLER_ANALOG_BUTTON_L2: return "img/ps5/l2.png";
-        case CHIAKI_CONTROLLER_ANALOG_BUTTON_R2: return "img/ps5/r2.png";
-        case CHIAKI_CONTROLLER_BUTTON_L3:       return "img/ps5/l3.png";
-        case CHIAKI_CONTROLLER_BUTTON_R3:       return "img/ps5/r3.png";
-        case CHIAKI_CONTROLLER_BUTTON_OPTIONS:  return "img/ps5/options.png";
-        case CHIAKI_CONTROLLER_BUTTON_SHARE:    return "img/ps5/share.png";
-        case CHIAKI_CONTROLLER_BUTTON_TOUCHPAD: return "img/ps5/touchpad.png";
-        case CHIAKI_CONTROLLER_BUTTON_PS:       return "img/ps5/ps.png";
+        case remapKey(RemapTarget::Cross):    return "img/ps5/cross.png";
+        case remapKey(RemapTarget::Moon):     return "img/ps5/circle.png";
+        case remapKey(RemapTarget::Box):      return "img/ps5/square.png";
+        case remapKey(RemapTarget::Pyramid):  return "img/ps5/triangle.png";
+        case remapKey(RemapTarget::L1):       return "img/ps5/l1.png";
+        case remapKey(RemapTarget::R1):       return "img/ps5/r1.png";
+        case remapKey(RemapTarget::L2): return "img/ps5/l2.png";
+        case remapKey(RemapTarget::R2): return "img/ps5/r2.png";
+        case remapKey(RemapTarget::L3):       return "img/ps5/l3.png";
+        case remapKey(RemapTarget::R3):       return "img/ps5/r3.png";
+        case remapKey(RemapTarget::Options):  return "img/ps5/options.png";
+        case remapKey(RemapTarget::Share):    return "img/ps5/share.png";
+        case remapKey(RemapTarget::Touchpad): return "img/ps5/touchpad.png";
+        case remapKey(RemapTarget::Ps):       return "img/ps5/ps.png";
         case SWIPE_TOUCHPAD_UP:                 return "img/ps5/swipe_up.png";
         case SWIPE_TOUCHPAD_DOWN:               return "img/ps5/swipe_down.png";
         case SWIPE_TOUCHPAD_LEFT:               return "img/ps5/swipe_left.png";
@@ -551,7 +553,7 @@ void ControllerRemapView::setStreamMode(bool enabled)
 
 bool ControllerRemapView::isToggleableButton(uint32_t chiakiButton)
 {
-    return chiakiButton == CHIAKI_CONTROLLER_BUTTON_TOUCHPAD
+    return chiakiButton == remapKey(RemapTarget::Touchpad)
         || chiakiButton == SWIPE_TOUCHPAD_UP
         || chiakiButton == SWIPE_TOUCHPAD_DOWN
         || chiakiButton == SWIPE_TOUCHPAD_LEFT
@@ -702,20 +704,20 @@ uint64_t ControllerRemapView::stringToHidButton(const std::string& name)
 std::string ControllerRemapView::chiakiButtonToConfigKey(uint32_t button)
 {
     switch (button) {
-        case CHIAKI_CONTROLLER_BUTTON_CROSS: return "cross";
-        case CHIAKI_CONTROLLER_BUTTON_MOON: return "circle";
-        case CHIAKI_CONTROLLER_BUTTON_BOX: return "square";
-        case CHIAKI_CONTROLLER_BUTTON_PYRAMID: return "triangle";
-        case CHIAKI_CONTROLLER_BUTTON_L1: return "l1";
-        case CHIAKI_CONTROLLER_BUTTON_R1: return "r1";
-        case CHIAKI_CONTROLLER_ANALOG_BUTTON_L2: return "l2";
-        case CHIAKI_CONTROLLER_ANALOG_BUTTON_R2: return "r2";
-        case CHIAKI_CONTROLLER_BUTTON_L3: return "l3";
-        case CHIAKI_CONTROLLER_BUTTON_R3: return "r3";
-        case CHIAKI_CONTROLLER_BUTTON_OPTIONS: return "options";
-        case CHIAKI_CONTROLLER_BUTTON_SHARE: return "share";
-        case CHIAKI_CONTROLLER_BUTTON_TOUCHPAD: return "touchpad";
-        case CHIAKI_CONTROLLER_BUTTON_PS: return "ps";
+        case remapKey(RemapTarget::Cross): return "cross";
+        case remapKey(RemapTarget::Moon): return "circle";
+        case remapKey(RemapTarget::Box): return "square";
+        case remapKey(RemapTarget::Pyramid): return "triangle";
+        case remapKey(RemapTarget::L1): return "l1";
+        case remapKey(RemapTarget::R1): return "r1";
+        case remapKey(RemapTarget::L2): return "l2";
+        case remapKey(RemapTarget::R2): return "r2";
+        case remapKey(RemapTarget::L3): return "l3";
+        case remapKey(RemapTarget::R3): return "r3";
+        case remapKey(RemapTarget::Options): return "options";
+        case remapKey(RemapTarget::Share): return "share";
+        case remapKey(RemapTarget::Touchpad): return "touchpad";
+        case remapKey(RemapTarget::Ps): return "ps";
         case SWIPE_TOUCHPAD_UP: return "swipe_up";
         case SWIPE_TOUCHPAD_DOWN: return "swipe_down";
         case SWIPE_TOUCHPAD_LEFT: return "swipe_left";
@@ -726,20 +728,20 @@ std::string ControllerRemapView::chiakiButtonToConfigKey(uint32_t button)
 
 uint32_t ControllerRemapView::configKeyToChiakiButton(const std::string& key)
 {
-    if (key == "cross") return CHIAKI_CONTROLLER_BUTTON_CROSS;
-    if (key == "circle") return CHIAKI_CONTROLLER_BUTTON_MOON;
-    if (key == "square") return CHIAKI_CONTROLLER_BUTTON_BOX;
-    if (key == "triangle") return CHIAKI_CONTROLLER_BUTTON_PYRAMID;
-    if (key == "l1") return CHIAKI_CONTROLLER_BUTTON_L1;
-    if (key == "r1") return CHIAKI_CONTROLLER_BUTTON_R1;
-    if (key == "l2") return CHIAKI_CONTROLLER_ANALOG_BUTTON_L2;
-    if (key == "r2") return CHIAKI_CONTROLLER_ANALOG_BUTTON_R2;
-    if (key == "l3") return CHIAKI_CONTROLLER_BUTTON_L3;
-    if (key == "r3") return CHIAKI_CONTROLLER_BUTTON_R3;
-    if (key == "options") return CHIAKI_CONTROLLER_BUTTON_OPTIONS;
-    if (key == "share") return CHIAKI_CONTROLLER_BUTTON_SHARE;
-    if (key == "touchpad") return CHIAKI_CONTROLLER_BUTTON_TOUCHPAD;
-    if (key == "ps") return CHIAKI_CONTROLLER_BUTTON_PS;
+    if (key == "cross") return remapKey(RemapTarget::Cross);
+    if (key == "circle") return remapKey(RemapTarget::Moon);
+    if (key == "square") return remapKey(RemapTarget::Box);
+    if (key == "triangle") return remapKey(RemapTarget::Pyramid);
+    if (key == "l1") return remapKey(RemapTarget::L1);
+    if (key == "r1") return remapKey(RemapTarget::R1);
+    if (key == "l2") return remapKey(RemapTarget::L2);
+    if (key == "r2") return remapKey(RemapTarget::R2);
+    if (key == "l3") return remapKey(RemapTarget::L3);
+    if (key == "r3") return remapKey(RemapTarget::R3);
+    if (key == "options") return remapKey(RemapTarget::Options);
+    if (key == "share") return remapKey(RemapTarget::Share);
+    if (key == "touchpad") return remapKey(RemapTarget::Touchpad);
+    if (key == "ps") return remapKey(RemapTarget::Ps);
     if (key == "swipe_up") return SWIPE_TOUCHPAD_UP;
     if (key == "swipe_down") return SWIPE_TOUCHPAD_DOWN;
     if (key == "swipe_left") return SWIPE_TOUCHPAD_LEFT;

@@ -25,25 +25,10 @@ SettingsGeneralView::SettingsGeneralView() {
     initThemeSelector();
     rebuildSubnetsUI();
     initConnectionShowStagesToggle();
-    initEnableThreadAffinityToggle();
     initHolepunchRetryToggle();
     initRequestIdrOnFecFailureToggle();
     initPacketLossMaxSlider();
     initVersionUnlock();
-}
-
-void SettingsGeneralView::initEnableThreadAffinityToggle() {
-    bool currentValue = settings->getEnableThreadAffinity();
-
-    enableThreadAffinityToggle->init(
-        "akira/settings/thread_affinity"_i18n,
-        currentValue,
-        [this](bool isOn) {
-            settings->setEnableThreadAffinity(isOn);
-            settings->writeFile();
-            brls::Logger::info("Thread affinity set to {} (requires restart)", isOn ? "true" : "false");
-        }
-    );
 }
 
 void SettingsGeneralView::initConnectionShowStagesToggle() {

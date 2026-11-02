@@ -3,12 +3,14 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <memory>
 
 #include <borealis.hpp>
 
 #include "core/pair_advertiser.hpp"
 #include "core/pair_listener.hpp"
+#include "psn/accounts.hpp"
 
 class PairView : public brls::Box {
 public:
@@ -20,6 +22,7 @@ public:
 
     brls::View* getDefaultFocus() override { return this; }
     static brls::View* create();
+    static void adoptSignedInUser(int64_t profileId, const psn::Accounts::User& user);
 
 private:
     brls::Label* codeLabel = nullptr;

@@ -4,6 +4,7 @@
 #include "views/trophy_list_tab.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <format>
 
@@ -58,156 +59,160 @@ const char* trophyFilterLabelKey(TrophyFilter filter)
     return "akira/trophies/filter_all";
 }
 
-bool trophyMatchesFilter(const psn::Trophy& trophy, TrophyFilter filter)
+bool trophyMatchesFilter(const libchiaking::trophies::Trophy& trophy, TrophyFilter filter)
 {
     switch (filter)
     {
         case TrophyFilter::All: return true;
         case TrophyFilter::Earned: return trophy.earned;
         case TrophyFilter::Unearned: return !trophy.earned;
-        case TrophyFilter::Hidden: return trophy.trophyHidden;
+        case TrophyFilter::Hidden: return trophy.hidden;
     }
     return true;
 }
 
-static int gradeRank(const std::string& type)
+static int gradeRank(libchiaking::trophies::Grade grade)
 {
-    if (type == "platinum")
-        return 0;
-    if (type == "gold")
-        return 1;
-    if (type == "silver")
-        return 2;
-    if (type == "bronze")
-        return 3;
-
+    switch (grade)
+    {
+        case libchiaking::trophies::Grade::platinum: return 0;
+        case libchiaking::trophies::Grade::gold: return 1;
+        case libchiaking::trophies::Grade::silver: return 2;
+        case libchiaking::trophies::Grade::bronze: return 3;
+    }
     return 4;
 }
 
-void sortTrophies(std::vector<psn::Trophy>& trophies, TrophySort sort)
+static uint32_t progressPercent(const libchiaking::trophies::Trophy& trophy)
+{
+    return trophy.progress ? trophy.progress->percent : 0;
+}
+
+void sortTrophies(std::vector<libchiaking::trophies::Trophy>& trophies, TrophySort sort)
 {
     switch (sort)
     {
         case TrophySort::Progress:
             std::stable_sort(trophies.begin(), trophies.end(),
-                [](const psn::Trophy& a, const psn::Trophy& b) {
-                    bool aInProgress = !a.earned && a.hasProgress && a.progressRate > 0;
-                    bool bInProgress = !b.earned && b.hasProgress && b.progressRate > 0;
+                [](const libchiaking::trophies::Trophy& a, const libchiaking::trophies::Trophy& b) {
+                    bool aInProgress = !a.earned && progressPercent(a) > 0;
+                    bool bInProgress = !b.earned && progressPercent(b) > 0;
 
                     if (aInProgress != bInProgress)
                         return aInProgress;
 
                     if (aInProgress && bInProgress)
-                        return a.progressRate > b.progressRate;
+                        return progressPercent(a) > progressPercent(b);
 
                     if (a.earned != b.earned)
                         return !a.earned;
 
-                    return a.trophyId < b.trophyId;
+                    return a.id < b.id;
                 });
             return;
 
         case TrophySort::DateObtained:
             std::stable_sort(trophies.begin(), trophies.end(),
-                [](const psn::Trophy& a, const psn::Trophy& b) {
-                    bool aDated = a.earned && !a.earnedDateTime.empty();
-                    bool bDated = b.earned && !b.earnedDateTime.empty();
+                [](const libchiaking::trophies::Trophy& a, const libchiaking::trophies::Trophy& b) {
+                    bool aDated = a.earned && a.earned_at.has_value();
+                    bool bDated = b.earned && b.earned_at.has_value();
 
                     if (aDated != bDated)
                         return aDated;
 
                     if (aDated && bDated)
-                        return a.earnedDateTime > b.earnedDateTime;
+                        return *a.earned_at > *b.earned_at;
 
                     if (a.earned != b.earned)
                         return a.earned;
 
-                    return a.trophyId < b.trophyId;
+                    return a.id < b.id;
                 });
             return;
 
         case TrophySort::Grade:
             std::stable_sort(trophies.begin(), trophies.end(),
-                [](const psn::Trophy& a, const psn::Trophy& b) {
-                    int aRank = gradeRank(a.trophyType);
-                    int bRank = gradeRank(b.trophyType);
+                [](const libchiaking::trophies::Trophy& a, const libchiaking::trophies::Trophy& b) {
+                    int aRank = gradeRank(a.grade);
+                    int bRank = gradeRank(b.grade);
 
                     if (aRank != bRank)
                         return aRank < bRank;
 
-                    return a.trophyId < b.trophyId;
+                    return a.id < b.id;
                 });
             return;
 
         case TrophySort::Rarity:
             std::stable_sort(trophies.begin(), trophies.end(),
-                [](const psn::Trophy& a, const psn::Trophy& b) {
-                    bool aRated = a.trophyEarnedRate > 0.0;
-                    bool bRated = b.trophyEarnedRate > 0.0;
+                [](const libchiaking::trophies::Trophy& a, const libchiaking::trophies::Trophy& b) {
+                    const double aRate = a.earned_rate.value_or(0.0);
+                    const double bRate = b.earned_rate.value_or(0.0);
+                    bool aRated = aRate > 0.0;
+                    bool bRated = bRate > 0.0;
 
                     if (aRated != bRated)
                         return aRated;
 
-                    if (aRated && bRated && a.trophyEarnedRate != b.trophyEarnedRate)
-                        return a.trophyEarnedRate < b.trophyEarnedRate;
+                    if (aRated && bRated && aRate != bRate)
+                        return aRate < bRate;
 
-                    if (a.trophyRare != b.trophyRare)
-                        return a.trophyRare < b.trophyRare;
+                    if (a.rarity != b.rarity)
+                        return a.rarity < b.rarity;
 
-                    return a.trophyId < b.trophyId;
+                    return a.id < b.id;
                 });
             return;
 
         case TrophySort::Name:
             std::stable_sort(trophies.begin(), trophies.end(),
-                [](const psn::Trophy& a, const psn::Trophy& b) {
-                    if (a.trophyName != b.trophyName)
-                        return a.trophyName < b.trophyName;
+                [](const libchiaking::trophies::Trophy& a, const libchiaking::trophies::Trophy& b) {
+                    if (a.name != b.name)
+                        return a.name < b.name;
 
-                    return a.trophyId < b.trophyId;
+                    return a.id < b.id;
                 });
             return;
     }
 }
 
-std::string formatTrophyRarity(const psn::Trophy& trophy)
+std::string formatTrophyRarity(const libchiaking::trophies::Trophy& trophy)
 {
-    const char* key = nullptr;
+    const char* key = "akira/trophies/rarity_common";
 
-    switch (psn::rarityOf(trophy.trophyRare))
+    switch (trophy.rarity.value_or(libchiaking::trophies::Rarity::common))
     {
-        case psn::TrophyRarity::UltraRare: key = "akira/trophies/rarity_ultra_rare"; break;
-        case psn::TrophyRarity::VeryRare: key = "akira/trophies/rarity_very_rare"; break;
-        case psn::TrophyRarity::Rare: key = "akira/trophies/rarity_rare"; break;
-        case psn::TrophyRarity::Common: key = "akira/trophies/rarity_common"; break;
+        case libchiaking::trophies::Rarity::ultra_rare: key = "akira/trophies/rarity_ultra_rare"; break;
+        case libchiaking::trophies::Rarity::very_rare: key = "akira/trophies/rarity_very_rare"; break;
+        case libchiaking::trophies::Rarity::rare: key = "akira/trophies/rarity_rare"; break;
+        case libchiaking::trophies::Rarity::common: key = "akira/trophies/rarity_common"; break;
     }
 
-    if (trophy.trophyEarnedRate <= 0.0)
+    const double rate = trophy.earned_rate.value_or(0.0);
+    if (rate <= 0.0)
         return brls::getStr(key);
 
-    return std::format("{}  ·  {:.1f}%", brls::getStr(key), trophy.trophyEarnedRate);
+    return std::format("{}  ·  {:.1f}%", brls::getStr(key), rate);
 }
 
-static std::string trophyTypeLabel(const std::string& type)
+static std::string trophyTypeLabel(libchiaking::trophies::Grade grade)
 {
-    if (type == "platinum")
-        return "akira/trophies/type_platinum"_i18n;
-    if (type == "gold")
-        return "akira/trophies/type_gold"_i18n;
-    if (type == "silver")
-        return "akira/trophies/type_silver"_i18n;
-    if (type == "bronze")
-        return "akira/trophies/type_bronze"_i18n;
-
-    return type;
+    switch (grade)
+    {
+        case libchiaking::trophies::Grade::platinum: return "akira/trophies/type_platinum"_i18n;
+        case libchiaking::trophies::Grade::gold: return "akira/trophies/type_gold"_i18n;
+        case libchiaking::trophies::Grade::silver: return "akira/trophies/type_silver"_i18n;
+        case libchiaking::trophies::Grade::bronze: return "akira/trophies/type_bronze"_i18n;
+    }
+    return std::string();
 }
 
-static std::string formatEarnedDate(const std::string& iso)
+static std::string formatEarnedDate(const std::optional<libchiaking::trophies::Time>& earnedAt)
 {
-    if (iso.size() < 10)
+    if (!earnedAt)
         return std::string();
 
-    return iso.substr(0, 10);
+    return std::format("{:%F}", std::chrono::floor<std::chrono::days>(*earnedAt));
 }
 
 TrophyRowCell::TrophyRowCell()
@@ -286,43 +291,45 @@ TrophyRowCell::~TrophyRowCell()
     liveCells.erase(this);
 }
 
-void TrophyRowCell::bindTrophy(const psn::Trophy& trophy)
+void TrophyRowCell::bindTrophy(const libchiaking::trophies::Trophy& trophy)
 {
-    bool concealed = trophy.trophyHidden && !trophy.earned;
+    bool concealed = trophy.hidden && !trophy.earned;
 
-    nameLabel->setText(concealed ? "akira/trophies/hidden_name"_i18n : trophy.trophyName);
-    detailLabel->setText(concealed ? "akira/trophies/hidden_detail"_i18n : trophy.trophyDetail);
+    nameLabel->setText(concealed ? "akira/trophies/hidden_name"_i18n : trophy.name);
+    detailLabel->setText(concealed ? "akira/trophies/hidden_detail"_i18n : trophy.detail);
 
     if (trophy.earned)
     {
-        std::string date = formatEarnedDate(trophy.earnedDateTime);
+        std::string date = formatEarnedDate(trophy.earned_at);
         stateLabel->setText(date.empty()
-            ? std::format("{}  {}", trophyTypeLabel(trophy.trophyType), "akira/trophies/earned"_i18n)
-            : std::format("{}  {}", trophyTypeLabel(trophy.trophyType), date));
+            ? std::format("{}  {}", trophyTypeLabel(trophy.grade), "akira/trophies/earned"_i18n)
+            : std::format("{}  {}", trophyTypeLabel(trophy.grade), date));
         stateLabel->setTextColor(akira::ui::active().success);
     }
     else
     {
-        stateLabel->setText(trophyTypeLabel(trophy.trophyType));
+        stateLabel->setText(trophyTypeLabel(trophy.grade));
         stateLabel->setTextColor(akira::ui::active().textDim);
     }
 
     rarityLabel->setText(formatTrophyRarity(trophy));
 
-    bool showProgress = trophy.hasProgress && trophy.progressTarget > 0 && !trophy.earned;
+    const uint64_t target = trophy.progress_target.value_or(0);
+    const uint64_t reached = trophy.progress ? trophy.progress->value : 0;
+    bool showProgress = trophy.progress.has_value() && target > 0 && !trophy.earned;
     progressTrack->setVisibility(showProgress ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
 
     if (showProgress)
     {
-        float ratio = static_cast<float>(trophy.progress) / static_cast<float>(trophy.progressTarget);
+        float ratio = static_cast<float>(reached) / static_cast<float>(target);
         progressFill->setWidthPercentage(std::clamp(ratio, 0.0f, 1.0f) * 100.0f);
 
         detailLabel->setText(std::format("{}  ·  {}/{}",
-            concealed ? "akira/trophies/hidden_detail"_i18n : trophy.trophyDetail,
-            trophy.progress, trophy.progressTarget));
+            concealed ? "akira/trophies/hidden_detail"_i18n : trophy.detail,
+            reached, target));
     }
 
-    iconUrl = trophy.trophyIconUrl;
+    iconUrl = trophy.icon_url;
     icon->clear();
 
     if (iconUrl.empty())
@@ -468,7 +475,7 @@ SummaryCell::SummaryCell()
     this->addView(tierRow);
 }
 
-void SummaryCell::bindSummary(int earned, int available, int progress, const psn::TrophyCounts& counts)
+void SummaryCell::bindSummary(int earned, int available, int progress, const libchiaking::trophies::TrophyCounts& counts)
 {
     if (earned != prevEarned)
     {
@@ -493,7 +500,12 @@ void SummaryCell::bindSummary(int earned, int available, int progress, const psn
     }
     ring->setProgress(progress / 100.0f);
 
-    const int values[4] = { counts.platinum, counts.gold, counts.silver, counts.bronze };
+    const int values[4] = {
+        static_cast<int>(counts.platinum),
+        static_cast<int>(counts.gold),
+        static_cast<int>(counts.silver),
+        static_cast<int>(counts.bronze)
+    };
 
     for (int i = 0; i < 4; i++)
     {
@@ -514,7 +526,7 @@ RecyclingGridItem* SummaryCell::create()
 }
 
 TrophyDetailSource::TrophyDetailSource(int earned, int available, int progress,
-    psn::TrophyCounts counts, std::vector<psn::Trophy> trophies)
+    libchiaking::trophies::TrophyCounts counts, std::vector<libchiaking::trophies::Trophy> trophies)
     : earned(earned)
     , available(available)
     , progress(progress)
@@ -561,7 +573,7 @@ void TrophyDetailSource::clearData()
     trophies.clear();
 }
 
-TrophyDetailView::TrophyDetailView(const psn::TrophyTitle& title)
+TrophyDetailView::TrophyDetailView(const TrophyManager::Title& title)
     : title(title)
 {
     this->inflateFromXMLRes("xml/views/trophy_detail.xml");
@@ -573,8 +585,8 @@ TrophyDetailView::TrophyDetailView(const psn::TrophyTitle& title)
     list->registerCell("Summary", SummaryCell::create);
     list->registerCell("TrophyRow", TrophyRowCell::create);
 
-    titleLabel->setText(title.trophyTitleName.empty() ? title.npCommunicationId : title.trophyTitleName);
-    subtitleLabel->setText(formatTrophyPlatforms(title.trophyTitlePlatform));
+    titleLabel->setText(title.name.empty() ? title.id.text() : title.name);
+    subtitleLabel->setText(formatTrophyPlatforms(title.platforms));
     countsLabel->setVisibility(brls::Visibility::GONE);
 
     for (brls::Button* button : {groupBtn.getView(), sortBtn.getView(), filterBtn.getView()})
@@ -613,7 +625,7 @@ TrophyDetailView::TrophyDetailView(const psn::TrophyTitle& title)
             if (loading)
                 return psn::ActionStatus{psn::ActionState::Busy, 0};
 
-            return TrophyManager::getInstance()->forceRefreshStatus(this->title.npCommunicationId);
+            return TrophyManager::getInstance()->forceRefreshStatus(this->title.id.text());
         }
     );
 
@@ -621,14 +633,12 @@ TrophyDetailView::TrophyDetailView(const psn::TrophyTitle& title)
         if (!refreshGate.isReady())
             return true;
 
-        brls::Logger::info("User triggered force refresh of {}", this->title.npCommunicationId);
+        brls::Logger::info("User triggered force refresh of {}", this->title.id.text());
 
         TrophyManager* manager = TrophyManager::getInstance();
-        PersistedRateLimiter::Status budget = manager->budgetStatus();
-        brls::Application::notify(brls::getStr("akira/trophies/force_refresh",
-            budget.used, budget.limit));
+        brls::Application::notify("akira/trophies/force_refresh"_i18n);
 
-        manager->recordForcedRefresh(this->title.npCommunicationId);
+        manager->recordForcedRefresh(this->title.id.text());
         load(true);
         refreshGate.apply();
 
@@ -679,8 +689,8 @@ void TrophyDetailView::load(bool forceRefresh)
     subtitleLabel->setText("akira/trophies/loading"_i18n);
 
     TrophyManager::getInstance()->fetchTitleDetail(title, forceRefresh,
-        [](const psn::TitleDetail& loaded) {
-            if (currentInstance)
+        [](const TrophyManager::TitleTrophies& loaded) {
+            if (currentInstance && currentInstance->title.id == loaded.title)
             {
                 currentInstance->loading = false;
                 currentInstance->applyDetail(loaded);
@@ -709,12 +719,13 @@ void TrophyDetailView::load(bool forceRefresh)
         });
 }
 
-void TrophyDetailView::applyDetail(const psn::TitleDetail& loaded)
+void TrophyDetailView::applyDetail(const TrophyManager::TitleTrophies& loaded)
 {
-    detail = loaded;
+    groups = loaded.groups;
+    trophies = loaded.trophies;
     selectedGroup = 0;
 
-    groupBtn->setVisibility(detail.groups.size() > 1
+    groupBtn->setVisibility(groups.size() > 1
         ? brls::Visibility::VISIBLE
         : brls::Visibility::GONE);
 
@@ -723,25 +734,25 @@ void TrophyDetailView::applyDetail(const psn::TitleDetail& loaded)
 
 void TrophyDetailView::applyGroup(size_t index)
 {
-    if (detail.groups.empty())
+    if (groups.empty())
         return;
 
-    selectedGroup = std::min(index, detail.groups.size() - 1);
-    const psn::TrophyGroup& group = detail.groups[selectedGroup];
+    selectedGroup = std::min(index, groups.size() - 1);
+    const libchiaking::trophies::TrophyGroup& group = groups[selectedGroup];
 
-    groupBtn->setText(group.trophyGroupName.empty()
+    groupBtn->setText(group.name.empty()
         ? "akira/trophies/group_all"_i18n
-        : group.trophyGroupName);
+        : group.name);
 
-    subtitleLabel->setText(formatTrophyPlatforms(title.trophyTitlePlatform));
+    subtitleLabel->setText(formatTrophyPlatforms(title.platforms));
 
-    std::vector<psn::Trophy> rows;
-    rows.reserve(detail.trophies.size());
+    std::vector<libchiaking::trophies::Trophy> rows;
+    rows.reserve(trophies.size());
 
-    bool singleGroup = detail.groups.size() <= 1;
-    for (const psn::Trophy& trophy : detail.trophies)
+    bool singleGroup = groups.size() <= 1;
+    for (const libchiaking::trophies::Trophy& trophy : trophies)
     {
-        if (!singleGroup && trophy.trophyGroupId != group.trophyGroupId)
+        if (!singleGroup && trophy.group != group.id)
             continue;
 
         if (trophyMatchesFilter(trophy, filterMode))
@@ -752,8 +763,8 @@ void TrophyDetailView::applyGroup(size_t index)
     refreshControlLabels();
 
     list->setDataSource(new TrophyDetailSource(
-        group.earnedTrophies.total(), group.definedTrophies.total(),
-        group.progress, group.earnedTrophies, std::move(rows)));
+        static_cast<int>(group.earned.total()), static_cast<int>(group.defined.total()),
+        static_cast<int>(group.progress), group.earned, std::move(rows)));
 }
 
 void TrophyDetailView::refreshControlLabels()
@@ -836,17 +847,17 @@ void TrophyDetailView::showFilterPicker()
 
 void TrophyDetailView::showGroupPicker()
 {
-    if (detail.groups.size() <= 1)
+    if (groups.size() <= 1)
         return;
 
     std::vector<std::string> labels;
-    labels.reserve(detail.groups.size());
+    labels.reserve(groups.size());
 
-    for (const psn::TrophyGroup& group : detail.groups)
+    for (const libchiaking::trophies::TrophyGroup& group : groups)
     {
-        labels.push_back(group.trophyGroupName.empty()
-            ? group.trophyGroupId
-            : group.trophyGroupName);
+        labels.push_back(group.name.empty()
+            ? group.id.text()
+            : group.name);
     }
 
     auto* dropdown = new brls::Dropdown(

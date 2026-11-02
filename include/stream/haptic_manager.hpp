@@ -7,7 +7,7 @@
 
 #include "input/ps_output.hpp"
 #include "input/rumble_profile.hpp"
-#include <chiaki/log.h>
+#include <span>
 
 class InputManager;
 class ExtendedInputManager;
@@ -22,10 +22,9 @@ public:
     HapticManager(const HapticManager&) = delete;
     HapticManager& operator=(const HapticManager&) = delete;
 
-    void setLogger(ChiakiLog* log) { m_log = log; }
 
     void setRumble(uint8_t left, uint8_t right);
-    void processHapticAudio(uint8_t* buf, size_t buf_size);
+    void processHapticAudio(std::span<const std::byte> pcm);
     void cleanup();
 
     int hapticBase = 400;
@@ -91,7 +90,6 @@ private:
     uint32_t m_native_logged    = 0;
 
 
-    ChiakiLog* m_log = nullptr;
 
     void emit(float left, float right);
 

@@ -2,10 +2,15 @@
 #define AKIRA_BENCHMARK_VIEW_HPP
 
 #include <borealis.hpp>
-#include <chiaki/thread.h>
+#include <libchiaking/platform/platform.hpp>
+#include <atomic>
 #include <deque>
 #include <mutex>
-#include <atomic>
+
+namespace libchiaking::platform {
+class ClockProvider;
+class CryptoProvider;
+}
 
 class BenchmarkView : public brls::Box {
 public:
@@ -28,19 +33,21 @@ private:
     std::deque<std::string> logLines;
     std::mutex logMutex;
     static constexpr size_t MAX_LOG_LINES = 200;
+    static constexpr int ITERATIONS = 10000;
 
-    ChiakiThread benchmarkThread;
-    std::atomic<bool> threadStarted{false};
-    std::atomic<bool> benchmarkRunning{false};
+    libchiaking::platform::Thread benchmarkThread;
     std::atomic<bool> benchmarkFinished{false};
+    bool statusShown = false;
 
-    bool logsNeedUpdate = false;
+    std::atomic<bool> logsNeedUpdate{false};
     bool needsScrollToBottom = false;
 
     void addLogLine(const std::string& line);
     void updateLogDisplay();
+    void showCompletion();
 
-    static void* benchmarkThreadFunc(void* user);
+    void run(libchiaking::platform::CryptoProvider& crypto, const libchiaking::platform::ClockProvider& clock,
+             const libchiaking::platform::StopToken& stop);
 };
 
 #endif // AKIRA_BENCHMARK_VIEW_HPP

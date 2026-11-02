@@ -2,6 +2,9 @@
 
 #include <borealis.hpp>
 
+#include "core/chiaki_core.hpp"
+
+
 HttpPool& HttpPool::instance()
 {
     static HttpPool* pool = new HttpPool();
@@ -37,12 +40,21 @@ void HttpPool::ensureStarted()
 
     threads.reserve(THREAD_COUNT);
     for (int i = 0; i < THREAD_COUNT; i++)
-        threads.emplace_back(&HttpPool::run, this, i);
+    {
+        auto started = libchiaking::platform::Thread::start(akira::ChiakiCore::current().threading(),
+            WORKER_NAMES[static_cast<size_t>(i)], libchiaking::platform::ThreadRole::unspecified, [this, i]() { run(i); });
+        if (!started)
+        {
+            brls::Logger::error("HttpPool worker {} could not start", i);
+            continue;
+        }
+        threads.push_back(std::move(started).value());
+    }
 }
 
 void HttpPool::stop()
 {
-    std::vector<std::thread> joining;
+    std::vector<libchiaking::platform::Thread> joining;
 
     {
         std::lock_guard<std::mutex> lock(mutex);
@@ -55,11 +67,7 @@ void HttpPool::stop()
         joining.swap(threads);
     }
 
-    for (std::thread& thread : joining)
-    {
-        if (thread.joinable())
-            thread.join();
-    }
+    joining.clear();
 }
 
 void HttpPool::run(int index)

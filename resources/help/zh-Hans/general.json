@@ -19,11 +19,6 @@
     "body": "当前版本。连续点击七次可解锁高级选项菜单。",
     "image": ""
   },
-  "settings/enableThreadAffinity": {
-    "title": "线程亲和性",
-    "body": "将串流线程绑定到特定 CPU 核心。更改后需重启 Akira 才能生效。",
-    "image": ""
-  },
   "settings/holepunchRetry": {
     "title": "打洞重试",
     "body": "NAT 穿透失败时最多尝试四次，而不是首次失败后立即停止。",

@@ -3,16 +3,13 @@
 
 #include <cstdint>
 
-#include <chiaki/session.h>
+#include <libchiaking/consoles_types.hpp>
 
 struct Registration {
-    int64_t consoleId = 0;
     int64_t profileId = 0;
+    libchiaking::consoles::PairingKeys keys;
 
-    uint8_t serverMac[6] = {0};
-    char rpRegistKey[CHIAKI_SESSION_AUTH_SIZE] = {0};
-    uint32_t rpKeyType = 0;
-    uint8_t rpKey[0x10] = {0};
+    auto clone() const -> Registration { return Registration{profileId, keys.clone()}; }
 };
 
 #endif // AKIRA_REGISTRATION_HPP

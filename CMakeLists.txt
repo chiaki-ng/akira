@@ -4,14 +4,13 @@ cmake_minimum_required(VERSION 3.13)
 set(PLATFORM_SWITCH ON CACHE BOOL "Build for Nintendo Switch" FORCE)
 
 # Borealis paths
-set(BOREALIS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/borealis)
+set(BOREALIS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/borealis CACHE PATH "Borealis source tree")
 set(BOREALIS_LIBRARY ${BOREALIS_DIR}/library)
 
 # Use deko3d for video rendering (must be set BEFORE commonOption.cmake)
 set(USE_DEKO3D ON CACHE BOOL "Use deko3d for video rendering" FORCE)
 
 option(DEBUG_DEKO3D_RENDERING "Enable debug squares in video shader" OFF)
-option(MUTE_CHIAKI_LOGS "Mute chiaki library logs" OFF)
 
 # Platform common options + toolchain from borealis
 include(${BOREALIS_LIBRARY}/cmake/commonOption.cmake)
@@ -19,11 +18,7 @@ include(${BOREALIS_LIBRARY}/cmake/toolchain.cmake)
 
 project(akira)
 
-# Module search path: our cmake/ modules plus chiaki-ng's
-list(APPEND CMAKE_MODULE_PATH
-    ${CMAKE_CURRENT_SOURCE_DIR}/cmake
-    ${CMAKE_CURRENT_SOURCE_DIR}/library/chiaki-ng/cmake
-)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 # Project metadata + git-derived version
 include(version)
@@ -40,9 +35,10 @@ list(APPEND APP_PLATFORM_LIB ${CMAKE_THREAD_LIBS_INIT})
 # Resources are embedded via --romfsdir in elf2nro
 set(BRLS_RESOURCES_DIR "romfs:/")
 
-# Dependencies (curl, ffmpeg, sdl2, ...) and the chiaki-ng library
 include(dependencies)
-include(chiaki)
+include(core)
+include(core_includes)
+find_package(CURL REQUIRED)
 
 # Vendored C libraries (wireguard target + lwIP sources)
 include(vendored_libs)
@@ -52,7 +48,6 @@ include(vendored_libs)
 ###########################################
 file(GLOB_RECURSE MAIN_SRC CONFIGURE_DEPENDS source/*.cpp)
 list(APPEND MAIN_SRC ${CMAKE_CURRENT_SOURCE_DIR}/source/stream/nxext_ipc_server.c)
-list(APPEND MAIN_SRC ${CMAKE_CURRENT_SOURCE_DIR}/source/core/pair/microecc/uECC.c)
 
 # Switch wrapper for libnx initialization
 list(APPEND MAIN_SRC ${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c)
@@ -77,19 +72,17 @@ set_source_files_properties(
 )
 
 target_sources(${PROJECT_NAME} PRIVATE ${LWIP_SRCS} ${LWIP_RELAY_SRCS})
+target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/library/qrcodegen/qrcodegen.cpp)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     include
+    ${CMAKE_CURRENT_SOURCE_DIR}/library/qrcodegen
     # Generated version header (configure_file in cmake/version.cmake)
     ${CMAKE_BINARY_DIR}/generated
     # Shared IPC definitions
     ${CMAKE_CURRENT_SOURCE_DIR}/overlay/common/include
     # Borealis includes
     ${BOREALIS_LIBRARY}/include
-    # Real chiaki headers from chiaki-ng library
-    ${CMAKE_CURRENT_SOURCE_DIR}/library/chiaki-ng/lib/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/library/chiaki-ng/lib/src
-    ${CMAKE_CURRENT_BINARY_DIR}/chiaki-lib/include
     # WireGuard
     ${WIREGUARD_DIR}/include
     ${WIREGUARD_DIR}/src
@@ -110,26 +103,26 @@ if (USE_DEKO3D)
     target_compile_definitions(${PROJECT_NAME} PRIVATE BOREALIS_USE_DEKO3D)
 endif()
 
-if (MUTE_CHIAKI_LOGS)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE MUTE_CHIAKI_LOGS)
-endif()
+option(MUTE_CHIAKI_LOGS "Drop every core log line" OFF)
+target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_MUTE_CORE_LOGS=$<BOOL:${MUTE_CHIAKI_LOGS}>)
+
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     borealis
-    chiaki-lib
+    libchiaking_chiaki_ng
+    libchiaking_curl
+    libchiaking_crypto_libnx
+    libchiaking_media_opus
+    libchiaking_simdutf
+    CURL::libcurl
     tomlplusplus::tomlplusplus
     ${SDL2_LIB}
-    FFMPEG::avcodec
-    FFMPEG::avutil
-    FFMPEG::swscale
-    ${SWRESAMPLE_LIB}
+    PkgConfig::FFMPEG
     ${DAV1D_LIB}
     ${JSONC_LIB}
-    ${WIREGUARD_LIB}
+    wireguard
     ${APP_PLATFORM_LIB}
 )
-
-add_dependencies(${PROJECT_NAME} wireguard_build)
 
 # deko3d shader compilation + uam runtime link
 include(deko3d_shaders)
@@ -140,6 +133,10 @@ if (PLATFORM_SWITCH)
 endif()
 
 target_link_options(${PROJECT_NAME} PRIVATE ${APP_PLATFORM_LINK_OPTION})
+if (PLATFORM_SWITCH)
+    target_link_options(${PROJECT_NAME} PRIVATE
+        -Wl,--wrap=svcSetThreadCoreMask)
+endif()
 
 # NRO packaging
 include(packaging)

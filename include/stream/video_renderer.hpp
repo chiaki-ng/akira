@@ -1,7 +1,6 @@
 #ifndef AKIRA_IO_VIDEO_RENDERER_HPP
 #define AKIRA_IO_VIDEO_RENDERER_HPP
 
-#include <chiaki/log.h>
 #include <functional>
 #include <string>
 #include <vector>
@@ -21,8 +20,7 @@ class IVideoRenderer
 public:
     virtual ~IVideoRenderer() = default;
 
-    virtual bool initialize(int frame_width, int frame_height,
-                           ChiakiLog* log) = 0;
+    virtual bool initialize(int frame_width, int frame_height) = 0;
 
     virtual bool isInitialized() const = 0;
 

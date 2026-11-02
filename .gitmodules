@@ -1,14 +1,6 @@
 [submodule "library/borealis"]
 	path = library/borealis
 	url = git@github.com:xlanor/borealis.git
-[submodule "library/chiaki-ng"]
-	path = library/chiaki-ng
-	url = https://github.com/xlanor/chiaki-ng.git
-	branch = libnx
-[submodule "library/curl-libnx"]
-	path = library/curl-libnx
-	url = https://github.com/xlanor/curl.git
-	branch = libnx-vtls
 [submodule "references/wiliwili"]
 	path = references/wiliwili
 	url = https://github.com/xfangfang/wiliwili.git
@@ -39,10 +31,6 @@
 [submodule "library/lwip"]
 	path = library/lwip
 	url = https://github.com/lwip-tcpip/lwip.git
-[submodule "library/ffmpeg"]
-	path = library/ffmpeg
-	url = https://github.com/xlanor/FFmpeg.git
-	branch = ffmpeg-9.0.1
 [submodule "library/uam"]
 	path = library/uam
 	url = https://github.com/RSDuck/uam.git
@@ -59,3 +47,6 @@
 [submodule "references/Pylux"]
 	path = references/Pylux
 	url = https://github.com/ForWard-Technologies-LLC/Pylux.git
+[submodule "library/libchiaki-core"]
+	path = library/libchiaki-core
+	url = git@github.com:chiaki-ng/chiaki-ng-core.git

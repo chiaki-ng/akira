@@ -2,164 +2,30 @@
 
 #include "cloud/models.hpp"
 
+#include <cstdint>
+#include <limits>
+
 using namespace cloud;
 
-TEST(parse_catalog_reads_the_unified_payload)
+TEST(catalog_finds_a_game_by_product_and_service)
 {
     Catalog catalog;
-    CHECK(parseCatalog(R"({
-        "schemaVersion": 3,
-        "total": 2,
-        "nativeMode": true,
-        "fallbackRegion": "US",
-        "resolvedStoreLang": "en",
-        "settledLocale": "en-US",
-        "warning": "",
-        "games": [
-            {
-                "productId": "PPSA-1",
-                "name": "Astro Bot",
-                "imageUrl": "https://example.com/portrait.png",
-                "landscapeImageUrl": "https://example.com/landscape.png",
-                "conceptId": "CID-1",
-                "category": "owned",
-                "serviceType": "pscloud",
-                "platform": "ps5",
-                "isOwned": true,
-                "streamServiceType": "pscloud",
-                "streamIdentifier": "ENT-1",
-                "entitlementId": "ENT-1",
-                "storeProductId": "STORE-1",
-                "conceptUrl": "https://store.playstation.com/en-us/concept/1",
-                "plusCatalog": true
-            },
-            {
-                "productId": "CUSA-2",
-                "name": "MotorStorm",
-                "imageUrl": "https://example.com/motorstorm.png",
-                "category": "streamable",
-                "serviceType": "psnow",
-                "platform": "ps3",
-                "isOwned": false,
-                "streamServiceType": "psnow",
-                "streamIdentifier": "CUSA-2",
-                "entitlementId": "",
-                "storeProductId": "",
-                "conceptUrl": "",
-                "plusCatalog": false
-            }
-        ]
-    })", catalog));
-
-    CHECK_EQ(catalog.schemaVersion, 3);
-    CHECK_EQ(catalog.total, 2);
-    CHECK_EQ(catalog.nativeMode, true);
-    CHECK_EQ(catalog.fallbackRegion, std::string("US"));
-    CHECK_EQ(catalog.resolvedStoreLang, std::string("en"));
-    CHECK_EQ(catalog.games.size(), size_t(2));
-    CHECK_EQ(catalog.launchableCount(), 2);
-    CHECK_EQ(catalog.games[0].name, std::string("Astro Bot"));
-    CHECK_EQ(catalog.games[0].artworkUrl(), std::string("https://example.com/landscape.png"));
-    CHECK_EQ(catalog.games[1].artworkUrl(), std::string("https://example.com/motorstorm.png"));
-    CHECK_EQ(platformBadge(catalog.games[1]), std::string("PS3"));
-    CHECK_EQ(categoryBadge(catalog.games[0]), std::string("Owned"));
-}
-
-TEST(catalog_warning_and_launch_errors_are_classified)
-{
-    CHECK(classifyWarning("") == WarningKind::None);
-    CHECK(classifyWarning("Your session has expired. Please log in again to see your owned games.")
-        == WarningKind::SessionExpired);
-    CHECK(classifyWarning("some other warning") == WarningKind::Other);
-
-    CHECK(classifyLaunchFailure("AUTHORIZATION_FAILED") == LaunchFailureKind::AuthorizationFailed);
-    CHECK(classifyLaunchFailure("PS_PLUS_SUBSCRIPTION_REQUIRED") == LaunchFailureKind::PsPlusRequired);
-    CHECK(classifyLaunchFailure(R"({"name":"noGameForEntitlementId"})")
-        == LaunchFailureKind::GameNotStreamable);
-    CHECK(classifyLaunchFailure("GAME_NOT_RELEASED") == LaunchFailureKind::GameNotReleased);
-    CHECK(classifyLaunchFailure("PING_TIMEOUT") == LaunchFailureKind::PingTimeout);
-    CHECK(classifyLaunchFailure("Couldn't reach the cloud server (network error). Please try again.")
-        == LaunchFailureKind::NetworkError);
-    CHECK(classifyLaunchFailure("Selected datacenter 'Tokyo' not available")
-        == LaunchFailureKind::DatacenterUnavailable);
-    CHECK(classifyLaunchFailure("odd failure") == LaunchFailureKind::Other);
-}
-
-TEST(parse_catalog_preserves_distinct_games_that_share_a_concept)
-{
-    Catalog catalog;
-    CHECK(parseCatalog(R"({
-        "schemaVersion": 9,
-        "total": 3,
-        "games": [
-            {"productId":"PPSA11111","name":"TimeSplitters","conceptId":"9000001","platform":"ps5","serviceType":"pscloud","streamServiceType":"pscloud","streamIdentifier":"PPSA11111"},
-            {"productId":"PPSA22222","name":"TimeSplitters 2","conceptId":"9000001","platform":"ps5","serviceType":"pscloud","streamServiceType":"pscloud","streamIdentifier":"PPSA22222"},
-            {"productId":"PPSA33333","name":"TimeSplitters: Future Perfect","conceptId":"9000001","platform":"ps5","serviceType":"pscloud","streamServiceType":"pscloud","streamIdentifier":"PPSA33333"}
-        ]
-    })", catalog));
-    CHECK_EQ(catalog.games.size(), size_t(3));
-}
-
-TEST(parse_catalog_uses_public_catalog_match_as_initial_streamability_hint)
-{
-    Catalog catalog;
-    CHECK(parseCatalog(R"({
-        "schemaVersion": 9,
-        "total": 2,
-        "games": [
-            {"productId":"PPSA1","name":"Matched","platform":"ps5","serviceType":"pscloud","isOwned":true,"streamingSupported":true,"streamServiceType":"pscloud","streamIdentifier":"PPSA1"},
-            {"productId":"PPSA2","name":"Unmatched","platform":"ps5","serviceType":"pscloud","isOwned":true,"streamingSupported":false,"streamServiceType":"pscloud","streamIdentifier":"PPSA2"}
-        ]
-    })", catalog));
-    CHECK(catalog.games[0].streamabilityStatus == StreamabilityStatus::Streamable);
-    CHECK(catalog.games[1].streamabilityStatus == StreamabilityStatus::Unknown);
-}
-
-TEST(parse_catalog_keeps_owned_release_times)
-{
-    Catalog catalog;
-    CHECK(parseCatalog(R"({
-        "schemaVersion": 10,
-        "total": 3,
-        "games": [
-            {"productId":"PPSA1","name":"Preorder","platform":"ps5","serviceType":"pscloud","isOwned":true,"availableFromMs":1791241200000,"streamServiceType":"pscloud","streamIdentifier":"PPSA1"},
-            {"productId":"PPSA2","name":"Dateless","platform":"ps5","serviceType":"pscloud","isOwned":true,"availableFromMs":9223372036854775807,"streamServiceType":"pscloud","streamIdentifier":"PPSA2"},
-            {"productId":"PPSA3","name":"Catalog","platform":"ps5","serviceType":"pscloud","isOwned":false,"availableFromMs":1791241200000,"streamServiceType":"pscloud","streamIdentifier":"PPSA3"}
-        ]
-    })", catalog));
-    CHECK_EQ(catalog.games.size(), size_t(3));
-    for (const Game& game : catalog.games)
-    {
-        if (game.productId == "PPSA1")
-        {
-            CHECK_EQ(game.availableFromMs, int64_t(1791241200000LL));
-            CHECK(!game.releasedAt(1791241200000LL - 1));
-            CHECK(game.releasedAt(1791241200000LL));
-        }
-        else if (game.productId == "PPSA2")
-            CHECK(!game.releasedAt(INT64_MAX - 1));
-        else
-            CHECK(game.releasedAt(0));
-    }
-}
-
-TEST(launch_requires_ps5_cloud_titles_in_the_library)
-{
-    Catalog catalog;
-    CHECK(parseCatalog(R"({
-        "schemaVersion": 10,
-        "total": 3,
-        "games": [
-            {"productId":"PPSA1","name":"Owned","platform":"ps5","serviceType":"pscloud","category":"owned","isOwned":true,"streamServiceType":"pscloud","streamIdentifier":"PPSA1"},
-            {"productId":"PPSA2","name":"Wolverine","platform":"ps5","serviceType":"pscloud","category":"purchaseable","isOwned":false,"plusCatalog":true,"streamServiceType":"pscloud","streamIdentifier":"PPSA2"},
-            {"productId":"CUSA3","name":"Classic","platform":"ps4","serviceType":"psnow","category":"streamable","isOwned":false,"streamServiceType":"psnow","streamIdentifier":"CUSA3"}
-        ]
-    })", catalog));
+    Game owned;
+    owned.productId = "PPSA1";
+    owned.streamServiceType = "pscloud";
+    owned.isOwned = true;
+    Game addable;
+    addable.productId = "PPSA2";
+    addable.streamServiceType = "pscloud";
+    addable.needsLibraryAdd = true;
+    Game classic;
+    classic.productId = "CUSA3";
+    classic.streamServiceType = "psnow";
+    catalog.games = {owned, addable, classic};
 
     Game pinned;
     pinned.productId = "PPSA2";
     pinned.streamServiceType = "pscloud";
-    pinned.isOwned = true;
     const Game* current = catalog.find(pinned);
     CHECK(current != nullptr);
     CHECK(current->requiresLibraryAdd());
@@ -168,62 +34,60 @@ TEST(launch_requires_ps5_cloud_titles_in_the_library)
     CHECK(!catalog.find(pinned)->requiresLibraryAdd());
 
     pinned.productId = "CUSA3";
-    pinned.streamServiceType = "psnow";
-    CHECK(!catalog.find(pinned)->requiresLibraryAdd());
-
-    pinned.productId = "PPSA9";
-    pinned.streamServiceType = "pscloud";
     CHECK(catalog.find(pinned) == nullptr);
+    pinned.streamServiceType = "psnow";
+    CHECK(catalog.find(pinned) != nullptr);
+
+    CHECK_EQ(catalog.launchableCount(), 3);
+}
+
+TEST(games_without_a_product_are_not_launchable)
+{
+    Game game;
+    game.streamServiceType = "pscloud";
+    CHECK(!game.launchable());
+    game.productId = "PPSA1";
+    CHECK(game.launchable());
+    game.category = "purchaseable";
+    CHECK(!game.streamableNow());
+    game.isOwned = true;
+    CHECK(game.streamableNow());
+}
+
+TEST(release_kinds_decide_what_awaits_release)
+{
+    Game game;
+    CHECK(!game.awaitsRelease(0));
+    game.release = ReleaseKind::Scheduled;
+    game.availableFromMs = 1000;
+    CHECK(game.awaitsRelease(999));
+    CHECK(!game.awaitsRelease(1000));
+    CHECK(game.unlockAfter(0) == std::optional<int64_t>(1000));
+    CHECK(!game.unlockAfter(1000));
+    game.release = ReleaseKind::Unannounced;
+    CHECK(game.awaitsRelease(std::numeric_limits<int64_t>::max()));
+    CHECK(!game.unlockAfter(0));
+}
+
+TEST(countdown_reads_days_then_a_clock)
+{
+    CHECK_EQ(Game::countdown(59), std::string("00:00:59"));
+    CHECK_EQ(Game::countdown(3 * 86400 + 3661), std::string("3d 01:01:01"));
+    CHECK_EQ(Game::countdown(-5), std::string("00:00:00"));
+}
+
+TEST(artwork_prefers_the_landscape_cover)
+{
+    Game game;
+    game.imageUrl = "https://x/a.png";
+    CHECK_EQ(game.artworkUrl(), std::string("https://x/a.png"));
+    game.landscapeImageUrl = "https://x/l.png";
+    CHECK_EQ(game.artworkUrl(), std::string("https://x/l.png"));
 }
 
 TEST(psn_plus_membership_is_only_a_definitive_negative_gate)
 {
     CHECK(observePlusMembership(false) == PlusMembership::None);
     CHECK(observePlusMembership(true) == PlusMembership::SomeTier);
-    CHECK(observePlusMembership(true) != PlusMembership::Unknown);
-}
-
-TEST(datacenters_round_trip_through_json)
-{
-    std::vector<Datacenter> dcs = parseDatacenters(R"([
-        {"dataCenter":"mila","rtt":7,"rtts":[7,9],"mtu_in":1454,"mtu_out":1254,
-         "port":40101,"publicIp":"senkusha.mila.prod.playstation-cloud.com",
-         "maxBandwidth":25000,"measured":false},
-        {"dataCenter":"lonb","rtt":1,"rtts":[1],"mtu_in":1454,"mtu_out":1454,
-         "port":40101,"publicIp":"senkusha.lonb.prod.playstation-cloud.com",
-         "maxBandwidth":25000,"measured":true},
-        {"rtt":3}
-    ])");
-
-    CHECK_EQ(dcs.size(), size_t(2));
-    CHECK_EQ(dcs[0].name, std::string("lonb"));
-    CHECK_EQ(dcs[0].rttMs, 1);
-    CHECK_EQ(dcs[1].name, std::string("mila"));
-    CHECK_EQ(dcs[1].rttSamples.size(), size_t(2));
-    CHECK_EQ(dcs[1].rttSamples[1], 9);
-    CHECK_EQ(dcs[1].mtuOut, 1254);
-    CHECK_EQ(dcs[1].port, 40101);
-    CHECK_EQ(dcs[1].publicIp, std::string("senkusha.mila.prod.playstation-cloud.com"));
-    CHECK_EQ(dcs[1].maxBandwidth, 25000);
-    CHECK_EQ(dcs[1].measured, false);
-    CHECK_EQ(dcs[0].measured, true);
-
-    std::vector<Datacenter> again = parseDatacenters(serializeDatacenters(dcs));
-    CHECK_EQ(again.size(), dcs.size());
-    for (size_t i = 0; i < again.size(); i++)
-    {
-        CHECK_EQ(again[i].name, dcs[i].name);
-        CHECK_EQ(again[i].rttMs, dcs[i].rttMs);
-        CHECK_EQ(again[i].rttSamples.size(), dcs[i].rttSamples.size());
-        for (size_t j = 0; j < again[i].rttSamples.size() && j < dcs[i].rttSamples.size(); j++)
-            CHECK_EQ(again[i].rttSamples[j], dcs[i].rttSamples[j]);
-        CHECK_EQ(again[i].mtuIn, dcs[i].mtuIn);
-        CHECK_EQ(again[i].mtuOut, dcs[i].mtuOut);
-        CHECK_EQ(again[i].port, dcs[i].port);
-        CHECK_EQ(again[i].publicIp, dcs[i].publicIp);
-        CHECK_EQ(again[i].maxBandwidth, dcs[i].maxBandwidth);
-        CHECK_EQ(again[i].measured, dcs[i].measured);
-    }
-
-    CHECK_EQ(serializeDatacenters({}), std::string(""));
+    CHECK(observePlusMembership(std::nullopt) == PlusMembership::Unknown);
 }

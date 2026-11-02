@@ -1,21 +1,15 @@
 #include "views/benchmark_view.hpp"
+#include "core/chiaki_core.hpp"
 #include "ui/theme.hpp"
-#include "core/thread_affinity.h"
-#include "crypto/libnx/gmac.h"
-#include <chiaki/thread.h>
 
-#include <format>
-#include <memory>
+#include <array>
+#include <cstddef>
+#include <vector>
 
 #include <borealis/core/i18n.hpp>
 using namespace brls::literals;
-#include <vector>
-#include <chrono>
-#include <cstdio>
 
-struct BenchmarkThreadArgs {
-    BenchmarkView* view;
-};
+namespace platform = libchiaking::platform;
 
 BenchmarkView::BenchmarkView()
 {
@@ -35,12 +29,8 @@ BenchmarkView::BenchmarkView()
 
 BenchmarkView::~BenchmarkView()
 {
-    if (threadStarted && benchmarkRunning) {
-        benchmarkRunning = false;
-    }
-    if (threadStarted) {
-        chiaki_thread_join(&benchmarkThread, nullptr);
-    }
+    static_cast<void>(benchmarkThread.request_stop());
+    benchmarkThread = platform::Thread{};
 }
 
 brls::View* BenchmarkView::create()
@@ -50,21 +40,20 @@ brls::View* BenchmarkView::create()
 
 void BenchmarkView::startBenchmark()
 {
-    benchmarkRunning = true;
     benchmarkFinished = false;
-    threadStarted = false;
+    statusShown = false;
 
-    auto args = std::make_unique<BenchmarkThreadArgs>(BenchmarkThreadArgs{this});
-
-    ChiakiErrorCode err = chiaki_thread_create(&benchmarkThread, benchmarkThreadFunc, args.get());
-    if (err != CHIAKI_ERR_SUCCESS) {
-        benchmarkRunning = false;
+    akira::ChiakiCore& core = akira::ChiakiCore::current();
+    auto started = platform::Thread::start(core.threading(), "benchmark", platform::ThreadRole::crypto,
+        [this, &crypto = core.crypto(), &clock = core.clock()](platform::StopToken stop) {
+            run(crypto, clock, stop);
+        });
+    if (!started) {
         benchmarkFinished = true;
         addLogLine("akira/benchmark/error_thread"_i18n);
-    } else {
-        args.release();
-        threadStarted = true;
+        return;
     }
+    benchmarkThread = std::move(started).value();
 }
 
 void BenchmarkView::addLogLine(const std::string& line)
@@ -105,122 +94,75 @@ void BenchmarkView::updateLogDisplay()
     logsNeedUpdate = false;
 }
 
-void* BenchmarkView::benchmarkThreadFunc(void* user)
+void BenchmarkView::showCompletion()
 {
-    akira_thread_set_affinity(AKIRA_THREAD_NAME_BENCHMARK);
-    auto* args = static_cast<BenchmarkThreadArgs*>(user);
-    BenchmarkView* view = args->view;
-    delete args;
+    if (statusShown || !benchmarkFinished)
+        return;
+    statusShown = true;
+    if (auto* status = dynamic_cast<brls::Label*>(getView("benchmark/status")))
+        status->setText("akira/benchmark/complete"_i18n);
+}
 
-    view->addLogLine("akira/benchmark/header_line"_i18n);
-    view->addLogLine("akira/benchmark/results_title"_i18n);
-    view->addLogLine("akira/benchmark/header_line"_i18n);
-    view->addLogLine("");
+void BenchmarkView::run(platform::CryptoProvider& crypto, const platform::ClockProvider& clock,
+                        const platform::StopToken& stop)
+{
+    addLogLine("akira/benchmark/header_line"_i18n);
+    addLogLine("akira/benchmark/results_title"_i18n);
+    addLogLine("akira/benchmark/header_line"_i18n);
+    addLogLine("");
 
-    const int iterations = 10000;
-    const size_t sizes[] = {64, 256, 1024, 4096};
-    const int numSizes = 4;
+    addLogLine(brls::getStr("akira/benchmark/iterations", ITERATIONS));
+    addLogLine("");
 
-    view->addLogLine(brls::getStr("akira/benchmark/iterations", iterations));
-    view->addLogLine("");
+    const std::array<std::byte, 16> key{
+        std::byte{0x01}, std::byte{0x02}, std::byte{0x03}, std::byte{0x04},
+        std::byte{0x05}, std::byte{0x06}, std::byte{0x07}, std::byte{0x08},
+        std::byte{0x09}, std::byte{0x0a}, std::byte{0x0b}, std::byte{0x0c},
+        std::byte{0x0d}, std::byte{0x0e}, std::byte{0x0f}, std::byte{0x10}};
+    const std::array<std::byte, 12> iv{};
 
-    uint8_t key[16] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-                       0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10};
-    uint8_t iv[12] = {0};
+    for (const size_t size : {size_t{64}, size_t{256}, size_t{1024}, size_t{4096}}) {
+        if (stop.stop_requested())
+            break;
 
-    for (int s = 0; s < numSizes && view->benchmarkRunning; s++) {
-        size_t size = sizes[s];
-        std::vector<uint8_t> data(size, 0xAB);
-        uint8_t tag[16];
+        const std::vector<std::byte> data(size, std::byte{0xAB});
+        std::array<std::byte, 16> tag{};
 
-        view->addLogLine("akira/benchmark/separator"_i18n);
-        view->addLogLine(brls::getStr("akira/benchmark/testing_blocks", size));
-        view->addLogLine("");
+        addLogLine("akira/benchmark/separator"_i18n);
+        addLogLine(brls::getStr("akira/benchmark/testing_blocks", size));
+        addLogLine("");
+        addLogLine(brls::getStr("akira/benchmark/pmull_running", ITERATIONS));
 
-        view->addLogLine(brls::getStr("akira/benchmark/table_running", iterations));
-        chiaki_libnx_set_ghash_mode(CHIAKI_LIBNX_GHASH_TABLE);
-        ChiakiGmacContext tableCtx;
-        chiaki_gmac_context_init(&tableCtx);
-
-        auto tableStart = std::chrono::steady_clock::now();
-        for (int i = 0; i < iterations && view->benchmarkRunning; i++) {
-            chiaki_gmac_compute_cached(&tableCtx, key, iv, sizeof(iv), data.data(), size, tag, sizeof(tag));
-        }
-        auto tableEnd = std::chrono::steady_clock::now();
-        chiaki_gmac_context_fini(&tableCtx);
-
-        double tableMs = std::chrono::duration<double, std::milli>(tableEnd - tableStart).count();
-        double tableOps = (iterations * 1000.0) / tableMs;
-        double tableMBs = (iterations * size * 1000.0) / (tableMs * 1024.0 * 1024.0);
-
-        view->addLogLine(brls::getStr("akira/benchmark/table_result", tableOps, tableMBs, tableMs));
-
-#ifdef CHIAKI_LIB_ENABLE_LIBNX_EXPERIMENTAL
-        view->addLogLine(brls::getStr("akira/benchmark/pmull_running", iterations));
-        chiaki_libnx_set_ghash_mode(CHIAKI_LIBNX_GHASH_PMULL);
-        ChiakiGmacContext pmullCtx;
-        chiaki_gmac_context_init(&pmullCtx);
-
-        auto pmullStart = std::chrono::steady_clock::now();
-        for (int i = 0; i < iterations && view->benchmarkRunning; i++) {
-            chiaki_gmac_compute_cached(&pmullCtx, key, iv, sizeof(iv), data.data(), size, tag, sizeof(tag));
-        }
-        auto pmullEnd = std::chrono::steady_clock::now();
-        chiaki_gmac_context_fini(&pmullCtx);
-
-        double pmullMs = std::chrono::duration<double, std::milli>(pmullEnd - pmullStart).count();
-        double pmullOps = (iterations * 1000.0) / pmullMs;
-        double pmullMBs = (iterations * size * 1000.0) / (pmullMs * 1024.0 * 1024.0);
-
-        view->addLogLine(fmt::format(fmt::runtime("akira/benchmark/pmull_result"_i18n),
-                 pmullOps, pmullMBs, pmullMs));
-
-        double speedup = tableMs / pmullMs;
-        if (speedup >= 1.0) {
-            view->addLogLine(fmt::format(fmt::runtime("akira/benchmark/pmull_faster"_i18n), speedup));
-        } else {
-            view->addLogLine(fmt::format(fmt::runtime("akira/benchmark/table_faster"_i18n), 1.0 / speedup));
-        }
-#else
-        view->addLogLine("akira/benchmark/pmull_not_compiled"_i18n);
-#endif
-        view->addLogLine("");
-    }
-
-    chiaki_libnx_set_ghash_mode(CHIAKI_LIBNX_GHASH_PMULL);
-
-    view->addLogLine("akira/benchmark/header_line"_i18n);
-    view->addLogLine("akira/benchmark/complete_title"_i18n);
-    view->addLogLine("akira/benchmark/header_line"_i18n);
-
-    brls::sync([]() {
-        auto* statusLabel = (brls::Label*)brls::Application::getCurrentFocus();
-        if (statusLabel) {
-            auto* parent = statusLabel->getParent();
-            while (parent) {
-                auto* benchView = dynamic_cast<BenchmarkView*>(parent);
-                if (benchView) {
-                    auto* status = (brls::Label*)benchView->getView("benchmark/status");
-                    if (status) {
-                        status->setText("akira/benchmark/complete"_i18n);
-                    }
-                    break;
-                }
-                parent = parent->getParent();
+        const uint64_t started = clock.now_microseconds();
+        int completed = 0;
+        for (; completed < ITERATIONS && !stop.stop_requested(); completed++) {
+            if (!crypto.aes128_gmac(key, iv, data, tag)) {
+                addLogLine("akira/benchmark/error_gmac"_i18n);
+                break;
             }
         }
-    });
+        const double elapsedMs = static_cast<double>(clock.now_microseconds() - started) / 1000.0;
+        if (completed == 0 || elapsedMs <= 0.0)
+            break;
 
-    view->benchmarkFinished = true;
-    view->benchmarkRunning = false;
+        const double ops = (completed * 1000.0) / elapsedMs;
+        const double megabytes = (completed * static_cast<double>(size) * 1000.0) / (elapsedMs * 1024.0 * 1024.0);
+        addLogLine(brls::getStr("akira/benchmark/pmull_result", ops, megabytes, elapsedMs));
+        addLogLine("");
+    }
 
-    return nullptr;
+    addLogLine("akira/benchmark/header_line"_i18n);
+    addLogLine("akira/benchmark/complete_title"_i18n);
+    addLogLine("akira/benchmark/header_line"_i18n);
+
+    benchmarkFinished = true;
 }
 
 void BenchmarkView::draw(NVGcontext* vg, float x, float y, float width, float height,
                           brls::Style style, brls::FrameContext* ctx)
 {
     updateLogDisplay();
+    showCompletion();
 
     Box::draw(vg, x, y, width, height, style, ctx);
 

@@ -8,18 +8,20 @@
 #include "core/host.hpp"
 #include "core/settings_manager.hpp"
 #include "core/trophy_manager.hpp"
+#include "stream/connection.hpp"
 #include "stream/input_manager.hpp"
 #include "input/pad_path.hpp"
 #include "ui/glass.hpp"
 #include "ui/theme.hpp"
 
-#include <chiaki/common.h>
-
 using akira::input::PadDescription;
+using akira::stream::Connection;
+using akira::stream::CouchSeat;
+using akira::stream::SeatPhase;
 
 namespace {
 
-constexpr int kSecondarySlots = CHIAKI_COUCH_MAX_PADS - 1;
+constexpr int kSecondarySlots = Connection::seatCount - 1;
 constexpr float kPanelWidth = 680.0f;
 constexpr float kContentWidth = 644.0f;
 
@@ -174,56 +176,72 @@ brls::Button* MakeAction(const std::string& text, NVGcolor color)
     return btn;
 }
 
-NVGcolor MetaColor(CouchPadState state)
+NVGcolor MetaColor(SeatPhase phase)
 {
-    switch (state) {
-        case CouchPadState::Confirmed: return nvgRGB(0x8a, 0xd6, 0xa8);
-        case CouchPadState::Announced: return nvgRGB(0xf2, 0xd0, 0x7a);
-        case CouchPadState::NeedsProfile: return nvgRGB(0xff, 0xa8, 0xa8);
-        case CouchPadState::Failed:    return nvgRGB(0xff, 0xa8, 0xa8);
-        case CouchPadState::Passcode:  return nvgRGB(0xf2, 0xd0, 0x7a);
-        default:                       return nvgRGB(0x9a, 0x9a, 0xa4);
+    switch (phase) {
+        case SeatPhase::Playing:  return nvgRGB(0x8a, 0xd6, 0xa8);
+        case SeatPhase::Failed:   return nvgRGB(0xff, 0xa8, 0xa8);
+        case SeatPhase::Passcode: return nvgRGB(0xf2, 0xd0, 0x7a);
+        default:                  return nvgRGB(0x9a, 0x9a, 0xa4);
     }
 }
 
-std::string FailureText(uint8_t status)
+bool NeedsAnotherAccount(const CouchSeat& seat)
 {
-    switch (status) {
-        case kCouchJoinTimedOut:
+    return seat.phase == SeatPhase::Failed && seat.refusal &&
+           seat.refusal->kind() == libchiaking::play::SeatRefusal::Kind::account_not_on_console;
+}
+
+std::string FailureText(const CouchSeat& seat)
+{
+    using Kind = libchiaking::play::SeatRefusal::Kind;
+    if (seat.dropped)
+        return "The console released this pad";
+    if (!seat.refusal)
+        return "Console refused the join";
+    switch (seat.refusal->kind()) {
+        case Kind::timed_out:
             return "No answer from the console";
-        case kCouchPadDropped:
-            return "The console released this pad";
-        case 1:
-            return "That account is not signed in on the console";
+        case Kind::account_not_on_console:
+            return "Account is not registered on this PS5 - choose another profile";
+        case Kind::passcode_attempts_used:
+            return "Too many wrong passcodes";
+        case Kind::not_sent:
+            return "The join could not be sent";
+        case Kind::no_free_seat:
+            return "The console has no free seat";
+        case Kind::refused_by_console:
         default:
-            return "Console refused the join (status " + std::to_string((int)status) + ")";
+            return "Console refused the join (status " + std::to_string((int)seat.refusal->console_status().value_or(0)) + ")";
     }
 }
 
-std::string MetaText(int player, CouchPadState state, uint8_t failStatus)
+std::string MetaText(int player, const CouchSeat& seat)
 {
-    switch (state) {
-        case CouchPadState::Confirmed:
+    switch (seat.phase) {
+        case SeatPhase::Playing:
             return "Player " + std::to_string(player) + " - ready";
-        case CouchPadState::Announced:
-            return "Pick a user for this pad on the TV";
-        case CouchPadState::NeedsProfile:
-            return "Account is not registered on this PS5 - choose another profile";
-        case CouchPadState::Passcode:
+        case SeatPhase::Passcode:
             return "Waiting for the console login passcode";
-        case CouchPadState::Failed:
-            return FailureText(failStatus);
-        case CouchPadState::Joining:
+        case SeatPhase::Failed:
+            return FailureText(seat);
+        case SeatPhase::Joining:
         default:
             return "Joining...";
     }
 }
 
-std::string WithAccount(const std::string& text, const Host* host, uint8_t slot)
+std::string WithAccount(const std::string& text, const Host* host, const Connection* connection, uint8_t slot)
 {
     if (!host || !host->isPS5())
         return text;
-    const std::string& account = host->couchAccountLabel(slot);
+    std::string account;
+    if (slot == 0) {
+        if (const Profile* active = SettingsManager::getInstance()->getActiveProfile(); active && !active->accountId.empty())
+            account = active->label();
+    } else if (connection) {
+        account = connection->couchSeat(slot).accountLabel;
+    }
     if (account.empty())
         return text + " - no PSN account configured";
     return text + " - PSN: " + SettingsManager::getInstance()->maskAccountName(account);
@@ -231,8 +249,10 @@ std::string WithAccount(const std::string& text, const Host* host, uint8_t slot)
 
 } // namespace
 
-PlayersPanelView::PlayersPanelView(Host* host, InputManager* input, bool claimImmediately)
+PlayersPanelView::PlayersPanelView(Host* host, std::weak_ptr<Connection> connection, InputManager* input,
+                                   bool claimImmediately)
     : m_host(host)
+    , m_connection(std::move(connection))
     , m_input(input)
 {
     setAxis(brls::Axis::COLUMN);
@@ -387,7 +407,8 @@ void PlayersPanelView::populateRoster()
     auto* primary = MakeRowShell(false);
     primary->setBorderColor(nvgRGB(0x35, 0x5a, 0x8a));
     primary->addView(MakeLed(1, false));
-    primary->addView(MakeBody(primaryLabel, WithAccount("Player 1 - ready", m_host, 0), false));
+    const auto connection = m_connection.lock();
+    primary->addView(MakeBody(primaryLabel, WithAccount("Player 1 - ready", m_host, connection.get(), 0), false));
     m_slots->addView(primary);
 
     std::vector<std::pair<HidNpadIdType, uint8_t>> ordered;
@@ -403,23 +424,22 @@ void PlayersPanelView::populateRoster()
         HidNpadIdType npad = entry.first;
         uint8_t slot = entry.second;
         const int player = slot + 1;
-        const CouchPadState state = m_host ? m_host->couchPadState(slot) : CouchPadState::Idle;
-        const uint8_t failStatus = m_host ? m_host->couchPadFailure(slot) : 0;
+        const CouchSeat seat = connection ? connection->couchSeat(slot) : CouchSeat{};
 
         auto* row = MakeRowShell(false);
-        if (state == CouchPadState::Failed || state == CouchPadState::NeedsProfile)
+        if (seat.phase == SeatPhase::Failed)
             row->setBorderColor(nvgRGB(0x7a, 0x3a, 0x3a));
         row->addView(MakeLed(player, false));
 
         brls::Label* meta = nullptr;
         row->addView(MakeBody(deviceLabelFor(npad),
-                              WithAccount(MetaText(player, state, failStatus), m_host, slot),
+                              WithAccount(MetaText(player, seat), m_host, connection.get(), slot),
                               false, &meta));
         if (meta)
-            meta->setTextColor(MetaColor(state));
+            meta->setTextColor(MetaColor(seat.phase));
 
         brls::View* action = nullptr;
-        if (state == CouchPadState::NeedsProfile) {
+        if (NeedsAnotherAccount(seat)) {
             auto* choose = MakeAction("Choose profile", nvgRGB(0x16, 0xbf, 0xe0));
             choose->registerClickAction([this, slot](brls::View*) {
                 startProfileSelection(slot, true);
@@ -427,11 +447,10 @@ void PlayersPanelView::populateRoster()
             });
             row->addView(choose);
             action = choose;
-        } else if (state == CouchPadState::Failed) {
+        } else if (seat.phase == SeatPhase::Failed) {
             auto* retry = MakeAction("Retry", nvgRGB(0x16, 0xbf, 0xe0));
             retry->registerClickAction([this, slot](brls::View*) {
-                if (m_host)
-                    m_host->couchRetryPlayer(slot);
+                retryPlayer(slot);
                 return true;
             });
             row->addView(retry);
@@ -454,8 +473,8 @@ void PlayersPanelView::populateRoster()
         m_slots->addView(row);
     }
 
-    uint8_t lowestOpen = CHIAKI_COUCH_MAX_PADS;
-    for (uint8_t slot = 1; slot < CHIAKI_COUCH_MAX_PADS; slot++) {
+    uint8_t lowestOpen = Connection::seatCount;
+    for (uint8_t slot = 1; slot < Connection::seatCount; slot++) {
         const bool used = std::any_of(ordered.begin(), ordered.end(),
             [slot](const auto& entry) { return entry.second == slot; });
         if (!used) {
@@ -464,7 +483,7 @@ void PlayersPanelView::populateRoster()
         }
     }
 
-    for (uint8_t slot = 1; slot < CHIAKI_COUCH_MAX_PADS; slot++) {
+    for (uint8_t slot = 1; slot < Connection::seatCount; slot++) {
         const bool used = std::any_of(ordered.begin(), ordered.end(),
             [slot](const auto& entry) { return entry.second == slot; });
         if (used)
@@ -472,7 +491,7 @@ void PlayersPanelView::populateRoster()
         const int player = slot + 1;
         auto* row = MakeRowShell(true);
         row->addView(MakeLed(player, true));
-        const bool hasProfiles = !m_host || !m_host->isPS5() || !m_host->couchProfileChoices(slot).empty();
+        const bool hasProfiles = !m_host || !m_host->isPS5() || (connection && !connection->couchProfileChoices(slot).empty());
         const std::string emptyMeta = hasProfiles
             ? (slot == lowestOpen ? "Invite a player to this slot" : "Waiting for the previous slot")
             : "No other Akira profile has a PSN account ID";
@@ -497,8 +516,9 @@ void PlayersPanelView::populateRoster()
 
 void PlayersPanelView::populateProfilePicker()
 {
-    const auto choices = m_host ? m_host->couchProfileChoices(m_profileSlot)
-                                : std::vector<Host::CouchProfileChoice>{};
+    const auto connection = m_connection.lock();
+    const auto choices = connection ? connection->couchProfileChoices(m_profileSlot)
+                                    : std::vector<akira::stream::CouchProfileChoice>{};
     if (choices.empty()) {
         auto* row = MakeRowShell(true);
         row->addView(MakeBody("No eligible profiles",
@@ -608,10 +628,10 @@ void PlayersPanelView::loadProfileAvatar(int64_t profileId, const std::string& a
 
     auto alive = m_callback_alive;
     TrophyManager::getInstance()->fetchProfileForAccount(accountId,
-        [this, alive, image, profileId](const psn::PsnProfile& profile) {
+        [this, alive, image, profileId](const TrophyManager::Profile& profile) {
             if (!alive->load(std::memory_order_acquire))
                 return;
-            const std::string url = profile.avatarUrl();
+            const std::string url = profile.avatar_url.value_or("");
             if (url.empty())
                 return;
 
@@ -670,15 +690,15 @@ void PlayersPanelView::populatePicker()
 
 void PlayersPanelView::refreshStates()
 {
+    const auto connection = m_connection.lock();
     for (const auto& r : m_rows) {
-        if (!r.meta || !m_host)
+        if (!r.meta || !m_host || !connection)
             continue;
-        const CouchPadState state = m_host->couchPadState(r.slot);
-        const std::string text = WithAccount(
-            MetaText(r.slot + 1, state, m_host->couchPadFailure(r.slot)), m_host, r.slot);
+        const CouchSeat& seat = connection->couchSeat(r.slot);
+        const std::string text = WithAccount(MetaText(r.slot + 1, seat), m_host, connection.get(), r.slot);
         if (r.meta->getFullText() != text) {
             r.meta->setText(text);
-            r.meta->setTextColor(MetaColor(state));
+            r.meta->setTextColor(MetaColor(seat.phase));
         }
     }
 
@@ -726,7 +746,7 @@ void PlayersPanelView::rebuild(bool refocus)
     m_profileAvatars.clear();
 
     const int total = 1 + rosterCount();
-    m_count->setText(std::to_string(total) + " / " + std::to_string(CHIAKI_COUCH_MAX_PADS));
+    m_count->setText(std::to_string(total) + " / " + std::to_string(Connection::seatCount));
     m_count->setVisibility(brls::Visibility::VISIBLE);
     m_title->setText("Players");
 
@@ -787,13 +807,13 @@ void PlayersPanelView::startAddPlayer()
 
     uint8_t slot = 1;
     const auto roster = m_input->couchRoster();
-    for (; slot < CHIAKI_COUCH_MAX_PADS; slot++) {
+    for (; slot < Connection::seatCount; slot++) {
         const bool used = std::any_of(roster.begin(), roster.end(),
             [slot](const auto& entry) { return entry.second == slot; });
         if (!used)
             break;
     }
-    if (slot < CHIAKI_COUCH_MAX_PADS)
+    if (slot < Connection::seatCount)
         startProfileSelection(slot, false);
 }
 
@@ -817,12 +837,13 @@ void PlayersPanelView::stopClaim()
 
 void PlayersPanelView::startProfileSelection(uint8_t slot, bool retry)
 {
-    if (!m_host || !m_host->isPS5() || slot == 0 || slot >= CHIAKI_COUCH_MAX_PADS)
+    if (!m_host || !m_host->isPS5() || slot == 0 || slot >= Connection::seatCount)
         return;
     stopClaim();
     m_selectingProfile = true;
     m_profileRetry = retry;
-    m_profileRejected = retry && m_host->couchPadState(slot) == CouchPadState::NeedsProfile;
+    const auto connection = m_connection.lock();
+    m_profileRejected = retry && connection && NeedsAnotherAccount(connection->couchSeat(slot));
     m_profileSlot = slot;
     m_pendingProfileId = 0;
     rebuild(true);
@@ -834,12 +855,15 @@ void PlayersPanelView::selectProfile(int64_t profileId)
         return;
 
     if (m_profileRetry) {
-        if (!m_host->couchSelectProfile(m_profileSlot, profileId))
+        const auto connection = m_connection.lock();
+        if (!connection)
+            return;
+        connection->removePlayer(m_profileSlot);
+        if (!connection->addPlayer(m_profileSlot, profileId))
             return;
         m_selectingProfile = false;
         m_profileRetry = false;
         m_profileRejected = false;
-        m_host->couchRetryPlayer(m_profileSlot);
         rebuild(true);
         return;
     }
@@ -855,15 +879,19 @@ void PlayersPanelView::onJoined(HidNpadIdType npad, uint8_t slot)
     m_claiming = false;
     m_focusSlot = -1;
     m_focusAddNext = true;
-    if (m_host && m_host->isPS5() && !m_host->couchSelectProfile(slot, m_pendingProfileId)) {
+    const auto connection = m_connection.lock();
+    const bool ps5 = m_host && m_host->isPS5();
+    const std::optional<int64_t> profile = ps5 ? std::optional<int64_t>(m_pendingProfileId) : std::nullopt;
+    if (!connection || !connection->addPlayer(slot, profile)) {
         if (m_input)
             m_input->couchLeave(npad);
-        startProfileSelection(slot, false);
+        if (ps5)
+            startProfileSelection(slot, false);
+        else
+            rebuild(true);
         return;
     }
     m_pendingProfileId = 0;
-    if (m_host)
-        m_host->couchAddPlayer(slot);
     rebuild(true);
 }
 
@@ -881,12 +909,23 @@ void PlayersPanelView::leaveSlot(HidNpadIdType npad)
     }
 
     m_input->couchLeave(npad);
-    if (m_host && slot != InputManager::kNoCouchSlot && slot != 0)
-        m_host->couchRemovePlayer(slot);
+    const auto connection = m_connection.lock();
+    if (connection && slot != InputManager::kNoCouchSlot && slot != 0)
+        connection->removePlayer(slot);
 
-    if (m_host && rosterCount() == 0)
-        m_host->setCouchMode(false);
+    rebuild(true);
+}
 
+void PlayersPanelView::retryPlayer(uint8_t slot)
+{
+    const auto connection = m_connection.lock();
+    if (!connection)
+        return;
+    const int64_t profileId = connection->couchSeat(slot).profileId;
+    connection->removePlayer(slot);
+    const bool ps5 = m_host && m_host->isPS5();
+    if (!connection->addPlayer(slot, ps5 ? std::optional<int64_t>(profileId) : std::nullopt) && ps5)
+        startProfileSelection(slot, true);
     rebuild(true);
 }
 
@@ -903,13 +942,15 @@ std::string PlayersPanelView::structureSignature() const
     std::sort(ordered.begin(), ordered.end(),
               [](const auto& a, const auto& b) { return a.second < b.second; });
 
+    const auto connection = m_connection.lock();
     for (const auto& entry : ordered) {
         sig += ":" + std::to_string((int)entry.first) + "-" + std::to_string(entry.second);
-        if (m_host) {
-            if (m_host->couchPadState(entry.second) == CouchPadState::Failed)
-                sig += "F";
-            else if (m_host->couchPadState(entry.second) == CouchPadState::NeedsProfile)
+        if (connection) {
+            const CouchSeat& seat = connection->couchSeat(entry.second);
+            if (NeedsAnotherAccount(seat))
                 sig += "N";
+            else if (seat.phase == SeatPhase::Failed)
+                sig += "F";
         }
     }
 
@@ -931,9 +972,6 @@ void PlayersPanelView::draw(NVGcontext* vg, float x, float y, float width, float
 {
     if (m_claiming && m_input)
         m_input->tickCouchClaim();
-
-    if (m_host)
-        m_host->couchTickJoinTimeouts();
 
     const std::string sig = structureSignature();
     if (sig != m_signature) {

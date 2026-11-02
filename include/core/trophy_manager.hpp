@@ -2,24 +2,26 @@
 #define AKIRA_TROPHY_MANAGER_HPP
 
 #include <atomic>
-#include <chrono>
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include <borealis.hpp>
 
-#include "core/rate_limiter.hpp"
-#include "psn/auth.hpp"
-#include "psn/client.hpp"
-#include "psn/models.hpp"
-#include "util/http.hpp"
-#include "util/http_pool.hpp"
+#include <libchiaking/catalog.hpp>
+#include <libchiaking/trophies.hpp>
+#include <libchiaking/users.hpp>
+
+#include "psn/accounts.hpp"
+#include "psn/status.hpp"
 
 class SettingsManager;
 
@@ -28,45 +30,38 @@ public:
     template <typename T>
     using Callback = std::function<void(const T&)>;
     using ErrorCallback = std::function<void(psn::Status, const std::string&)>;
+    using IconCallback = std::function<void(const std::string& url, const std::vector<uint8_t>&)>;
+
+    using Summary = libchiaking::trophies::TrophySummary;
+    using Title = libchiaking::trophies::TrophyTitle;
+    using TitleTrophies = libchiaking::trophies::TitleTrophies;
+    using Profile = libchiaking::users::Profile;
+    using PlayedGame = libchiaking::catalog::PlayedGame;
 
     static TrophyManager* getInstance();
 
-    using IconCallback = std::function<void(const std::string& url, const std::vector<uint8_t>&)>;
+    void fetchSummary(bool forceRefresh, Callback<Summary> onSuccess, ErrorCallback onError);
+    void fetchProfile(bool forceRefresh, Callback<Profile> onSuccess, ErrorCallback onError);
+    void fetchProfileForAccount(const std::string& accountId, Callback<Profile> onSuccess, ErrorCallback onError);
+    void fetchLibrary(bool forceRefresh, Callback<std::vector<Title>> onSuccess, ErrorCallback onError);
+    void fetchTitleDetail(const Title& title, bool forceRefresh, Callback<TitleTrophies> onSuccess,
+                          ErrorCallback onError);
 
-    void fetchSummary(bool forceRefresh, Callback<psn::TrophySummary> onSuccess, ErrorCallback onError);
-    void fetchProfile(bool forceRefresh, Callback<psn::PsnProfile> onSuccess, ErrorCallback onError);
-    void fetchProfileForAccount(const std::string& accountId,
-        Callback<psn::PsnProfile> onSuccess, ErrorCallback onError);
-    void fetchLibrary(bool forceRefresh, Callback<std::vector<psn::TrophyTitle>> onSuccess, ErrorCallback onError);
-
-    void fetchTitleDetail(const psn::TrophyTitle& title, bool forceRefresh,
-        Callback<psn::TitleDetail> onSuccess, ErrorCallback onError);
+    void resolvePlayedGames(const std::vector<Title>& titles, std::function<void()> onUpdated);
+    std::optional<PlayedGame> playedGameFor(const libchiaking::trophies::NpCommunicationId& title) const;
 
     void fetchIcon(const std::string& url, IconCallback onSuccess);
     void discardIcon(const std::string& url);
-
-    void clearCache();
 
     void onActiveProfileChanged();
     void flushCache();
 
     void startAutoRefresh();
 
-    void setSummaryObserver(Callback<psn::TrophySummary> observer);
-    void setLibraryObserver(Callback<std::vector<psn::TrophyTitle>> observer);
+    void setSummaryObserver(Callback<Summary> observer);
+    void setLibraryObserver(Callback<std::vector<Title>> observer);
 
-    PersistedRateLimiter::Status budgetStatus() const;
-    void reconfigureLimiter();
     int64_t librarySavedAtSeconds() const;
-
-    struct GameProgress {
-        int64_t playDurationSeconds = 0;
-        std::string lastPlayedDateTime;
-        bool valid = false;
-    };
-
-    GameProgress gameProgressFor(const std::string& npCommunicationId) const;
-    void resolveGameProgress(const std::vector<psn::TrophyTitle>& titles, std::function<void()> onUpdated);
 
     static constexpr const char* SCOPE_LIBRARY = "library";
 
@@ -74,112 +69,77 @@ public:
     void recordForcedRefresh(const std::string& scope = SCOPE_LIBRARY);
 
 private:
-    static constexpr long REQUEST_TIMEOUT_S = 15;
-    static constexpr int MAX_ATTEMPTS = 3;
-    static constexpr int BURST_LIMIT = 5;
-    static constexpr int BURST_WINDOW_MS = 1000;
-    static constexpr int BREAKER_MINUTES = 15;
-    static constexpr int SUSTAINED_BUDGET = 300;
+    struct Request {
+        psn::Accounts::User user;
+        uint64_t generation = 0;
+        libchiaking::platform::StopToken stop;
+    };
+
     static constexpr int STALE_CHECK_MINUTES = 5;
     static constexpr int FORCE_REFRESH_COOLDOWN_MINUTES = 360;
     static constexpr int LIBRARY_LOG_CAP = 50;
     static constexpr int ICON_PREFETCH_CAP = 120;
-    static constexpr int SUMMARY_TTL_MINUTES = 360;
-    static constexpr int PROFILE_TTL_MINUTES = 720;
-    static constexpr int DETAIL_TTL_MINUTES = 360;
-    static constexpr int LIBRARY_TTL_MINUTES = 360;
     static constexpr long ICON_TIMEOUT_S = 20;
     static constexpr size_t ICON_CACHE_MAX_BYTES = 12 * 1024 * 1024;
     static constexpr size_t ICON_MAX_BYTES = 2 * 1024 * 1024;
     static constexpr const char* CACHE_DIR = "sdmc:/switch/akira/cache";
     static constexpr const char* TROPHY_CACHE_DIR = "sdmc:/switch/akira/cache/trophies";
+    static constexpr const char* ICON_DIR_NAME = "icons";
     static constexpr const char* ICON_CACHE_DIR = "sdmc:/switch/akira/cache/trophies/icons";
-    static constexpr const char* RATELIMIT_PATH = "sdmc:/switch/akira/cache/ratelimit.json";
+    static constexpr const char* LEGACY_RATELIMIT_PATH = "sdmc:/switch/akira/cache/ratelimit.json";
 
     TrophyManager();
 
-    bool hasConnectivity() const;
-    void awaitBurstSlot();
+    static psn::Error failureOf(const libchiaking::users::Unanswered& cause);
+    static const char* reasonName(libchiaking::users::Unanswered::Reason reason);
+    static int64_t nowSeconds();
+    static void deliverNotLinked(const ErrorCallback& onError);
 
-    psn::Error governedGet(HttpSession& session, const std::string& url, std::string& outBody);
-    psn::Client clientFor(HttpSession& session);
+    auto begin() -> std::optional<Request>;
+    auto requestFor(psn::Accounts::User user) -> Request;
+    auto current(const Request& request) const -> bool;
+    template <typename Value>
+    void deliver(const Request& request, Value value, Callback<Value> onSuccess) const;
+    void deliverFailure(const Request& request, const libchiaking::users::Unanswered& cause, const char* what,
+                        ErrorCallback onError) const;
+    auto trophies() -> libchiaking::trophies::Trophies&;
+    auto catalog() -> libchiaking::catalog::Catalog&;
+    auto joinPlayedGames(const Request& request, const std::vector<PlayedGame>& games,
+                         std::set<libchiaking::trophies::NpCommunicationId> wanted)
+        -> std::map<libchiaking::trophies::NpCommunicationId, PlayedGame>;
 
-    void ensureCacheDirs();
+    void dropLegacyCache();
     void ensureIconCacheDir();
-
-    std::string accountKey() const;
-    std::string accountCacheDir() const;
-    std::string summaryCachePath() const;
-    std::string libraryCachePath() const;
-    std::string detailCacheDir() const;
-    std::string titleMapPath() const;
-    std::string forceStatePath() const;
-    std::string rateLimitPath() const;
-
-    bool loadLibraryFromDisk(std::vector<psn::TrophyTitle>& outTitles, int64_t& outSavedAt) const;
-    void saveLibraryToDisk(const std::vector<psn::TrophyTitle>& titles) const;
-    bool loadSummaryFromDisk(psn::TrophySummary& outSummary, int64_t& outSavedAt) const;
-    std::string detailCachePath(const std::string& npCommunicationId) const;
-    bool loadDetailFromDisk(const std::string& npCommunicationId, psn::TitleDetail& outDetail,
-        int64_t& outSavedAt) const;
-    void saveDetailToDisk(const psn::TitleDetail& detail) const;
-    psn::Error fetchDetailBlocking(HttpSession& session, const psn::TrophyTitle& title,
-        psn::TitleDetail& outDetail);
-    void saveSummaryToDisk(const psn::TrophySummary& summary) const;
-    static bool cacheEntryFresh(int64_t savedAt, int ttlMinutes);
-    void loadTitleMapLocked();
-    void saveTitleMapLocked() const;
-    void loadForceStateLocked();
-    void saveForceStateLocked() const;
     std::string iconCachePath(const std::string& url) const;
     bool readIconFromDisk(const std::string& path, std::vector<uint8_t>& outBytes) const;
     void writeIconToDisk(const std::string& path, const std::vector<uint8_t>& bytes);
     void stopIconDiskWrites(const std::string& reason);
     void storeIconInMemory(const std::string& url, const std::vector<uint8_t>& bytes);
-    void prefetchIcons(const std::vector<psn::TrophyTitle>& titles);
-    void logLibrary(const std::vector<psn::TrophyTitle>& titles) const;
+    void prefetchIcons(const std::vector<Title>& titles);
+    void logLibrary(const std::vector<Title>& titles) const;
     void runStaleCheck();
 
     SettingsManager* settings = nullptr;
-    PersistedRateLimiter limiter{RATELIMIT_PATH, SUSTAINED_BUDGET};
 
     brls::RepeatingTimer staleTimer;
     bool autoRefreshStarted = false;
-    Callback<psn::TrophySummary> summaryObserver;
-    Callback<std::vector<psn::TrophyTitle>> libraryObserver;
+    Callback<Summary> summaryObserver;
+    Callback<std::vector<Title>> libraryObserver;
     std::atomic<bool> iconCacheDirReady{false};
     std::atomic<bool> iconDiskWritable{true};
 
     mutable std::mutex mutex;
+    uint64_t generation = 0;
+    std::shared_ptr<libchiaking::platform::StopSource> stopSource = std::make_shared<libchiaking::platform::StopSource>();
+    int64_t librarySavedAt = 0;
+    std::unordered_map<std::string, int64_t> forcedAt;
+    std::map<libchiaking::trophies::NpCommunicationId, PlayedGame> playedGames;
 
     mutable std::mutex iconMutex;
     std::unordered_map<std::string, std::vector<uint8_t>> iconCache;
     std::deque<std::string> iconOrder;
     std::unordered_map<std::string, std::vector<IconCallback>> iconWaiters;
     size_t iconCacheBytes = 0;
-    std::deque<std::chrono::steady_clock::time_point> burstWindow;
-
-    psn::TrophySummary cachedSummary;
-    bool hasCachedSummary = false;
-    int64_t summarySavedAt = 0;
-
-    psn::PsnProfile cachedProfile;
-    bool hasCachedProfile = false;
-    int64_t profileSavedAt = 0;
-
-
-    std::unordered_map<std::string, int64_t> forcedAt;
-    bool forceStateLoaded = false;
-
-    std::unordered_map<std::string, psn::TitleDetail> cachedDetails;
-
-    std::unordered_map<std::string, GameProgress> gameProgress;
-    bool titleMapLoaded = false;
-    bool gameProgressResolving = false;
-
-    std::vector<psn::TrophyTitle> cachedLibrary;
-    bool hasCachedLibrary = false;
-    int64_t librarySavedAt = 0;
 };
 
 #endif // AKIRA_TROPHY_MANAGER_HPP

@@ -2,9 +2,16 @@
 
 #include "core/pair_crypto.hpp"
 
+#include <libchiaking/platform/crypto/openssl/provider.hpp>
+#include <libchiaking/platform/runtime/random_provider.hpp>
+
+#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <span>
 #include <cstring>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace akira;
@@ -75,18 +82,54 @@ const char* kCtHex =
     "8a282fbdd682557a80e1c5fe349db4cbaf421ade29717f0157c0803726a50dbc4d67edd12f8b53b285eaeecf0d42386cd6bfae8c847b274541c5cbf94b4be4f7c6d983ed7c417dc5f4f91b";
 const char* kMacHex = "ba5f8878332de6941f9796222c83e4c716a12f114604443b3310e097cb7a1310";
 
+libchiaking::platform::openssl::OpenSslCryptoProvider openssl;
+libchiaking::platform::SystemSecureRandom entropy;
+
+class FixedP256Key final : public libchiaking::platform::EcdhKeyPair {
+public:
+    explicit FixedP256Key(std::vector<uint8_t> scalar) : scalar_(std::move(scalar)) {}
+
+    auto public_coordinates(std::span<std::byte> output) const
+        -> libchiaking::Expected<void, libchiaking::platform::CryptoError> override
+    {
+        using namespace libchiaking::platform;
+        std::array<std::byte, p256_point_size> point{};
+        if (auto made = openssl.p256_base_multiply(std::as_bytes(std::span{scalar_}), point); !made)
+            return made;
+        std::memcpy(output.data(), point.data() + sec1_uncompressed_point_prefix, output.size());
+        return {};
+    }
+
+    auto derive_secret(std::span<const std::byte> peer, std::span<std::byte> secret) const
+        -> libchiaking::Expected<void, libchiaking::platform::CryptoError> override
+    {
+        using namespace libchiaking::platform;
+        std::array<std::byte, p256_point_size> encoded{};
+        encoded[0] = std::byte{sec1_uncompressed_tag};
+        std::memcpy(encoded.data() + sec1_uncompressed_point_prefix, peer.data(), peer.size());
+        std::array<std::byte, p256_point_size> product{};
+        if (auto made = openssl.p256_multiply(std::as_bytes(std::span{scalar_}), encoded, product); !made)
+            return made;
+        std::memcpy(secret.data(), product.data() + sec1_uncompressed_point_prefix, secret.size());
+        return {};
+    }
+
+private:
+    std::vector<uint8_t> scalar_;
+};
+
 }
 
 TEST(pair_crypto_kat_matches_go_vector)
 {
-    std::vector<uint8_t> switchPriv(pair::kPrivKeyLen, 0x11);
+    FixedP256Key switchKey{std::vector<uint8_t>(32, 0x11)};
     std::vector<uint8_t> desktopPub = hexToBytes(kDesktopPubHex);
     std::vector<uint8_t> saltNonce(pair::kSaltNonceLen, 0x33);
     std::vector<uint8_t> iv(pair::kIvLen, 0x44);
     std::vector<uint8_t> payload(kPayload, kPayload + std::strlen(kPayload));
 
     uint8_t shared[pair::kSharedLen];
-    CHECK(pair::ecdhShared(switchPriv.data(), desktopPub.data(), shared));
+    CHECK(pair::KeyExchange::ecdhShared(switchKey, desktopPub.data(), shared));
     CHECK_EQ(bytesToHex(shared, pair::kSharedLen), std::string(kSharedHex));
 
     uint8_t keyEnc[pair::kKeyLen], keyMac[pair::kKeyLen];
@@ -106,7 +149,7 @@ TEST(pair_crypto_kat_matches_go_vector)
 
 TEST(pair_crypto_open_interops_with_go_sealed)
 {
-    std::vector<uint8_t> switchPriv(pair::kPrivKeyLen, 0x11);
+    FixedP256Key switchKey{std::vector<uint8_t>(32, 0x11)};
     std::vector<uint8_t> desktopPub = hexToBytes(kDesktopPubHex);
     std::vector<uint8_t> iv(pair::kIvLen, 0x44);
     std::vector<uint8_t> ct = hexToBytes(kCtHex);
@@ -119,43 +162,46 @@ TEST(pair_crypto_open_interops_with_go_sealed)
 
     std::vector<uint8_t> sealed = buildSealed(desktopPub.data(), iv.data(), ct, mac.data());
 
+    pair::KeyExchange exchange{openssl, entropy};
     std::vector<uint8_t> out;
-    pair::OpenResult r = pair::openSealed(hello, switchPriv.data(), sealed.data(), sealed.size(), kCode, out);
+    pair::OpenResult r = exchange.openSealed(hello, switchKey, sealed.data(), sealed.size(), kCode, out);
     CHECK(r == pair::OpenResult::Ok);
     CHECK_EQ(std::string(out.begin(), out.end()), payload);
 
     std::vector<uint8_t> out2;
-    pair::OpenResult wrong = pair::openSealed(hello, switchPriv.data(), sealed.data(), sealed.size(), "0000", out2);
+    pair::OpenResult wrong = exchange.openSealed(hello, switchKey, sealed.data(), sealed.size(), "0000", out2);
     CHECK(wrong == pair::OpenResult::BadMac);
 
     std::vector<uint8_t> tampered = sealed;
     tampered[90] ^= 0x01;
     std::vector<uint8_t> out3;
-    pair::OpenResult t = pair::openSealed(hello, switchPriv.data(), tampered.data(), tampered.size(), kCode, out3);
+    pair::OpenResult t = exchange.openSealed(hello, switchKey, tampered.data(), tampered.size(), kCode, out3);
     CHECK(t == pair::OpenResult::BadMac);
 }
 
 TEST(pair_crypto_generated_keys_round_trip)
 {
+    pair::KeyExchange exchange{openssl, entropy};
     pair::Hello hello;
-    uint8_t switchPriv[pair::kPrivKeyLen];
-    CHECK(pair::makeHello(hello, switchPriv));
+    auto switchKey = exchange.makeHello(hello);
+    CHECK(switchKey != nullptr);
 
-    uint8_t desktopPriv[pair::kPrivKeyLen], desktopPub[pair::kPubKeyLen];
-    CHECK(pair::generateKeypair(desktopPriv, desktopPub));
+    uint8_t desktopPub[pair::kPubKeyLen];
+    auto desktopKey = exchange.generateKeypair(desktopPub);
+    CHECK(desktopKey != nullptr);
 
     uint8_t shared[pair::kSharedLen];
-    CHECK(pair::ecdhShared(desktopPriv, hello.switchPub, shared));
+    CHECK(pair::KeyExchange::ecdhShared(*desktopKey, hello.switchPub, shared));
 
     uint8_t sharedRev[pair::kSharedLen];
-    CHECK(pair::ecdhShared(switchPriv, desktopPub, sharedRev));
+    CHECK(pair::KeyExchange::ecdhShared(*switchKey, desktopPub, sharedRev));
     CHECK_EQ(bytesToHex(shared, pair::kSharedLen), bytesToHex(sharedRev, pair::kSharedLen));
 
     uint8_t keyEnc[pair::kKeyLen], keyMac[pair::kKeyLen];
     pair::deriveKeys(shared, hello.saltNonce, pair::kSaltNonceLen, "1234", keyEnc, keyMac);
 
     uint8_t iv[pair::kIvLen];
-    CHECK(pair::randomBytes(iv, pair::kIvLen));
+    CHECK(entropy.fill_bytes(std::as_writable_bytes(std::span{iv})).has_value());
     std::string payload("resume-on-console credentials blob");
     std::vector<uint8_t> ct(payload.size());
     pair::aes256CtrXor(keyEnc, iv, reinterpret_cast<const uint8_t*>(payload.data()), ct.data(), payload.size());
@@ -166,11 +212,11 @@ TEST(pair_crypto_generated_keys_round_trip)
     std::vector<uint8_t> sealed = buildSealed(desktopPub, iv, ct, mac);
 
     std::vector<uint8_t> out;
-    pair::OpenResult r = pair::openSealed(hello, switchPriv, sealed.data(), sealed.size(), "1234", out);
+    pair::OpenResult r = exchange.openSealed(hello, *switchKey, sealed.data(), sealed.size(), "1234", out);
     CHECK(r == pair::OpenResult::Ok);
     CHECK_EQ(std::string(out.begin(), out.end()), payload);
 
     std::vector<uint8_t> out2;
-    pair::OpenResult wrong = pair::openSealed(hello, switchPriv, sealed.data(), sealed.size(), "9999", out2);
+    pair::OpenResult wrong = exchange.openSealed(hello, *switchKey, sealed.data(), sealed.size(), "9999", out2);
     CHECK(wrong == pair::OpenResult::BadMac);
 }

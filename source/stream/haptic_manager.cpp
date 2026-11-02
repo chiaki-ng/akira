@@ -237,8 +237,10 @@ void HapticManager::emitMotorsLegacy(const uint8_t* buf, size_t buf_size)
     }
 }
 
-void HapticManager::processHapticAudio(uint8_t* buf, size_t buf_size)
+void HapticManager::processHapticAudio(std::span<const std::byte> pcm)
 {
+    const auto* buf = reinterpret_cast<const uint8_t*>(pcm.data());
+    const size_t buf_size = pcm.size();
     const auto* stereo = reinterpret_cast<const int16_t*>(buf);
     const size_t frames = buf_size / (2 * sizeof(int16_t));
 

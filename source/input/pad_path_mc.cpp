@@ -15,26 +15,26 @@ namespace {
 
 struct ButtonMap {
     uint32_t ps;
-    uint32_t chiaki;
+    uint32_t button;
 };
 
 constexpr ButtonMap kButtons[] = {
-    { PsButton_Cross,    CHIAKI_CONTROLLER_BUTTON_CROSS      },
-    { PsButton_Circle,   CHIAKI_CONTROLLER_BUTTON_MOON       },
-    { PsButton_Square,   CHIAKI_CONTROLLER_BUTTON_BOX        },
-    { PsButton_Triangle, CHIAKI_CONTROLLER_BUTTON_PYRAMID    },
-    { PsButton_Left,     CHIAKI_CONTROLLER_BUTTON_DPAD_LEFT  },
-    { PsButton_Right,    CHIAKI_CONTROLLER_BUTTON_DPAD_RIGHT },
-    { PsButton_Up,       CHIAKI_CONTROLLER_BUTTON_DPAD_UP    },
-    { PsButton_Down,     CHIAKI_CONTROLLER_BUTTON_DPAD_DOWN  },
-    { PsButton_L1,       CHIAKI_CONTROLLER_BUTTON_L1         },
-    { PsButton_R1,       CHIAKI_CONTROLLER_BUTTON_R1         },
-    { PsButton_L3,       CHIAKI_CONTROLLER_BUTTON_L3         },
-    { PsButton_R3,       CHIAKI_CONTROLLER_BUTTON_R3         },
-    { PsButton_Options,  CHIAKI_CONTROLLER_BUTTON_OPTIONS    },
-    { PsButton_Create,   CHIAKI_CONTROLLER_BUTTON_SHARE      },
-    { PsButton_Touchpad, CHIAKI_CONTROLLER_BUTTON_TOUCHPAD   },
-    { PsButton_Ps,       CHIAKI_CONTROLLER_BUTTON_PS         },
+    { PsButton_Cross,    static_cast<uint32_t>(libchiaking::controllers::ControllerButton::cross) },
+    { PsButton_Circle,   static_cast<uint32_t>(libchiaking::controllers::ControllerButton::moon) },
+    { PsButton_Square,   static_cast<uint32_t>(libchiaking::controllers::ControllerButton::box) },
+    { PsButton_Triangle, static_cast<uint32_t>(libchiaking::controllers::ControllerButton::pyramid) },
+    { PsButton_Left,     static_cast<uint32_t>(libchiaking::controllers::ControllerButton::dpad_left) },
+    { PsButton_Right,    static_cast<uint32_t>(libchiaking::controllers::ControllerButton::dpad_right) },
+    { PsButton_Up,       static_cast<uint32_t>(libchiaking::controllers::ControllerButton::dpad_up) },
+    { PsButton_Down,     static_cast<uint32_t>(libchiaking::controllers::ControllerButton::dpad_down) },
+    { PsButton_L1,       static_cast<uint32_t>(libchiaking::controllers::ControllerButton::l1) },
+    { PsButton_R1,       static_cast<uint32_t>(libchiaking::controllers::ControllerButton::r1) },
+    { PsButton_L3,       static_cast<uint32_t>(libchiaking::controllers::ControllerButton::l3) },
+    { PsButton_R3,       static_cast<uint32_t>(libchiaking::controllers::ControllerButton::r3) },
+    { PsButton_Options,  static_cast<uint32_t>(libchiaking::controllers::ControllerButton::options) },
+    { PsButton_Create,   static_cast<uint32_t>(libchiaking::controllers::ControllerButton::share) },
+    { PsButton_Touchpad, static_cast<uint32_t>(libchiaking::controllers::ControllerButton::touchpad) },
+    { PsButton_Ps,       static_cast<uint32_t>(libchiaking::controllers::ControllerButton::ps) },
 };
 
 } // namespace
@@ -83,13 +83,13 @@ void McGenericPath::sendRumble(float left, float right, float freqLow, float fre
     inputMgr->sendRumbleToNpad((unsigned int)m_npad, freqLow, freqHigh, lo, hi);
 }
 
-void McGenericPath::readTriggers(ChiakiControllerState* state)
+void McGenericPath::readTriggers(libchiaking::controllers::ControllerState& state)
 {
     if (!m_extended.hasFreshAnalogState())
         return;
 
-    state->l2_state = m_extended.l2();
-    state->r2_state = m_extended.r2();
+    state.l2 = m_extended.l2();
+    state.r2 = m_extended.r2();
 }
 
 McPsNativePath::McPsNativePath(HidNpadIdType npad, ExtendedInputManager& extended,
@@ -157,7 +157,7 @@ bool McPsNativePath::poll()
     return connected;
 }
 
-void McPsNativePath::readButtons(ChiakiControllerState* state)
+void McPsNativePath::readButtons(libchiaking::controllers::ControllerState& state)
 {
     if (!m_report_valid)
         return;
@@ -167,9 +167,9 @@ void McPsNativePath::readButtons(ChiakiControllerState* state)
     for (const ButtonMap& m : kButtons) {
         if (!(m_report.buttons & m.ps))
             continue;
-        if (!settings->isButtonEnabled(m.chiaki))
+        if (!settings->isButtonEnabled(m.button))
             continue;
-        state->buttons |= m.chiaki;
+        state.buttons |= m.button;
     }
 }
 
@@ -231,30 +231,30 @@ bool McPsNativePath::menuHeld() const
     return (m_report.buttons & PsButton_Options) != 0;
 }
 
-void McPsNativePath::readTriggers(ChiakiControllerState* state)
+void McPsNativePath::readTriggers(libchiaking::controllers::ControllerState& state)
 {
     if (!m_report_valid) {
         McGenericPath::readTriggers(state);
         return;
     }
 
-    state->l2_state = m_report.l2;
-    state->r2_state = m_report.r2;
+    state.l2 = m_report.l2;
+    state.r2 = m_report.r2;
 }
 
-void McPsNativePath::releaseSlot(ChiakiControllerState* state, TouchSlot& slot)
+void McPsNativePath::releaseSlot(libchiaking::controllers::ControllerInput& input, TouchSlot& slot)
 {
     if (!slot.active)
         return;
 
-    if (slot.chiaki_id >= 0)
-        chiaki_controller_state_stop_touch(state, (uint8_t)slot.chiaki_id);
+    if (slot.touch_id >= 0)
+        input.stop_touch(static_cast<uint8_t>(slot.touch_id));
 
     slot.active    = false;
-    slot.chiaki_id = -1;
+    slot.touch_id = -1;
 }
 
-bool McPsNativePath::readTouchpad(ChiakiControllerState* state)
+bool McPsNativePath::readTouchpad(libchiaking::controllers::ControllerInput& input)
 {
     if (!m_model->has_touchpad)
         return false;
@@ -267,25 +267,25 @@ bool McPsNativePath::readTouchpad(ChiakiControllerState* state)
         TouchSlot& slot = m_slots[i];
 
         if (!point.down) {
-            releaseSlot(state, slot);
+            releaseSlot(input, slot);
             continue;
         }
 
         if (slot.active && slot.pad_id != point.id)
-            releaseSlot(state, slot);
+            releaseSlot(input, slot);
 
         if (!slot.active) {
-            const int8_t id = chiaki_controller_state_start_touch(state, point.x, point.y);
-            if (id < 0)
+            const auto id = input.start_touch(point.x, point.y);
+            if (!id)
                 continue;
 
             slot.active    = true;
             slot.pad_id    = point.id;
-            slot.chiaki_id = id;
+            slot.touch_id = static_cast<int8_t>(*id);
             continue;
         }
 
-        chiaki_controller_state_set_touch_pos(state, (uint8_t)slot.chiaki_id, point.x, point.y);
+        input.move_touch(static_cast<uint8_t>(slot.touch_id), point.x, point.y);
     }
 
     return true;

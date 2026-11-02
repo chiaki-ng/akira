@@ -121,14 +121,14 @@ void ProfileCardView::refresh() {
     auto guard = alive;
 
     TrophyManager::getInstance()->fetchProfile(false,
-        [this, guard](const psn::PsnProfile& prof) {
+        [this, guard](const TrophyManager::Profile& prof) {
             if (!*guard)
                 return;
-            if (!prof.onlineId.empty())
-                onlineIdLabel->setText(settings->maskAccountName(prof.onlineId));
-            plusLabel->setVisibility(prof.isPlus ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
+            if (!prof.online_id.empty())
+                onlineIdLabel->setText(settings->maskAccountName(prof.online_id));
+            plusLabel->setVisibility(prof.membership.is_ps_plus_member().value_or(false) ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
 
-            std::string url = prof.avatarUrl();
+            std::string url = prof.avatar_url.value_or("");
             if (url.empty())
                 return;
 
@@ -144,25 +144,25 @@ void ProfileCardView::refresh() {
         [](psn::Status, const std::string&) {});
 
     TrophyManager::getInstance()->fetchSummary(false,
-        [this, guard](const psn::TrophySummary& summary) {
+        [this, guard](const TrophyManager::Summary& summary) {
             if (!*guard)
                 return;
             trophyCol->setVisibility(brls::Visibility::VISIBLE);
             levelLabel->setText(std::format("{} {} · {}%",
-                "akira/settings/trophy_level"_i18n, summary.trophyLevel, summary.progress));
+                "akira/settings/trophy_level"_i18n, summary.level, summary.progress));
 
-            int pct = std::max(0, std::min(100, summary.progress));
+            int pct = std::min(100, static_cast<int>(summary.progress));
             progress->setWidthPercentage(static_cast<float>(pct));
 
-            platLabel->setText(std::to_string(summary.earnedTrophies.platinum));
-            goldLabel->setText(std::to_string(summary.earnedTrophies.gold));
-            silverLabel->setText(std::to_string(summary.earnedTrophies.silver));
-            bronzeLabel->setText(std::to_string(summary.earnedTrophies.bronze));
+            platLabel->setText(std::to_string(summary.earned.platinum));
+            goldLabel->setText(std::to_string(summary.earned.gold));
+            silverLabel->setText(std::to_string(summary.earned.silver));
+            bronzeLabel->setText(std::to_string(summary.earned.bronze));
 
-            platImg->setAlpha(summary.earnedTrophies.platinum > 0 ? 1.0f : 0.4f);
-            goldImg->setAlpha(summary.earnedTrophies.gold > 0 ? 1.0f : 0.4f);
-            silverImg->setAlpha(summary.earnedTrophies.silver > 0 ? 1.0f : 0.4f);
-            bronzeImg->setAlpha(summary.earnedTrophies.bronze > 0 ? 1.0f : 0.4f);
+            platImg->setAlpha(summary.earned.platinum > 0 ? 1.0f : 0.4f);
+            goldImg->setAlpha(summary.earned.gold > 0 ? 1.0f : 0.4f);
+            silverImg->setAlpha(summary.earned.silver > 0 ? 1.0f : 0.4f);
+            bronzeImg->setAlpha(summary.earned.bronze > 0 ? 1.0f : 0.4f);
         },
         [](psn::Status, const std::string&) {});
 }

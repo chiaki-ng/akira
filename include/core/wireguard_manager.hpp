@@ -6,13 +6,14 @@
 #include <atomic>
 #include <memory>
 #include <map>
+#include <vector>
+
+#include <libchiaking/consoles_types.hpp>
+
+#include "core/net/routing_network_provider.hpp"
 
 extern "C" {
 #include <wireguard.h>
-}
-
-namespace wgnx {
-class LwipRelay;
 }
 
 class WireGuardManager {
@@ -26,12 +27,10 @@ public:
     bool isConnected() const;
     std::string getTunnelIP() const;
     std::string getLastError() const;
-
-    uint16_t startTcpRelay(const std::string& targetIp, uint16_t targetPort, uint16_t localPort = 0);
-    uint16_t startUdpRelay(const std::string& targetIp, uint16_t targetPort, uint16_t localPort = 0);
-    void stopRelays();
-    bool isRelayRunning() const;
-    int sendUdpPacket(const std::string& targetIp, uint16_t targetPort, const void* data, size_t len);
+    auto homeNetwork(const std::string& consoleAddress) -> libchiaking::consoles::HomeNetwork;
+    auto discoveryNetwork() -> libchiaking::consoles::HomeNetwork;
+    auto tunnels(const std::string& consoleAddress) const -> bool;
+    auto allowedHosts() const -> std::vector<libchiaking::platform::IpAddress>;
 
 private:
     WireGuardManager();
@@ -43,16 +42,17 @@ private:
 
     bool parseConfigFile(const std::string& path, WgConfig& config);
     std::string parseValue(const std::string& line);
+    auto routesFor(const std::string& consoleAddress) const -> std::vector<akira::net::RoutingNetworkProvider::Prefix>;
 
     WgTunnel* tunnel = nullptr;
-    std::unique_ptr<wgnx::LwipRelay> lwipRelay_;
-    std::string targetIp_;
     WgConfig config = {};
     bool configLoaded = false;
+    bool connecting = false;
     std::atomic<bool> connected{false};
-    std::atomic<bool> relayRunning{false};
     std::string lastError;
     std::string tunnelIP;
+    std::vector<akira::net::RoutingNetworkProvider::Prefix> allowedIps;
+    std::shared_ptr<akira::net::TunnelStack> stack;
     mutable std::mutex mutex;
 };
 

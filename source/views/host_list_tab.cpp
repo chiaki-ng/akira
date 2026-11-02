@@ -12,12 +12,10 @@
 #include "views/enter_pin_view.hpp"
 #include "views/pair_view.hpp"
 #include "views/profile_setup_view.hpp"
+#include "views/qr_sign_in_view.hpp"
 #include "core/host.hpp"
 #include "core/trophy_manager.hpp"
-#include "psn/auth.hpp"
-#include "psn/models.hpp"
-#include "util/http_pool.hpp"
-#include "stream/session.hpp"
+#include "core/chiaki_core.hpp"
 #include "util/shared_view_holder.hpp"
 
 #include <borealis/core/i18n.hpp>
@@ -218,11 +216,11 @@ public:
         if (host->isRemote() && host->needsLink()) {
             pillText = "akira/hosts/link"_i18n;
             fg = akira::ui::active().accent;
-        } else if (host->usesTransientPsnRegistration()) {
+        } else if (host->usesInternetPairing()) {
             pillText = "akira/hosts/ready"_i18n;
             fg = akira::ui::active().success;
             dim = false;
-        } else if (!host->hasRpKey() && (host->isDiscovered() || host->canAutoRegister())) {
+        } else if (!host->hasRpKey() && (host->isDiscovered() || host->canPairOverInternet())) {
             pillText = "akira/hosts/register"_i18n;
             fg = akira::ui::active().accent;
         } else if (host->isStandby() && host->hasRpKey()) {
@@ -258,12 +256,12 @@ public:
 
     void doPrimaryAction() {
         if (host->isRemote() && host->needsLink()) doLink();
-        else if (host->usesTransientPsnRegistration()) doConnect();
-        else if (!host->hasRpKey() && (host->isDiscovered() || host->canAutoRegister())) doRegister();
+        else if (host->usesInternetPairing()) doConnect();
+        else if (!host->hasRpKey() && (host->isDiscovered() || host->canPairOverInternet())) doRegister();
         else if (host->isStandby() && host->hasRpKey() && !host->isRemote()) doWake();
         else if (host->hasRpKey()) doConnect();
         else brls::Logger::warning("No primary action for {} (remote={}, needsLink={}, discovered={}, rpkey={}, canAuto={})",
-            host->getHostName(), host->isRemote(), host->needsLink(), host->isDiscovered(), host->hasRpKey(), host->canAutoRegister());
+            host->getHostName(), host->isRemote(), host->needsLink(), host->isDiscovered(), host->hasRpKey(), host->canPairOverInternet());
     }
 
     void openContextMenu() {
@@ -309,8 +307,7 @@ private:
     void doWake() {
             brls::Logger::info("Wake {}", host->getHostName());
 
-            int result = host->wakeup();
-            if (result == 0) {
+            if (host->wake()) {
                 brls::Application::notify(brls::getStr("akira/hosts/wake_sent", host->getHostName()));
             } else {
                 brls::Application::notify(brls::getStr("akira/hosts/wake_failed", host->getHostName()));
@@ -325,12 +322,12 @@ private:
             brls::Logger::info("Register button clicked for {}", host->getHostName());
 
             auto* settings = SettingsManager::getInstance();
-            brls::Logger::info("Register {}: remoteDuid='{}' hasToken={} hasAccountId={} canAuto={}",
+            auto* accounts = akira::ChiakiCore::current().accounts();
+            brls::Logger::info("Register {}: remoteDuid='{}' signedIn={} hasAccountId={} canAuto={}",
                 host->getHostName(), host->getRemoteDuid(),
-                !settings->getPsnAccessToken().empty(),
-                !settings->getPsnAccountId(host).empty(), host->canAutoRegister());
-            bool isPS5 = host->isPS5();
-            bool needsAccountId = isPS5 || host->getChiakiTarget() >= CHIAKI_TARGET_PS4_9;
+                accounts && accounts->state() == psn::SessionState::Valid,
+                !settings->getPsnAccountId(host).empty(), host->canPairOverInternet());
+            bool needsAccountId = host->needsAccountId();
             std::string accountId = settings->getPsnAccountId(host);
             std::string onlineId = settings->getPsnOnlineId(host);
 
@@ -352,7 +349,7 @@ private:
                 return;
             }
 
-            if (host->canAutoRegister()) {
+            if (host->canPairOverInternet()) {
                 std::vector<std::string> options = {
                     "akira/hosts/register_auto"_i18n,
                     "akira/hosts/register_pin"_i18n
@@ -381,43 +378,34 @@ private:
 
         Host* hostPtr = host;
 
-        host->setOnRegistSuccess([hostPtr]() {
-            brls::sync([hostPtr]() {
-                hostPtr->finiRegist();
-                HostListTab::isRegistering = false;
-                brls::Application::notify("akira/hosts/registration_success"_i18n);
-                SettingsManager::getInstance()->writeFile();
-                if (HostListTab::currentInstance) {
-                    HostListTab::currentInstance->updateHostItem(hostPtr);
-                }
-            });
-        });
-
-        host->setOnRegistFailed([hostPtr]() {
-            brls::sync([hostPtr]() {
-                hostPtr->finiRegist();
-                HostListTab::isRegistering = false;
-                brls::Application::notify("akira/hosts/registration_failed"_i18n);
-            });
-        });
-
-        host->setOnRegistCanceled([hostPtr]() {
-            brls::sync([hostPtr]() {
-                hostPtr->finiRegist();
-                HostListTab::isRegistering = false;
-                brls::Application::notify("akira/hosts/registration_canceled"_i18n);
-            });
-        });
-
         auto* pinView = new EnterPinView(host, PinViewType::Registration);
-        pinView->setOnCancel([]() {
+        pinView->setOnCancel([hostPtr]() {
+            hostPtr->cancelRegistration();
             HostListTab::isRegistering = false;
             brls::Logger::info("PIN entry cancelled");
         });
         pinView->setOnPinEntered([hostPtr](const std::string& pin) {
             HostListTab::isRegistering = true;
             int pinValue = std::atoi(pin.c_str());
-            int result = hostPtr->registerHost(pinValue);
+            int result = hostPtr->registerHost(pinValue, [hostPtr](Host::PairingOutcome outcome) {
+                HostListTab::isRegistering = false;
+                switch (outcome) {
+                    case Host::PairingOutcome::Paired:
+                        brls::Application::notify("akira/hosts/registration_success"_i18n);
+                        SettingsManager::getInstance()->writeFile();
+                        if (HostListTab::currentInstance) {
+                            HostListTab::currentInstance->updateHostItem(hostPtr);
+                        }
+                        break;
+                    case Host::PairingOutcome::Canceled:
+                        brls::Application::notify("akira/hosts/registration_canceled"_i18n);
+                        break;
+                    case Host::PairingOutcome::Refused:
+                    case Host::PairingOutcome::Failed:
+                        brls::Application::notify("akira/hosts/registration_failed"_i18n);
+                        break;
+                }
+            });
             if (result != HOST_REGISTER_OK) {
                 HostListTab::isRegistering = false;
                 std::string errorMsg;
@@ -498,7 +486,7 @@ private:
         box->registerAction("akira/common/cancel"_i18n, brls::ControllerButton::BUTTON_B,
             [host](brls::View*) {
                 s_autoRegCanceled = true;
-                host->cancelHolepunch();
+                host->cancelRegistration();
                 HostListTab::isRegistering = false;
                 dismissAutoRegProgress();
                 return true;
@@ -519,77 +507,37 @@ private:
 
         Host* hostPtr = host;
 
-        host->setOnRegistSuccess([hostPtr]() {
-            brls::sync([hostPtr]() {
-                hostPtr->finiRegist();
-                HostListTab::isRegistering = false;
-                dismissAutoRegProgress();
-                brls::Application::notify("akira/hosts/registration_success"_i18n);
-                SettingsManager::getInstance()->writeFile();
-                if (HostListTab::currentInstance) {
-                    HostListTab::currentInstance->updateHostItem(hostPtr);
-                }
-            });
-        });
+        showAutoRegProgress(host);
+        setAutoRegStage(1, 4);
 
-        host->setOnRegistFailed([hostPtr]() {
-            brls::sync([hostPtr]() {
-                hostPtr->finiRegist();
+        const HostRegisterError result = host->registerOverInternet(
+            [](int index, int total) {
+                setAutoRegStage(index, total);
+            },
+            [hostPtr](Host::PairingOutcome outcome) {
                 HostListTab::isRegistering = false;
                 dismissAutoRegProgress();
-                if (s_autoRegCanceled) {
+                if (outcome == Host::PairingOutcome::Paired) {
+                    brls::Application::notify("akira/hosts/registration_success"_i18n);
+                    SettingsManager::getInstance()->writeFile();
+                    if (HostListTab::currentInstance) {
+                        HostListTab::currentInstance->updateHostItem(hostPtr);
+                    }
+                    return;
+                }
+                if (outcome == Host::PairingOutcome::Canceled || s_autoRegCanceled) {
                     return;
                 }
                 brls::Application::notify("akira/hosts/auto_register_fallback"_i18n);
                 startPinRegistration(hostPtr);
             });
-        });
 
-        host->setOnRegistCanceled([hostPtr]() {
-            brls::sync([hostPtr]() {
-                hostPtr->finiRegist();
-                HostListTab::isRegistering = false;
-                dismissAutoRegProgress();
-            });
-        });
-
-        host->setOnRegistStage([](int index, int total) {
-            brls::sync([index, total]() {
-                setAutoRegStage(index, total);
-            });
-        });
-
-        showAutoRegProgress(host);
-        setAutoRegStage(1, 4);
-
-        HttpPool::instance().submit([hostPtr](HttpSession& session) {
-            int result = HOST_REGISTER_ERROR_HOLEPUNCH;
-            try {
-                if (!psn::Auth::instance().tokenValid()) {
-                    brls::Logger::info("Auto-register: token stale, refreshing before holepunch");
-                    psn::Auth::instance().ensureSession(session, false);
-                    brls::Logger::info("Auto-register: token refresh returned (valid={})",
-                        psn::Auth::instance().tokenValid());
-                }
-                result = hostPtr->registerHostAuto();
-            } catch (const std::exception& e) {
-                brls::Logger::error("Auto-register worker threw: {}", e.what());
-            } catch (...) {
-                brls::Logger::error("Auto-register worker threw unknown exception");
-            }
-
-            if (result != HOST_REGISTER_OK) {
-                brls::sync([hostPtr]() {
-                    HostListTab::isRegistering = false;
-                    dismissAutoRegProgress();
-                    if (s_autoRegCanceled) {
-                        return;
-                    }
-                    brls::Application::notify("akira/hosts/auto_register_fallback"_i18n);
-                    startPinRegistration(hostPtr);
-                });
-            }
-        });
+        if (result != HOST_REGISTER_OK) {
+            HostListTab::isRegistering = false;
+            dismissAutoRegProgress();
+            brls::Application::notify("akira/hosts/auto_register_fallback"_i18n);
+            startPinRegistration(hostPtr);
+        }
     }
 
     void doLink() {
@@ -674,6 +622,15 @@ private:
             dialog->addButton("akira/common/cancel"_i18n, []() {});
             dialog->addButton("akira/common/delete"_i18n, [hostName]() {
                 auto* settings = SettingsManager::getInstance();
+                auto& core = akira::ChiakiCore::current();
+                auto* accounts = core.accounts();
+                auto hostIt = settings->getHostsMap()->find(hostName);
+                if (accounts && hostIt != settings->getHostsMap()->end() && hostIt->second->getConsole()) {
+                    if (const auto user = accounts->activeUser()) {
+                        if (!core.chiaki().consoles().unpair(user->account_id(), *hostIt->second->getConsole()))
+                            brls::Logger::error("Could not forget the pairing with {}", hostName);
+                    }
+                }
                 settings->removeActiveProfileRegistration(hostName);
                 settings->writeFile();
                 brls::Application::notify("akira/hosts/host_deleted"_i18n);
@@ -846,6 +803,7 @@ public:
             case cloud::Availability::LaunchBlocked:
                 pillText = "akira/cloud/pill_limited"_i18n;
                 pillColor = pal.warning;
+                subText = snapshot.status.canPair ? "akira/cloud/card_relink"_i18n : "akira/cloud/card_limited"_i18n;
                 break;
             case cloud::Availability::Error:
                 pillText = "akira/cloud/pill_offline"_i18n;
@@ -874,10 +832,11 @@ public:
 
         auto* glyph = new brls::Label();
         glyph->setText("\xEE\x8A\xBD");
-        glyph->setFontSize(52);
+        glyph->setFontSize(44);
         glyph->setTextColor(active ? pal.accent : pal.textDim);
-        glyph->setMarginTop(10);
-        glyph->setMarginBottom(12);
+        glyph->setMarginTop(4);
+        glyph->setMarginBottom(8);
+        glyph->setShrink(0);
         this->addView(glyph);
 
         auto* name = new brls::Label();
@@ -886,7 +845,8 @@ public:
         name->setWidth(142);
         name->setHorizontalAlign(brls::HorizontalAlign::CENTER);
         name->setTextColor(active ? pal.text : pal.textMuted);
-        name->setMarginBottom(6);
+        name->setMarginBottom(8);
+        name->setShrink(0);
         this->addView(name);
 
         auto* pill = new brls::Box();
@@ -897,6 +857,7 @@ public:
         pill->setPaddingTop(2);
         pill->setPaddingBottom(3);
         pill->setBackgroundColor(akira::ui::withAlpha(pillColor, 0x2e));
+        pill->setShrink(0);
         auto* pillLabel = new brls::Label();
         pillLabel->setText(pillText);
         pillLabel->setFontSize(16);
@@ -912,11 +873,17 @@ public:
             sub->setHorizontalAlign(brls::HorizontalAlign::CENTER);
             sub->setTextColor(pal.textDim);
             sub->setMarginTop(8);
-            sub->setWidth(140);
+            sub->setWidth(142);
+            sub->setShrink(0);
             this->addView(sub);
         }
 
         this->registerClickAction([snapshot](brls::View*) {
+            if (snapshot.status.canPair && snapshot.status.degraded)
+            {
+                brls::Application::pushActivity(new brls::Activity(new QrSignInView()));
+                return true;
+            }
             if (snapshot.status.canPair && !snapshot.status.canBrowse)
             {
                 brls::Application::pushActivity(new brls::Activity(new ProfileSetupView()));
@@ -1016,6 +983,7 @@ HostListTab::HostListTab() {
                 s->setActiveProfileId(ids[sel]);
                 s->writeFile();
                 TrophyManager::getInstance()->onActiveProfileChanged();
+                brls::sync([] { QrSignInView::openIfSignInExpired(); });
                 cloud::Service::instance().refreshActiveProfile(false,
                     [](const cloud::Snapshot&) {
                         if (!HostListTab::currentInstance)
@@ -1079,9 +1047,8 @@ void HostListTab::applyProfileMode() {
             dialog->open();
             return;
         }
-        bool skipAttr = SettingsManager::getInstance()->getCloudAttrPassed();
         HostListTab::connectionActive = true;
-        akira::views::startConnecting(std::make_unique<cloud::CloudConnectTask>(game, skipAttr));
+        akira::views::startConnecting(std::make_unique<cloud::CloudConnectTask>(game));
     });
     shortcutsRail->setLeadingCard([]() -> brls::View* { return new CloudCard(); });
     railSlot->addView(shortcutsRail);
@@ -1112,7 +1079,7 @@ void HostListTab::connectToHost(Host* host) {
 
     auto* settings = SettingsManager::getInstance();
     bool isPS5 = host->isPS5();
-    bool needsAccountId = isPS5 || host->getChiakiTarget() >= CHIAKI_TARGET_PS4_9;
+    bool needsAccountId = host->needsAccountId();
     std::string accountId = settings->getPsnAccountId(host);
     std::string onlineId = settings->getPsnOnlineId(host);
 
@@ -1169,14 +1136,14 @@ void HostListTab::initFindRemoteButton() {
             return true;
         }
 
-        std::string refreshToken = settings->getPsnRefreshToken();
-
-        if (refreshToken.empty()) {
+        auto* accounts = akira::ChiakiCore::current().accounts();
+        const psn::SessionState state = accounts ? accounts->state() : psn::SessionState::NotLinked;
+        if (state == psn::SessionState::NotLinked) {
             brls::Application::notify("akira/hosts/no_psn_token"_i18n);
             return true;
         }
 
-        auto onComplete = [](const psn::AuthResult& result) {
+        auto onComplete = [](const DiscoveryManager::RemoteRefreshResult& result) {
             if (!result.success) {
                 brls::Application::notify(brls::getStr("akira/hosts/token_refresh_failed", result.message));
             }
@@ -1190,7 +1157,7 @@ void HostListTab::initFindRemoteButton() {
             }
         };
 
-        if (psn::Auth::instance().tokenValid()) {
+        if (state == psn::SessionState::Valid) {
             brls::Application::notify("akira/hosts/finding_remote"_i18n);
         } else {
             brls::Application::notify("akira/hosts/token_expired_refreshing"_i18n);
@@ -1382,8 +1349,8 @@ void HostListTab::syncHostList() {
         if (fakeHosts.empty()) {
             for (int i = 1; i <= 20; i++) {
                 Host* h = new Host("PS5-Debug-" + std::to_string(i));
-                h->setChiakiTarget(CHIAKI_TARGET_PS5_1);
-                h->setState((i % 4 == 0) ? CHIAKI_DISCOVERY_HOST_STATE_STANDBY : CHIAKI_DISCOVERY_HOST_STATE_READY);
+                h->setFirmware(Host::Firmware::newest(libchiaking::consoles::Generation::ps5));
+                h->setPresence((i % 4 == 0) ? Host::Presence::rest_mode : Host::Presence::ready);
                 h->setHostType((i % 2 == 0) ? HostType::Auto : HostType::Manual);
                 fakeHosts.push_back(h);
             }
