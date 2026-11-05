@@ -81,7 +81,9 @@ public:
         this->addView(pillRow);
 
         this->registerClickAction([this](brls::View*) {
-            if (launchCb)
+            if (boundGame.launchLeftOut)
+                brls::Application::notify("akira/cloud/launch_not_built"_i18n);
+            else if (launchCb)
                 launchCb(boundGame);
             return true;
         });
@@ -108,7 +110,7 @@ public:
         const std::function<void(const Game&)>& onPin)
     {
         const auto& pal = akira::ui::active();
-        bool streamable = game.streamableNow();
+        bool streamable = game.streamableNow() && !game.launchLeftOut;
 
         boundGame = game;
         launchCb = onLaunch;
@@ -122,6 +124,7 @@ public:
         cover->setAlpha(streamable ? 1.0f : 0.5f);
         cover->clear();
 
+        pillRow->setAlpha(game.launchLeftOut ? 0.5f : 1.0f);
         pillRow->clearViews();
         std::string platform = platformBadge(game);
         if (!platform.empty())
@@ -1004,6 +1007,11 @@ void LibraryView::toggleShortcut(const Game& game)
     }
     else
     {
+        if (game.launchLeftOut)
+        {
+            brls::Application::notify("akira/cloud/launch_not_built"_i18n);
+            return;
+        }
         if (!game.streamableNow())
         {
             showAddGameDialog(game);

@@ -188,6 +188,7 @@ Game Service::gameOf(const catalog::MyGame& game, catalog::Catalog& catalog, lib
 
     out.serviceType = title.service() == catalog::ServiceGeneration::ps5_cloud ? "pscloud" : "psnow";
     out.streamServiceType = out.serviceType;
+    out.launchLeftOut = launchLeftOut(out.serviceType);
     out.streamIdentifier = game.launch_identifier().text();
     out.isOwned = game.is_owned();
     if (game.ownership())
@@ -850,9 +851,21 @@ void Service::refreshTitle(const Game& game, const platform::StopToken& stop, Ti
     });
 }
 
+bool Service::launchLeftOut(std::string_view serviceType)
+{
+    return AKIRA_PS5_CLOUD_LAUNCH == 0 && serviceType == "pscloud";
+}
+
 void Service::clearForLaunch(const Game& game, const platform::StopToken& stop, ClearedCallback onCleared,
                              ErrorCallback onError, ProgressCallback onProgress)
 {
+    if (launchLeftOut(game.serviceType))
+    {
+        if (onError)
+            brls::sync([onError]() { onError("akira/cloud/launch_not_built"_i18n); });
+        return;
+    }
+
     const Profile* profile = settings->getActiveProfile();
     User user = profile && akira::ChiakiCore::current().opened() ? activeUser() : nullptr;
     if (!user)

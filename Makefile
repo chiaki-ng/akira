@@ -21,6 +21,7 @@ NRO_FILE     := $(CURDIR)/build/akira.nro
 ELF_FILE     := build/akira.elf
 FTP_PORT     ?= 5000
 MUTE_CHIAKI  ?= false
+PS5_CLOUD_LAUNCH ?= false
 SWITCH_IP    ?=
 BUILD_CHANNEL      ?= dev
 VERSION_PRERELEASE ?=
@@ -95,6 +96,7 @@ help:
 	@echo "  FTP_PORT       sys-ftpd port for 'make crash' (default 5000)"
 	@echo "  LOG            Local crash report path for 'make crash'"
 	@echo "  MUTE_CHIAKI    Set to 'true' to mute chiaki library logs"
+	@echo "  PS5_CLOUD_LAUNCH  Set to 'true' to allow PS Cloud launches; refused by default, PS Now still launches"
 	@echo "  BUILD_CHANNEL  Version channel stamped into the build (default dev)"
 	@echo "  VERSION_PRERELEASE  Prerelease suffix stamped into the build"
 	@echo ""
@@ -175,6 +177,7 @@ build: docker-image
 		-e AKIRA_SOURCE="$(CURDIR)" \
 		-e AKIRA_IMAGE="$(DOCKER_IMAGE)" \
 		-e MUTE_CHIAKI="$(MUTE_CHIAKI)" \
+		-e PS5_CLOUD_LAUNCH="$(PS5_CLOUD_LAUNCH)" \
 		-e BUILD_CHANNEL="$(BUILD_CHANNEL)" \
 		-e VERSION_PRERELEASE="$(VERSION_PRERELEASE)" \
 		$(DOCKER_IMAGE) \

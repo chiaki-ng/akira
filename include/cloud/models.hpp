@@ -75,6 +75,7 @@ struct Game {
     ReleaseKind release = ReleaseKind::Unrestricted;
     Standing standing = Standing::MayStream;
     LaunchBlock launchBlock = LaunchBlock::None;
+    bool launchLeftOut = false;
     bool canBeAddedToLibrary = false;
     bool needsStorefrontCheck = false;
     bool isTrial = false;

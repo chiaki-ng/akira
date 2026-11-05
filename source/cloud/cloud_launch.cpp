@@ -91,6 +91,8 @@ auto CloudLaunch::refusalText(const play::LaunchRefused& refused, const std::str
             return "akira/cloud/status_relink_detail"_i18n;
         case Kind::store_region:
             return brls::getStr("akira/cloud/launch_store_region", name);
+        case Kind::not_built:
+            return "akira/cloud/launch_not_built"_i18n;
         case Kind::unavailable:
             break;
     }

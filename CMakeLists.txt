@@ -105,6 +105,7 @@ endif()
 
 option(MUTE_CHIAKI_LOGS "Drop every core log line" OFF)
 target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_MUTE_CORE_LOGS=$<BOOL:${MUTE_CHIAKI_LOGS}>)
+target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_PS5_CLOUD_LAUNCH=$<BOOL:${AKIRA_PS5_CLOUD_LAUNCH}>)
 
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

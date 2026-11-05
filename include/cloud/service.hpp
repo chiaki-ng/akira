@@ -9,6 +9,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <libchiaking/catalog.hpp>
@@ -145,6 +146,7 @@ private:
     static auto outcomeOf(libchiaking::catalog::StepOutcome outcome) -> FetchProgress::Outcome;
     static Game gameOf(const libchiaking::catalog::MyGame& game, libchiaking::catalog::Catalog& catalog,
                        libchiaking::users::PsUser& user);
+    static bool launchLeftOut(std::string_view serviceType);
     static Standing standingOf(libchiaking::catalog::Standing standing);
     static auto recentlyPlayedOf(libchiaking::users::PsUser& user) -> std::vector<RecentlyPlayed>;
     static Status statusOf(const Catalog& catalog, PlusMembership plusMembership);
