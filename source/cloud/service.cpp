@@ -302,6 +302,7 @@ auto Service::failureOf(const catalog::GamesFailure& cause) -> FetchFailure
         case Reason::rejected: reason = FetchFailure::Reason::Rejected; break;
         case Reason::region_unsupported: reason = FetchFailure::Reason::RegionUnsupported; break;
         case Reason::malformed: reason = FetchFailure::Reason::Malformed; break;
+        case Reason::not_built: reason = FetchFailure::Reason::Unavailable; break;
     }
     return FetchFailure(reason, cause.http_status(), cause.needs_sign_in());
 }
@@ -853,7 +854,8 @@ void Service::refreshTitle(const Game& game, const platform::StopToken& stop, Ti
 
 bool Service::launchLeftOut(std::string_view serviceType)
 {
-    return AKIRA_PS5_CLOUD_LAUNCH == 0 && serviceType == "pscloud";
+    return (AKIRA_PS5_CLOUD_LAUNCH == 0 && serviceType == "pscloud")
+        || (AKIRA_PS4_CLOUD_LAUNCH == 0 && serviceType == "psnow");
 }
 
 void Service::clearForLaunch(const Game& game, const platform::StopToken& stop, ClearedCallback onCleared,

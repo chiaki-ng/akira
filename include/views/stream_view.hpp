@@ -14,7 +14,9 @@
 #include <memory>
 #include <mutex>
 
+#if AKIRA_CLOUD
 #include "cloud/launch_screen.hpp"
+#endif
 #include "core/background_work.hpp"
 #include "core/discovery_manager.hpp"
 #include "core/host.hpp"
@@ -122,12 +124,14 @@ private:
     void showDisconnectMenu();
     void disconnectWithSleep(bool sleep);
 
+#if AKIRA_CLOUD
     void drawCloudLaunch(NVGcontext* vg, float x, float y, float width, float height);
     void pollCloudCancel();
     void showCloudFailure(const std::string& message, bool retry);
 
     std::optional<cloud::LaunchScreen> cloudScreen;
     bool cloudCancelHeld = true;
+#endif
 
     void onFocusChanged(bool focused);
     void attemptReconnect();

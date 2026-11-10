@@ -1,6 +1,8 @@
 #include "views/pair_view.hpp"
 
+#if AKIRA_CLOUD
 #include "cloud/service.hpp"
+#endif
 #include "core/chiaki_core.hpp"
 #include "core/settings_manager.hpp"
 #include "core/trophy_manager.hpp"
@@ -254,8 +256,10 @@ void PairView::adoptSignedInUser(int64_t profileId, const psn::Accounts::User& u
      * A new token can mean a different account behind the same profile, and the
      * cached catalog carries the previous one's owned games.
      */
+#if AKIRA_CLOUD
     cloud::Service::instance().clearCatalogCache();
     cloud::Service::instance().markActiveProfileDirty();
     cloud::Service::instance().refreshActiveProfile(true);
+#endif
     HostListTab::notifyActiveProfileChanged();
 }

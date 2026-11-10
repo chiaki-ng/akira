@@ -32,12 +32,17 @@ SettingsPictureView::SettingsPictureView() {
         if (cloudHeader) cloudHeader->setVisibility(brls::Visibility::GONE);
         if (cloudSection) cloudSection->setVisibility(brls::Visibility::GONE);
     } else {
+#if AKIRA_CLOUD
         initCloudResolutionSelector(true, pscloudResolutionSelector,
             "akira/settings/pscloud_resolution"_i18n);
         initCloudBitrateSlider(true, pscloudBitrateSlider);
         initCloudResolutionSelector(false, psnowResolutionSelector,
             "akira/settings/psnow_resolution"_i18n);
         initCloudBitrateSlider(false, psnowBitrateSlider);
+#else
+        if (cloudHeader) cloudHeader->setVisibility(brls::Visibility::GONE);
+        if (cloudSection) cloudSection->setVisibility(brls::Visibility::GONE);
+#endif
     }
     initEnableDitheringToggle();
     initDitheringStrengthSlider();

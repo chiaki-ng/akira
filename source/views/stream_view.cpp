@@ -6,7 +6,9 @@
 #include "input/pad_path.hpp"
 #include "views/stream_menu.hpp"
 #include "views/connecting_view.hpp"
+#if AKIRA_CLOUD
 #include "cloud/cloud_connect_task.hpp"
+#endif
 #include "ui/theme.hpp"
 #include "views/connection_stage.hpp"
 #include "stream/video_renderer.hpp"
@@ -107,8 +109,10 @@ StreamView::StreamView(Host* host, std::shared_ptr<Host> hostOwner)
 {
     this->session = Session::GetInstance();
     this->settings = SettingsManager::getInstance();
+#if AKIRA_CLOUD
     if (const auto* launch = host->cloudLaunch())
         cloudScreen.emplace(launch->name());
+#endif
 
     setFocusable(true);
 }
@@ -644,11 +648,13 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
             drawCount, streamActive, sessionStarted, menuOpen);
     }
 
+#if AKIRA_CLOUD
     if (cloudScreen && (!streamActive || !sessionStarted || !session->hasReceivedFirstFrame()))
     {
         drawCloudLaunch(vg, x, y, width, height);
         return;
     }
+#endif
 
     if (!streamActive || !sessionStarted)
     {
@@ -799,11 +805,14 @@ void StreamView::onPlaying()
     std::string hostName = host->getHostName();
     brls::Logger::info("Connected to {}", hostName);
     currentStage = static_cast<int>(ConnectionStage::Connected);
+#if AKIRA_CLOUD
     if (cloudScreen)
         cloudScreen->playing();
+#endif
     brls::Application::notify(brls::getStr("akira/stream/connected_to", hostName));
 }
 
+#if AKIRA_CLOUD
 void StreamView::drawCloudLaunch(NVGcontext* vg, float x, float y, float width, float height)
 {
     cloudScreen->draw(vg, x, y, width, height);
@@ -854,13 +863,16 @@ void StreamView::showCloudFailure(const std::string& message, bool retry)
     brls::Application::forceUnblockInputs();
     dialog->open();
 }
+#endif
 
 void StreamView::onLaunchProgress(const libchiaking::play::LaunchProgress& progress)
 {
     brls::Logger::info("Launch progress: phase {} activity {}", static_cast<int>(progress.phase()),
                        progress.activity() ? static_cast<int>(*progress.activity()) : -1);
+#if AKIRA_CLOUD
     if (cloudScreen)
         cloudScreen->progress(progress);
+#endif
 }
 
 void StreamView::onConnectProgress(const libchiaking::play::ConnectProgress& progress)
@@ -896,12 +908,14 @@ void StreamView::onRefused(const libchiaking::play::StartRefusal& refusal)
     stopStream();
     SharedViewHolder::release(this);
 
+#if AKIRA_CLOUD
     if (cloudScreen)
     {
         cloudScreen->failed();
         showCloudFailure(text, true);
         return;
     }
+#endif
 
     auto* dialog = new brls::Dialog(brls::getStr("akira/stream/connection_failed", text));
     dialog->addButton("OK", []() {
@@ -962,6 +976,7 @@ void StreamView::onEnded(const libchiaking::play::Outcome& outcome)
     } else if (stopped) {
         brls::Application::notify("akira/stream/quit_stopped"_i18n);
         akira::views::stream_nav::unwindToBase();
+#if AKIRA_CLOUD
     } else if (cloudScreen) {
         cloudScreen->failed();
         const bool endsPlayTime = quit && (quit->reason() == ConsoleQuit::Reason::time_limit_reached ||
@@ -972,6 +987,7 @@ void StreamView::onEnded(const libchiaking::play::Outcome& outcome)
         if (outcome.launch_refused())
             message = cloud::CloudLaunch::refusalText(*outcome.launch_refused(), host->cloudLaunch()->name());
         showCloudFailure(message, !endsPlayTime);
+#endif
     } else if (outcome.launch_refused() && host->cloudLaunch()) {
         auto* dialog = new brls::Dialog(brls::getStr("akira/stream/connection_failed",
             cloud::CloudLaunch::refusalText(*outcome.launch_refused(), host->cloudLaunch()->name())));

@@ -168,7 +168,7 @@
     "launch_streaming": "Starting stream…",
     "launch_ps_plus": "Cloud streaming needs a PlayStation Plus tier that includes game streaming.",
     "launch_store_region": "{} is sold in a different PlayStation Store region than your account's, so it can't be licensed to you for streaming.",
-    "launch_not_built": "This build of Akira can't start PS5 cloud games.",
+    "launch_not_built": "This build of Akira can't start this kind of cloud game.",
     "launch_unavailable": "This game is not available to stream for this account.",
     "launch_not_in_library": "{} isn't in your PlayStation library. PS5 cloud games only stream from your library: add it on the PS Store, then refresh.",
     "launch_not_released": "This game hasn't been released yet. Pre-ordered games unlock at their release time.",

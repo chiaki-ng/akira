@@ -1,8 +1,10 @@
 #include "views/host_list_tab.hpp"
+#if AKIRA_CLOUD
 #include "cloud/library_view.hpp"
 #include "cloud/cloud_connect_task.hpp"
-#include "ui/akira_header.hpp"
 #include "cloud/service.hpp"
+#endif
+#include "ui/akira_header.hpp"
 #include "ui/theme.hpp"
 #include "ui/log_pane.hpp"
 #include "ui/motion.hpp"
@@ -749,6 +751,7 @@ private:
     brls::Animatable focusAnim{0.0f};
 };
 
+#if AKIRA_CLOUD
 class CloudCard : public brls::Box {
 public:
     CloudCard()
@@ -903,6 +906,7 @@ public:
 private:
     brls::Animatable focusAnim{0.0f};
 };
+#endif
 
 
 HostListTab::HostListTab() {
@@ -953,11 +957,13 @@ HostListTab::HostListTab() {
             return true;
         }
 
+#if AKIRA_CLOUD
         if (cloud::Service::instance().snapshotForActiveProfile().status.availability
                 == cloud::Availability::Checking) {
             brls::Application::notify("akira/cloud/checking_wait"_i18n);
             return true;
         }
+#endif
 
         std::vector<std::string> names;
         std::vector<int64_t> ids;
@@ -984,6 +990,7 @@ HostListTab::HostListTab() {
                 s->writeFile();
                 TrophyManager::getInstance()->onActiveProfileChanged();
                 brls::sync([] { QrSignInView::openIfSignInExpired(); });
+#if AKIRA_CLOUD
                 cloud::Service::instance().refreshActiveProfile(false,
                     [](const cloud::Snapshot&) {
                         if (!HostListTab::currentInstance)
@@ -994,13 +1001,16 @@ HostListTab::HostListTab() {
                         if (HostListTab::currentInstance->shortcutsRail)
                             HostListTab::currentInstance->shortcutsRail->refresh();
                     });
+#endif
                 brls::sync([]() {
                     if (HostListTab::currentInstance) {
                         HostListTab::currentInstance->syncHostList();
                         if (HostListTab::currentInstance->profileChip)
                             HostListTab::currentInstance->profileChip->refresh();
+#if AKIRA_CLOUD
                         if (HostListTab::currentInstance->shortcutsRail)
                             HostListTab::currentInstance->shortcutsRail->refresh();
+#endif
                     }
                 });
             },
@@ -1025,6 +1035,7 @@ void HostListTab::applyProfileMode() {
     if (findRemoteBtn)
         findRemoteBtn->setVisibility(legacy ? brls::Visibility::GONE : brls::Visibility::VISIBLE);
 
+#if AKIRA_CLOUD
     /* Cloud needs an npsso: a permanent "pair to use this" card is a dead end. */
     if (legacy) {
         if (shortcutsRail) {
@@ -1063,6 +1074,7 @@ void HostListTab::applyProfileMode() {
             if (HostListTab::currentInstance->shortcutsRail)
                 HostListTab::currentInstance->shortcutsRail->refresh();
         });
+#endif
 }
 
 brls::View* HostListTab::getDefaultFocus() {
@@ -1187,6 +1199,7 @@ void HostListTab::willAppear(bool resetState) {
     brls::Logger::debug("HostListTab::willAppear - resuming discovery callbacks");
     findRemoteGate.start();
     if (profileChip) profileChip->refresh();
+#if AKIRA_CLOUD
     if (shortcutsRail) shortcutsRail->refresh();
     cloud::Service::instance().refreshActiveProfile(false,
         [](const cloud::Snapshot&) {
@@ -1198,6 +1211,7 @@ void HostListTab::willAppear(bool resetState) {
             if (HostListTab::currentInstance->shortcutsRail)
                 HostListTab::currentInstance->shortcutsRail->refresh();
         });
+#endif
     syncHostList();
 }
 
@@ -1219,8 +1233,10 @@ void HostListTab::refreshRailsIfActive() {
     brls::sync([]() {
         if (!currentInstance)
             return;
+#if AKIRA_CLOUD
         if (currentInstance->shortcutsRail)
             currentInstance->shortcutsRail->refresh();
+#endif
 
         brls::View* f = brls::Application::getCurrentFocus();
         bool underHome = false;
@@ -1254,15 +1270,19 @@ void HostListTab::refreshRailsIfActive() {
 }
 
 void HostListTab::notifyActiveProfileChanged() {
+#if AKIRA_CLOUD
     cloud::Service::instance().refreshActiveProfile(false);
+#endif
     if (!currentInstance)
         return;
     currentInstance->applyProfileMode();
     currentInstance->syncHostList();
     if (currentInstance->profileChip)
         currentInstance->profileChip->refresh();
+#if AKIRA_CLOUD
     if (currentInstance->shortcutsRail)
         currentInstance->shortcutsRail->refresh();
+#endif
 }
 
 void HostListTab::notifyAccountNameDisplayChanged() {
@@ -1382,8 +1402,10 @@ void HostListTab::syncHostList() {
                 hostContainer->addView(row);
             }
             row->addView(new AddHostCard());
+#if AKIRA_CLOUD
             for (auto* child : row->getChildren())
                 child->setCustomNavigationRoute(brls::FocusDirection::DOWN, "cloud/rail/lead");
+#endif
         }
     } else {
         auto* cardRow = new brls::Box();

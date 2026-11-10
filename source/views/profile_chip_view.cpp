@@ -1,10 +1,13 @@
 #include "views/profile_chip_view.hpp"
+#if AKIRA_CLOUD
 #include "cloud/service.hpp"
+#endif
 #include "ui/theme.hpp"
 #include "core/trophy_manager.hpp"
 
 using namespace brls::literals;
 
+#if AKIRA_CLOUD
 namespace {
 
 std::string cloudSummary(const cloud::Status& status)
@@ -35,6 +38,7 @@ std::string cloudSummary(const cloud::Status& status)
 }
 
 } // namespace
+#endif
 
 ProfileChipView::ProfileChipView() {
     this->inflateFromXMLRes("xml/profile_chip.xml");
@@ -64,7 +68,9 @@ ProfileChipView::~ProfileChipView() {
 }
 
 void ProfileChipView::refresh() {
+#if AKIRA_CLOUD
     const auto& pal = akira::ui::active();
+#endif
     const Profile* p = settings->getActiveProfile();
 
     std::string name;
@@ -91,13 +97,19 @@ void ProfileChipView::refresh() {
     }
 
     tagLabel->setVisibility(brls::Visibility::VISIBLE);
+#if AKIRA_CLOUD
     cloudLabel->setVisibility(brls::Visibility::VISIBLE);
     dot->setVisibility(brls::Visibility::VISIBLE);
+#else
+    cloudLabel->setVisibility(brls::Visibility::GONE);
+    dot->setVisibility(brls::Visibility::GONE);
+#endif
 
     tagLabel->setText(p && p->isRemote()
         ? "akira/settings/profile_remote"_i18n
         : "akira/settings/profile_local"_i18n);
 
+#if AKIRA_CLOUD
     cloud::Status status = p
         ? cloud::Service::instance().snapshotForActiveProfile().status
         : cloud::Status{};
@@ -119,6 +131,7 @@ void ProfileChipView::refresh() {
         default: dotColor = pal.textDim; break;
     }
     dot->setBackgroundColor(dotColor);
+#endif
 
     plusBadge->setVisibility(brls::Visibility::GONE);
 

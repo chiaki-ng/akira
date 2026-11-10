@@ -8,7 +8,9 @@
 #include "core/settings_manager.hpp"
 #include "views/psn_action_button.hpp"
 #include "views/profile_chip_view.hpp"
+#if AKIRA_CLOUD
 #include "views/cloud_shortcuts_rail.hpp"
+#endif
 #include "views/add_host_tab.hpp"
 
 class HostItemView;
@@ -44,7 +46,9 @@ private:
     BRLS_BIND(brls::Button, findRemoteBtn, "host/findRemoteBtn");
 
     ProfileChipView* profileChip = nullptr;
+#if AKIRA_CLOUD
     CloudShortcutsRail* shortcutsRail = nullptr;
+#endif
     brls::Box* emptyActionCard = nullptr;
 
     void initFindRemoteButton();

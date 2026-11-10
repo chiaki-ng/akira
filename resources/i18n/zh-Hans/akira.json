@@ -165,7 +165,7 @@
     "launch_streaming": "正在启动串流…",
     "launch_ps_plus": "云串流需要包含游戏串流的 PlayStation Plus 方案。",
     "launch_store_region": "{} 在与你账号不同的 PlayStation Store 地区销售，因此无法授权给你串流。",
-    "launch_not_built": "此版本的 Akira 无法启动 PS5 云串流游戏。",
+    "launch_not_built": "此版本的 Akira 无法启动这类云串流游戏。",
     "launch_unavailable": "此账户无法串流这款游戏。",
     "launch_not_in_library": "{} 不在你的 PlayStation 游戏库中。PS5 云游戏只能从游戏库串流：请先在 PS Store 添加，然后刷新。",
     "launch_not_released": "这款游戏尚未发售。预购的游戏将在发售时解锁。",

@@ -120,6 +120,7 @@ SettingsDeveloperView::SettingsDeveloperView() {
         DeveloperTuning::implemented_protocol_versions(libchiaking::consoles::Generation::ps4));
     initTakionSelector(takionPs5Selector, TakionTarget::PS5, "akira/settings/dev_takion_version_ps5"_i18n,
         DeveloperTuning::implemented_protocol_versions(libchiaking::consoles::Generation::ps5));
+#if AKIRA_CLOUD
     initTakionSelector(takionPs5CloudSelector, TakionTarget::PS5Cloud,
         "akira/settings/dev_takion_version_ps5_cloud"_i18n,
         DeveloperTuning::implemented_protocol_versions(libchiaking::catalog::ServiceGeneration::ps5_cloud)
@@ -127,6 +128,10 @@ SettingsDeveloperView::SettingsDeveloperView() {
             | std::ranges::to<std::vector>());
     initTakionSelector(takionPsNowSelector, TakionTarget::PSNow, "akira/settings/dev_takion_version_ps_now"_i18n,
         DeveloperTuning::implemented_protocol_versions(libchiaking::catalog::ServiceGeneration::old_service));
+#else
+    takionPs5CloudSelector->setVisibility(brls::Visibility::GONE);
+    takionPsNowSelector->setVisibility(brls::Visibility::GONE);
+#endif
 
     simulateUpdateCell->setText("akira/settings/simulate_update"_i18n);
     tlsVerifyProbeCell->setText("akira/settings/dev_tls_verify_probe"_i18n);

@@ -1,5 +1,7 @@
 #include "views/profile_card_view.hpp"
+#if AKIRA_CLOUD
 #include "cloud/service.hpp"
+#endif
 #include "ui/theme.hpp"
 #include "core/trophy_manager.hpp"
 
@@ -8,6 +10,7 @@
 
 using namespace brls::literals;
 
+#if AKIRA_CLOUD
 namespace {
 
 std::string cloudSummary(const cloud::Status& status)
@@ -38,6 +41,7 @@ std::string cloudSummary(const cloud::Status& status)
 }
 
 } // namespace
+#endif
 
 ProfileCardView::ProfileCardView() {
     this->inflateFromXMLRes("xml/profile_card.xml");
@@ -93,12 +97,14 @@ void ProfileCardView::refresh() {
     std::string status = p && p->isRemote()
         ? "akira/settings/profile_remote"_i18n
         : "akira/settings/profile_local"_i18n;
+#if AKIRA_CLOUD
     if (p && !p->legacy)
     {
         std::string cloud = cloudSummary(cloud::Service::instance().snapshotForActiveProfile().status);
         if (!cloud.empty())
             status += "  ·  " + cloud;
     }
+#endif
     if (p && p->legacy)
         status = "akira/settings/profile_legacy"_i18n;
     statusLabel->setText(status);
