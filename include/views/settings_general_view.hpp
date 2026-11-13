@@ -18,6 +18,7 @@ private:
     BRLS_BIND(brls::SelectorCell, languageSelector, "settings/language");
     BRLS_BIND(brls::SelectorCell, themeSelector, "settings/theme");
     BRLS_BIND(brls::Box, subnetsBox, "settings/subnetsBox");
+    brls::Box* addSubnetRow = nullptr;
     BRLS_BIND(brls::Label, versionLabel, "settings/version");
     BRLS_BIND(brls::BooleanCell, holepunchRetryToggle, "settings/holepunchRetry");
     BRLS_BIND(brls::BooleanCell, connectionShowStagesToggle, "settings/connectionShowStages");
@@ -31,6 +32,7 @@ private:
     void initLanguageSelector();
     void initThemeSelector();
     void rebuildSubnetsUI();
+    void scheduleSubnetsRebuild();
     void promptAddSubnet();
     void removeSubnet(const std::string& value);
     void initVersionUnlock();
