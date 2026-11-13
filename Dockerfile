@@ -25,6 +25,7 @@ RUN dkp-pacman -Syu --noconfirm && \
     switch-dav1d \
     switch-libopus \
     switch-libssh2 \
+    switch-mbedtls \
     && for package in switch-ffmpeg switch-libmpv switch-curl; do \
         dkp-pacman -Rdd --noconfirm "$package" || true; \
     done \
