@@ -73,7 +73,7 @@ jobs:
         env:
           BUILD_CHANNEL: ${{ steps.version.outputs.channel }}
           VERSION_PRERELEASE: ${{ steps.version.outputs.prerelease }}
-        run: make build
+        run: make build CLOUD=false
 
       - name: Upload NRO artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
