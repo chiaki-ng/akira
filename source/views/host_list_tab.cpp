@@ -215,7 +215,7 @@ public:
         std::string pillText;
         NVGcolor fg = akira::ui::active().textMuted;
         bool dim = true;
-        if (host->isRemote() && host->needsLink()) {
+        if (offersLink()) {
             pillText = "akira/hosts/link"_i18n;
             fg = akira::ui::active().accent;
         } else if (host->usesInternetPairing()) {
@@ -257,7 +257,7 @@ public:
     std::string getHostName() const { return hostName; }
 
     void doPrimaryAction() {
-        if (host->isRemote() && host->needsLink()) doLink();
+        if (offersLink()) doLink();
         else if (host->usesInternetPairing()) doConnect();
         else if (!host->hasRpKey() && (host->isDiscovered() || host->canPairOverInternet())) doRegister();
         else if (host->isStandby() && host->hasRpKey() && !host->isRemote()) doWake();
@@ -394,6 +394,7 @@ private:
                 switch (outcome) {
                     case Host::PairingOutcome::Paired:
                         brls::Application::notify("akira/hosts/registration_success"_i18n);
+                        hostPtr->setNeedsLink(false);
                         SettingsManager::getInstance()->writeFile();
                         if (HostListTab::currentInstance) {
                             HostListTab::currentInstance->updateHostItem(hostPtr);
@@ -521,6 +522,7 @@ private:
                 dismissAutoRegProgress();
                 if (outcome == Host::PairingOutcome::Paired) {
                     brls::Application::notify("akira/hosts/registration_success"_i18n);
+                    hostPtr->setNeedsLink(false);
                     SettingsManager::getInstance()->writeFile();
                     if (HostListTab::currentInstance) {
                         HostListTab::currentInstance->updateHostItem(hostPtr);
@@ -542,19 +544,27 @@ private:
         }
     }
 
+    bool offersLink() const {
+        return host->isRemote() && host->needsLink() && (!linkableHosts().empty() || !host->canPairOverInternet());
+    }
+
+    static std::vector<std::pair<std::string, Host*>> linkableHosts() {
+        std::vector<std::pair<std::string, Host*>> hosts;
+        for (auto& [name, h] : *SettingsManager::getInstance()->getHostsMap()) {
+            if (h && h->hasRpKey() && !h->isRemote())
+                hosts.emplace_back(name, h.get());
+        }
+        return hosts;
+    }
+
     void doLink() {
             brls::Logger::info("Link button clicked for {}", host->getHostName());
 
-            auto* settings = SettingsManager::getInstance();
-            auto* hostsMap = settings->getHostsMap();
-
             std::vector<std::string> hostNames;
             std::vector<Host*> hostPtrs;
-            for (auto& [name, h] : *hostsMap) {
-                if (h && h->hasRpKey() && !h->isRemote()) {
-                    hostNames.push_back(name);
-                    hostPtrs.push_back(h.get());
-                }
+            for (auto& [name, h] : linkableHosts()) {
+                hostNames.push_back(name);
+                hostPtrs.push_back(h);
             }
 
             if (hostNames.empty()) {

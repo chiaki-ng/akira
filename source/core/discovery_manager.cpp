@@ -666,10 +666,14 @@ void DiscoveryManager::processRemoteDevice(const SeenAccount& device)
         host->copyRegistrationFrom(localHost);
         host->setNeedsLink(false);
     }
-    else
+    else if (!host->hasRpKey())
     {
         host->setNeedsLink(true);
         brls::Logger::info("Remote device '{}' needs linking to a local host", device.name);
+    }
+    else
+    {
+        host->setNeedsLink(false);
     }
 
     host->presence = Host::Presence::unknown;
