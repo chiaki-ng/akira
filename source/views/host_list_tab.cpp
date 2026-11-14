@@ -25,6 +25,7 @@ using namespace brls::literals;
 
 #include <ctime>
 #include <functional>
+#include <iterator>
 #include <algorithm>
 #include <cctype>
 #include <thread>
@@ -268,22 +269,29 @@ public:
 
     void openContextMenu() {
         std::vector<std::string> options;
-        std::vector<int> ids;
+        std::vector<std::function<void()>> actions;
         if (host->hasRpKey() && !host->isRemote()) {
             options.push_back("akira/host_settings/console_pin"_i18n);
-            ids.push_back(0);
+            actions.emplace_back([this] { doConsolePIN(); });
+        }
+        if (!host->isCloud()) {
+            options.push_back(host->getHostAddr().empty() ? "akira/hosts/add_address"_i18n : "akira/hosts/set_address"_i18n);
+            actions.emplace_back([this] { doAddress(); });
+        }
+        if (host->isRegistered() && !host->isCloud()) {
+            options.push_back("akira/hosts/takion_version"_i18n);
+            actions.emplace_back([this] { doTakionPin(); });
         }
         if (host->isRegistered()) {
             options.push_back("akira/hosts/delete"_i18n);
-            ids.push_back(1);
+            actions.emplace_back([this] { doDelete(); });
         }
         if (options.empty()) return;
         auto* dropdown = new brls::Dropdown("akira/hosts/options"_i18n, options,
             [](int) {}, 0,
-            [this, ids](int sel) {
-                if (sel < 0 || sel >= static_cast<int>(ids.size())) return;
-                if (ids[sel] == 0) doConsolePIN();
-                else doDelete();
+            [actions](int sel) {
+                if (sel < 0 || sel >= static_cast<int>(actions.size())) return;
+                actions[static_cast<size_t>(sel)]();
             });
         brls::Application::pushActivity(new brls::Activity(dropdown));
     }
@@ -624,6 +632,63 @@ private:
                     brls::Application::notify("akira/host_settings/console_pin_saved"_i18n);
                 },
                 "akira/host_settings/console_pin"_i18n, "akira/host_settings/console_pin_hint"_i18n, 4, current, 0);
+    }
+
+    void doAddress() {
+        Host* target = host;
+        const std::string current = host->getHostAddr();
+        brls::Application::getImeManager()->openForText(
+            [target](std::string text) {
+                if (text.empty() || text == target->getHostAddr()) return;
+                if (!SettingsManager::isValidHostAddress(text)) {
+                    brls::Application::notify("akira/hosts/address_invalid"_i18n);
+                    return;
+                }
+                if (auto moved = target->moveTo(text); !moved) {
+                    brls::Application::notify(moved.error() == Host::AddressRefusal::Invalid
+                            ? "akira/hosts/address_invalid"_i18n
+                            : "akira/hosts/address_not_saved"_i18n);
+                    return;
+                }
+                SettingsManager::getInstance()->writeFile();
+                brls::Application::notify(brls::getStr("akira/hosts/address_saved", target->getHostName(), text));
+                if (HostListTab::currentInstance)
+                    HostListTab::currentInstance->updateHostItem(target);
+            },
+            current.empty() ? "akira/hosts/add_address"_i18n : "akira/hosts/set_address"_i18n,
+            "akira/hosts/address_hint"_i18n, 255, current, 0);
+    }
+
+    void doTakionPin() {
+        const auto versions = host->pinnableTakionVersions();
+        const int configured = SettingsManager::getInstance()->getTakionVersion(
+            host->isPS5() ? TakionTarget::PS5 : TakionTarget::PS4);
+        const std::string fallback = configured > 0
+            ? "v" + std::to_string(configured)
+            : "akira/settings/dev_takion_version_auto"_i18n;
+        std::vector<std::string> labels{brls::getStr("akira/hosts/takion_follow_settings", fallback)};
+        std::ranges::transform(versions, std::back_inserter(labels),
+            [](std::uint32_t version) { return "v" + std::to_string(version); });
+        const auto pinned = host->getPinnedTakionVersion();
+        const auto found = pinned ? std::ranges::find(versions, *pinned) : versions.end();
+        const int selected = found == versions.end() ? 0 : static_cast<int>(found - versions.begin()) + 1;
+        Host* target = host;
+        auto* dropdown = new brls::Dropdown("akira/hosts/takion_version"_i18n, labels,
+            [](int) {}, selected,
+            [target, versions](int sel) {
+                if (sel < 0 || sel > static_cast<int>(versions.size())) return;
+                if (sel == 0) {
+                    target->pinTakionVersion(std::nullopt);
+                    brls::Application::notify(brls::getStr("akira/hosts/takion_follows", target->getHostName()));
+                } else {
+                    const std::uint32_t version = versions[static_cast<size_t>(sel - 1)];
+                    target->pinTakionVersion(version);
+                    brls::Application::notify(
+                        brls::getStr("akira/hosts/takion_pinned", target->getHostName(), std::to_string(version)));
+                }
+                SettingsManager::getInstance()->writeFile();
+            });
+        brls::Application::pushActivity(new brls::Activity(dropdown));
     }
 
     void doDelete() {

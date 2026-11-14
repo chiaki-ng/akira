@@ -798,6 +798,9 @@ void SettingsManager::parseTomlFile() {
                     host->consolePIN = *val;
                 if (auto val = (*ct)["haptic"].value<int64_t>())
                     host->haptic = static_cast<int>(*val);
+                if (auto val = (*ct)["takion_version"].value<int64_t>();
+                    val && *val > 0 && host->isPinnableTakionVersion(static_cast<std::uint32_t>(*val)))
+                    host->pinnedTakionVersion = static_cast<std::uint32_t>(*val);
                 if (auto val = (*ct)["remote_duid"].value<std::string>())
                     host->remoteDuid = *val;
             }
@@ -1261,6 +1264,7 @@ toml::table SettingsManager::ownedSettings() {
             if (!host->consolePIN.empty()) ct.insert("console_pin", host->consolePIN);
             if (!host->remoteDuid.empty()) ct.insert("remote_duid", host->remoteDuid);
             if (host->haptic >= 0) ct.insert("haptic", host->haptic);
+            if (host->pinnedTakionVersion) ct.insert("takion_version", static_cast<int64_t>(*host->pinnedTakionVersion));
             consolesArr.push_back(ct);
 
             for (const Registration& reg : host->legacyRegistrations) {

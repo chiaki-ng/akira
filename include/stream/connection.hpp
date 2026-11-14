@@ -110,7 +110,7 @@ private:
     auto session() const -> std::shared_ptr<libchiaking::play::Session>;
     void post(std::function<void(Connection&, ConnectionListener&)> work);
     void routeCouchFeedback(const libchiaking::controllers::ControllerFeedback& feedback);
-    static auto tuned(libchiaking::play::PictureRequest picture, TakionTarget target, SettingsManager& settings)
+    static auto tuned(libchiaking::play::PictureRequest picture, std::uint32_t takionVersion, SettingsManager& settings)
         -> std::optional<libchiaking::play::Preferences>;
 
     void on_stream_description(const libchiaking::media::StreamDescription& description) override;

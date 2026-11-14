@@ -47,6 +47,35 @@ bool Host::isPS5() const
     return known && known->generation() == libchiaking::consoles::Generation::ps5;
 }
 
+std::expected<void, Host::AddressRefusal> Host::moveTo(const std::string& address)
+{
+    namespace consoles = libchiaking::consoles;
+    auto created = consoles::Host::create(address, isPS5() ? consoles::Generation::ps5 : consoles::Generation::ps4);
+    if (!created)
+        return std::unexpected(AddressRefusal::Invalid);
+    if (console)
+    {
+        if (auto moved = console->moved_to(created.value()); !moved)
+            return std::unexpected(moved.error() == consoles::Console::Unchanged::address_not_for_generation
+                    ? AddressRefusal::Invalid
+                    : AddressRefusal::NotSaved);
+    }
+    hostAddr = address;
+    return {};
+}
+
+std::span<const std::uint32_t> Host::pinnableTakionVersions() const
+{
+    if (isPS5())
+        return ps5TakionVersions;
+    return ps4TakionVersions;
+}
+
+bool Host::isPinnableTakionVersion(std::uint32_t version) const
+{
+    return std::ranges::contains(pinnableTakionVersions(), version);
+}
+
 bool Host::needsAccountId() const
 {
     const auto known = getFirmware();

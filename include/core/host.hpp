@@ -1,10 +1,14 @@
 #ifndef AKIRA_HOST_HPP
 #define AKIRA_HOST_HPP
 
+#include <array>
 #include <atomic>
+#include <cstdint>
+#include <expected>
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -50,6 +54,14 @@ public:
         Canceled
     };
 
+    enum class AddressRefusal : uint8_t {
+        Invalid,
+        NotSaved
+    };
+
+    static constexpr std::array<std::uint32_t, 2> ps4TakionVersions{9, 12};
+    static constexpr std::array<std::uint32_t, 4> ps5TakionVersions{12, 15, 19, 20};
+
     using PairingCallback = std::function<void(PairingOutcome)>;
     using PairingStageCallback = std::function<void(int index, int total)>;
 
@@ -73,6 +85,8 @@ private:
     int haptic = -1;  // -1=inherit from global, 0=disabled, 1=weak, 2=strong
 
     std::string consolePIN;  // 4-digit login PIN for auto-login (optional)
+
+    std::optional<std::uint32_t> pinnedTakionVersion;
 
     // Host identification
     std::string hostName;
@@ -125,6 +139,12 @@ public:
     void setFirmware(std::optional<Firmware> value) { firmware = value; }
     void setPresence(Presence value) { presence = value; }
     void linkConsole(std::shared_ptr<libchiaking::consoles::Console> linked);
+    [[nodiscard]] std::expected<void, AddressRefusal> moveTo(const std::string& address);
+
+    std::span<const std::uint32_t> pinnableTakionVersions() const;
+    bool isPinnableTakionVersion(std::uint32_t version) const;
+    std::optional<std::uint32_t> getPinnedTakionVersion() const { return pinnedTakionVersion; }
+    void pinTakionVersion(std::optional<std::uint32_t> version) { pinnedTakionVersion = version; }
 
     // Status checks
     bool isDiscovered() const { return discovered; }
