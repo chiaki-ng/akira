@@ -1424,7 +1424,7 @@ int SettingsManager::getMaxBitrateForResolution(VideoResolution res) const {
     switch (res) {
         case VideoResolution::P2160: return 60000;
         case VideoResolution::P1440: return 40000;
-        case VideoResolution::P1080: return 25000;
+        case VideoResolution::P1080: return 40000;
         case VideoResolution::P720: return 20000;
         case VideoResolution::P540: return 10000;
         case VideoResolution::P360: return 5000;
