@@ -176,6 +176,7 @@ public:
     bool canPairOverInternet() const;
     void cancelRegistration();
     void abandonRegistration();
+    void releaseConsole();
 
     void copyRegistrationFrom(const Host* other);
     bool hasLegacyRegistration(int64_t profileId) const;

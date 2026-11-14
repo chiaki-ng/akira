@@ -662,7 +662,10 @@ int main(int argc, char* argv[])
     for (auto& [name, host] : *settings->getHostsMap())
     {
         if (host)
+        {
             host->abandonRegistration();
+            host->releaseConsole();
+        }
     }
 
     HttpPool::instance().stop();

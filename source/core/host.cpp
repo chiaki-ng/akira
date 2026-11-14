@@ -361,6 +361,11 @@ void Host::abandonRegistration()
     pairingThread = libchiaking::platform::Thread{};
 }
 
+void Host::releaseConsole()
+{
+    console.reset();
+}
+
 void Host::finishPairing(PairingOutcome outcome, std::shared_ptr<libchiaking::consoles::Console> paired,
                          const PairingCallback& done)
 {
