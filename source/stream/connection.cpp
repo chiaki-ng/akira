@@ -125,6 +125,7 @@ auto Connection::tuned(play::PictureRequest picture, TakionTarget target, Settin
     preferences.picture = picture;
     preferences.sound = play::SoundRequest::create(play::SoundRequest::stereo)
                             .and_then([](const play::SoundRequest& sound) { return sound.capped_at(play::SoundRequest::stereo); })
+                            .transform([](const play::SoundRequest& sound) { return sound.with_audio_profiles(false); })
                             .value_or(play::SoundRequest{});
     preferences.developer = *developer;
     preferences.internet = *internet;
