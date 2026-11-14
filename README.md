@@ -29,7 +29,6 @@ If you find a bug or have a feature request, please help out and open a PR with 
 ## Features
 
 - **Basic remote play over an external network.** Same caveats as chiaki-ng, PSPlay, PSPortal, and the rest: you have to punch through to PSN for initiation. 
-- **Cloud Streaming**
 - **Multiple PSN profiles**
 - **Select bitrate.**
 - **Hidden menu** (think unlocking developer settings on Android) to raise the bitrate cap to 30k. You *request* a bitrate. The PS5 may or may not give it to you. It's not constant-bitrate encoding.
@@ -53,13 +52,8 @@ Please read the docs at [chiaki-ng.github.io/akira](https://chiaki-ng.github.io/
 ## Screenshots
 
 <p align="center" width="100%">
-  <img src="readme/hosts.jpg" width="49%" alt="Akira home screen: a manually added PS5 in standby, a PSN Remote Play console marked ready, an Add Console tile, a Cloud section below, and the signed-in PSN profile in the corner">
+  <img src="readme/hosts.jpg" width="49%" alt="Akira home screen: a manually added PS5 in standby, a PSN Remote Play console marked ready, an Add Console tile, and the signed-in PSN profile in the corner">
   <img src="readme/add_host_manual.jpg" width="49%" alt="Add Host screen with console name, IP address and console type fields, for adding a console by hand">
-</p>
-
-<p align="center" width="100%">
-  <img src="readme/ps_cloud_offering.jpg" width="49%" alt="PlayStation Cloud catalog grid with search, streamable filter, sort and region controls, each title tagged by platform and catalog">
-  <img src="readme/psn_cloud_streaming.jpg" width="49%" alt="Connecting to a cloud title, showing a progress ring at ten of ten steps while allocating a streaming slot">
 </p>
 
 <p align="center" width="100%">
