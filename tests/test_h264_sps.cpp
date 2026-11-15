@@ -1,6 +1,6 @@
 #include "test_util.hpp"
 
-#include "stream/h264_sps.hpp"
+#include "video/vulkan/h264_sps.hpp"
 
 #include <cstdint>
 #include <string_view>

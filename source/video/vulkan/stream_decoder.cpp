@@ -1,5 +1,5 @@
-#include "stream/stream_decoder.hpp"
-#include "stream/h264_sps.hpp"
+#include "video/vulkan/stream_decoder.hpp"
+#include "video/vulkan/h264_sps.hpp"
 #include "core/settings_manager.hpp"
 
 #include <algorithm>

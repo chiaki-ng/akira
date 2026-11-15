@@ -1,4 +1,4 @@
-#include "stream/decoder_output.hpp"
+#include "video/vulkan/decoder_output.hpp"
 
 #include <algorithm>
 #include <bit>

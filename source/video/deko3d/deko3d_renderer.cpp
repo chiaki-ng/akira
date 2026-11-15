@@ -1,6 +1,6 @@
 #ifdef BOREALIS_USE_DEKO3D
 
-#include "stream/deko3d_renderer.hpp"
+#include "video/deko3d/deko3d_renderer.hpp"
 
 #include <borealis/core/assets.hpp>
 #include <nanovg_dk.h>

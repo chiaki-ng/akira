@@ -16,33 +16,18 @@ if (NOT AKIRA_VIDEO_VULKAN AND NOT AKIRA_VIDEO_DEKO3D)
     message(FATAL_ERROR "Enable one of AKIRA_VIDEO_VULKAN and AKIRA_VIDEO_DEKO3D")
 endif()
 
-set(AKIRA_VIDEO_VULKAN_SOURCES
-    stream/stream_decoder
-    stream/hardware_decoder
-    stream/decoder_output
-    stream/h264_sps
-    stream/vulkan_renderer
-    video/vulkan_provider)
-set(AKIRA_VIDEO_DEKO3D_SOURCES
-    stream/video_decoder
-    stream/deko3d_renderer
-    video/deko3d_provider)
-
-foreach (source IN LISTS AKIRA_VIDEO_VULKAN_SOURCES AKIRA_VIDEO_DEKO3D_SOURCES)
-    list(REMOVE_ITEM MAIN_SRC ${CMAKE_CURRENT_SOURCE_DIR}/source/${source}.cpp)
-endforeach()
-
 if (AKIRA_VIDEO_VULKAN)
-    set(AKIRA_VIDEO_SOURCES ${AKIRA_VIDEO_VULKAN_SOURCES})
+    set(AKIRA_VIDEO_PROVIDER vulkan)
 else()
-    set(AKIRA_VIDEO_SOURCES ${AKIRA_VIDEO_DEKO3D_SOURCES})
+    set(AKIRA_VIDEO_PROVIDER deko3d)
 endif()
-foreach (source IN LISTS AKIRA_VIDEO_SOURCES)
-    list(APPEND MAIN_SRC ${CMAKE_CURRENT_SOURCE_DIR}/source/${source}.cpp)
-endforeach()
+
+list(FILTER MAIN_SRC EXCLUDE REGEX "/source/video/(vulkan|deko3d)/")
+file(GLOB_RECURSE AKIRA_VIDEO_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/source/video/${AKIRA_VIDEO_PROVIDER}/*.cpp)
+list(APPEND MAIN_SRC ${AKIRA_VIDEO_SOURCES})
 
 if (NOT AKIRA_VIDEO_DEKO3D)
     list(APPEND AKIRA_FOREIGN_RESOURCES shaders)
 endif()
 
-message(STATUS "Video provider: ${AKIRA_VIDEO_SOURCES}")
+message(STATUS "Video provider: ${AKIRA_VIDEO_PROVIDER}")

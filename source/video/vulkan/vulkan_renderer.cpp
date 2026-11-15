@@ -1,4 +1,4 @@
-#include "stream/vulkan_renderer.hpp"
+#include "video/vulkan/vulkan_renderer.hpp"
 
 #include "core/settings_manager.hpp"
 #include "core/wireguard_manager.hpp"

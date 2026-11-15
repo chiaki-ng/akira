@@ -1,4 +1,4 @@
-#include "stream/hardware_decoder.hpp"
+#include "video/vulkan/hardware_decoder.hpp"
 
 #include <algorithm>
 #include <cstdlib>

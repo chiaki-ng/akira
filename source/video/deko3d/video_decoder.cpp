@@ -1,4 +1,4 @@
-#include "stream/video_decoder.hpp"
+#include "video/deko3d/video_decoder.hpp"
 
 #include <bit>
 #include <chrono>

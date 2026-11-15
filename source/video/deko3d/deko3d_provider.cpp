@@ -1,9 +1,9 @@
-#include "video/deko3d_provider.hpp"
+#include "video/deko3d/deko3d_provider.hpp"
 
 #include <borealis.hpp>
 
-#include "stream/deko3d_renderer.hpp"
-#include "stream/video_decoder.hpp"
+#include "video/deko3d/deko3d_renderer.hpp"
+#include "video/deko3d/video_decoder.hpp"
 
 namespace akira::video
 {

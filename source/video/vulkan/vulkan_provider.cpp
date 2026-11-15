@@ -1,9 +1,9 @@
-#include "video/vulkan_provider.hpp"
+#include "video/vulkan/vulkan_provider.hpp"
 
 #include <borealis.hpp>
 
-#include "stream/stream_decoder.hpp"
-#include "stream/vulkan_renderer.hpp"
+#include "video/vulkan/stream_decoder.hpp"
+#include "video/vulkan/vulkan_renderer.hpp"
 
 namespace akira::video
 {

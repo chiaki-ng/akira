@@ -13,7 +13,7 @@
 #include <mutex>
 #include <optional>
 
-#include "stream/hardware_decoder.hpp"
+#include "video/vulkan/hardware_decoder.hpp"
 #include "util/av_wrappers.hpp"
 #include "video/decoder.hpp"
 

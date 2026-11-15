@@ -1,7 +1,7 @@
 #ifndef AKIRA_VULKAN_RENDERER_HPP
 #define AKIRA_VULKAN_RENDERER_HPP
 
-#include "stream/hardware_decoder.hpp"
+#include "video/vulkan/hardware_decoder.hpp"
 #include "stream/video_renderer.hpp"
 
 #include <vulkan/vulkan.h>
