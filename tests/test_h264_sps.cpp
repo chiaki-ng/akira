@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-using akira::stream::H264Sps;
+using akira::platform::vulkan::H264Sps;
 
 static std::vector<std::uint8_t> fromHex(std::string_view hex)
 {

@@ -7,10 +7,10 @@
 
 #include "platform/video/decoder.hpp"
 
-class IVideoRenderer;
-
-namespace akira::video
+namespace akira::platform
 {
+
+class VideoRenderer;
 
 struct FrameInfo
 {
@@ -18,7 +18,7 @@ struct FrameInfo
     std::uint32_t height = 0;
 };
 
-class Provider
+class VideoProvider
 {
 public:
     struct FrameHooks
@@ -27,23 +27,15 @@ public:
         std::function<void()> presented;
     };
 
-    struct Capabilities
-    {
-        bool hevc = false;
-        std::string_view decoderName;
-        std::string_view decoderStat;
-    };
-
-    static std::unique_ptr<Provider> create();
-    static Capabilities capabilities();
-
-    virtual ~Provider() = default;
+    virtual ~VideoProvider() = default;
 
     virtual const char* name() const = 0;
+    virtual std::string_view decoderName() const = 0;
+    virtual std::string_view decoderStat() const = 0;
 
-    virtual Decoder* decoder() = 0;
-    virtual Decoder& ensureDecoder() = 0;
-    virtual IVideoRenderer* renderer() = 0;
+    virtual VideoDecoder* decoder() = 0;
+    virtual VideoDecoder& ensureDecoder() = 0;
+    virtual VideoRenderer* renderer() = 0;
 
     virtual bool startRenderer(int width, int height, FrameHooks hooks) = 0;
     virtual void detachFrames() = 0;

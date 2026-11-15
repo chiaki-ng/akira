@@ -10,13 +10,16 @@
 
 #include <switch.h>
 
-#include "input/controller_timing.hpp"
+#include "platform/pads/extended/controller_timing.hpp"
 #include "input/sample_cadence.hpp"
 #include "platform/pads/extended/extended_input_manager.hpp"
 #include "platform/pads/extended/pad_path.hpp"
 #include "platform/pads/provider.hpp"
 
 class InputManager;
+
+namespace akira::platform::extended
+{
 
 struct PadPathInfo {
     bool available = false;
@@ -31,9 +34,6 @@ struct PadPathInfo {
     bool nativeRumble = false;
     bool switchNative = true;
 };
-
-namespace akira::platform::extended
-{
 
 class ExtendedPadProvider final : public PadProvider
 {
@@ -74,11 +74,11 @@ public:
     HidNpadIdType boundNpad() const;
     void resolvePadArrival();
 
-    void setPath(std::unique_ptr<input::PadPath> path);
+    void setPath(std::unique_ptr<PadPath> path);
     PadPathInfo pathInfo() const;
 
-    void sendTriggerEffects(const input::PadPath::TriggerEffect& left,
-        const input::PadPath::TriggerEffect& right);
+    void sendTriggerEffects(const PadPath::TriggerEffect& left,
+        const PadPath::TriggerEffect& right);
     void sendEffectIntensity(uint8_t vibration, uint8_t trigger);
     void sendLightbar(uint8_t red, uint8_t green, uint8_t blue);
 
@@ -89,7 +89,7 @@ public:
     ExtendedInputManager& extendedInput() { return m_extended; }
 
 private:
-    void setPathLocked(std::unique_ptr<input::PadPath> path);
+    void setPathLocked(std::unique_ptr<PadPath> path);
     PadPathInfo pathInfoLocked() const;
     std::vector<input::PadDescription> describePadsLocked();
     uint8_t couchJoinLocked(HidNpadIdType npad);
@@ -109,18 +109,18 @@ private:
 
     ExtendedInputManager m_extended;
 
-    std::unique_ptr<input::PadPath> m_path;
+    std::unique_ptr<PadPath> m_path;
     uint64_t m_path_generation = 0;
 
     static constexpr HidNpadIdType kNoNpad = (HidNpadIdType)0xff;
     HidNpadIdType m_bound_npad     = kNoNpad;
     std::map<HidNpadIdType, uint8_t> m_couch_roster;
-    std::map<HidNpadIdType, std::unique_ptr<input::PadPath>> m_secondary_paths;
-    std::map<HidNpadIdType, input::timing::TimePoint> m_secondary_missing_since;
+    std::map<HidNpadIdType, std::unique_ptr<PadPath>> m_secondary_paths;
+    std::map<HidNpadIdType, timing::TimePoint> m_secondary_missing_since;
     std::vector<input::PadDescription> m_couch_pads;
-    input::timing::TimePoint m_couch_pads_read{};
+    timing::TimePoint m_couch_pads_read{};
     bool m_couch_claim_active = false;
-    std::map<HidNpadIdType, input::timing::TimePoint> m_claim_started_at;
+    std::map<HidNpadIdType, timing::TimePoint> m_claim_started_at;
     std::function<void(HidNpadIdType, uint8_t)> m_on_couch_joined;
     std::function<void(HidNpadIdType, uint8_t)> m_on_couch_disconnected;
     std::function<void(HidNpadIdType)> m_on_pad_arrived;
@@ -128,7 +128,7 @@ private:
     uint32_t m_announced_mask = 0;
     bool     m_arrival_primed = false;
     bool     m_arrival_pending = false;
-    input::SampleCadence m_arrival_cadence{input::timing::ArrivalPollPeriod};
+    input::SampleCadence m_arrival_cadence{timing::ArrivalPollPeriod};
     bool          m_identify_done  = false;
     uint32_t      m_identify_next  = 0;
     uint32_t      m_identify_until = 0;

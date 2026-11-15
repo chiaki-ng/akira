@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <chrono>
 
-namespace akira::input::timing {
+namespace akira::platform::extended::timing {
 
 using Clock = std::chrono::steady_clock;
 using TimePoint = Clock::time_point;
@@ -23,6 +23,6 @@ inline float progress(TimePoint startedAt, TimePoint now, Clock::duration durati
     return static_cast<float>(std::clamp(elapsed / total, 0.0, 1.0));
 }
 
-} // namespace akira::input::timing
+} // namespace akira::platform::extended::timing
 
 #endif // AKIRA_INPUT_CONTROLLER_TIMING_HPP

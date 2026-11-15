@@ -5,7 +5,8 @@
 #include <functional>
 #include <string>
 
-namespace akira {
+namespace akira::platform::github
+{
 
 struct UpdateInfo {
     bool available = false;

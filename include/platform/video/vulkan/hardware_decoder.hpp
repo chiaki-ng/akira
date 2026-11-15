@@ -20,7 +20,7 @@
 
 #include "platform/video/vulkan/decoder_output.hpp"
 
-namespace akira::stream
+namespace akira::platform::vulkan
 {
 
 class HardwareDecoder;

@@ -1,6 +1,6 @@
 #ifdef BOREALIS_USE_DEKO3D
 
-#include "platform/video/deko3d/deko3d_renderer.hpp"
+#include "platform/video/deko3d/renderer.hpp"
 
 #include <borealis/core/assets.hpp>
 #include <nanovg_dk.h>
@@ -23,6 +23,9 @@ extern "C"
 #include <libavutil/hwcontext_nvtegra.h>
 #include <libswscale/swscale.h>
 }
+
+namespace akira::platform::deko3d
+{
 
 namespace
 {
@@ -2209,6 +2212,9 @@ bool Deko3dRenderer::captureLastFrame(std::vector<uint8_t>& rgba, int& width, in
     width = dstW;
     height = dstH;
     return true;
+}
+
+
 }
 
 #endif // BOREALIS_USE_DEKO3D

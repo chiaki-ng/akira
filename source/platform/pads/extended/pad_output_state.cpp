@@ -1,6 +1,6 @@
 #include "platform/pads/extended/pad_output_state.hpp"
 
-namespace akira::input {
+namespace akira::platform::extended {
 
 const char* PadDriverName(PadDriver driver)
 {
@@ -71,4 +71,4 @@ PadOutputState ResolvePadOutput(const PadOutputInputs& in)
     return out;
 }
 
-} // namespace akira::input
+} // namespace akira::platform::extended

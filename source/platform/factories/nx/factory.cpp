@@ -2,6 +2,7 @@
 
 #include "platform/feedback/extended/provider.hpp"
 #include "platform/haptics/extended/provider.hpp"
+#include "platform/video/deko3d/provider.hpp"
 #include "platform/pad_settings/extended/provider.hpp"
 #include "platform/stream/couch/provider.hpp"
 
@@ -16,7 +17,13 @@ PlatformFactory& PlatformFactory::instance()
 
 PlatformInfo NxPlatformFactory::info() const noexcept
 {
-    return {"nx", PlatformCapability::couch_seats | PlatformCapability::self_update | PlatformCapability::stats_export};
+    return {"nx", PlatformCapability::couch_seats | PlatformCapability::self_update | PlatformCapability::stats_export
+                  | PlatformCapability::hevc};
+}
+
+std::unique_ptr<VideoProvider> NxPlatformFactory::createVideo()
+{
+    return std::make_unique<deko3d::Deko3dVideoProvider>();
 }
 
 std::unique_ptr<HapticsProvider> NxPlatformFactory::createHaptics()

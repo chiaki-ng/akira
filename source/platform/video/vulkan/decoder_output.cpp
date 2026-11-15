@@ -5,7 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace akira::stream
+namespace akira::platform::vulkan
 {
 
 std::expected<std::unique_ptr<DecoderOutput>, DecoderOutput::Failure> DecoderOutput::acquire(const Device& device,

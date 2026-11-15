@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-namespace akira::input {
+namespace akira::platform::extended {
 
 inline const char* FindPadName(std::uint16_t vendor_id, std::uint16_t product_id)
 {
@@ -99,6 +99,6 @@ inline bool PadReportsBattery(std::uint16_t vendor_id, std::uint16_t product_id)
     return false;
 }
 
-} // namespace akira::input
+} // namespace akira::platform::extended
 
 #endif // AKIRA_INPUT_PAD_NAMES_HPP

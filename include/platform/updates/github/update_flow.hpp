@@ -3,7 +3,8 @@
 
 #include "platform/updates/github/update_manager.hpp"
 
-namespace akira {
+namespace akira::platform::github
+{
 
 class UpdateFlow {
 public:

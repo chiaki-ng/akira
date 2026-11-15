@@ -60,7 +60,7 @@ bool ExtendedHapticsProvider::nativeRumble() const
 bool ExtendedHapticsProvider::tunedForPad() const
 {
     const PadPathInfo path = m_pads.pathInfo();
-    return path.available && input::PadTakesDirectOutput(path.vendorId, path.productId);
+    return path.available && PadTakesDirectOutput(path.vendorId, path.productId);
 }
 
 bool ExtendedHapticsProvider::streamNativeHaptics(HapticManager& haptics, std::span<const std::int16_t> stereo)
@@ -85,29 +85,29 @@ bool ExtendedHapticsProvider::streamNativeHaptics(HapticManager& haptics, std::s
 
         m_haptic_block[m_haptic_fill++] = (std::int8_t)v;
 
-        if (m_haptic_fill < input::kDs5HapticBlockBytes * 2)
+        if (m_haptic_fill < kDs5HapticBlockBytes * 2)
             continue;
 
         m_haptic_fill = 0;
 
         int block_peak = 0;
-        for (std::size_t k = 0; k < input::kDs5HapticBlockBytes * 2; k++) {
+        for (std::size_t k = 0; k < kDs5HapticBlockBytes * 2; k++) {
             const int a = m_haptic_block[k] < 0 ? -(int)m_haptic_block[k]
                                                 :  (int)m_haptic_block[k];
             if (a > block_peak)
                 block_peak = a;
         }
-        if (block_peak <= input::kHapticBlockFloor) {
+        if (block_peak <= kHapticBlockFloor) {
             m_haptic_skipped++;
             continue;
         }
 
         m_haptic_last_send = std::chrono::steady_clock::now();
 
-        std::uint8_t frame[input::kDs5HapticFrameBytes];
-        const std::size_t len = input::BuildDs5HapticFrame(
+        std::uint8_t frame[kDs5HapticFrameBytes];
+        const std::size_t len = BuildDs5HapticFrame(
             0, m_haptic_counter,
-            m_haptic_block, input::kDs5HapticBlockBytes * 2,
+            m_haptic_block, kDs5HapticBlockBytes * 2,
             frame, sizeof(frame));
 
         m_haptic_counter = (std::uint8_t)(m_haptic_counter + 2);
@@ -147,8 +147,8 @@ bool ExtendedHapticsProvider::streamNativeHaptics(HapticManager& haptics, std::s
 
 void ExtendedHapticsProvider::emitMotorsFromWaveform(HapticManager& haptics, std::span<const std::int16_t> stereo)
 {
-    const input::HapticRumble r =
-        input::HapticAudioToRumble(stereo.data(), stereo.size() / 2, haptics.profile().haptic_intensity,
+    const HapticRumble r =
+        HapticAudioToRumble(stereo.data(), stereo.size() / 2, haptics.profile().haptic_intensity,
                                    !tunedForPad());
 
     const float target_left  = r.emit ? (float)r.left  / 65535.0f : 0.0f;

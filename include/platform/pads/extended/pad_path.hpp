@@ -12,20 +12,21 @@
 #include "platform/pads/pad.hpp"
 #include "platform/pads/extended/pad_output_state.hpp"
 
+
+namespace akira::platform::extended {
+
 class ExtendedInputManager;
 
-namespace akira::input {
-
-class PadPath : public Pad {
+class PadPath : public input::Pad {
 public:
-    virtual PadPathKind kind() const = 0;
+    virtual input::PadPathKind kind() const = 0;
 
     virtual const char* label() const = 0;
 
     virtual HidNpadIdType   npad()  const = 0;
     virtual HidNpadStyleTag style() const = 0;
 
-    virtual PadCapabilities capabilities() const = 0;
+    virtual input::PadCapabilities capabilities() const = 0;
 
     virtual bool switchNative() const { return true; }
     virtual uint16_t vendorId() const { return 0; }
@@ -47,19 +48,19 @@ public:
     virtual void setExcludedNpads(uint64_t) {}
 };
 
-PadDriverState ResolvePadDriverState(const PadDescription& desc,
+PadDriverState ResolvePadDriverState(const input::PadDescription& desc,
                                      ExtendedInputManager& extended);
 
-PadDriver ResolvePadDriver(const PadDescription& desc, ExtendedInputManager& extended);
+PadDriver ResolvePadDriver(const input::PadDescription& desc, ExtendedInputManager& extended);
 
-std::vector<PadDescription> DescribePads(ExtendedInputManager& extended);
+std::vector<input::PadDescription> DescribePads(ExtendedInputManager& extended);
 
-std::vector<PadDescription> DescribePads();
+std::vector<input::PadDescription> DescribePads();
 
-std::unique_ptr<PadPath> MakePath(const PadDescription& desc, ExtendedInputManager& extended);
+std::unique_ptr<PadPath> MakePath(const input::PadDescription& desc, ExtendedInputManager& extended);
 
 std::unique_ptr<PadPath> DefaultPadPath(ExtendedInputManager& extended);
 
-} // namespace akira::input
+} // namespace akira::platform::extended
 
 #endif // AKIRA_INPUT_PAD_PATH_HPP

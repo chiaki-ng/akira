@@ -22,6 +22,7 @@ public:
     nxext::NxextStatsProvider& stats() override { return m_stats; }
     extended::ExtendedPadProvider& pads() override { return m_pads; }
 
+    std::unique_ptr<VideoProvider> createVideo() override;
     std::unique_ptr<HapticsProvider> createHaptics() override;
     std::unique_ptr<FeedbackProvider> createFeedback(HapticManager& haptics) override;
     std::unique_ptr<StreamControlsProvider> createStreamControls(std::weak_ptr<StreamControlsHost> host) override;

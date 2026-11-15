@@ -15,7 +15,7 @@ namespace akira::platform::extended
 
 void ExtendedPadProvider::open()
 {
-    setPathLocked(akira::input::DefaultPadPath(m_extended));
+    setPathLocked(akira::platform::extended::DefaultPadPath(m_extended));
 
     m_extended.initializeOptional();
 
@@ -26,7 +26,7 @@ void ExtendedPadProvider::open()
         for (const auto& desc : describePadsLocked()) {
             if (desc.npad != wanted)
                 continue;
-            auto path = akira::input::MakePath(desc, m_extended);
+            auto path = akira::platform::extended::MakePath(desc, m_extended);
             if (path) {
                 m_bound_npad = wanted;
                 setPathLocked(std::move(path));
@@ -67,7 +67,7 @@ input::Pad* ExtendedPadProvider::current()
 
 std::vector<input::PadDescription> ExtendedPadProvider::scanPads() const
 {
-    return akira::input::DescribePads();
+    return akira::platform::extended::DescribePads();
 }
 
 input::RumbleProfile ExtendedPadProvider::primaryRumbleProfile() const
@@ -124,13 +124,13 @@ void ExtendedPadProvider::routeSeatFeedback(uint8_t slot, const libchiaking::con
     }
 }
 
-void ExtendedPadProvider::setPath(std::unique_ptr<akira::input::PadPath> path)
+void ExtendedPadProvider::setPath(std::unique_ptr<akira::platform::extended::PadPath> path)
 {
     std::lock_guard<std::mutex> lock(mutex());
     setPathLocked(std::move(path));
 }
 
-void ExtendedPadProvider::setPathLocked(std::unique_ptr<akira::input::PadPath> path)
+void ExtendedPadProvider::setPathLocked(std::unique_ptr<akira::platform::extended::PadPath> path)
 {
     if (!path)
         return;
@@ -171,8 +171,8 @@ PadPathInfo ExtendedPadProvider::pathInfoLocked() const
     return info;
 }
 
-void ExtendedPadProvider::sendTriggerEffects(const akira::input::PadPath::TriggerEffect& left,
-    const akira::input::PadPath::TriggerEffect& right)
+void ExtendedPadProvider::sendTriggerEffects(const akira::platform::extended::PadPath::TriggerEffect& left,
+    const akira::platform::extended::PadPath::TriggerEffect& right)
 {
     std::lock_guard<std::mutex> lock(mutex());
     if (m_path)
@@ -201,7 +201,7 @@ std::vector<input::PadDescription> ExtendedPadProvider::describePads()
 
 std::vector<input::PadDescription> ExtendedPadProvider::describePadsLocked()
 {
-    return akira::input::DescribePads(m_extended);
+    return akira::platform::extended::DescribePads(m_extended);
 }
 
 void ExtendedPadProvider::selectNpad(HidNpadIdType npad)
@@ -212,7 +212,7 @@ void ExtendedPadProvider::selectNpad(HidNpadIdType npad)
         if (desc.npad != npad)
             continue;
 
-        auto path = akira::input::MakePath(desc, m_extended);
+        auto path = akira::platform::extended::MakePath(desc, m_extended);
         if (!path)
             break;
 
@@ -224,7 +224,7 @@ void ExtendedPadProvider::selectNpad(HidNpadIdType npad)
     }
 
     brls::Logger::warning("InputManager: npad {} no longer present, falling back to default", (int)npad);
-    setPathLocked(akira::input::DefaultPadPath(m_extended));
+    setPathLocked(akira::platform::extended::DefaultPadPath(m_extended));
 }
 
 void ExtendedPadProvider::retryPathIdentification()
@@ -239,7 +239,7 @@ void ExtendedPadProvider::retryPathIdentification()
         m_identify_next  = now;
     }
 
-    if (akira::input::PadTakesDirectOutput(m_path->vendorId(), m_path->productId())) {
+    if (akira::platform::extended::PadTakesDirectOutput(m_path->vendorId(), m_path->productId())) {
         m_identify_done = true;
         return;
     }
@@ -267,7 +267,7 @@ void ExtendedPadProvider::retryPathIdentification()
         if (m_bound_npad != kNoNpad && desc.npad != m_bound_npad)
             continue;
 
-        auto path = akira::input::MakePath(desc, m_extended);
+        auto path = akira::platform::extended::MakePath(desc, m_extended);
         if (!path)
             continue;
 
@@ -296,20 +296,20 @@ void ExtendedPadProvider::reconcilePathDriver()
         if (desc.npad != m_bound_npad)
             continue;
 
-        const akira::input::PadDriver driver =
-            akira::input::ResolvePadDriver(desc, m_extended);
+        const akira::platform::extended::PadDriver driver =
+            akira::platform::extended::ResolvePadDriver(desc, m_extended);
         const bool native_now = m_path->nativeRumble();
 
-        if ((driver == akira::input::PadDriver::Akira) == native_now)
+        if ((driver == akira::platform::extended::PadDriver::Akira) == native_now)
             return;
 
-        auto path = akira::input::MakePath(desc, m_extended);
+        auto path = akira::platform::extended::MakePath(desc, m_extended);
         if (!path)
             return;
 
         brls::Logger::info("InputManager: pad on npad {} is now driven by {}"
                            " - {} to {}",
-                           (int)desc.npad, akira::input::PadDriverName(driver),
+                           (int)desc.npad, akira::platform::extended::PadDriverName(driver),
                            m_path->label(), path->label());
         setPathLocked(std::move(path));
         return;
@@ -443,7 +443,7 @@ void ExtendedPadProvider::readSecondaryPads(InputManager& input, std::span<libch
         count = couchPadCountLocked();
         return;
     }
-    const auto now = akira::input::timing::Clock::now();
+    const auto now = akira::platform::extended::timing::Clock::now();
     if (m_couch_pads.empty() || now - m_couch_pads_read >= akira::input::DirectDiscoveryPeriod)
     {
         m_couch_pads = describePadsLocked();
@@ -478,7 +478,7 @@ void ExtendedPadProvider::readSecondaryPads(InputManager& input, std::span<libch
             if (firstMiss)
                 brls::Logger::warning("Couch: slot {} npad {} disappeared; sending idle input",
                                       (int)slot, (int)npad);
-            if (now - missing->second >= akira::input::timing::DisconnectGrace)
+            if (now - missing->second >= akira::platform::extended::timing::DisconnectGrace)
                 disconnected.emplace_back(npad, slot);
             continue;
         }
@@ -487,7 +487,7 @@ void ExtendedPadProvider::readSecondaryPads(InputManager& input, std::span<libch
 
         auto& cached = m_secondary_paths[npad];
         if (!cached)
-            cached = akira::input::MakePath(*found, m_extended);
+            cached = akira::platform::extended::MakePath(*found, m_extended);
         if (!cached)
             continue;
         cached->poll();
@@ -535,11 +535,11 @@ float ExtendedPadProvider::couchClaimProgress() const
     if (!m_couch_claim_active)
         return 0.0f;
 
-    const auto now = akira::input::timing::Clock::now();
+    const auto now = akira::platform::extended::timing::Clock::now();
     float bestProgress = 0.0f;
     for (const auto& entry : m_claim_started_at)
-        bestProgress = std::max(bestProgress, akira::input::timing::progress(
-            entry.second, now, akira::input::timing::CouchClaimHold));
+        bestProgress = std::max(bestProgress, akira::platform::extended::timing::progress(
+            entry.second, now, akira::platform::extended::timing::CouchClaimHold));
     return bestProgress;
 }
 
@@ -631,7 +631,7 @@ bool ExtendedPadProvider::isClaimableNpadLocked(HidNpadIdType npad) const
 
 void ExtendedPadProvider::pollPadArrivals(Callbacks& callbacks)
 {
-    const auto now = akira::input::timing::Clock::now();
+    const auto now = akira::platform::extended::timing::Clock::now();
     if (!m_arrival_cadence.due(now))
         return;
 
@@ -695,7 +695,7 @@ void ExtendedPadProvider::pollCouchClaim(Callbacks& callbacks)
         return;
 
     auto pads = describePadsLocked();
-    const auto now = akira::input::timing::Clock::now();
+    const auto now = akira::platform::extended::timing::Clock::now();
     for (auto it = m_claim_started_at.begin(); it != m_claim_started_at.end();) {
         const bool present = std::any_of(pads.begin(), pads.end(), [it](const auto& pad) {
             return pad.npad == it->first;
@@ -722,7 +722,7 @@ void ExtendedPadProvider::pollCouchClaim(Callbacks& callbacks)
         if (combo)
         {
             auto [started, firstSample] = m_claim_started_at.try_emplace(npad, now);
-            if (!firstSample && now - started->second >= akira::input::timing::CouchClaimHold)
+            if (!firstSample && now - started->second >= akira::platform::extended::timing::CouchClaimHold)
             {
                 uint8_t slot = couchJoinLocked(npad);
                 m_claim_started_at.clear();

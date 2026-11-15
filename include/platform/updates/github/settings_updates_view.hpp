@@ -11,6 +11,9 @@
 
 #include "core/settings_manager.hpp"
 
+namespace akira::platform::github
+{
+
 class SettingsUpdatesView : public brls::Box {
 public:
     SettingsUpdatesView();
@@ -32,5 +35,8 @@ private:
     void initCheckNow();
     void runCheck();
 };
+
+
+}
 
 #endif // AKIRA_SETTINGS_UPDATES_VIEW_HPP

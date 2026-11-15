@@ -6,10 +6,10 @@
 
 #include "util/av_wrappers.hpp"
 
-namespace akira::video
+namespace akira::platform
 {
 
-class Decoder
+class VideoDecoder
 {
 public:
     struct Stats
@@ -20,7 +20,7 @@ public:
         std::uint64_t decoder_drops = 0;
     };
 
-    virtual ~Decoder() = default;
+    virtual ~VideoDecoder() = default;
 
     virtual bool initCodec(bool hevc, bool ps5, int width, int height) = 0;
     virtual bool initVideo(int width, int height) = 0;

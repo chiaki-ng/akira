@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-namespace akira::input {
+namespace akira::platform::extended {
 
 
 enum class PadDriver {
@@ -63,6 +63,6 @@ PadOutputState ResolvePadOutput(const PadOutputInputs& in);
 const char* PadDriverName(PadDriver driver);
 const char* PadDriverReasonName(PadDriverReason reason);
 
-} // namespace akira::input
+} // namespace akira::platform::extended
 
 #endif // AKIRA_INPUT_PAD_OUTPUT_STATE_HPP

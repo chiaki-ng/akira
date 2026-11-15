@@ -4,6 +4,7 @@
 
 #include "platform/feedback/hid/provider.hpp"
 #include "platform/haptics/hid/provider.hpp"
+#include "platform/video/vulkan/provider.hpp"
 #include "platform/pad_settings/hid/provider.hpp"
 #include "platform/stream/single/provider.hpp"
 
@@ -25,6 +26,11 @@ std::span<const char* const> OuncePlatformFactory::helpFiles() const
 {
     static constexpr auto files = std::to_array<const char*>({"ounce"});
     return files;
+}
+
+std::unique_ptr<VideoProvider> OuncePlatformFactory::createVideo()
+{
+    return std::make_unique<vulkan::VulkanVideoProvider>();
 }
 
 std::unique_ptr<HapticsProvider> OuncePlatformFactory::createHaptics()

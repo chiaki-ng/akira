@@ -2,7 +2,7 @@
 #define AKIRA_VULKAN_RENDERER_HPP
 
 #include "platform/video/vulkan/hardware_decoder.hpp"
-#include "stream/video_renderer.hpp"
+#include "platform/video/renderer.hpp"
 
 #include <vulkan/vulkan.h>
 
@@ -27,7 +27,10 @@
 #include <borealis/platforms/switch/switch_video_vk.hpp>
 #include <nanovg/vk_renderer.hpp>
 
-class VulkanRenderer final : public IVideoRenderer
+namespace akira::platform::vulkan
+{
+
+class VulkanRenderer final : public VideoRenderer
 {
 public:
     VulkanRenderer();
@@ -37,7 +40,7 @@ public:
 
     bool initialize(int frame_width, int frame_height) override;
     bool isInitialized() const override { return m_initialized.load(std::memory_order_acquire); }
-    using Frame = akira::stream::HardwareDecoder::Frame;
+    using Frame = akira::platform::vulkan::HardwareDecoder::Frame;
 
     void draw(Frame frame);
     void presentFrame(Frame frame);
@@ -59,7 +62,7 @@ public:
     }
 
     bool captureLastFrame(std::vector<uint8_t>& rgba, int& width, int& height) override;
-    std::optional<akira::stream::DecoderOutput::Device> decoderOutputDevice() const;
+    std::optional<akira::platform::vulkan::DecoderOutput::Device> decoderOutputDevice() const;
 
     void setTickCallback(TickCallback cb) override { m_tick_callback = std::move(cb); }
 
@@ -128,8 +131,8 @@ private:
         std::size_t backingSize = 0;
         std::uint32_t width = 0;
         std::uint32_t height = 0;
-        akira::stream::HardwarePlane luma{};
-        akira::stream::HardwarePlane chroma{};
+        akira::platform::vulkan::HardwarePlane luma{};
+        akira::platform::vulkan::HardwarePlane chroma{};
         VkBuffer decoderBuffer = VK_NULL_HANDLE;
 
         std::uint32_t chromaWidth() const { return (width + 1) / 2; }
@@ -220,8 +223,8 @@ private:
         std::uint64_t m_generation;
         PlanePath m_path;
         DescriptorPool m_pool;
-        std::array<std::unique_ptr<PlaneImport>, akira::stream::HardwareDecoder::ImageCount> m_slots;
-        std::array<bool, akira::stream::HardwareDecoder::ImageCount> m_failed{};
+        std::array<std::unique_ptr<PlaneImport>, akira::platform::vulkan::HardwareDecoder::ImageCount> m_slots;
+        std::array<bool, akira::platform::vulkan::HardwareDecoder::ImageCount> m_failed{};
     };
 
     class RenderTarget
@@ -378,7 +381,7 @@ private:
         VkImageLayout newLayout, VkPipelineStageFlags2 srcStage, VkAccessFlags2 srcAccess, VkPipelineStageFlags2 dstStage,
         VkAccessFlags2 dstAccess);
     static void setViewport(VkCommandBuffer cmd, VkExtent2D extent);
-    static PlaneLayout planeLayout(const akira::stream::HardwareFrame& frame);
+    static PlaneLayout planeLayout(const akira::platform::vulkan::HardwareFrame& frame);
     static FsrConfig fsrConfig(int inputWidth, int inputHeight, VkExtent2D display);
 
     static VkShaderStageFlags pushStages(Program program);
@@ -533,5 +536,8 @@ private:
     bool m_callback_registered = false;
     TickCallback m_tick_callback;
 };
+
+
+}
 
 #endif

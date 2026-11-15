@@ -3,7 +3,7 @@
 
 #ifdef BOREALIS_USE_DEKO3D
 
-#include "stream/video_renderer.hpp"
+#include "platform/video/renderer.hpp"
 
 #include <deko3d.hpp>
 #include <atomic>
@@ -27,7 +27,10 @@ extern "C"
 #include <libavutil/hwcontext_nvtegra.h>
 }
 
-class Deko3dRenderer : public IVideoRenderer
+namespace akira::platform::deko3d
+{
+
+class Deko3dRenderer : public VideoRenderer
 {
 public:
     Deko3dRenderer();
@@ -339,6 +342,9 @@ private:
     bool m_callback_registered = false;
     TickCallback m_tick_callback;
 };
+
+
+}
 
 #endif // BOREALIS_USE_DEKO3D
 

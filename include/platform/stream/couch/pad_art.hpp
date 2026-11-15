@@ -3,16 +3,16 @@
 
 #include "platform/pads/pad.hpp"
 
-namespace akira::input {
+namespace akira::platform::couch {
 
-inline const char* PadArtPath(const PadDescription& pad)
+inline const char* PadArtPath(const input::PadDescription& pad)
 {
-    if (pad.kind == PadPathKind::JoyCon) {
+    if (pad.kind == input::PadPathKind::JoyCon) {
         return pad.style == HidNpadStyleTag_NpadHandheld ? "img/pads/switch_handheld.png"
                                                          : "img/pads/switch_joycons.png";
     }
 
-    if (pad.kind == PadPathKind::SwitchPro)
+    if (pad.kind == input::PadPathKind::SwitchPro)
         return "img/pads/switch_pro.png";
 
     if (pad.vendor_id == 0x054c) {
@@ -29,11 +29,11 @@ inline const char* PadArtPath(const PadDescription& pad)
     return "img/pads/gamepad.png";
 }
 
-inline bool PadHasTwoBatteries(const PadDescription& pad)
+inline bool PadHasTwoBatteries(const input::PadDescription& pad)
 {
-    return pad.kind == PadPathKind::JoyCon;
+    return pad.kind == input::PadPathKind::JoyCon;
 }
 
-} // namespace akira::input
+} // namespace akira::platform::couch
 
 #endif // AKIRA_INPUT_PAD_ART_HPP

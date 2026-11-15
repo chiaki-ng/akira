@@ -3,21 +3,21 @@
 #include <cstdio>
 #include <cstdlib>
 
-namespace akira::input {
+namespace akira::platform::extended {
 
 namespace {
 
 constexpr std::size_t kUnitKeyLength  = 17;
 constexpr std::size_t kModelKeyLength = 9;
 
-std::uint32_t ScaleForIntensity(std::uint32_t value, HapticIntensity intensity)
+std::uint32_t ScaleForIntensity(std::uint32_t value, input::HapticIntensity intensity)
 {
     switch (intensity) {
-        case HapticIntensity::VeryWeak:   return value / 5;
-        case HapticIntensity::Weak:       return value / 2;
-        case HapticIntensity::Strong:     return value * 2;
-        case HapticIntensity::VeryStrong: return value * 5;
-        case HapticIntensity::Normal:
+        case input::HapticIntensity::VeryWeak:   return value / 5;
+        case input::HapticIntensity::Weak:       return value / 2;
+        case input::HapticIntensity::Strong:     return value * 2;
+        case input::HapticIntensity::VeryStrong: return value * 5;
+        case input::HapticIntensity::Normal:
         default:                          return value;
     }
 }
@@ -74,18 +74,18 @@ bool RumbleKeyIsModel(const std::string& key)
 
 bool RumbleKeyIsCategory(const std::string& key)
 {
-    return key == kRumbleKeyDualSense
-        || key == kRumbleKeyJoyCon
-        || key == kRumbleKeySwitchPro
-        || key == kRumbleKeyGeneric;
+    return key == input::kRumbleKeyDualSense
+        || key == input::kRumbleKeyJoyCon
+        || key == input::kRumbleKeySwitchPro
+        || key == input::kRumbleKeyGeneric;
 }
 
 HapticRumble HapticAudioToRumble(const std::int16_t* stereo, std::size_t frames,
-                                 HapticIntensity intensity, bool motor_stalls)
+                                 input::HapticIntensity intensity, bool motor_stalls)
 {
     HapticRumble out;
 
-    if (stereo == nullptr || frames == 0 || intensity == HapticIntensity::Off)
+    if (stereo == nullptr || frames == 0 || intensity == input::HapticIntensity::Off)
         return out;
 
     std::uint32_t peak_left  = 0;
@@ -125,4 +125,4 @@ HapticRumble HapticAudioToRumble(const std::int16_t* stereo, std::size_t frames,
     return out;
 }
 
-} // namespace akira::input
+} // namespace akira::platform::extended

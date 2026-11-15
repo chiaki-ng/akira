@@ -10,7 +10,7 @@
 #include <memory>
 #include <string_view>
 
-namespace akira::stream
+namespace akira::platform::vulkan
 {
 
 class DecoderOutput

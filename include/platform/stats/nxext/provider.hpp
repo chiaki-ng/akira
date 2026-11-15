@@ -4,10 +4,11 @@
 
 #include "platform/stats/provider.hpp"
 
-class IpcStatsService;
 
 namespace akira::platform::nxext
 {
+
+class IpcStatsService;
 
 class NxextStatsProvider final : public StatsProvider
 {

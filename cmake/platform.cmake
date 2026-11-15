@@ -8,8 +8,10 @@ endif()
 
 if (AKIRA_PLATFORM_NX)
     set(AKIRA_PLATFORM_DIR nx)
+    set(AKIRA_VIDEO_PROVIDER deko3d)
     set(AKIRA_PLATFORM_BACKENDS
         factories/nx
+        video/deko3d
         display/fixed
         updates/github
         stats/nxext
@@ -20,8 +22,10 @@ if (AKIRA_PLATFORM_NX)
         stream/couch)
 else()
     set(AKIRA_PLATFORM_DIR ounce)
+    set(AKIRA_VIDEO_PROVIDER vulkan)
     set(AKIRA_PLATFORM_BACKENDS
         factories/ounce
+        video/vulkan
         display/per_mode
         updates/none
         stats/none
@@ -32,7 +36,7 @@ else()
         stream/single)
 endif()
 
-list(FILTER MAIN_SRC EXCLUDE REGEX "/source/platform/(factories|display|updates|stats|pads|haptics|feedback|pad_settings|stream)/")
+list(FILTER MAIN_SRC EXCLUDE REGEX "/source/platform/(factories|video|display|updates|stats|pads|haptics|feedback|pad_settings|stream)/")
 foreach (backend IN LISTS AKIRA_PLATFORM_BACKENDS)
     file(GLOB_RECURSE AKIRA_BACKEND_SOURCES CONFIGURE_DEPENDS
         ${CMAKE_CURRENT_SOURCE_DIR}/source/platform/${backend}/*.cpp

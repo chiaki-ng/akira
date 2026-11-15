@@ -7,7 +7,7 @@
 #include <span>
 #include <vector>
 
-namespace akira::stream {
+namespace akira::platform::vulkan {
 
 class H264Sps {
 public:

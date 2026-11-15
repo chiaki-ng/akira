@@ -7,7 +7,7 @@
 #include <iterator>
 #include <ranges>
 
-namespace akira::stream
+namespace akira::platform::vulkan
 {
 
 HardwareFrame::HardwareFrame(std::shared_ptr<HardwareDecoder> owner, const VideoFrame& frame)
@@ -113,7 +113,7 @@ void HardwareDecoder::closeDecoder()
 std::expected<void, DecoderOutput::Failure> HardwareDecoder::openWithOutputs(const Config& config,
     const DecoderOutput::Device& device)
 {
-    VideoDecoder& d = m_decoder;
+    ::VideoDecoder& d = m_decoder;
     const std::uint32_t width = (m_width + 1) & ~1u;
     const std::uint32_t height = (m_height + 1) & ~1u;
     d.tiling = ViddecTilingMode_PitchLinear;

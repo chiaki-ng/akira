@@ -11,6 +11,9 @@
 
 #include <borealis/core/i18n.hpp>
 
+namespace akira::platform::couch
+{
+
 using namespace brls::literals;
 using akira::input::PadDescription;
 using akira::input::PadPathKind;
@@ -275,7 +278,7 @@ void ControllerPickerView::buildCards()
         card->setCornerRadius(18);
 
         auto* art = new brls::Image();
-        art->setImageFromRes(akira::input::PadArtPath(m_pads[i]));
+        art->setImageFromRes(akira::platform::couch::PadArtPath(m_pads[i]));
         art->setScalingType(brls::ImageScalingType::FIT);
         art->setWidth(artW);
         art->setHeight(artH);
@@ -306,7 +309,7 @@ void ControllerPickerView::buildCards()
         card->addView(chips);
 
         if (m_pads[i].caps.battery) {
-            const bool split = akira::input::PadHasTwoBatteries(m_pads[i]);
+            const bool split = akira::platform::couch::PadHasTwoBatteries(m_pads[i]);
             card->addView(new BatteryPips(m_pads[i].npad, split, split ? 78 : 44, 18));
         }
 
@@ -485,3 +488,6 @@ void ControllerPickerView::draw(NVGcontext* vg, float x, float y, float width, f
         return;
     }
 }
+
+}
+

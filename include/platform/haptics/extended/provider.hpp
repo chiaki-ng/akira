@@ -38,7 +38,7 @@ private:
     float m_native_env_left = 0.0f;
     float m_native_env_right = 0.0f;
 
-    std::int8_t m_haptic_block[input::kDs5HapticBlockBytes * 2]{};
+    std::int8_t m_haptic_block[kDs5HapticBlockBytes * 2]{};
     std::size_t m_haptic_fill = 0;
     std::uint8_t m_haptic_counter = 0;
     std::uint32_t m_haptic_sent = 0;

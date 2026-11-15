@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <cstring>
 
-namespace akira::input {
+namespace akira::platform::extended {
 
 inline constexpr std::size_t kDs5EffectsBytes = 47;
 
@@ -62,23 +62,23 @@ enum Ds5Enable3 : std::uint8_t {
 };
 
 
-inline std::uint8_t Ds5IntensityByte(Ds5EffectIntensity vibration,
-                                     Ds5EffectIntensity trigger)
+inline std::uint8_t Ds5IntensityByte(input::Ds5EffectIntensity vibration,
+                                     input::Ds5EffectIntensity trigger)
 {
     std::uint8_t low = 0x00;
     switch (vibration) {
-        case Ds5EffectIntensity::Strong: low = 0x00; break;
-        case Ds5EffectIntensity::Medium: low = 0x02; break;
-        case Ds5EffectIntensity::Weak:   low = 0x03; break;
-        case Ds5EffectIntensity::Off:    low = 0x0f; break;
+        case input::Ds5EffectIntensity::Strong: low = 0x00; break;
+        case input::Ds5EffectIntensity::Medium: low = 0x02; break;
+        case input::Ds5EffectIntensity::Weak:   low = 0x03; break;
+        case input::Ds5EffectIntensity::Off:    low = 0x0f; break;
     }
 
     std::uint8_t high = 0x00;
     switch (trigger) {
-        case Ds5EffectIntensity::Strong: high = 0x00; break;
-        case Ds5EffectIntensity::Medium: high = 0x60; break;
-        case Ds5EffectIntensity::Weak:   high = 0x90; break;
-        case Ds5EffectIntensity::Off:    high = 0xf0; break;
+        case input::Ds5EffectIntensity::Strong: high = 0x00; break;
+        case input::Ds5EffectIntensity::Medium: high = 0x60; break;
+        case input::Ds5EffectIntensity::Weak:   high = 0x90; break;
+        case input::Ds5EffectIntensity::Off:    high = 0xf0; break;
     }
 
     return (std::uint8_t)(high | low);
@@ -383,6 +383,6 @@ inline bool PadTakesDirectOutput(std::uint16_t vendor_id, std::uint16_t product_
     return vendor_id == 0x054c && (product_id == 0x0ce6 || product_id == 0x0df2);
 }
 
-} // namespace akira::input
+} // namespace akira::platform::extended
 
 #endif // AKIRA_INPUT_PS_OUTPUT_HPP

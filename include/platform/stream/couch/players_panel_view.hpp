@@ -17,6 +17,9 @@ namespace akira::stream {
 class Connection;
 }
 
+namespace akira::platform::couch
+{
+
 class PlayersPanelView : public brls::Box
 {
 public:
@@ -91,5 +94,8 @@ private:
     std::shared_ptr<std::atomic<bool>> m_callback_alive =
         std::make_shared<std::atomic<bool>>(true);
 };
+
+
+}
 
 #endif // AKIRA_PLAYERS_PANEL_VIEW_HPP

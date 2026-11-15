@@ -1,11 +1,11 @@
 
 #include "test_util.hpp"
 
-#include "input/ps_report.hpp"
+#include "platform/pads/extended/ps_report.hpp"
 
 #include <cstring>
 
-using namespace akira::input;
+using namespace akira::platform::extended;
 
 namespace {
 

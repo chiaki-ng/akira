@@ -12,6 +12,7 @@
 #include "platform/stats/provider.hpp"
 #include "platform/stream/provider.hpp"
 #include "platform/updates/provider.hpp"
+#include "platform/video/provider.hpp"
 
 class HapticManager;
 
@@ -41,6 +42,7 @@ public:
     virtual StatsProvider& stats() = 0;
     virtual PadProvider& pads() = 0;
 
+    virtual std::unique_ptr<VideoProvider> createVideo() = 0;
     virtual std::unique_ptr<HapticsProvider> createHaptics() = 0;
     virtual std::unique_ptr<FeedbackProvider> createFeedback(HapticManager& haptics) = 0;
     virtual std::unique_ptr<StreamControlsProvider> createStreamControls(std::weak_ptr<StreamControlsHost> host) = 0;

@@ -9,7 +9,7 @@
 
 #include <borealis.hpp>
 
-namespace akira::input {
+namespace akira::platform::extended {
 
 namespace {
 
@@ -50,9 +50,9 @@ McGenericPath::McGenericPath(HidNpadIdType npad, ExtendedInputManager& extended,
         input->refreshRumbleHandles((unsigned int)npad);
 }
 
-PadCapabilities McGenericPath::capabilities() const
+input::PadCapabilities McGenericPath::capabilities() const
 {
-    PadCapabilities caps;
+    input::PadCapabilities caps;
     caps.gyro            = true;
     caps.rumble          = true;
     caps.analog_triggers = false;
@@ -125,9 +125,9 @@ McPsNativePath::~McPsNativePath()
     }
 }
 
-PadCapabilities McPsNativePath::capabilities() const
+input::PadCapabilities McPsNativePath::capabilities() const
 {
-    PadCapabilities caps = McGenericPath::capabilities();
+    input::PadCapabilities caps = McGenericPath::capabilities();
     caps.touchpad = m_model->has_touchpad;
 
     caps.analog_triggers = true;
@@ -291,4 +291,4 @@ bool McPsNativePath::readTouchpad(libchiaking::controllers::ControllerInput& inp
     return true;
 }
 
-} // namespace akira::input
+} // namespace akira::platform::extended

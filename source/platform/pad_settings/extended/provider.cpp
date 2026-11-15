@@ -31,19 +31,19 @@ std::string ExtendedPadSettingsProvider::resolveKey(const SettingsManager& setti
                                       const uint8_t* address, bool switchNative, bool joycon)
 {
     if (address != nullptr) {
-        const std::string unit = input::RumbleKeyForUnit(address);
+        const std::string unit = RumbleKeyForUnit(address);
         if (settings.hasRumbleProfile(unit))
             return unit;
     }
 
     if (vendorId != 0 || productId != 0) {
-        const std::string model = input::RumbleKeyForModel(vendorId, productId);
+        const std::string model = RumbleKeyForModel(vendorId, productId);
         if (settings.hasRumbleProfile(model))
             return model;
     }
 
     const std::string category =
-        input::RumbleKeyForCategory(input::PadCategoryFor(vendorId, productId, switchNative, joycon));
+        RumbleKeyForCategory(PadCategoryFor(vendorId, productId, switchNative, joycon));
     if (settings.hasRumbleProfile(category))
         return category;
 
@@ -74,7 +74,7 @@ std::string ExtendedPadSettingsProvider::rumbleKey(SettingsManager& settings)
     if (!switchNative() && (m_pad.vendor_id != 0 || m_pad.product_id != 0)) {
         const input::RumbleProfile current = settings.getRumbleProfile(currentKey(settings));
         settings.seedRumbleProfile(
-            input::RumbleKeyForModel(m_pad.vendor_id, m_pad.product_id), &current);
+            RumbleKeyForModel(m_pad.vendor_id, m_pad.product_id), &current);
     }
 
     return currentKey(settings);
@@ -93,9 +93,9 @@ std::optional<std::string> ExtendedPadSettingsProvider::outputSummary(const Sett
 
 void ExtendedPadSettingsProvider::useProfile(const input::RumbleProfile& profile)
 {
-    input::PadOutputInputs driver_in;
+    PadOutputInputs driver_in;
     driver_in.supported_pad =
-        input::PadTakesDirectOutput(m_pad.vendor_id, m_pad.product_id);
+        PadTakesDirectOutput(m_pad.vendor_id, m_pad.product_id);
     driver_in.profile_native =
         profile.output_mode == input::PadOutputMode::Native;
     driver_in.backend_enabled   = ExtendedInputManager::backendDirectOutputEnabled();
@@ -105,23 +105,23 @@ void ExtendedPadSettingsProvider::useProfile(const input::RumbleProfile& profile
     driver_in.address_valid = true;
     driver_in.owns_output   = !driver_in.ownership_refused;
 
-    const input::PadOutputState resolved = input::ResolvePadOutput(driver_in);
+    const PadOutputState resolved = ResolvePadOutput(driver_in);
     m_driver = { resolved.driver, resolved.reason };
 }
 
 bool ExtendedPadSettingsProvider::isUnitKey(const std::string& key) const
 {
-    return input::RumbleKeyIsUnit(key);
+    return RumbleKeyIsUnit(key);
 }
 
 bool ExtendedPadSettingsProvider::directOutput() const
 {
-    return input::PadTakesDirectOutput(m_pad.vendor_id, m_pad.product_id);
+    return PadTakesDirectOutput(m_pad.vendor_id, m_pad.product_id);
 }
 
 bool ExtendedPadSettingsProvider::tunesMotors() const
 {
-    return m_driver.driver == input::PadDriver::MissionControl;
+    return m_driver.driver == PadDriver::MissionControl;
 }
 
 void ExtendedPadSettingsProvider::addOutputRows(brls::Box& content, input::RumbleProfile& profile,
@@ -130,7 +130,7 @@ void ExtendedPadSettingsProvider::addOutputRows(brls::Box& content, input::Rumbl
     auto* card = SettingsPadView::makeCard();
     card->addView(SettingsPadView::makeHeading("akira/settings/rumble_output_heading"_i18n));
 
-    if (m_driver.reason == input::PadDriverReason::Released) {
+    if (m_driver.reason == PadDriverReason::Released) {
         auto* row = new brls::DetailCell();
         row->setMarginLeft(15.0f);
         row->setMarginRight(15.0f);
@@ -235,7 +235,7 @@ void ExtendedPadSettingsProvider::addLightbarRows(brls::Box& content, input::Rum
     card->addView(picker);
     card->addView(swatch);
 
-    auto* how = SettingsPadView::makeHeading(m_driver.driver == input::PadDriver::Akira
+    auto* how = SettingsPadView::makeHeading(m_driver.driver == PadDriver::Akira
                                 ? "akira/settings/lightbar_hint"_i18n
                                 : "akira/settings/lightbar_idle"_i18n);
     how->setMarginLeft(15.0f);
@@ -261,11 +261,11 @@ bool ExtendedPadSettingsProvider::previewDirect(const input::RumbleProfile& prof
         sample[i * 2 + 1] = kPreviewLevel;
     }
 
-    const input::HapticRumble r =
-        input::HapticAudioToRumble(sample, kPreviewFrames, profile.haptic_intensity);
+    const HapticRumble r =
+        HapticAudioToRumble(sample, kPreviewFrames, profile.haptic_intensity);
 
-    std::uint8_t frame[input::kDs5BluetoothFrameBytes];
-    const std::size_t len = input::BuildDs5RumbleFrame(nextPreviewSequence(),
+    std::uint8_t frame[kDs5BluetoothFrameBytes];
+    const std::size_t len = BuildDs5RumbleFrame(nextPreviewSequence(),
                                                        (std::uint8_t)(r.left >> 8),
                                                        (std::uint8_t)(r.right >> 8),
                                                        frame, sizeof(frame));
@@ -275,8 +275,8 @@ bool ExtendedPadSettingsProvider::previewDirect(const input::RumbleProfile& prof
     ExtendedInputManager::writeOutputReportOnce(m_pad.bt_addr, frame, (std::uint16_t)len);
 
     brls::delay(300, [addr = std::vector<std::uint8_t>(m_pad.bt_addr, m_pad.bt_addr + 6)]() {
-        std::uint8_t quiet[input::kDs5BluetoothFrameBytes];
-        const std::size_t n = input::BuildDs5RumbleFrame(nextPreviewSequence(), 0, 0,
+        std::uint8_t quiet[kDs5BluetoothFrameBytes];
+        const std::size_t n = BuildDs5RumbleFrame(nextPreviewSequence(), 0, 0,
                                                          quiet, sizeof(quiet));
         if (n > 0)
             ExtendedInputManager::writeOutputReportOnce(addr.data(), quiet, (std::uint16_t)n);

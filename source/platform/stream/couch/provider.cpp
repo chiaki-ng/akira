@@ -73,7 +73,7 @@ void CouchStreamControlsProvider::waitForPads(int attempt)
 
     const auto availability = m_pads.extendedInput().availability();
     const bool backendUsable =
-        availability == ExtendedInputManager::Availability::Available;
+        availability == extended::ExtendedInputManager::Availability::Available;
 
     if (!backendUsable) {
         brls::Logger::info("PadChoice: no backend to wait for, deciding now");

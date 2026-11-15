@@ -5,7 +5,7 @@
 #include "stream/audio_manager.hpp"
 #include "stream/haptic_manager.hpp"
 #include "stream/input_manager.hpp"
-#include "stream/video_renderer.hpp"
+#include "platform/video/renderer.hpp"
 #include "util/crash_report.hpp"
 #include "platform/factory.hpp"
 
@@ -81,7 +81,7 @@ Session::Session()
     m_haptic_manager = std::make_unique<HapticManager>(platform.createHaptics());
     m_haptic_manager->setInputManager(m_input_manager.get());
     m_pad_feedback = platform.createFeedback(*m_haptic_manager);
-    m_video = akira::video::Provider::create();
+    m_video = akira::platform::PlatformFactory::instance().createVideo();
     m_video->ensureDecoder();
 }
 
@@ -127,7 +127,7 @@ libchiaking::media::VideoResult Session::submitVideo(const libchiaking::media::V
 {
     using libchiaking::media::VideoVerdict;
 
-    akira::video::Decoder* decoder = m_video->decoder();
+    akira::platform::VideoDecoder* decoder = m_video->decoder();
     if (this->quit || !decoder)
         return {VideoVerdict::dropped, 0};
 
@@ -217,15 +217,15 @@ bool Session::InitVideo(int video_width, int video_height)
     std::lock_guard lock(m_media_mutex);
     this->quit = false;
 
-    akira::video::Decoder* decoder = m_video->decoder();
+    akira::platform::VideoDecoder* decoder = m_video->decoder();
     if (!decoder || !decoder->initVideo(video_width, video_height))
     {
         brls::Logger::error("Failed to initialize video decoder");
         return false;
     }
 
-    const akira::video::Provider::FrameHooks hooks{
-        .arriving = [this](const akira::video::FrameInfo& frame) { frameArriving(frame); },
+    const akira::platform::VideoProvider::FrameHooks hooks{
+        .arriving = [this](const akira::platform::FrameInfo& frame) { frameArriving(frame); },
         .presented = [this] { m_presented.store(true, std::memory_order_relaxed); },
     };
     if (!m_video->startRenderer(video_width, video_height, hooks))
@@ -238,7 +238,7 @@ bool Session::InitVideo(int video_width, int video_height)
     m_presented = false;
     m_video_worker = std::make_unique<akira::stream::VideoWorker>(
         [this](const AVBufferHandle& packet, std::size_t size) {
-            akira::video::Decoder* decoder = m_video->decoder();
+            akira::platform::VideoDecoder* decoder = m_video->decoder();
             if (!decoder->decode(packet, size) || decoder->lastDecodeCorrupt())
                 m_needs_recover.store(true, std::memory_order_relaxed);
         });
@@ -311,10 +311,10 @@ void Session::updateActualResolution(int width, int height)
             m_requested_width, m_requested_height, width, height);
     }
 
-    if (akira::video::Decoder* decoder = m_video->decoder())
+    if (akira::platform::VideoDecoder* decoder = m_video->decoder())
         decoder->updateResolution(width, height);
 
-    if (IVideoRenderer* renderer = m_video->renderer())
+    if (akira::platform::VideoRenderer* renderer = m_video->renderer())
         renderer->updateResolution(width, height);
 }
 
@@ -354,7 +354,7 @@ void Session::UpdateSecondaryPads(std::span<libchiaking::controllers::Controller
 
 bool Session::MainLoop()
 {
-    IVideoRenderer* renderer = m_video->renderer();
+    akira::platform::VideoRenderer* renderer = m_video->renderer();
     if (renderer && renderer->isInitialized() && m_video->decoder())
     {
         renderer->setStatsOverlayMode(m_stats_overlay_mode);
@@ -368,7 +368,7 @@ bool Session::MainLoop()
     return !this->quit;
 }
 
-void Session::frameArriving(const akira::video::FrameInfo& frame)
+void Session::frameArriving(const akira::platform::FrameInfo& frame)
 {
     if (!m_first_frame_received)
     {
@@ -380,7 +380,7 @@ void Session::frameArriving(const akira::video::FrameInfo& frame)
         akira::platform::PlatformFactory::instance().stats().streamStarted(*this);
     }
 
-    if (akira::video::Decoder* decoder = m_video->decoder())
+    if (akira::platform::VideoDecoder* decoder = m_video->decoder())
     {
         auto emit = decoder->lastEmitTime();
         if (emit != std::chrono::steady_clock::time_point{})
@@ -410,10 +410,10 @@ StreamStats Session::getStreamStats()
     stats.requested_hevc = m_requested_hevc;
     akira::platform::PlatformFactory::instance().pads().fillStreamStats(stats);
 
-    if (IVideoRenderer* renderer = m_video->renderer())
+    if (akira::platform::VideoRenderer* renderer = m_video->renderer())
         stats.fps = renderer->getRenderFPS();
 
-    if (akira::video::Decoder* decoder = m_video->decoder())
+    if (akira::platform::VideoDecoder* decoder = m_video->decoder())
     {
         stats.video_width = decoder->getVideoWidth();
         stats.video_height = decoder->getVideoHeight();
@@ -478,20 +478,20 @@ void Session::setRequestedProfile(int width, int height, int fps, int bitrate, b
 
 void Session::setVideoPaused(bool paused)
 {
-    if (IVideoRenderer* renderer = m_video->renderer())
+    if (akira::platform::VideoRenderer* renderer = m_video->renderer())
         renderer->setPaused(paused);
 }
 
 void Session::setConnectionContext(const std::string& context)
 {
-    if (IVideoRenderer* renderer = m_video->renderer())
+    if (akira::platform::VideoRenderer* renderer = m_video->renderer())
         renderer->setConnectionContext(context);
 }
 
 
 void Session::triggerBorderFlash()
 {
-    if (IVideoRenderer* renderer = m_video->renderer())
+    if (akira::platform::VideoRenderer* renderer = m_video->renderer())
         renderer->triggerBorderFlash();
 }
 

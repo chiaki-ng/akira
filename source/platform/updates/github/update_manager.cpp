@@ -23,7 +23,8 @@ extern "C" {
 #include "util/semver.hpp"
 #include "util/sha256.hpp"
 
-namespace akira {
+namespace akira::platform::github
+{
 
 namespace {
 

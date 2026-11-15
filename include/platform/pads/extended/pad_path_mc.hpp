@@ -2,23 +2,24 @@
 #define AKIRA_INPUT_PAD_PATH_MC_HPP
 
 #include "platform/pads/extended/pad_path_hos.hpp"
-#include "input/ps_report.hpp"
+#include "platform/pads/extended/ps_report.hpp"
 
 #include <cstdint>
 
-class ExtendedInputManager;
 
-namespace akira::input {
+namespace akira::platform::extended {
+
+class ExtendedInputManager;
 
 class McGenericPath : public HosPadPath {
 public:
     McGenericPath(HidNpadIdType npad, ExtendedInputManager& extended,
                   uint16_t vendor_id, uint16_t product_id);
 
-    PadPathKind kind() const override { return PadPathKind::McGeneric; }
+    input::PadPathKind kind() const override { return input::PadPathKind::McGeneric; }
     const char* label() const override { return m_label; }
 
-    PadCapabilities capabilities() const override;
+    input::PadCapabilities capabilities() const override;
 
     bool poll() override;
     void readTriggers(libchiaking::controllers::ControllerState& state) override;
@@ -43,9 +44,9 @@ public:
     McPsNativePath(HidNpadIdType npad, ExtendedInputManager& extended,
                    const PsModel& model, const uint8_t* bt_addr);
 
-    PadPathKind kind() const override { return PadPathKind::McPsNative; }
+    input::PadPathKind kind() const override { return input::PadPathKind::McPsNative; }
 
-    PadCapabilities capabilities() const override;
+    input::PadCapabilities capabilities() const override;
 
     bool poll() override;
 
@@ -91,6 +92,6 @@ private:
     TouchSlot      m_slots[2];
 };
 
-} // namespace akira::input
+} // namespace akira::platform::extended
 
 #endif // AKIRA_INPUT_PAD_PATH_MC_HPP

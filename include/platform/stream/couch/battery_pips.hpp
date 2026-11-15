@@ -4,6 +4,9 @@
 #include <borealis.hpp>
 #include <switch.h>
 
+namespace akira::platform::couch
+{
+
 class BatteryPips : public brls::View {
 public:
     BatteryPips(HidNpadIdType npad, bool split, float width, float height);
@@ -18,5 +21,8 @@ private:
     HidNpadIdType m_npad;
     bool          m_split;
 };
+
+
+}
 
 #endif // AKIRA_BATTERY_PIPS_HPP

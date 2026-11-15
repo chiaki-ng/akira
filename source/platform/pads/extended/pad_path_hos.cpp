@@ -8,7 +8,7 @@
 #include <cstring>
 #include <map>
 
-namespace akira::input {
+namespace akira::platform::extended {
 
 namespace {
 
@@ -183,4 +183,4 @@ void HosPadPath::sendRumble(float left, float right, float freqLow, float freqHi
     inputMgr->sendRumbleToNpad((unsigned int)m_npad, freqLow, freqHigh, amp, amp);
 }
 
-} // namespace akira::input
+} // namespace akira::platform::extended

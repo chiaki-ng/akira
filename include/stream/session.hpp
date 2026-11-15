@@ -24,7 +24,6 @@
 class AudioManager;
 class HapticManager;
 class InputManager;
-class IVideoRenderer;
 
 class Session
 {
@@ -38,7 +37,7 @@ private:
     std::unique_ptr<HapticManager> m_haptic_manager;
     std::unique_ptr<InputManager> m_input_manager;
     std::unique_ptr<akira::platform::FeedbackProvider> m_pad_feedback;
-    std::unique_ptr<akira::video::Provider> m_video;
+    std::unique_ptr<akira::platform::VideoProvider> m_video;
     std::unique_ptr<akira::stream::VideoWorker> m_video_worker;
     std::optional<libchiaking::media::AudioDecoder> m_audio_decoder;
 
@@ -70,7 +69,7 @@ private:
     std::weak_ptr<libchiaking::play::Session> m_play;
     std::chrono::steady_clock::time_point m_stream_start_time;
 
-    void frameArriving(const akira::video::FrameInfo& frame);
+    void frameArriving(const akira::platform::FrameInfo& frame);
     bool configureAudio(const libchiaking::media::AudioFormat& format, bool raw_pcm);
     std::shared_ptr<libchiaking::play::Session> attached() const;
 
@@ -121,7 +120,8 @@ public:
     void updateActualResolution(int width, int height);
 
     InputManager* getInputManager() { return m_input_manager.get(); }
-    IVideoRenderer* getVideoRenderer() { return m_video->renderer(); }
+    akira::platform::VideoRenderer* getVideoRenderer() { return m_video->renderer(); }
+    const akira::platform::VideoProvider& video() const { return *m_video; }
 
     void attach(std::weak_ptr<libchiaking::play::Session> play);
     void detach();

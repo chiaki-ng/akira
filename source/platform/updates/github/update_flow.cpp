@@ -19,7 +19,8 @@
 
 using namespace brls::literals;
 
-namespace akira {
+namespace akira::platform::github
+{
 
 void UpdateFlow::checkOnLaunch() {
     SettingsManager* settings = SettingsManager::getInstance();

@@ -13,6 +13,9 @@
 #include "ui/glass.hpp"
 #include "ui/theme.hpp"
 
+namespace akira::platform::couch
+{
+
 using akira::input::PadDescription;
 using akira::stream::Connection;
 using akira::stream::CouchSeat;
@@ -1015,3 +1018,6 @@ brls::View* PlayersPanelView::getDefaultFocus()
 {
     return m_first ? m_first : this;
 }
+
+}
+

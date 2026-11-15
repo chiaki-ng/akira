@@ -10,6 +10,7 @@ enum class PlatformCapability : std::uint32_t {
     couch_seats = 1u << 0,
     self_update = 1u << 1,
     stats_export = 1u << 2,
+    hevc = 1u << 3,
 };
 
 constexpr PlatformCapability operator|(PlatformCapability left, PlatformCapability right) noexcept

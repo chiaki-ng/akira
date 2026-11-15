@@ -6,6 +6,9 @@
 
 class Session;
 
+namespace akira::platform::nxext
+{
+
 class IpcStatsService
 {
 public:
@@ -27,3 +30,6 @@ private:
     std::atomic<bool> m_running{false};
     std::atomic<bool> m_stream_active{false};
 };
+
+}
+

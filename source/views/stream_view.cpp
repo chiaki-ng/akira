@@ -9,7 +9,7 @@
 #endif
 #include "ui/theme.hpp"
 #include "views/connection_stage.hpp"
-#include "stream/video_renderer.hpp"
+#include "platform/video/renderer.hpp"
 #include "views/enter_pin_view.hpp"
 #include "views/controller_remap_view.hpp"
 #include <format>
@@ -411,7 +411,7 @@ void StreamView::capturePausedFrame()
     if (!session)
         return;
 
-    IVideoRenderer* renderer = session->getVideoRenderer();
+    akira::platform::VideoRenderer* renderer = session->getVideoRenderer();
     if (!renderer)
         return;
 
@@ -1001,7 +1001,7 @@ void StreamView::showDisconnectMenu()
 
     if (session)
     {
-        IVideoRenderer* renderer = session->getVideoRenderer();
+        akira::platform::VideoRenderer* renderer = session->getVideoRenderer();
         if (renderer && renderer->takeOverlayPositionDirty())
             SettingsManager::getInstance()->writeFile();
     }

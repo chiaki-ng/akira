@@ -62,7 +62,7 @@ auto Connection::preferencesFor(Host& host, SettingsManager& settings) -> std::o
         vpn ? settings.getVpnVideoBitrate() : settings.getVideoBitrate(&host),
         static_cast<int>(play::PictureRequest::minimum_bitrate_kbps),
         static_cast<int>(play::PictureRequest::maximum_bitrate_kbps)));
-    const auto codec = host.isPS5() && akira::video::Provider::capabilities().hevc
+    const auto codec = host.isPS5() && akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::hevc)
         ? libchiaking::media::VideoCodec::h265 : libchiaking::media::VideoCodec::h264;
     if (codec == libchiaking::media::VideoCodec::h264)
         height = std::min(height, play::PictureRequest::maximum_h264_height);
@@ -94,7 +94,7 @@ auto Connection::cloudPreferencesFor(const cloud::CloudLaunch& launch, SettingsM
     -> std::optional<play::Preferences>
 {
     const bool ps5Cloud = launch.ps5();
-    const auto codec = ps5Cloud && akira::video::Provider::capabilities().hevc
+    const auto codec = ps5Cloud && akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::hevc)
         ? libchiaking::media::VideoCodec::h265 : libchiaking::media::VideoCodec::h264;
     auto height = static_cast<uint32_t>(settings.getCloudVideoResolution(ps5Cloud));
     if (codec == libchiaking::media::VideoCodec::h264)
@@ -427,7 +427,7 @@ auto Connection::on_audio(const libchiaking::media::AudioUnit& unit) -> libchiak
 
 auto Connection::decoder_name() const -> std::string_view
 {
-    return akira::video::Provider::capabilities().decoderName;
+    return media.video().decoderName();
 }
 
 void Connection::on_feedback(const libchiaking::controllers::ControllerFeedback& feedback)

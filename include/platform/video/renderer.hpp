@@ -11,10 +11,13 @@
 
 // Abstract interface for video rendering
 // Implementations: OpenGLRenderer, Deko3dRenderer
-class IVideoRenderer
+namespace akira::platform
+{
+
+class VideoRenderer
 {
 public:
-    virtual ~IVideoRenderer() = default;
+    virtual ~VideoRenderer() = default;
 
     virtual bool initialize(int frame_width, int frame_height) = 0;
 
@@ -72,5 +75,8 @@ protected:
     StreamStats m_stats;
     mutable std::atomic<uint32_t> m_stats_seq{0};
 };
+
+
+}
 
 #endif // AKIRA_IO_VIDEO_RENDERER_HPP

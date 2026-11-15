@@ -9,6 +9,9 @@
 #include "util/http_pool.hpp"
 #include "platform/updates/github/update_flow.hpp"
 
+namespace akira::platform::github
+{
+
 using namespace brls::literals;
 
 SettingsUpdatesView::SettingsUpdatesView() {
@@ -89,7 +92,7 @@ void SettingsUpdatesView::runCheck() {
 
     auto guard = alive;
     HttpPool::instance().submit([this, guard, channel](HttpSession&) {
-        akira::UpdateInfo info = akira::UpdateManager::getInstance().checkForUpdate(channel);
+        UpdateInfo info = UpdateManager::getInstance().checkForUpdate(channel);
 
         brls::sync([this, guard, info]() {
             if (!*guard)
@@ -104,7 +107,7 @@ void SettingsUpdatesView::runCheck() {
 
             if (info.available) {
                 checkNowCell->setDetailText(info.version);
-                akira::UpdateFlow::promptUpdate(info);
+                UpdateFlow::promptUpdate(info);
             } else {
                 checkNowCell->setDetailText("akira/update/up_to_date"_i18n);
                 brls::Application::notify("akira/update/up_to_date"_i18n);
@@ -112,3 +115,6 @@ void SettingsUpdatesView::runCheck() {
         });
     });
 }
+
+}
+

@@ -5,6 +5,9 @@
 #include <cstring>
 #include <borealis.hpp>
 
+namespace akira::platform::nxext
+{
+
 IpcStatsService::IpcStatsService(Session* session)
     : m_session(session)
 {
@@ -162,3 +165,6 @@ Result IpcStatsService::ServiceHandler(void* userdata, const IpcServerRequest* r
 
     return MAKERESULT(11, 403);
 }
+
+}
+

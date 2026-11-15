@@ -6,6 +6,7 @@
 #include <cstring>
 
 using namespace akira::input;
+using namespace akira::platform::extended;
 
 namespace {
 

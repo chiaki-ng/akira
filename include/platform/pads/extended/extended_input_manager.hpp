@@ -13,6 +13,9 @@
 #include "platform/pads/extended/pad_output_state.hpp"
 #include "platform/pads/extended/ps_output.hpp"
 
+namespace akira::platform::extended
+{
+
 class ExtendedInputManager
 {
 public:
@@ -43,7 +46,7 @@ public:
     static void setDirectStreamAllowed(bool allowed);
     static bool directStreamAllowed();
 
-    akira::input::PadOutputState outputState() const;
+    akira::platform::extended::PadOutputState outputState() const;
 
     static void refreshDirectGates(uint16_t vendor_id, uint16_t product_id,
                                    const uint8_t* address);
@@ -255,7 +258,7 @@ private:
 
     static constexpr uint32_t kLightbarIntervalMs = 250;
 
-    uint8_t  m_direct_intensity_last = akira::input::kDs5IntensityFull;
+    uint8_t  m_direct_intensity_last = akira::platform::extended::kDs5IntensityFull;
     uint8_t  m_direct_trigger_last[22]{};
     bool     m_direct_trigger_sent    = false;
     uint32_t m_direct_trigger_sent_ms = 0;
@@ -301,5 +304,8 @@ private:
     Availability m_availability = Availability::NotInstalled;
     uint32_t     m_mc_version = 0;
 };
+
+
+}
 
 #endif // AKIRA_INPUT_EXTENDED_INPUT_MANAGER_HPP

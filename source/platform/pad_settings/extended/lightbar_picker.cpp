@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <cmath>
 
+namespace akira::platform::extended
+{
+
 using namespace brls::literals;
 
 namespace {
@@ -163,3 +166,6 @@ void LightbarPicker::draw(NVGcontext* vg, float x, float y, float width, float h
 
     Box::draw(vg, x, y, width, height, style, ctx);
 }
+
+}
+

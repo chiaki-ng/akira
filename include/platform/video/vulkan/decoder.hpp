@@ -17,21 +17,24 @@
 #include "util/av_wrappers.hpp"
 #include "platform/video/decoder.hpp"
 
-class StreamDecoder final : public akira::video::Decoder
+namespace akira::platform::vulkan
+{
+
+class VulkanDecoder final : public akira::platform::VideoDecoder
 {
 public:
-    using Frame = akira::stream::HardwareDecoder::Frame;
+    using Frame = akira::platform::vulkan::HardwareDecoder::Frame;
     using FrameReadyCallback = std::function<void(Frame)>;
 
-    StreamDecoder();
-    ~StreamDecoder() override;
+    VulkanDecoder();
+    ~VulkanDecoder() override;
 
     // Disable copy
-    StreamDecoder(const StreamDecoder&) = delete;
-    StreamDecoder& operator=(const StreamDecoder&) = delete;
+    VulkanDecoder(const VulkanDecoder&) = delete;
+    VulkanDecoder& operator=(const VulkanDecoder&) = delete;
 
     void setFrameReadyCallback(FrameReadyCallback callback) { m_frame_ready_callback = std::move(callback); }
-    void setOutputDevice(std::optional<akira::stream::DecoderOutput::Device> device) { m_output_device = device; }
+    void setOutputDevice(std::optional<akira::platform::vulkan::DecoderOutput::Device> device) { m_output_device = device; }
 
     bool initCodec(bool hevc, bool ps5, int width, int height) override;
 
@@ -53,7 +56,7 @@ public:
     bool isHEVC() const override { return m_is_hevc; }
     bool isHardwareAccelerated() const override { return true; }
 
-    using DecoderStats = akira::video::Decoder::Stats;
+    using DecoderStats = akira::platform::VideoDecoder::Stats;
 
     DecoderStats getStats() const override;
     std::chrono::steady_clock::time_point lastEmitTime() const override { return m_last_emit; }
@@ -112,8 +115,8 @@ private:
     uint64_t m_interval_count = 0;
     double m_interval_mean_us = 0.0;
 
-    std::shared_ptr<akira::stream::HardwareDecoder> m_hardware;
-    std::optional<akira::stream::DecoderOutput::Device> m_output_device;
+    std::shared_ptr<akira::platform::vulkan::HardwareDecoder> m_hardware;
+    std::optional<akira::platform::vulkan::DecoderOutput::Device> m_output_device;
     std::vector<std::uint8_t> m_sps;
     std::vector<std::uint8_t> m_decoder_sps;
     std::vector<std::uint8_t> m_pps;
@@ -126,5 +129,8 @@ private:
     std::uint32_t m_reference_limit = Ps4ReferenceLimit;
     bool m_waiting_for_idr = false;
 };
+
+
+}
 
 #endif // AKIRA_IO_VIDEO_DECODER_HPP

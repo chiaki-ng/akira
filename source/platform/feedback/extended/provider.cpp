@@ -42,8 +42,8 @@ void ExtendedFeedbackProvider::applyTriggerEffects(const libchiaking::controller
     if (input::Ds5IntensityFromWire(m_trigger_intensity) == input::Ds5EffectIntensity::Off)
         return;
 
-    input::PadPath::TriggerEffect left;
-    input::PadPath::TriggerEffect right;
+    PadPath::TriggerEffect left;
+    PadPath::TriggerEffect right;
 
     left.type = effects.left.mode;
     std::memcpy(left.params, effects.left.parameters.data(), sizeof(left.params));

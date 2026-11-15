@@ -39,7 +39,7 @@ private:
     bool switchNative() const;
 
     input::PadDescription m_pad;
-    input::PadDriverState m_driver;
+    PadDriverState m_driver;
 };
 
 }

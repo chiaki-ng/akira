@@ -4,7 +4,7 @@
 #include <array>
 #include <bit>
 
-namespace akira::stream {
+namespace akira::platform::vulkan {
 
 class H264Sps::BitReader {
 public:

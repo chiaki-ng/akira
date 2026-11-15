@@ -15,6 +15,9 @@
 #include "platform/pads/extended/pad_path.hpp"
 #include "platform/pads/extended/ps_output.hpp"
 
+namespace akira::platform::extended
+{
+
 namespace {
 
 bool serviceIsRunning(const char* name)
@@ -404,16 +407,16 @@ void ExtendedInputManager::shutdown()
 
     if (serviceIsActive(&m_srv)) {
         if (m_direct_addr_valid) {
-            uint8_t frame[akira::input::kDs5BluetoothFrameBytes];
+            uint8_t frame[akira::platform::extended::kDs5BluetoothFrameBytes];
 
             if (m_direct_sent_valid && m_direct_sent != 0) {
-                const size_t len = akira::input::BuildDs5RumbleFrame(0, 0, 0, frame, sizeof(frame));
+                const size_t len = akira::platform::extended::BuildDs5RumbleFrame(0, 0, 0, frame, sizeof(frame));
                 if (len > 0)
                     (void)writeDirectFrame(frame, (uint16_t)len);
             }
 
             {
-                const size_t len = akira::input::BuildDs5HapticsRestoreFrame(
+                const size_t len = akira::platform::extended::BuildDs5HapticsRestoreFrame(
                     0, frame, sizeof(frame));
                 if (len > 0)
                     (void)writeDirectFrame(frame, (uint16_t)len);
@@ -422,7 +425,7 @@ void ExtendedInputManager::shutdown()
             static const uint8_t kNull[sizeof(m_direct_trigger_last)] = {};
             if (m_direct_trigger_sent &&
                 std::memcmp(m_direct_trigger_last, kNull, sizeof(kNull)) != 0) {
-                const size_t len = akira::input::BuildDs5TriggerFrame(0, 0, kNull, 0, kNull,
+                const size_t len = akira::platform::extended::BuildDs5TriggerFrame(0, 0, kNull, 0, kNull,
                                                                       frame, sizeof(frame));
                 if (len > 0)
                     (void)writeDirectFrame(frame, (uint16_t)len);
@@ -540,8 +543,8 @@ void ExtendedInputManager::refreshDirectGates(uint16_t vendor_id, uint16_t produ
     s_direct_vid_pid.store(((uint32_t)vendor_id << 16) | product_id,
                            std::memory_order_release);
 
-    akira::input::PadOutputInputs in;
-    in.supported_pad     = akira::input::PadTakesDirectOutput(vendor_id, product_id);
+    akira::platform::extended::PadOutputInputs in;
+    in.supported_pad     = akira::platform::extended::PadTakesDirectOutput(vendor_id, product_id);
     in.profile_native    = profile.output_mode == akira::input::PadOutputMode::Native;
     in.backend_enabled   = !s_backend_released.load(std::memory_order_acquire);
     in.ownership_refused = outputOwnershipRefused();
@@ -551,7 +554,7 @@ void ExtendedInputManager::refreshDirectGates(uint16_t vendor_id, uint16_t produ
     in.owns_output   = !in.ownership_refused;
 
     const bool native =
-        akira::input::ResolvePadOutput(in).driver == akira::input::PadDriver::Akira;
+        akira::platform::extended::ResolvePadOutput(in).driver == akira::platform::extended::PadDriver::Akira;
 
     s_direct_stream_allowed.store(native, std::memory_order_release);
     const bool haptics = profile.rumble_source != akira::input::RumbleSource::Off;
@@ -559,9 +562,9 @@ void ExtendedInputManager::refreshDirectGates(uint16_t vendor_id, uint16_t produ
 
     brls::Logger::info("direct gates for {:04x}:{:04x}: driver={} haptics={}",
                        vendor_id, product_id,
-                       akira::input::PadDriverName(
-                           native ? akira::input::PadDriver::Akira
-                                  : akira::input::PadDriver::MissionControl),
+                       akira::platform::extended::PadDriverName(
+                           native ? akira::platform::extended::PadDriver::Akira
+                                  : akira::platform::extended::PadDriver::MissionControl),
                        haptics);
 }
 
@@ -595,7 +598,7 @@ void ExtendedInputManager::setConsoleIntensity(akira::input::Ds5EffectIntensity 
 
     brls::Logger::info("console intensity: vibration={} triggers={} (byte 0x{:02x})",
                        (int)vibration, (int)trigger,
-                       akira::input::Ds5IntensityByte(vibration, trigger));
+                       akira::platform::extended::Ds5IntensityByte(vibration, trigger));
 }
 
 akira::input::Ds5EffectIntensity ExtendedInputManager::consoleVibrationIntensity() const
@@ -632,9 +635,9 @@ void ExtendedInputManager::setDirectTriggerEffects(uint8_t left_type, const uint
     m_direct_trigger_seq.store(seq + 1, std::memory_order_release);
 
     m_direct_trigger_left[0] = left_type;
-    std::memcpy(m_direct_trigger_left + 1, left_params, akira::input::kDs5TriggerParamBytes);
+    std::memcpy(m_direct_trigger_left + 1, left_params, akira::platform::extended::kDs5TriggerParamBytes);
     m_direct_trigger_right[0] = right_type;
-    std::memcpy(m_direct_trigger_right + 1, right_params, akira::input::kDs5TriggerParamBytes);
+    std::memcpy(m_direct_trigger_right + 1, right_params, akira::platform::extended::kDs5TriggerParamBytes);
 
     m_direct_trigger_seq.store(seq + 2, std::memory_order_release);
 }
@@ -667,7 +670,7 @@ bool ExtendedInputManager::writeDirectFrame(uint8_t* frame, uint16_t length)
     mutexLock(&m_srv_lock);
     frame[1] = (uint8_t)((m_direct_seq.fetch_add(1, std::memory_order_relaxed) & 0x0f) << 4);
 
-    akira::input::StampDs5Crc(frame, length);
+    akira::platform::extended::StampDs5Crc(frame, length);
 
     const Result rc = serviceDispatchIn(&m_srv, AkiraInputCmd_WriteOutputReport, which,
         .buffer_attrs = { SfBufferAttr_HipcMapAlias | SfBufferAttr_In },
@@ -677,13 +680,13 @@ bool ExtendedInputManager::writeDirectFrame(uint8_t* frame, uint16_t length)
     return R_SUCCEEDED(rc);
 }
 
-akira::input::PadOutputState ExtendedInputManager::outputState() const
+akira::platform::extended::PadOutputState ExtendedInputManager::outputState() const
 {
-    akira::input::PadOutputInputs in;
+    akira::platform::extended::PadOutputInputs in;
 
     const uint32_t ids = s_direct_vid_pid.load(std::memory_order_acquire);
     in.supported_pad = ids != 0
-        && akira::input::PadTakesDirectOutput((uint16_t)(ids >> 16),
+        && akira::platform::extended::PadTakesDirectOutput((uint16_t)(ids >> 16),
                                               (uint16_t)(ids & 0xffff));
 
     in.profile_native    = s_direct_stream_allowed.load(std::memory_order_acquire);
@@ -695,7 +698,7 @@ akira::input::PadOutputState ExtendedInputManager::outputState() const
     in.address_valid     = m_direct_addr_valid;
     in.haptics_landing   = m_haptics_landing.load(std::memory_order_acquire);
 
-    return akira::input::ResolvePadOutput(in);
+    return akira::platform::extended::ResolvePadOutput(in);
 }
 
 bool ExtendedInputManager::directHapticsReady() const
@@ -822,8 +825,8 @@ void ExtendedInputManager::paintLightbar()
     if (m_lightbar_painted_valid && (now - m_lightbar_painted_ms) < kLightbarIntervalMs)
         return;
 
-    uint8_t frame[akira::input::kDs5BluetoothFrameBytes];
-    const size_t len = akira::input::BuildDs5LightbarFrame(
+    uint8_t frame[akira::platform::extended::kDs5BluetoothFrameBytes];
+    const size_t len = akira::platform::extended::BuildDs5LightbarFrame(
         0, rgb[0], rgb[1], rgb[2], frame, sizeof(frame));
     if (len == 0)
         return;
@@ -864,7 +867,7 @@ void ExtendedInputManager::pumpDirectOutput()
 
     pumpCouchOutputs(nowMs());
 
-    const akira::input::PadOutputState state = outputState();
+    const akira::platform::extended::PadOutputState state = outputState();
     const bool allowed = state.want_claim || state.write_state;
 
     ensureOutputOwnership(state.want_claim);
@@ -925,7 +928,7 @@ void ExtendedInputManager::pumpDirectState(uint32_t now)
     if (!wanted && (!m_direct_sent_valid || (m_direct_sent == 0 && !m_direct_trigger_sent)))
         return;
 
-    const uint8_t want_intensity = akira::input::Ds5IntensityByte(consoleVibrationIntensity(),
+    const uint8_t want_intensity = akira::platform::extended::Ds5IntensityByte(consoleVibrationIntensity(),
                                                                   consoleTriggerIntensity());
 
     const bool same = m_direct_sent_valid
@@ -942,12 +945,12 @@ void ExtendedInputManager::pumpDirectState(uint32_t now)
     const uint8_t* left  = want_triggers;
     const uint8_t* right = want_triggers + sizeof(m_direct_trigger_left);
 
-    uint8_t frame[akira::input::kDs5BluetoothFrameBytes];
-    const size_t len = akira::input::BuildDs5StateFrame(
+    uint8_t frame[akira::platform::extended::kDs5BluetoothFrameBytes];
+    const size_t len = akira::platform::extended::BuildDs5StateFrame(
         0,
         (uint8_t)(want_rumble >> 8), (uint8_t)(want_rumble & 0xff),
         left[0], left + 1, right[0], right + 1,
-        frame, sizeof(frame), false, akira::input::Ds5FrameLayout::Tagged, want_intensity);
+        frame, sizeof(frame), false, akira::platform::extended::Ds5FrameLayout::Tagged, want_intensity);
     if (len == 0)
         return;
 
@@ -1060,9 +1063,9 @@ void ExtendedInputManager::setCouchTriggerEffects(const uint8_t* bt_addr,
     mutexLock(&m_couch_lock);
     if (CouchOutputTarget* t = findCouch(bt_addr)) {
         t->trigger_left[0] = left_type;
-        std::memcpy(t->trigger_left + 1, left_params, akira::input::kDs5TriggerParamBytes);
+        std::memcpy(t->trigger_left + 1, left_params, akira::platform::extended::kDs5TriggerParamBytes);
         t->trigger_right[0] = right_type;
-        std::memcpy(t->trigger_right + 1, right_params, akira::input::kDs5TriggerParamBytes);
+        std::memcpy(t->trigger_right + 1, right_params, akira::platform::extended::kDs5TriggerParamBytes);
         t->have_triggers = true;
     }
     mutexUnlock(&m_couch_lock);
@@ -1089,7 +1092,7 @@ bool ExtendedInputManager::writeCouchFrame(CouchOutputTarget& t, uint8_t* frame,
         return false;
 
     frame[1] = (uint8_t)((t.seq++ & 0x0f) << 4);
-    akira::input::StampDs5Crc(frame, length);
+    akira::platform::extended::StampDs5Crc(frame, length);
     return writeOutputReport(t.bt_addr, frame, length);
 }
 
@@ -1143,8 +1146,8 @@ void ExtendedInputManager::paintCouchLightbar(CouchOutputTarget& t, uint32_t now
     if (t.lightbar_painted_valid && (now - t.lightbar_painted_ms) < kLightbarIntervalMs)
         return;
 
-    uint8_t frame[akira::input::kDs5BluetoothFrameBytes];
-    const size_t len = akira::input::BuildDs5LightbarFrame(
+    uint8_t frame[akira::platform::extended::kDs5BluetoothFrameBytes];
+    const size_t len = akira::platform::extended::BuildDs5LightbarFrame(
         0, t.lightbar[0], t.lightbar[1], t.lightbar[2], frame, sizeof(frame));
     if (len == 0)
         return;
@@ -1163,7 +1166,7 @@ void ExtendedInputManager::pumpCouchOutputs(uint32_t now)
                      && !s_output_refused.load(std::memory_order_acquire)
                      && m_direct_wanted.load(std::memory_order_acquire);
 
-    const uint8_t intensity = akira::input::Ds5IntensityByte(consoleVibrationIntensity(),
+    const uint8_t intensity = akira::platform::extended::Ds5IntensityByte(consoleVibrationIntensity(),
                                                              consoleTriggerIntensity());
 
     mutexLock(&m_couch_lock);
@@ -1171,7 +1174,7 @@ void ExtendedInputManager::pumpCouchOutputs(uint32_t now)
         if (!t.in_use)
             continue;
 
-        const bool supported = akira::input::PadTakesDirectOutput(t.vendor_id, t.product_id);
+        const bool supported = akira::platform::extended::PadTakesDirectOutput(t.vendor_id, t.product_id);
         const bool want = regime && supported;
 
         ensureCouchOwnership(t, want, regime);
@@ -1200,12 +1203,12 @@ void ExtendedInputManager::pumpCouchOutputs(uint32_t now)
         const uint8_t* left  = want_triggers;
         const uint8_t* right = want_triggers + sizeof(t.trigger_left);
 
-        uint8_t frame[akira::input::kDs5BluetoothFrameBytes];
-        const size_t len = akira::input::BuildDs5StateFrame(
+        uint8_t frame[akira::platform::extended::kDs5BluetoothFrameBytes];
+        const size_t len = akira::platform::extended::BuildDs5StateFrame(
             0,
             (uint8_t)(want_rumble >> 8), (uint8_t)(want_rumble & 0xff),
             left[0], left + 1, right[0], right + 1,
-            frame, sizeof(frame), false, akira::input::Ds5FrameLayout::Tagged, intensity);
+            frame, sizeof(frame), false, akira::platform::extended::Ds5FrameLayout::Tagged, intensity);
         if (len == 0)
             continue;
 
@@ -1456,14 +1459,14 @@ void ExtendedInputManager::resolveDirectAddress()
             const AkiraInputDeviceInfo& d = devices.devices[i];
             brls::Logger::info("direct output: candidate {:04x}:{:04x} flags=0x{:02x} takes_direct={}",
                                d.vendor_id, d.product_id, d.flags,
-                               akira::input::PadTakesDirectOutput(d.vendor_id, d.product_id));
+                               akira::platform::extended::PadTakesDirectOutput(d.vendor_id, d.product_id));
         }
     }
     m_direct_discovery_state = DirectDiscoveryState::Candidates;
 
     for (uint8_t i = 0; i < devices.count; i++) {
         const AkiraInputDeviceInfo& dev = devices.devices[i];
-        if (!akira::input::PadTakesDirectOutput(dev.vendor_id, dev.product_id)) {
+        if (!akira::platform::extended::PadTakesDirectOutput(dev.vendor_id, dev.product_id)) {
             continue;
         }
 
@@ -1545,7 +1548,7 @@ void ExtendedInputManager::poll()
 
                 publishRawReport(raw);
 
-                if (!akira::input::PadTakesDirectOutput(raw.vendor_id, raw.product_id))
+                if (!akira::platform::extended::PadTakesDirectOutput(raw.vendor_id, raw.product_id))
                     continue;
 
                 if (!m_direct_addr_valid ||
@@ -1597,3 +1600,6 @@ uint8_t ExtendedInputManager::r2() const
 {
     return static_cast<uint8_t>((m_snapshot.load(std::memory_order_relaxed) >> 8) & 0xff);
 }
+
+}
+

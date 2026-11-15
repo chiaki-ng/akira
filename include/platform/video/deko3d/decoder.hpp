@@ -18,17 +18,20 @@ extern "C"
 #include "util/av_wrappers.hpp"
 #include "platform/video/decoder.hpp"
 
-class VideoDecoder final : public akira::video::Decoder
+namespace akira::platform::deko3d
+{
+
+class Deko3dDecoder final : public akira::platform::VideoDecoder
 {
 public:
     using FrameReadyCallback = std::function<void(AVFrame*)>;
 
-    VideoDecoder();
-    ~VideoDecoder() override;
+    Deko3dDecoder();
+    ~Deko3dDecoder() override;
 
     // Disable copy
-    VideoDecoder(const VideoDecoder&) = delete;
-    VideoDecoder& operator=(const VideoDecoder&) = delete;
+    Deko3dDecoder(const Deko3dDecoder&) = delete;
+    Deko3dDecoder& operator=(const Deko3dDecoder&) = delete;
 
     void setFrameReadyCallback(FrameReadyCallback callback) { m_frame_ready_callback = std::move(callback); }
 
@@ -54,7 +57,7 @@ public:
     bool isHEVC() const override { return m_is_hevc; }
     bool isHardwareAccelerated() const override { return m_hw_accel_enabled; }
 
-    using DecoderStats = akira::video::Decoder::Stats;
+    using DecoderStats = akira::platform::VideoDecoder::Stats;
 
     DecoderStats getStats() const override;
     std::chrono::steady_clock::time_point lastEmitTime() const override { return m_last_emit; }
@@ -104,5 +107,8 @@ private:
 
     bool scanNALUnits(const uint8_t* buf, size_t buf_size);
 };
+
+
+}
 
 #endif // AKIRA_IO_VIDEO_DECODER_HPP

@@ -1,7 +1,7 @@
 #include "stream/input_manager.hpp"
 #include "input/sample_cadence.hpp"
 #include "stream/session.hpp"
-#include "stream/video_renderer.hpp"
+#include "platform/video/renderer.hpp"
 #include "core/settings_manager.hpp"
 #include "core/swipe_direction.hpp"
 #include "input/remap_target.hpp"
@@ -379,7 +379,7 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
     const float trackpadMaxX = m_is_ps5 ? 1919.0f : 1920.0f;
     const float trackpadMaxY = m_is_ps5 ? 1079.0f : 942.0f;
 
-    IVideoRenderer* renderer = Session::GetInstance()->getVideoRenderer();
+    akira::platform::VideoRenderer* renderer = Session::GetInstance()->getVideoRenderer();
     if (m_overlay_drag_finger >= 0)
     {
         bool still_down = false;

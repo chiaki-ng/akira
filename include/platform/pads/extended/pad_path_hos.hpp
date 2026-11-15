@@ -3,7 +3,7 @@
 
 #include "platform/pads/extended/pad_path.hpp"
 
-namespace akira::input {
+namespace akira::platform::extended {
 
 void StartSixAxisSensorShared(HidSixAxisSensorHandle handle);
 void StopSixAxisSensorShared(HidSixAxisSensorHandle handle);
@@ -40,6 +40,6 @@ protected:
     int                    m_sixaxis_count = 0;
 };
 
-} // namespace akira::input
+} // namespace akira::platform::extended
 
 #endif // AKIRA_INPUT_PAD_PATH_HOS_HPP

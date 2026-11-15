@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace akira::input {
+namespace akira::platform::extended {
 
 
 enum PsButton : uint32_t {
@@ -205,6 +205,6 @@ inline bool ParsePsReport(const PsModel& model, const uint8_t* data, size_t len,
     return false;
 }
 
-} // namespace akira::input
+} // namespace akira::platform::extended
 
 #endif // AKIRA_INPUT_PS_REPORT_HPP

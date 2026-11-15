@@ -1,5 +1,8 @@
 #include "platform/stream/couch/battery_pips.hpp"
 
+namespace akira::platform::couch
+{
+
 BatteryPips::BatteryPips(HidNpadIdType npad, bool split, float width, float height)
     : m_npad(npad)
     , m_split(split)
@@ -59,3 +62,6 @@ void BatteryPips::drawOne(NVGcontext* vg, float x, float y, float w, float h,
         nvgFill(vg);
     }
 }
+
+}
+

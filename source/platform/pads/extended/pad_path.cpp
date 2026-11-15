@@ -2,7 +2,7 @@
 #include "platform/pad_settings/extended/provider.hpp"
 
 #include <cstring>
-#include "input/pad_names.hpp"
+#include "platform/pads/extended/pad_names.hpp"
 #include "platform/pads/extended/pad_path_hos.hpp"
 #include "platform/pads/extended/pad_path_mc.hpp"
 
@@ -13,7 +13,7 @@
 
 #include <algorithm>
 
-namespace akira::input {
+namespace akira::platform::extended {
 
 namespace {
 
@@ -24,16 +24,16 @@ public:
     {
     }
 
-    PadPathKind kind() const override { return PadPathKind::JoyCon; }
+    input::PadPathKind kind() const override { return input::PadPathKind::JoyCon; }
 
     const char* label() const override
     {
         return m_style == HidNpadStyleTag_NpadHandheld ? "Handheld" : "Joy-Con (L/R)";
     }
 
-    PadCapabilities capabilities() const override
+    input::PadCapabilities capabilities() const override
     {
-        PadCapabilities caps;
+        input::PadCapabilities caps;
         caps.gyro   = true;
         caps.rumble = true;
         return caps;
@@ -47,12 +47,12 @@ public:
     {
     }
 
-    PadPathKind kind() const override { return PadPathKind::SwitchPro; }
+    input::PadPathKind kind() const override { return input::PadPathKind::SwitchPro; }
     const char* label() const override { return "Pro Controller"; }
 
-    PadCapabilities capabilities() const override
+    input::PadCapabilities capabilities() const override
     {
-        PadCapabilities caps;
+        input::PadCapabilities caps;
         caps.gyro   = true;
         caps.rumble = true;
         return caps;
@@ -80,15 +80,15 @@ public:
             StopSixAxisSensorShared(m_sixaxis[i]);
     }
 
-    PadPathKind kind() const override { return PadPathKind::JoyCon; }
+    input::PadPathKind kind() const override { return input::PadPathKind::JoyCon; }
     const char* label() const override { return "Default"; }
 
     HidNpadIdType   npad()  const override { return HidNpadIdType_No1; }
     HidNpadStyleTag style() const override { return (HidNpadStyleTag)padGetStyleSet(&m_pad); }
 
-    PadCapabilities capabilities() const override
+    input::PadCapabilities capabilities() const override
     {
-        PadCapabilities caps;
+        input::PadCapabilities caps;
         caps.gyro   = true;
         caps.rumble = true;
         return caps;
@@ -207,11 +207,11 @@ constexpr HidNpadIdType kScanOrder[] = {
 
 namespace {
 
-std::vector<PadDescription> DescribeWith(const AkiraInputDeviceList& devices, bool haveDevices);
+std::vector<input::PadDescription> DescribeWith(const AkiraInputDeviceList& devices, bool haveDevices);
 
 } // namespace
 
-std::vector<PadDescription> DescribePads(ExtendedInputManager& extended)
+std::vector<input::PadDescription> DescribePads(ExtendedInputManager& extended)
 {
     AkiraInputDeviceList devices{};
     const bool haveDevices = extended.listDevices(&devices);
@@ -219,7 +219,7 @@ std::vector<PadDescription> DescribePads(ExtendedInputManager& extended)
     return DescribeWith(devices, haveDevices);
 }
 
-std::vector<PadDescription> DescribePads()
+std::vector<input::PadDescription> DescribePads()
 {
     AkiraInputDeviceList devices{};
     const bool haveDevices = ExtendedInputManager::listDevicesOnce(&devices);
@@ -279,9 +279,9 @@ bool NpadBluetoothAddress(HidNpadIdType npad, uint8_t* out)
     return false;
 }
 
-std::vector<PadDescription> DescribeWith(const AkiraInputDeviceList& devices, bool haveDevices)
+std::vector<input::PadDescription> DescribeWith(const AkiraInputDeviceList& devices, bool haveDevices)
 {
-    std::vector<PadDescription> out;
+    std::vector<input::PadDescription> out;
 
     bool taken[AKIRA_INPUT_MAX_LISTED_DEVICES]{};
 
@@ -329,7 +329,7 @@ std::vector<PadDescription> DescribeWith(const AkiraInputDeviceList& devices, bo
             }
         }
 
-        PadDescription desc;
+        input::PadDescription desc;
         desc.npad = npad;
 
         if (mc != nullptr) {
@@ -346,13 +346,13 @@ std::vector<PadDescription> DescribeWith(const AkiraInputDeviceList& devices, bo
             desc.caps.battery = PadReportsBattery(mc->vendor_id, mc->product_id);
 
             if (model != nullptr) {
-                desc.kind          = PadPathKind::McPsNative;
+                desc.kind          = input::PadPathKind::McPsNative;
                 desc.label         = model->name;
                 desc.caps.touchpad = model->has_touchpad;
 
                 desc.caps.analog_triggers = true;
             } else {
-                desc.kind = PadPathKind::McGeneric;
+                desc.kind = input::PadPathKind::McGeneric;
 
                 const char* named = FindPadName(mc->vendor_id, mc->product_id);
                 desc.label = named != nullptr ? named : "Controller";
@@ -368,16 +368,16 @@ std::vector<PadDescription> DescribeWith(const AkiraInputDeviceList& devices, bo
         desc.caps.battery = (styleSet & HidNpadStyleTag_NpadFullKey) == 0;
 
         if (styleSet & HidNpadStyleTag_NpadHandheld) {
-            desc.kind  = PadPathKind::JoyCon;
+            desc.kind  = input::PadPathKind::JoyCon;
             desc.style = HidNpadStyleTag_NpadHandheld;
             desc.label = "Handheld";
         } else if (styleSet & HidNpadStyleTag_NpadFullKey) {
-            desc.kind  = PadPathKind::SwitchPro;
+            desc.kind  = input::PadPathKind::SwitchPro;
             desc.style = HidNpadStyleTag_NpadFullKey;
             const bool backendEnumerated = haveDevices && devices.count > 0;
             desc.label = backendEnumerated ? "Pro Controller" : "Controller";
         } else if (styleSet & HidNpadStyleTag_NpadJoyDual) {
-            desc.kind  = PadPathKind::JoyCon;
+            desc.kind  = input::PadPathKind::JoyCon;
             desc.style = HidNpadStyleTag_NpadJoyDual;
             desc.label = "Joy-Con (L/R)";
         } else {
@@ -392,19 +392,19 @@ std::vector<PadDescription> DescribeWith(const AkiraInputDeviceList& devices, bo
 
 } // namespace
 
-PadDriverState ResolvePadDriverState(const PadDescription& desc,
+PadDriverState ResolvePadDriverState(const input::PadDescription& desc,
                                      ExtendedInputManager& extended)
 {
     PadOutputInputs in;
-    in.supported_pad = desc.kind == PadPathKind::McPsNative
+    in.supported_pad = desc.kind == input::PadPathKind::McPsNative
                     && FindPsModel(desc.vendor_id, desc.product_id) != nullptr;
 
     if (in.supported_pad) {
-        const RumbleProfile profile =
+        const input::RumbleProfile profile =
             akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(*SettingsManager::getInstance(), 
                 desc.vendor_id, desc.product_id,
                 desc.has_address ? desc.bt_addr : nullptr, false, false);
-        in.profile_native = profile.output_mode == PadOutputMode::Native;
+        in.profile_native = profile.output_mode == input::PadOutputMode::Native;
     }
 
     in.backend_enabled   = !extended.backendReleased();
@@ -418,15 +418,15 @@ PadDriverState ResolvePadDriverState(const PadDescription& desc,
     return { state.driver, state.reason };
 }
 
-PadDriver ResolvePadDriver(const PadDescription& desc, ExtendedInputManager& extended)
+PadDriver ResolvePadDriver(const input::PadDescription& desc, ExtendedInputManager& extended)
 {
     return ResolvePadDriverState(desc, extended).driver;
 }
 
-std::unique_ptr<PadPath> MakePath(const PadDescription& desc, ExtendedInputManager& extended)
+std::unique_ptr<PadPath> MakePath(const input::PadDescription& desc, ExtendedInputManager& extended)
 {
     switch (desc.kind) {
-        case PadPathKind::McPsNative: {
+        case input::PadPathKind::McPsNative: {
             const PsModel* model = FindPsModel(desc.vendor_id, desc.product_id);
             if (model == nullptr)
                 return nullptr;
@@ -442,12 +442,12 @@ std::unique_ptr<PadPath> MakePath(const PadDescription& desc, ExtendedInputManag
             return std::make_unique<McPsNativePath>(desc.npad, extended, *model,
                                                    desc.has_address ? desc.bt_addr : nullptr);
         }
-        case PadPathKind::McGeneric:
+        case input::PadPathKind::McGeneric:
             return std::make_unique<McGenericPath>(desc.npad, extended, desc.vendor_id,
                                                    desc.product_id);
-        case PadPathKind::SwitchPro:
+        case input::PadPathKind::SwitchPro:
             return std::make_unique<SwitchProPath>(desc.npad);
-        case PadPathKind::JoyCon:
+        case input::PadPathKind::JoyCon:
         default:
             return std::make_unique<JoyConPath>(desc.npad, desc.style);
     }
@@ -458,4 +458,4 @@ std::unique_ptr<PadPath> DefaultPadPath(ExtendedInputManager& extended)
     return std::make_unique<LegacyPadPath>(extended);
 }
 
-} // namespace akira::input
+} // namespace akira::platform::extended

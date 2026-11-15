@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <format>
 
-#include "platform/video/provider.hpp"
+#include "platform/factory.hpp"
 
 using namespace brls::literals;
 
@@ -433,7 +433,7 @@ void SettingsPictureView::initCloudResolutionSelector(bool pscloud,
         "akira/settings/res_1080p"_i18n,
         "1080p (FSR)",
     };
-    const bool hevcTiers = pscloud && akira::video::Provider::capabilities().hevc;
+    const bool hevcTiers = pscloud && akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::hevc);
     if (hevcTiers) {
         options.push_back("1440p");
         options.push_back("2160p");

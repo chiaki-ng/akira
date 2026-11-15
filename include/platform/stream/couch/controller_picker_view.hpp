@@ -11,6 +11,9 @@
 
 class InputManager;
 
+namespace akira::platform::couch
+{
+
 class ControllerPickerView : public brls::Box {
 public:
     using OnChosen = std::function<void(HidNpadIdType)>;
@@ -61,5 +64,8 @@ private:
     brls::Box*                                m_row = nullptr;
     bool                                      m_done = false;
 };
+
+
+}
 
 #endif // AKIRA_CONTROLLER_PICKER_VIEW_HPP

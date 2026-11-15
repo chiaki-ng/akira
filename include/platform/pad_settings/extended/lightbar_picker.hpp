@@ -5,6 +5,9 @@
 #include <cstdint>
 #include <functional>
 
+namespace akira::platform::extended
+{
+
 class LightbarPicker : public brls::Box {
 public:
     LightbarPicker(std::uint8_t r, std::uint8_t g, std::uint8_t b);
@@ -32,5 +35,8 @@ private:
 
     std::function<void(std::uint8_t, std::uint8_t, std::uint8_t)> m_changed;
 };
+
+
+}
 
 #endif // AKIRA_LIGHTBAR_PICKER_HPP

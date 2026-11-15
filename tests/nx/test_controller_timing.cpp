@@ -1,12 +1,12 @@
 #include "test_util.hpp"
 
-#include "input/controller_timing.hpp"
+#include "platform/pads/extended/controller_timing.hpp"
 
 using namespace std::chrono_literals;
 
 TEST(controller_lifecycle_durations_preserve_60hz_behavior)
 {
-    using namespace akira::input::timing;
+    using namespace akira::platform::extended::timing;
 
     CHECK_EQ(std::chrono::duration_cast<std::chrono::milliseconds>(ArrivalPollPeriod).count(), 500);
     CHECK_EQ(std::chrono::duration_cast<std::chrono::milliseconds>(CouchClaimHold).count(), 666);
@@ -15,7 +15,7 @@ TEST(controller_lifecycle_durations_preserve_60hz_behavior)
 
 TEST(controller_claim_progress_uses_elapsed_time)
 {
-    using namespace akira::input::timing;
+    using namespace akira::platform::extended::timing;
     const auto start = TimePoint{} + 1s;
 
     CHECK_EQ(progress(start, start - 1ms, CouchClaimHold), 0.0f);
