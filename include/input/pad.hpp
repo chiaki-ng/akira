@@ -69,4 +69,4 @@ protected:
     }
 };
 
-} // namespace akira::input
+}

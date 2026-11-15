@@ -76,4 +76,4 @@ inline constexpr int kHapticBlockFloor = 0;
 HapticRumble HapticAudioToRumble(const std::int16_t* stereo, std::size_t frames,
                                  HapticIntensity intensity, bool motor_stalls = true);
 
-} // namespace akira::input
+}

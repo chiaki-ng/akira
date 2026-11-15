@@ -33,4 +33,4 @@ inline Ds5EffectIntensity Ds5IntensityFromWire(std::uint8_t value)
     }
 }
 
-} // namespace akira::input
+}
