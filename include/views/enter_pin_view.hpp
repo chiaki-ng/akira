@@ -9,7 +9,9 @@
 enum class PinViewType {
     Registration,
     Login,
+#if AKIRA_PLATFORM_NX
     CouchPasscode
+#endif
 };
 
 class EnterPinView : public brls::Box {

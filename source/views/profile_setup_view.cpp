@@ -1,7 +1,9 @@
 #include "views/profile_setup_view.hpp"
 
 #include "core/settings_manager.hpp"
+#include "util/custom_dns.hpp"
 #include "ui/theme.hpp"
+#include "views/custom_dns_prompt.hpp"
 #include "views/legacy_profile_view.hpp"
 #include "views/pair_view.hpp"
 #include "views/qr_sign_in_view.hpp"
@@ -24,6 +26,16 @@ ProfileSetupView::ProfileSetupView(bool createProfile, bool firstRun)
     this->registerAction("akira/common/back"_i18n, brls::ControllerButton::BUTTON_B,
         [](brls::View*) {
             brls::Application::popActivity();
+            return true;
+        });
+    this->registerAction("akira/settings/set_dns"_i18n, brls::ControllerButton::BUTTON_Y,
+        [](brls::View*) {
+            CustomDnsPrompt::open([]() {
+                const auto servers = SettingsManager::getInstance()->getCustomDnsServers();
+                const std::string shown = servers.empty() ? "akira/settings/custom_dns_system"_i18n
+                                                          : akira::net::CustomDns::formatServers(servers);
+                brls::Application::notify(brls::getStr("akira/settings/custom_dns_saved", shown));
+            });
             return true;
         });
 }

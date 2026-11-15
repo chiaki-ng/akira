@@ -1,13 +1,18 @@
 
 #include "test_util.hpp"
 
+#if AKIRA_PLATFORM_NX
 #include "input/pad_output_state.hpp"
+#endif
 #include "input/rumble_profile.hpp"
 
+#if AKIRA_PLATFORM_NX
 #include <vector>
+#endif
 
 using namespace akira::input;
 
+#if AKIRA_PLATFORM_NX
 namespace {
 
 std::vector<std::int16_t> Stereo(std::int16_t left, std::int16_t right, std::size_t frames = 128)
@@ -150,6 +155,7 @@ TEST(rumble_profile_keys_never_collide_between_tiers)
     CHECK(!RumbleKeyIsUnit(kRumbleKeyDefault));
     CHECK(!RumbleKeyIsModel(kRumbleKeyDefault));
 }
+#endif
 
 TEST(rumble_profile_switch_defaults_preserve_todays_joycon_feel)
 {
@@ -163,6 +169,13 @@ TEST(rumble_profile_switch_defaults_preserve_todays_joycon_feel)
     CHECK(d.per_motor);
 }
 
+TEST(rumble_profile_defaults_to_the_derived_source)
+{
+    const RumbleProfile d = DefaultRumbleProfile();
+    CHECK(d.rumble_source == RumbleSource::Derived);
+}
+
+#if AKIRA_PLATFORM_NX
 TEST(rumble_profile_category_keys_are_their_own_tier)
 {
     for (const char* key : { kRumbleKeyDualSense, kRumbleKeyJoyCon,
@@ -206,6 +219,7 @@ TEST(rumble_profile_defaults_to_full_output_and_is_gated_by_identity)
     CHECK(!PadTakesDirectOutput(0x054c, 0x09cc));
     CHECK(!PadTakesDirectOutput(0x0000, 0x0000));
 }
+#endif
 
 TEST(haptic_base_puts_normal_where_the_old_strong_preset_was)
 {
@@ -223,7 +237,7 @@ TEST(haptic_base_puts_normal_where_the_old_strong_preset_was)
     CHECK(HapticBaseForIntensity(HapticIntensity::Off) > 0);
 }
 
-
+#if AKIRA_PLATFORM_NX
 static PadOutputInputs DrivingInputs()
 {
     PadOutputInputs in;
@@ -304,3 +318,4 @@ TEST(pad_output_basic_is_not_reported_as_a_backend_problem)
     CHECK(s.reason == PadDriverReason::Basic);
     CHECK(!s.want_claim);
 }
+#endif

@@ -113,6 +113,11 @@
                 cornerRadius="14"
                 marginBottom="30">
 
+                <brls:DetailCell
+                    id="settings/customDns"
+                    marginLeft="15"
+                    marginRight="15"/>
+
                 <brls:Box
                     id="settings/subnetsBox"
                     width="auto"

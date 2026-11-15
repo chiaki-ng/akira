@@ -5,16 +5,26 @@ file(GLOB WIREGUARD_SRCS CONFIGURE_DEPENDS
     ${WIREGUARD_DIR}/src/*.c
     ${WIREGUARD_DIR}/library/crypto/*.c
 )
+if (PLATFORM_SWITCH2)
+    list(FILTER WIREGUARD_SRCS EXCLUDE REGEX "/src/wg_thread\\.c$")
+    list(APPEND WIREGUARD_SRCS ${WIREGUARD_DIR}/ounce/wg_thread.c)
+endif()
 add_library(wireguard STATIC ${WIREGUARD_SRCS})
 target_include_directories(wireguard PRIVATE
     ${WIREGUARD_DIR}/include
     ${WIREGUARD_DIR}/library/crypto
     ${WIREGUARD_DIR}/src
 )
+if (PLATFORM_SWITCH2)
+    separate_arguments(WIREGUARD_ARCH_FLAGS UNIX_COMMAND "${NX_ARCH_SETTINGS}")
+else()
+    set(WIREGUARD_ARCH_FLAGS
+        -march=armv8-a+crc+crypto
+        -mtune=cortex-a57
+        -mtp=soft)
+endif()
 target_compile_options(wireguard PRIVATE
-    -march=armv8-a+crc+crypto
-    -mtune=cortex-a57
-    -mtp=soft
+    ${WIREGUARD_ARCH_FLAGS}
     -fPIC
     -O2
     -Wall

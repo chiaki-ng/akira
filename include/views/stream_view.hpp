@@ -42,7 +42,9 @@ public:
 
     brls::View* getDefaultFocus() override { return this; }
 
+#if AKIRA_PLATFORM_NX
     bool beginPadChoice();
+#endif
     void startStream();
     void stopStream();
     void setSessionAlreadyStarted(bool started) { sessionPreStarted = started; }
@@ -50,10 +52,12 @@ public:
     static brls::View* create();
 
 private:
+#if AKIRA_PLATFORM_NX
     void waitForPads(int attempt);
     void abandonBeforeStart();
     void finishPadChoice();
 
+#endif
     Host* host = nullptr;
     std::shared_ptr<Host> hostOwner;
     akira::BackgroundWork::Pause backgroundPause;
@@ -65,7 +69,9 @@ private:
     bool streamActive = false;
     bool sessionStarted = false;
     bool sessionPreStarted = false;
+#if AKIRA_PLATFORM_NX
     bool padChoiceDone = false;
+#endif
     bool controllerReady = false;
 
     bool menuOpen = false;
@@ -82,8 +88,10 @@ private:
     bool intentionalDisconnect = false;
     bool reconnecting = false;
     bool loginPinEnteredThisSession = false;
+#if AKIRA_PLATFORM_NX
     bool couchPasscodeDialogOpen = false;
     bool couchArrivalPromptOpen = false;
+#endif
     std::chrono::steady_clock::time_point minusHoldStart;
     bool minusWasHeld = false;
     brls::Event<>::Subscription exitSubscription;
@@ -105,17 +113,21 @@ private:
     void onEnded(const libchiaking::play::Outcome& outcome) override;
     void onRefused(const libchiaking::play::StartRefusal& refusal) override;
     void onLoginPinNeeded(bool previousWasWrong) override;
+#if AKIRA_PLATFORM_NX
     void onSeatPasscodeNeeded(uint8_t slot, bool retry) override;
     void onSeatRefused(uint8_t slot, const libchiaking::play::SeatRefusal& refusal) override;
     void onSeatDropped(uint8_t slot) override;
+#endif
 
     static akira::input::RumbleProfile activePadProfile();
     void openConnection();
+#if AKIRA_PLATFORM_NX
     void pauseStreamForUi();
     void resumeStreamAfterUi();
     void onPadArrived(HidNpadIdType npad);
     void openCouchClaim();
     void openPrimaryControllerPicker();
+#endif
 
     void checkMenuTrigger();
     void prepareVideoPipelineTick();

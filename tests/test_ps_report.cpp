@@ -1,3 +1,4 @@
+#if AKIRA_PLATFORM_NX
 
 #include "test_util.hpp"
 
@@ -283,3 +284,4 @@ TEST(ps_report_dispatches_on_the_model_not_the_bytes)
     REQUIRE(ParsePsReport(*dualsense, ds.data, kLen, &s));
     CHECK_EQ((int)s.l2, 99);
 }
+#endif

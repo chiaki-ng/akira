@@ -1,3 +1,4 @@
+#if AKIRA_PLATFORM_NX
 
 #include "test_util.hpp"
 
@@ -352,3 +353,4 @@ TEST(ps_output_handing_the_pad_back_states_no_preference)
     CHECK((frame[kFrameEffects + Ds5Effects_EnableBits2] & Ds5Enable2_Intensity) != 0);
     CHECK_EQ((int)frame[kFrameEffects + Ds5Effects_Intensity], (int)kDs5IntensityFull);
 }
+#endif

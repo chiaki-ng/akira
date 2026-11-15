@@ -20,11 +20,15 @@ public:
     void setOnDismiss(std::function<void()> callback);
     void setOnGyroReset(std::function<void()> callback);
     void setOnButtonMapping(std::function<void()> callback);
+#if AKIRA_PLATFORM_NX
     void setOnPlayers(std::function<void()> callback);
+#endif
 
     void setStatsMode(StatsOverlayMode mode);
     void setSleepAvailable(bool available);
+#if AKIRA_PLATFORM_NX
     void setPlayersAvailable(bool available);
+#endif
     void setConsoleName(const std::string& name) { consoleName = name; }
     void setConsoleIsPs5(bool ps5) { consolePs5 = ps5; }
 
@@ -77,7 +81,9 @@ private:
     int optionCursor = -1;
     bool inPanel = false;
     bool sleepAvailable = true;
+#if AKIRA_PLATFORM_NX
     bool playersAvailable = true;
+#endif
     std::string consoleName = "PlayStation";
     bool consolePs5 = false;
 
@@ -105,7 +111,9 @@ private:
     std::function<void()> onDismiss;
     std::function<void()> onGyroReset;
     std::function<void()> onButtonMapping;
+#if AKIRA_PLATFORM_NX
     std::function<void()> onPlayers;
+#endif
 };
 
 #endif // AKIRA_STREAM_MENU_HPP

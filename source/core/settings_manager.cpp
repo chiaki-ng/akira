@@ -5,6 +5,7 @@
 #include "core/core_log.hpp"
 #include "input/remap_target.hpp"
 #include "util/base64.hpp"
+#include "util/custom_dns.hpp"
 #include "util/http.hpp"
 
 #include <borealis.hpp>
@@ -552,6 +553,7 @@ void SettingsManager::parseTomlFile() {
                     const int64_t clamped = std::max<int64_t>(0, std::min<int64_t>(5, *v));
                     profile.haptic_intensity = static_cast<akira::input::HapticIntensity>(clamped);
                 }
+#if AKIRA_PLATFORM_NX
                 if (auto v = (*entry)["direct_output"].value<bool>())
                     profile.output_mode = *v ? akira::input::PadOutputMode::Native
                                              : akira::input::PadOutputMode::Basic;
@@ -568,6 +570,7 @@ void SettingsManager::parseTomlFile() {
                 if (auto v = (*entry)["lightbar_b"].value<int64_t>())
                     profile.lightbar_b = (std::uint8_t)std::clamp<int64_t>(*v, 0, 255);
 
+#endif
                 auto source = (*entry)["rumble_source"].value<int64_t>();
                 if (!source)
                     source = (*entry)["console_feedback"].value<int64_t>();
@@ -617,6 +620,7 @@ void SettingsManager::parseTomlFile() {
             }
         }
 
+#if AKIRA_PLATFORM_NX
         if (rumbleProfiles.find(akira::input::kRumbleKeyDualSense) == rumbleProfiles.end()) {
             akira::input::RumbleProfile ds = akira::input::DefaultRumbleProfile();
 
@@ -626,6 +630,7 @@ void SettingsManager::parseTomlFile() {
         }
         if (rumbleProfiles.find(akira::input::kRumbleKeyGeneric) == rumbleProfiles.end())
             rumbleProfiles[akira::input::kRumbleKeyGeneric] = akira::input::DefaultRumbleProfile();
+#endif
         if (rumbleProfiles.find(akira::input::kRumbleKeyDefault) == rumbleProfiles.end())
             rumbleProfiles[akira::input::kRumbleKeyDefault] = akira::input::DefaultRumbleProfile();
 
@@ -648,6 +653,12 @@ void SettingsManager::parseTomlFile() {
             portGuessingSocks = static_cast<int>(*val);
         if (auto val = config["network"]["discovery_subnets"].value<std::string>())
             discoverySubnets = *val;
+        if (auto val = config["network"]["custom_dns"].value<std::string>()) {
+            if (auto servers = akira::net::CustomDns::parseServers(*val))
+                setCustomDnsServers(std::move(*servers));
+            else
+                brls::Logger::warning("Ignoring invalid network.custom_dns \"{}\"", *val);
+        }
         if (auto val = config["network"]["companion_port"].value<int64_t>())
             companionPort = static_cast<int>(*val);
 
@@ -1107,6 +1118,7 @@ toml::table SettingsManager::ownedSettings() {
         network.insert("port_guessing_count", portGuessingCount);
         network.insert("port_guessing_socks", portGuessingSocks);
         if (!discoverySubnets.empty()) network.insert("discovery_subnets", discoverySubnets);
+        if (!customDnsServers.empty()) network.insert("custom_dns", akira::net::CustomDns::formatServers(customDnsServers));
         network.insert("companion_port", companionPort);
         config.insert("network", std::move(network));
     }
@@ -1186,12 +1198,14 @@ toml::table SettingsManager::ownedSettings() {
 
             entry.insert("haptic_intensity",
                          static_cast<int64_t>(std::to_underlying(profile.haptic_intensity)));
+#if AKIRA_PLATFORM_NX
             entry.insert("output_mode",
                          static_cast<int64_t>(std::to_underlying(profile.output_mode)));
             entry.insert("lightbar_enabled", profile.lightbar_enabled);
             entry.insert("lightbar_r", (int64_t)profile.lightbar_r);
             entry.insert("lightbar_g", (int64_t)profile.lightbar_g);
             entry.insert("lightbar_b", (int64_t)profile.lightbar_b);
+#endif
             entry.insert("rumble_source",
                          static_cast<int64_t>(std::to_underlying(profile.rumble_source)));
 
@@ -1720,6 +1734,7 @@ void SettingsManager::setHaptic(Host* host, const std::string& value) {
     setHaptic(host, preset);
 }
 
+#if AKIRA_PLATFORM_NX
 std::string SettingsManager::resolveRumbleKey(uint16_t vendorId, uint16_t productId,
                                               const uint8_t* address, bool switchNative,
                                               bool joycon) const
@@ -1753,6 +1768,22 @@ akira::input::RumbleProfile SettingsManager::resolveRumbleProfile(uint16_t vendo
 {
     return getRumbleProfile(resolveRumbleKey(vendorId, productId, address, switchNative, joycon));
 }
+#else
+std::string SettingsManager::resolveRumbleKey(bool joycon) const
+{
+    const std::string category = joycon ? akira::input::kRumbleKeyJoyCon
+                                        : akira::input::kRumbleKeySwitchPro;
+    if (rumbleProfiles.find(category) != rumbleProfiles.end())
+        return category;
+
+    return akira::input::kRumbleKeyDefault;
+}
+
+akira::input::RumbleProfile SettingsManager::resolveRumbleProfile(bool joycon) const
+{
+    return getRumbleProfile(resolveRumbleKey(joycon));
+}
+#endif
 
 akira::input::RumbleProfile SettingsManager::getRumbleProfile(const std::string& key) const
 {
@@ -2200,6 +2231,15 @@ std::string SettingsManager::getDevUpdateServer() const {
 
 void SettingsManager::setDevUpdateServer(const std::string& server) {
     devUpdateServer = server;
+}
+
+std::vector<akira::net::Ipv4Address> SettingsManager::getCustomDnsServers() const {
+    return customDnsServers;
+}
+
+void SettingsManager::setCustomDnsServers(std::vector<akira::net::Ipv4Address> servers) {
+    customDnsServers = std::move(servers);
+    akira::net::CustomDns::instance().configure(customDnsServers);
 }
 
 int SettingsManager::getMinBitrateForResolution(VideoResolution res) const {

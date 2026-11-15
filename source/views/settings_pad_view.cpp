@@ -1,11 +1,13 @@
 #include "views/settings_pad_view.hpp"
 
+#if AKIRA_PLATFORM_NX
 #include "views/lightbar_picker.hpp"
 
 #include "input/extended_input_manager.hpp"
 #include "input/ps_output.hpp"
 
 #include <cmath>
+#endif
 #include <vector>
 
 #include <borealis/core/i18n.hpp>
@@ -14,12 +16,14 @@ using namespace brls::literals;
 
 namespace {
 
+#if AKIRA_PLATFORM_NX
 std::uint8_t NextPreviewSequence()
 {
     static std::uint8_t seq = 0;
     return seq++;
 }
 
+#endif
 brls::Box* MakeCard()
 {
     auto* card = new brls::Box(brls::Axis::COLUMN);
@@ -49,6 +53,7 @@ SettingsPadView::SettingsPadView(const akira::input::PadDescription& pad)
 {
     settings = SettingsManager::getInstance();
 
+#if AKIRA_PLATFORM_NX
     const bool switchNative = pad.kind == akira::input::PadPathKind::JoyCon
                            || pad.kind == akira::input::PadPathKind::SwitchPro
                            ;
@@ -66,9 +71,13 @@ SettingsPadView::SettingsPadView(const akira::input::PadDescription& pad)
     m_key = settings->resolveRumbleKey(pad.vendor_id, pad.product_id,
                                        pad.has_address ? pad.bt_addr : nullptr,
                                        switchNative, joycon);
+#else
+    m_key = settings->resolveRumbleKey(pad.kind == akira::input::PadPathKind::JoyCon);
+#endif
 
     settings->seedRumbleProfile(m_key);
     m_profile = settings->getRumbleProfile(m_key);
+#if AKIRA_PLATFORM_NX
 
     akira::input::PadOutputInputs driver_in;
     driver_in.supported_pad =
@@ -85,6 +94,7 @@ SettingsPadView::SettingsPadView(const akira::input::PadDescription& pad)
     const akira::input::PadOutputState resolved =
         akira::input::ResolvePadOutput(driver_in);
     m_driver = { resolved.driver, resolved.reason };
+#endif
 
     setAxis(brls::Axis::COLUMN);
     setWidth(brls::View::AUTO);
@@ -112,6 +122,7 @@ SettingsPadView::SettingsPadView(const akira::input::PadDescription& pad)
     scroll->setContentView(content);
     addView(scroll);
 
+#if AKIRA_PLATFORM_NX
     if (takesDirectOutput())
         buildOutputRows();
 
@@ -132,6 +143,16 @@ SettingsPadView::SettingsPadView(const akira::input::PadDescription& pad)
 
     if (takesDirectOutput())
         buildLightbarRows();
+#else
+    buildSourceRows();
+    buildIntensityRow();
+    buildStrengthRows();
+
+    if (!m_profile.per_motor)
+        buildFrequencyRows();
+
+    buildEnvelopeRows();
+#endif
 
     if (m_pad.kind == akira::input::PadPathKind::JoyCon)
         buildGyroRow();
@@ -139,11 +160,13 @@ SettingsPadView::SettingsPadView(const akira::input::PadDescription& pad)
     buildActionRows();
 }
 
+#if AKIRA_PLATFORM_NX
 bool SettingsPadView::takesDirectOutput() const
 {
     return akira::input::PadTakesDirectOutput(m_pad.vendor_id, m_pad.product_id);
 }
 
+#endif
 void SettingsPadView::buildHeader()
 {
     auto* title = new brls::Label();
@@ -156,8 +179,10 @@ void SettingsPadView::buildHeader()
         tier = "akira/settings/rumble_tier_switch"_i18n;
     else if (m_key == akira::input::kRumbleKeyDefault)
         tier = "akira/settings/rumble_tier_default"_i18n;
+#if AKIRA_PLATFORM_NX
     else if (akira::input::RumbleKeyIsUnit(m_key))
         tier = "akira/settings/rumble_tier_unit"_i18n;
+#endif
     else
         tier = m_key;
 
@@ -169,6 +194,7 @@ void SettingsPadView::buildHeader()
     addView(sub);
 }
 
+#if AKIRA_PLATFORM_NX
 void SettingsPadView::buildOutputRows()
 {
     auto* card = MakeCard();
@@ -230,6 +256,7 @@ void SettingsPadView::buildOutputRows()
     content->addView(card);
 }
 
+#endif
 void SettingsPadView::buildSourceRows()
 {
     auto* card = MakeCard();
@@ -411,6 +438,7 @@ void SettingsPadView::buildFrequencyRows()
     content->addView(card);
 }
 
+#if AKIRA_PLATFORM_NX
 void SettingsPadView::buildLightbarRows()
 {
     auto* card = MakeCard();
@@ -471,6 +499,7 @@ void SettingsPadView::buildLightbarRows()
     content->addView(card);
 }
 
+#endif
 void SettingsPadView::buildGyroRow()
 {
     auto* card = MakeCard();
@@ -555,12 +584,14 @@ void SettingsPadView::reopen()
 
 void SettingsPadView::previewBuzz()
 {
+#if AKIRA_PLATFORM_NX
     if (takesDirectOutput() && m_pad.has_address &&
         m_profile.output_mode == akira::input::PadOutputMode::Native) {
         previewDirectBuzz();
         return;
     }
 
+#endif
     auto* inputMgr = brls::Application::getPlatform()->getInputManager();
     const float amplitude = m_profile.strength * m_profile.ceiling;
 
@@ -572,6 +603,7 @@ void SettingsPadView::previewBuzz()
         inputMgr->sendRumbleToNpad((unsigned int)npad, 0.0f, 0.0f, 0.0f, 0.0f);
     });
 }
+#if AKIRA_PLATFORM_NX
 
 void SettingsPadView::previewDirectBuzz()
 {
@@ -605,3 +637,4 @@ void SettingsPadView::previewDirectBuzz()
             ExtendedInputManager::writeOutputReportOnce(addr.data(), quiet, (uint16_t)n);
     });
 }
+#endif

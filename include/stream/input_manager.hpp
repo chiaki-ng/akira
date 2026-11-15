@@ -5,20 +5,33 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#if AKIRA_PLATFORM_NX
 #include <functional>
+#endif
 #include <map>
 #include <mutex>
+#if AKIRA_PLATFORM_OUNCE
+#include <optional>
+#endif
 #include <switch.h>
 
+#if AKIRA_PLATFORM_NX
 #include "input/extended_input_manager.hpp"
 #include "input/controller_timing.hpp"
+#endif
 #include "input/gesture_timing.hpp"
+#if AKIRA_PLATFORM_NX
 #include "input/pad_path.hpp"
+#else
+#include "input/pad_path_hos.hpp"
+#endif
 #include "input/sample_cadence.hpp"
 
+#if AKIRA_PLATFORM_NX
 #include <memory>
 #include <span>
 #include <vector>
+#endif
 
 #include <libchiaking/play_types.hpp>
 
@@ -55,6 +68,7 @@ struct TouchpadButtonPulse {
     akira::input::gesture::TimePoint releaseAt{};
 };
 
+#if AKIRA_PLATFORM_NX
 struct PadPathInfo {
     bool available = false;
     uint64_t generation = 0;
@@ -68,6 +82,7 @@ struct PadPathInfo {
     bool nativeRumble = false;
     bool switchNative = true;
 };
+#endif
 
 class InputManager
 {
@@ -84,6 +99,7 @@ public:
     void cleanup();
     void update(libchiaking::controllers::ControllerInput& input, std::map<uint32_t, int8_t>* finger_id_touch_id);
 
+#if AKIRA_PLATFORM_NX
     void readSecondaryPads(std::span<libchiaking::controllers::ControllerInput> states, uint8_t& count);
 
     static constexpr uint8_t kNoCouchSlot = 0xff;
@@ -112,8 +128,10 @@ public:
 
     void setPath(std::unique_ptr<akira::input::PadPath> path);
     PadPathInfo pathInfo() const;
+#endif
     void sendRumble(float left, float right, float freqLow, float freqHigh,
         float nonNativeScale = 1.0f);
+#if AKIRA_PLATFORM_NX
     void sendTriggerEffects(const akira::input::PadPath::TriggerEffect& left,
         const akira::input::PadPath::TriggerEffect& right);
     void sendEffectIntensity(uint8_t vibration, uint8_t trigger);
@@ -124,9 +142,11 @@ public:
     std::vector<akira::input::PadDescription> describePads();
 
     ExtendedInputManager& extendedInput() { return m_extended; }
+#endif
     bool menuHeld() const { return m_menu_held.load(std::memory_order_acquire); }
 
 private:
+#if AKIRA_PLATFORM_NX
     using DeferredCallbacks = std::vector<std::function<void()>>;
 
     void setPathLocked(std::unique_ptr<akira::input::PadPath> path);
@@ -147,27 +167,42 @@ private:
 
     uint64_t couchNpadMask() const;
 
+#endif
     static std::uint32_t button(libchiaking::controllers::ControllerButton held) noexcept;
     static int8_t startTouch(libchiaking::controllers::ControllerInput& input, uint16_t x, uint16_t y) noexcept;
 
+#if AKIRA_PLATFORM_NX
     void applyPadInput(akira::input::PadPath* path, libchiaking::controllers::ControllerState& state);
+#else
+    void applyPadInput(libchiaking::controllers::ControllerState& state);
+#endif
 
     bool readTouchScreen(libchiaking::controllers::ControllerInput& input, std::map<uint32_t, int8_t>* finger_id_touch_id,
         akira::input::gesture::TimePoint now);
     bool readSixAxis(libchiaking::controllers::ControllerState& state);
     void updateSyntheticSwipes(libchiaking::controllers::ControllerInput& state, u64 buttons,
         akira::input::gesture::TimePoint now);
+    void updateTouchInput(libchiaking::controllers::ControllerInput& input,
+        std::map<uint32_t, int8_t>* finger_id_touch_id, u64 buttons,
+        akira::input::gesture::TimePoint now);
 
     bool m_is_ps5 = false;
     SDL_Joystick* m_sdl_joystick_ptr[SDL_JOYSTICK_COUNT] = {nullptr};
 
+#if AKIRA_PLATFORM_NX
     ExtendedInputManager m_extended;
+#endif
 
     mutable std::mutex m_state_mutex;
+#if AKIRA_PLATFORM_NX
     std::unique_ptr<akira::input::PadPath> m_path;
     uint64_t m_path_generation = 0;
+#else
+    std::optional<akira::input::HosPadPath> m_path;
+#endif
     std::atomic<bool> m_menu_held{false};
 
+#if AKIRA_PLATFORM_NX
     static constexpr HidNpadIdType kNoNpad = (HidNpadIdType)0xff;
     HidNpadIdType m_bound_npad     = kNoNpad;
     std::map<HidNpadIdType, uint8_t> m_couch_roster;
@@ -189,6 +224,7 @@ private:
     uint32_t      m_identify_next  = 0;
     uint32_t      m_identify_until = 0;
     uint32_t      m_driver_next    = 0;
+#endif
     SyntheticSwipe m_swipes[4];
 
     std::map<uint32_t, PendingBorderTap> m_pending_border_taps;

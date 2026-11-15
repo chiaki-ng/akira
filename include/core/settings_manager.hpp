@@ -23,6 +23,7 @@
 
 // Forward declaration
 #include "input/rumble_profile.hpp"
+#include "util/ipv4_address.hpp"
 
 class Host;
 
@@ -151,6 +152,7 @@ private:
     int64_t lastUpdateCheck = 0;
     std::string updateInstallPath;
     std::string devUpdateServer;
+    std::vector<akira::net::Ipv4Address> customDnsServers;
     GyroSource globalGyroSource = GyroSource::Auto;
     bool sleepOnExit = false;
     bool requestIdrOnFecFailure = true;
@@ -351,6 +353,7 @@ public:
     void setDirectHapticsInStream(bool value);
 
 
+#if AKIRA_PLATFORM_NX
     akira::input::RumbleProfile resolveRumbleProfile(uint16_t vendorId, uint16_t productId,
                                                      const uint8_t* address,
                                                      bool switchNative, bool joycon) const;
@@ -358,6 +361,11 @@ public:
     std::string resolveRumbleKey(uint16_t vendorId, uint16_t productId,
                                  const uint8_t* address, bool switchNative,
                                  bool joycon) const;
+#else
+    akira::input::RumbleProfile resolveRumbleProfile(bool joycon) const;
+
+    std::string resolveRumbleKey(bool joycon) const;
+#endif
 
     akira::input::RumbleProfile getRumbleProfile(const std::string& key) const;
     void setRumbleProfile(const std::string& key, const akira::input::RumbleProfile& profile);
@@ -418,6 +426,8 @@ public:
     void setUpdateInstallPath(const std::string& path);
     std::string getDevUpdateServer() const;
     void setDevUpdateServer(const std::string& server);
+    std::vector<akira::net::Ipv4Address> getCustomDnsServers() const;
+    void setCustomDnsServers(std::vector<akira::net::Ipv4Address> servers);
     int getMinBitrateForResolution(VideoResolution res) const;
 
 

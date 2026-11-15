@@ -1,0 +1,3 @@
+{
+  "settings/connectedControllers": { "title": "Connected controllers", "body": "Open per-controller haptics and rumble settings. Wake a controller first so Akira can detect it.", "image": "" }
+}

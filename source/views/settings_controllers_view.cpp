@@ -2,18 +2,21 @@
 #include "views/settings_pad_view.hpp"
 
 #include "core/settings_manager.hpp"
+#if AKIRA_PLATFORM_NX
 #include "input/extended_input_manager.hpp"
+#endif
 #include "input/pad_path.hpp"
+#if AKIRA_PLATFORM_NX
 #include "input/ps_output.hpp"
+#endif
 
 #include <borealis/core/i18n.hpp>
 
 using namespace brls::literals;
 
-namespace {
-
-std::string TierSummary(const akira::input::PadDescription& pad)
+std::string SettingsControllersView::tierSummary(const akira::input::PadDescription& pad)
 {
+#if AKIRA_PLATFORM_NX
     const bool switchNative = pad.kind == akira::input::PadPathKind::JoyCon
                            || pad.kind == akira::input::PadPathKind::SwitchPro
                            ;
@@ -35,18 +38,22 @@ std::string TierSummary(const akira::input::PadDescription& pad)
         pad.vendor_id, pad.product_id,
         pad.has_address ? pad.bt_addr : nullptr, switchNative,
         pad.kind == akira::input::PadPathKind::JoyCon);
+#else
+    const std::string key = SettingsManager::getInstance()->resolveRumbleKey(
+        pad.kind == akira::input::PadPathKind::JoyCon);
+#endif
 
     if (key == akira::input::kRumbleKeySwitch)
         return "akira/settings/rumble_tier_switch"_i18n;
     if (key == akira::input::kRumbleKeyDefault)
         return "akira/settings/rumble_tier_default"_i18n;
+#if AKIRA_PLATFORM_NX
     if (akira::input::RumbleKeyIsUnit(key))
         return "akira/settings/rumble_tier_unit"_i18n;
+#endif
 
     return key;
 }
-
-} // namespace
 
 SettingsControllersView::SettingsControllersView()
 {
@@ -109,6 +116,7 @@ void SettingsControllersView::rebuild()
     }
 
     for (const akira::input::PadDescription& pad : pads) {
+#if AKIRA_PLATFORM_NX
         const bool switchNative = pad.kind == akira::input::PadPathKind::JoyCon
                                || pad.kind == akira::input::PadPathKind::SwitchPro
                                ;
@@ -125,12 +133,16 @@ void SettingsControllersView::rebuild()
                 pad.vendor_id, pad.product_id,
                 pad.has_address ? pad.bt_addr : nullptr, switchNative,
                 pad.kind == akira::input::PadPathKind::JoyCon));
+#else
+        settings->seedRumbleProfile(settings->resolveRumbleKey(
+            pad.kind == akira::input::PadPathKind::JoyCon));
+#endif
 
         auto* cell = new brls::DetailCell();
         cell->setMarginLeft(15.0f);
         cell->setMarginRight(15.0f);
         cell->setText(pad.label);
-        cell->setDetailText(TierSummary(pad));
+        cell->setDetailText(tierSummary(pad));
 
         cell->registerClickAction([pad](brls::View*) {
             brls::Application::pushActivity(new brls::Activity(new SettingsPadView(pad)),

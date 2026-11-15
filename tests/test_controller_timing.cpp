@@ -1,3 +1,4 @@
+#if AKIRA_PLATFORM_NX
 #include "test_util.hpp"
 
 #include "input/controller_timing.hpp"
@@ -23,3 +24,4 @@ TEST(controller_claim_progress_uses_elapsed_time)
     CHECK(progress(start, start + 333ms, CouchClaimHold) < 0.51f);
     CHECK_EQ(progress(start, start + 1s, CouchClaimHold), 1.0f);
 }
+#endif

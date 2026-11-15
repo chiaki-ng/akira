@@ -52,7 +52,7 @@ if (NOT AKIRA_CLOUD)
     list(FILTER MAIN_SRC EXCLUDE REGEX "/source/views/cloud_shortcuts_rail\\.cpp$")
 endif()
 include(video_provider)
-list(APPEND MAIN_SRC ${CMAKE_CURRENT_SOURCE_DIR}/source/stream/nxext_ipc_server.c)
+include(platform)
 
 # Switch wrapper for libnx initialization
 list(APPEND MAIN_SRC ${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c)
@@ -114,6 +114,7 @@ endif()
 option(MUTE_CHIAKI_LOGS "Drop every core log line" OFF)
 target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_MUTE_CORE_LOGS=$<BOOL:${MUTE_CHIAKI_LOGS}>)
 target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_CLOUD=$<BOOL:${AKIRA_CLOUD}>)
+target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_PLATFORM_NX=$<BOOL:${AKIRA_PLATFORM_NX}> AKIRA_PLATFORM_OUNCE=$<BOOL:${AKIRA_PLATFORM_OUNCE}>)
 target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_PS5_CLOUD_LAUNCH=$<BOOL:${AKIRA_PS5_CLOUD_LAUNCH}>)
 target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_PS4_CLOUD_LAUNCH=$<BOOL:${AKIRA_PS4_CLOUD_LAUNCH}>)
 
@@ -141,14 +142,20 @@ if (AKIRA_VIDEO_DEKO3D)
 endif()
 
 # SDL2 depends on EGL/OpenGL libraries on Switch
-if (PLATFORM_SWITCH)
+if (AKIRA_PLATFORM_NX)
     target_link_libraries(${PROJECT_NAME} PRIVATE EGL glapi drm_nouveau)
 endif()
 
 target_link_options(${PROJECT_NAME} PRIVATE ${APP_PLATFORM_LINK_OPTION})
 if (PLATFORM_SWITCH)
     target_link_options(${PROJECT_NAME} PRIVATE
-        -Wl,--wrap=svcSetThreadCoreMask)
+        -Wl,--wrap=svcSetThreadCoreMask
+        -Wl,--wrap=abort
+        -Wl,--wrap=__assert_func
+        -Wl,--wrap=fatalThrow
+        -Wl,--wrap=fatalThrowWithPolicy
+        -Wl,--wrap=getaddrinfo
+        -Wl,--wrap=freeaddrinfo)
 endif()
 
 # NRO packaging

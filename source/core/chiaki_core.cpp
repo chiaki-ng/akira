@@ -3,9 +3,11 @@
 #include "cloud/service.hpp"
 #endif
 #include "core/settings_manager.hpp"
+#include "util/crash_report.hpp"
 
 #include <borealis.hpp>
 
+#include <chrono>
 #include <cstdint>
 #include <exception>
 
@@ -27,10 +29,10 @@ auto ChiakiCore::threadPlacement() noexcept -> platform::horizon::ThreadPlacemen
 
 ChiakiCore::ChiakiCore(SettingsManager& settings)
     : settings(settings),
-      threadingProvider(threadPlacement()),
-      httpProvider(transportSettings(), threadingProvider, steadyClock, &coreLog),
-      webSocketProvider(threadingProvider, steadyClock),
-      factory(platform::PlatformProviders{
+      threadingProvider((CrashReport::stage("core threading"), threadPlacement())),
+      httpProvider((CrashReport::stage("core http"), transportSettings()), threadingProvider, steadyClock, &coreLog),
+      webSocketProvider((CrashReport::stage("core websocket"), threadingProvider), steadyClock),
+      factory((CrashReport::stage("core factory"), platform::PlatformProviders{
           .threading = &threadingProvider,
           .clock = &steadyClock,
           .wall_clock = &systemClock,
@@ -39,18 +41,21 @@ ChiakiCore::ChiakiCore(SettingsManager& settings)
           .http = &httpProvider,
           .websocket = &webSocketProvider,
           .diagnostics = &coreLog,
-      }),
-      recordStore(recordRoot),
-      datacenters(settings),
-      chiakiNg(libchiaking::ChiakiNg::open(
+      })),
+      recordStore((CrashReport::stage("core records"), recordRoot)),
+      datacenters((CrashReport::stage("core datacenters"), settings)),
+      chiakiNg((CrashReport::stage("core open"), libchiaking::ChiakiNg::open(
           factory, libchiaking::ChiakiNg::Stores{settings.signIns(), settings.pairings(), datacenters, nullptr,
-                                                 recordStore}))
+                                                 recordStore})))
 {
+    CrashReport::stage("core ready");
     if (instance != nullptr)
         std::terminate();
     instance = this;
     settings.setCoreLog(&coreLog);
+    CrashReport::stage("core duid");
     settings.ensureCloudDuid(random());
+    CrashReport::stage("core remember saved");
     rememberSaved();
 }
 
@@ -83,7 +88,7 @@ auto ChiakiCore::transportSettings() noexcept -> platform::HttpTransportSettings
 {
     return platform::HttpTransportSettings{
         .transport = platform::HttpTransport::multi,
-        .multi = {.max_host_connections = 2, .max_total_connections = 6},
+        .multi = {.max_host_connections = 2, .max_total_connections = 6, .dns_cache_lifetime = std::chrono::seconds{0}},
         .pool = {.idle_handles = 2, .connections_per_handle = 1},
         .tls_handshake_blocks = true,
     };

@@ -1,4 +1,5 @@
 #include "views/settings_general_view.hpp"
+#include "views/custom_dns_prompt.hpp"
 
 #include <borealis/core/i18n.hpp>
 #include <algorithm>
@@ -13,6 +14,7 @@
 #include "core/discovery_manager.hpp"
 #include "core/discovery_sweep.hpp"
 #include "ui/theme.hpp"
+#include "util/custom_dns.hpp"
 
 using namespace brls::literals;
 
@@ -23,6 +25,7 @@ SettingsGeneralView::SettingsGeneralView() {
 
     initLanguageSelector();
     initThemeSelector();
+    initCustomDnsCell();
     rebuildSubnetsUI();
     initConnectionShowStagesToggle();
     initHolepunchRetryToggle();
@@ -194,7 +197,7 @@ static void restartDiscovery() {
 
 void SettingsGeneralView::scheduleSubnetsRebuild() {
     brls::sync([this]() {
-        brls::Application::giveFocus(languageSelector);
+        brls::Application::giveFocus(customDnsCell);
         rebuildSubnetsUI();
         if (addSubnetRow)
             brls::Application::giveFocus(addSubnetRow);
@@ -283,6 +286,25 @@ void SettingsGeneralView::rebuildSubnetsUI() {
     addRow->addView(addLabel);
     subnetsBox->addView(addRow);
     addSubnetRow = addRow;
+}
+
+void SettingsGeneralView::initCustomDnsCell() {
+    customDnsCell->setText("akira/settings/custom_dns"_i18n);
+    refreshCustomDnsCell();
+    customDnsCell->registerClickAction([this](brls::View*) {
+        promptCustomDns();
+        return true;
+    });
+}
+
+void SettingsGeneralView::refreshCustomDnsCell() {
+    const auto servers = settings->getCustomDnsServers();
+    customDnsCell->setDetailText(servers.empty() ? "akira/settings/custom_dns_system"_i18n
+                                                 : akira::net::CustomDns::formatServers(servers));
+}
+
+void SettingsGeneralView::promptCustomDns() {
+    CustomDnsPrompt::open([this]() { refreshCustomDnsCell(); });
 }
 
 void SettingsGeneralView::promptAddSubnet() {

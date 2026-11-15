@@ -60,7 +60,9 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/cloud/fetch_progress.cpp \
                 $(CURDIR)/source/core/pair_crypto.cpp \
                 $(CURDIR)/source/input/rumble_profile.cpp \
-                $(CURDIR)/source/input/pad_output_state.cpp
+                $(CURDIR)/source/input/pad_output_state.cpp \
+                $(CURDIR)/source/util/dns_client.cpp \
+                $(CURDIR)/source/stream/h264_sps.cpp
 CORE_DIR     := $(or $(call override_path,CORE),$(CURDIR)/library/libchiaki-core)
 CORE_TEST_SRC := $(CORE_DIR)/src/platform/crypto/provider.cpp \
                  $(CORE_DIR)/src/platform/crypto/evp/primitives.cpp \
@@ -151,7 +153,7 @@ test:
 	fi
 	@mkdir -p "$(CURDIR)/build/tests"
 	@printf "$(GREEN)[*]$(NC) Building host tests...\n"
-	@c++ -std=c++23 -g -O0 -Wall -Wextra -Wno-unused-parameter \
+	@c++ -std=c++23 -g -O0 -Wall -Wextra -Wno-unused-parameter -DAKIRA_PLATFORM_NX=1 -DAKIRA_PLATFORM_OUNCE=0 \
 		-I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" \
 		-I"$(CURDIR)/library/tomlplusplus/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(OPENSSL_PREFIX)/include" \
 		$(TEST_SRC) $(CORE_TEST_SRC) -L"$(JSONC_PREFIX)/lib" -ljson-c -L"$(SIMDUTF_PREFIX)/lib" -lsimdutf \

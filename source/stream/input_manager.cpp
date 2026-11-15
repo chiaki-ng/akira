@@ -4,7 +4,9 @@
 #include "stream/video_renderer.hpp"
 #include "core/settings_manager.hpp"
 #include "core/swipe_direction.hpp"
+#if AKIRA_PLATFORM_NX
 #include "input/ps_output.hpp"
+#endif
 #include "input/remap_target.hpp"
 #include <borealis.hpp>
 #include <cmath>
@@ -61,6 +63,7 @@ bool InputManager::init()
     padConfigureInput(8, HidNpadStyleSet_NpadStandard);
     hidInitializeTouchScreen();
 
+#if AKIRA_PLATFORM_NX
     setPathLocked(akira::input::DefaultPadPath(m_extended));
 
     m_extended.initializeOptional();
@@ -80,6 +83,9 @@ bool InputManager::init()
             break;
         }
     }
+#else
+    m_path.emplace();
+#endif
 
     return true;
 }
@@ -88,7 +94,9 @@ void InputManager::cleanup()
 {
     std::lock_guard<std::mutex> lock(m_state_mutex);
     m_menu_held.store(false, std::memory_order_release);
+#if AKIRA_PLATFORM_NX
     m_extended.shutdown();
+#endif
 
     for (int i = 0; i < SDL_JOYSTICK_COUNT; i++)
     {
@@ -99,13 +107,18 @@ void InputManager::cleanup()
         }
     }
 
+#if AKIRA_PLATFORM_NX
     if (m_path) {
         m_path.reset();
         ++m_path_generation;
     }
+#else
+    m_path.reset();
+#endif
     m_overlay_drag_finger = -1;
 }
 
+#if AKIRA_PLATFORM_NX
 void InputManager::setPath(std::unique_ptr<akira::input::PadPath> path)
 {
     std::lock_guard<std::mutex> lock(m_state_mutex);
@@ -152,11 +165,13 @@ PadPathInfo InputManager::pathInfoLocked() const
     }
     return info;
 }
+#endif
 
 void InputManager::sendRumble(float left, float right, float freqLow, float freqHigh,
     float nonNativeScale)
 {
     std::lock_guard<std::mutex> lock(m_state_mutex);
+#if AKIRA_PLATFORM_NX
     if (!m_path)
         return;
     if (!m_path->nativeRumble()) {
@@ -164,8 +179,13 @@ void InputManager::sendRumble(float left, float right, float freqLow, float freq
         right *= nonNativeScale;
     }
     m_path->sendRumble(left, right, freqLow, freqHigh);
+#else
+    if (m_path)
+        m_path->sendRumble(left * nonNativeScale, right * nonNativeScale, freqLow, freqHigh);
+#endif
 }
 
+#if AKIRA_PLATFORM_NX
 void InputManager::sendTriggerEffects(const akira::input::PadPath::TriggerEffect& left,
     const akira::input::PadPath::TriggerEffect& right)
 {
@@ -310,22 +330,33 @@ void InputManager::reconcilePathDriver()
         return;
     }
 }
+#endif
 
+#if AKIRA_PLATFORM_NX
 void InputManager::applyPadInput(akira::input::PadPath* path, libchiaking::controllers::ControllerState& state)
+#else
+void InputManager::applyPadInput(libchiaking::controllers::ControllerState& state)
+#endif
 {
     state.buttons = 0;
     state.l2 = 0x00;
     state.r2 = 0x00;
 
+#if AKIRA_PLATFORM_NX
     const bool mapped = path->usesButtonMapping();
 
     u64 buttons = mapped ? path->heldButtons() : 0;
+#else
+    u64 buttons = m_path->heldButtons();
+#endif
     u64 consumedButtons = 0;
 
+#if AKIRA_PLATFORM_NX
     if (!mapped) {
         path->readButtons(state);
         path->readTriggers(state);
     } else {
+#endif
     const ButtonMapping& mapping = SettingsManager::getInstance()->getButtonMapping();
     for (const auto& [chiakiBtn, combo] : mapping) {
         if (combo.size() <= 1) continue;
@@ -387,11 +418,18 @@ void InputManager::applyPadInput(akira::input::PadPath* path, libchiaking::contr
         }
     }
 
+#if AKIRA_PLATFORM_NX
     path->readTriggers(state);
     }
+#endif
 
+#if AKIRA_PLATFORM_NX
     HidAnalogStickState left = path->stickPos(0);
     HidAnalogStickState right = path->stickPos(1);
+#else
+    HidAnalogStickState left = m_path->stickPos(0);
+    HidAnalogStickState right = m_path->stickPos(1);
+#endif
 
     static constexpr u64 leftStickDirs = HidNpadButton_StickLUp | HidNpadButton_StickLDown
                                        | HidNpadButton_StickLLeft | HidNpadButton_StickLRight;
@@ -415,6 +453,7 @@ void InputManager::applyPadInput(akira::input::PadPath* path, libchiaking::contr
     }
 }
 
+#if AKIRA_PLATFORM_NX
 uint8_t InputManager::couchJoin(HidNpadIdType npad)
 {
     std::lock_guard<std::mutex> lock(m_state_mutex);
@@ -839,9 +878,11 @@ void InputManager::pollCouchClaim(DeferredCallbacks& callbacks)
         }
     }
 }
+#endif
 
 void InputManager::update(libchiaking::controllers::ControllerInput& input, std::map<uint32_t, int8_t>* finger_id_touch_id)
 {
+#if AKIRA_PLATFORM_NX
     DeferredCallbacks callbacks;
     std::unique_lock<std::mutex> lock(m_state_mutex);
 
@@ -872,27 +913,7 @@ void InputManager::update(libchiaking::controllers::ControllerInput& input, std:
     u64 buttons = m_path->usesButtonMapping() ? m_path->heldButtons() : 0;
 
     if (!m_path->readTouchpad(input))
-    {
-        readTouchScreen(input, finger_id_touch_id, now);
-        updateSyntheticSwipes(input, buttons, now);
-
-        if (m_touchpad_button_pulse.scheduled)
-        {
-            if (now >= m_touchpad_button_pulse.releaseAt)
-            {
-                m_touchpad_button_pulse.scheduled = false;
-                fireDeferredRelease(input);
-            }
-            else if (now >= m_touchpad_button_pulse.pressAt)
-            {
-                input.state().buttons |= button(libchiaking::controllers::ControllerButton::touchpad);
-            }
-        }
-        else
-        {
-            fireDeferredRelease(input);
-        }
-    }
+        updateTouchInput(input, finger_id_touch_id, buttons, now);
 
     if (m_motion_cadence.due(now))
         readSixAxis(input.state());
@@ -900,6 +921,54 @@ void InputManager::update(libchiaking::controllers::ControllerInput& input, std:
     lock.unlock();
     for (auto& callback : callbacks)
         callback();
+#else
+    std::lock_guard<std::mutex> lock(m_state_mutex);
+
+    if (!m_path)
+    {
+        input.set_idle();
+        return;
+    }
+
+    const auto now = akira::input::gesture::Clock::now();
+
+    m_path->poll();
+    m_menu_held.store(m_path->menuHeld(), std::memory_order_release);
+
+    applyPadInput(input.state());
+
+    const u64 buttons = m_path->heldButtons();
+
+    updateTouchInput(input, finger_id_touch_id, buttons, now);
+
+    if (m_motion_cadence.due(now))
+        readSixAxis(input.state());
+#endif
+}
+
+void InputManager::updateTouchInput(libchiaking::controllers::ControllerInput& input,
+    std::map<uint32_t, int8_t>* finger_id_touch_id, u64 buttons,
+    akira::input::gesture::TimePoint now)
+{
+    readTouchScreen(input, finger_id_touch_id, now);
+    updateSyntheticSwipes(input, buttons, now);
+
+    if (m_touchpad_button_pulse.scheduled)
+    {
+        if (now >= m_touchpad_button_pulse.releaseAt)
+        {
+            m_touchpad_button_pulse.scheduled = false;
+            fireDeferredRelease(input);
+        }
+        else if (now >= m_touchpad_button_pulse.pressAt)
+        {
+            input.state().buttons |= button(libchiaking::controllers::ControllerButton::touchpad);
+        }
+    }
+    else
+    {
+        fireDeferredRelease(input);
+    }
 }
 
 void InputManager::fireDeferredRelease(libchiaking::controllers::ControllerInput& input)
@@ -1135,9 +1204,16 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
 
 bool InputManager::readSixAxis(libchiaking::controllers::ControllerState& state)
 {
+#if AKIRA_PLATFORM_NX
     HidSixAxisSensorState sixaxis = {0};
     if (!m_path->readGyro(&sixaxis))
         return false;
+#else
+    auto reading = m_path->readGyro();
+    if (!reading)
+        return false;
+    HidSixAxisSensorState& sixaxis = *reading;
+#endif
 
     state.gyro_x = sixaxis.angular_velocity.x * 2.0f * M_PI;
     state.gyro_y = sixaxis.angular_velocity.z * 2.0f * M_PI;

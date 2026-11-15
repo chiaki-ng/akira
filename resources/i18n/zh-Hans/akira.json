@@ -590,6 +590,13 @@
     "remove": "移除",
     "discovery_subnets_prompt": "输入 /24 至 /32 子网，如 192.168.50.0/24",
     "subnet_invalid": "请输入 /24 至 /32 子网，如 192.168.50.0/24。范围更大时，请使用主机所在的 /24。",
+    "custom_dns": "PlayStation 自定义 DNS",
+    "custom_dns_system": "内置（1.1.1.1, 8.8.8.8）",
+    "custom_dns_prompt": "akira 用于 PlayStation 和 Sony 域名的 DNS 服务器，最多两个，如 1.1.1.1, 8.8.8.8。akira 自行解析这些域名，从不使用系统 DNS（例如 90DNS）。留空则使用内置服务器。",
+    "custom_dns_placeholder": "1.1.1.1, 8.8.8.8",
+    "custom_dns_invalid": "请输入一个或两个 IPv4 DNS 服务器，用逗号分隔，如 1.1.1.1, 8.8.8.8。",
+    "set_dns": "为 akira 设置 DNS",
+    "custom_dns_saved": "PlayStation DNS：{}",
     "language": "语言",
     "language_desc": "覆盖显示语言。需要重启应用。",
     "lang_system": "跟随系统",
@@ -846,7 +853,7 @@
     "install_failed": "更新安装失败"
   },
   "network": {
-    "dns_failed": "查询 {} 时，DNS 服务器 {} 未能正常解析。远程和云功能可能无法使用。请检查 DNS 设置。",
+    "dns_failed": "查询 {} 时，DNS 服务器 {} 未能正常解析。远程和云功能可能无法使用。可在 设置 > 通用 > PlayStation 自定义 DNS 中更换服务器。",
     "dns_ok_in": "{} 秒后可确认",
     "check_nat": "检测 NAT 类型",
     "testing": "检测中...",

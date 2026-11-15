@@ -26,6 +26,7 @@ enum class TakionTarget : uint8_t;
 
 namespace akira::stream {
 
+#if AKIRA_PLATFORM_NX
 enum class SeatPhase : uint8_t {
     Empty,
     Joining,
@@ -48,6 +49,7 @@ struct CouchProfileChoice {
     std::string accountId;
     std::string avatarUrl;
 };
+#endif
 
 class ConnectionListener {
 public:
@@ -59,9 +61,11 @@ public:
     virtual void onEnded(const libchiaking::play::Outcome& outcome) = 0;
     virtual void onRefused(const libchiaking::play::StartRefusal& refusal) = 0;
     virtual void onLoginPinNeeded(bool previousWasWrong) = 0;
+#if AKIRA_PLATFORM_NX
     virtual void onSeatPasscodeNeeded(uint8_t slot, bool retry) = 0;
     virtual void onSeatRefused(uint8_t slot, const libchiaking::play::SeatRefusal& refusal) = 0;
     virtual void onSeatDropped(uint8_t slot) = 0;
+#endif
 };
 
 class Connection final : private libchiaking::media::MediaSink, private libchiaking::play::SessionEvents {
@@ -70,7 +74,9 @@ public:
     using Starter = std::function<Started(libchiaking::media::MediaSink&, libchiaking::play::SessionEvents&,
                                           const libchiaking::platform::StopToken&)>;
 
+#if AKIRA_PLATFORM_NX
     static constexpr uint8_t seatCount = libchiaking::controllers::SeatNumber::count;
+#endif
 
     Connection(Session& media, std::weak_ptr<ConnectionListener> listener, bool ps5);
     ~Connection();
@@ -93,6 +99,7 @@ public:
     void leave(bool restConsole);
     void setInputSuppressed(bool suppressed);
 
+#if AKIRA_PLATFORM_NX
     bool addPlayer(uint8_t slot, std::optional<int64_t> profileId);
     void removePlayer(uint8_t slot);
     void sendSeatPasscode(uint8_t slot, std::string_view passcode);
@@ -100,6 +107,7 @@ public:
     bool couchSlotAvailable() const;
     bool seatPlaying(uint8_t slot) const;
     auto couchProfileChoices(uint8_t slot) const -> std::vector<CouchProfileChoice>;
+#endif
 
 private:
     void run(const libchiaking::platform::StopToken& stop);
@@ -109,7 +117,9 @@ private:
     static constexpr std::chrono::microseconds journalDrainPeriod{250000};
     auto session() const -> std::shared_ptr<libchiaking::play::Session>;
     void post(std::function<void(Connection&, ConnectionListener&)> work);
+#if AKIRA_PLATFORM_NX
     void routeCouchFeedback(const libchiaking::controllers::ControllerFeedback& feedback);
+#endif
     static auto tuned(libchiaking::play::PictureRequest picture, std::uint32_t takionVersion, SettingsManager& settings)
         -> std::optional<libchiaking::play::Preferences>;
 
@@ -125,10 +135,12 @@ private:
     void on_connect_progress(const libchiaking::play::ConnectProgress& progress) override;
     void on_launch_progress(const libchiaking::play::LaunchProgress& progress) override;
     void on_login_pin_needed(bool previousWasWrong) override;
+#if AKIRA_PLATFORM_NX
     void on_seat_passcode_needed(libchiaking::controllers::SeatNumber seat, bool retry) override;
     void on_seat_joined(libchiaking::controllers::SeatNumber seat, libchiaking::controllers::SeatLight light) override;
     void on_seat_left(libchiaking::controllers::SeatNumber seat) override;
     void on_seat_refused(const libchiaking::play::SeatRefusal& refusal) override;
+#endif
 
     Session& media;
     std::weak_ptr<ConnectionListener> listener;
@@ -140,13 +152,19 @@ private:
     std::shared_ptr<libchiaking::play::Session> active;
     std::atomic<bool> inputSuppressed{false};
 
+#if AKIRA_PLATFORM_NX
     std::array<libchiaking::controllers::ControllerInput, seatCount> inputs{};
+#else
+    libchiaking::controllers::ControllerInput controllerInput{};
+#endif
     std::map<uint32_t, int8_t> fingerIdTouchId;
+#if AKIRA_PLATFORM_NX
     uint8_t couchPadCount = 1;
     uint8_t hapticIntensity = 1;
     uint8_t triggerIntensity = 1;
 
     std::array<CouchSeat, seatCount> seats{};
+#endif
 
     libchiaking::platform::Thread worker;
 };

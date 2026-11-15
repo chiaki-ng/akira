@@ -159,7 +159,11 @@ void StatsCard::drawPanel(NVGcontext* vg, const CardTheme& t, float x, float y, 
         { "akira/stream_menu/stat_rtt"_i18n,    rtt,                                             "ms",   rttTone },
         { "akira/stream_menu/stat_loss"_i18n,   std::format("{:.1f}", st.packet_loss_percent),   "%",    lossTone },
         { "akira/stream_menu/stat_lost"_i18n,   std::format("{}", st.network_frames_lost),       "",     kVal },
+#if AKIRA_PLATFORM_NX
         { "akira/stream_menu/stat_decode"_i18n, st.is_hardware_decoder ? "NVTEGRA" : "SW",       "",     kVal },
+#else
+        { "akira/stream_menu/stat_decode"_i18n, st.is_hardware_decoder ? "HW" : "SW",       "",     kVal },
+#endif
     };
 
     std::vector<Readout> latency = {
@@ -217,8 +221,10 @@ std::string MotionCard::label() const
 {
     return "akira/stream_menu/card_motion"_i18n;
 }
+#if AKIRA_PLATFORM_NX
 
 std::string PlayersCard::label() const
 {
     return "akira/stream_menu/card_players"_i18n;
 }
+#endif

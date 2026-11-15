@@ -1,8 +1,10 @@
 #include "views/stream_view.hpp"
 #include "views/stream_nav.hpp"
+#if AKIRA_PLATFORM_NX
 #include "views/controller_picker_view.hpp"
 #include "views/players_panel_view.hpp"
 #include "input/extended_input_manager.hpp"
+#endif
 #include "input/pad_path.hpp"
 #include "views/stream_menu.hpp"
 #include "views/connecting_view.hpp"
@@ -123,6 +125,7 @@ void StreamView::setupCallbacks()
 
     session->getInputManager()->setTargetPS5(host->isPS5());
 
+#if AKIRA_PLATFORM_NX
     session->getInputManager()->setOnPadArrived([weak](HidNpadIdType npad) {
         brls::sync([weak, npad]() {
             if (auto self = weak.lock())
@@ -139,6 +142,7 @@ void StreamView::setupCallbacks()
         });
     });
 
+#endif
     exitSubscription = brls::Application::getExitEvent()->subscribe([weak]() {
         if (auto self = weak.lock()) {
             if (self->sessionStarted && self->settings->getSleepOnExit() && !self->host->isCloud() && self->connection) {
@@ -209,6 +213,7 @@ brls::View* StreamView::create()
     return nullptr;
 }
 
+#if AKIRA_PLATFORM_NX
 bool StreamView::beginPadChoice()
 {
     if (padChoiceDone)
@@ -363,6 +368,7 @@ void StreamView::finishPadChoice()
                                     brls::TransitionAnimation::NONE);
 }
 
+#endif
 void StreamView::startStream()
 {
     if (sessionStarted)
@@ -375,14 +381,20 @@ void StreamView::startStream()
     // diagnostics still reach the file without being copied and parsed here.
     startLogCapture();
 
+#if AKIRA_PLATFORM_NX
     if (beginPadChoice())
     {
         return;
     }
 
+#endif
     if (sessionPreStarted)
     {
         brls::Logger::info("Session already started while connecting, activating stream...");
+#if !AKIRA_PLATFORM_NX
+        if (!controllerReady)
+            controllerReady = session->InitController();
+#endif
         sessionStarted = true;
         streamActive = true;
         prepareVideoPipelineTick();
@@ -454,6 +466,7 @@ akira::input::RumbleProfile StreamView::activePadProfile()
     if (pads.empty())
         return settings->getRumbleProfile(akira::input::kRumbleKeyDefault);
 
+#if AKIRA_PLATFORM_NX
     const akira::input::PadDescription& pad = pads.front();
     const bool switchNative = pad.kind == akira::input::PadPathKind::JoyCon
                            || pad.kind == akira::input::PadPathKind::SwitchPro;
@@ -462,6 +475,9 @@ akira::input::RumbleProfile StreamView::activePadProfile()
                                           pad.has_address ? pad.bt_addr : nullptr,
                                           switchNative,
                                           pad.kind == akira::input::PadPathKind::JoyCon);
+#else
+    return settings->resolveRumbleProfile(pads.front().kind == akira::input::PadPathKind::JoyCon);
+#endif
 }
 
 void StreamView::openConnection()
@@ -520,13 +536,16 @@ void StreamView::openConnection()
                                    ? 0.0f
                                    : padProfile.strength);
     session->setRumbleSource(padProfile.rumble_source);
+#if !AKIRA_PLATFORM_NX
+    session->setHapticIntensity(padProfile.haptic_intensity);
+#endif
     session->setHapticBase(akira::input::HapticBaseForIntensity(padProfile.haptic_intensity));
     session->setRumbleFreqs(padProfile.freq_low, padProfile.freq_high);
     session->setEnvelopeAttack(padProfile.envelope_attack);
     session->setEnvelopeDecay(padProfile.envelope_decay);
     session->setRumbleCeiling(padProfile.ceiling);
 
-    if (!session->InitAVCodec(hevc, width, height))
+    if (!session->InitAVCodec(hevc, host->isPS5(), width, height))
         throw Exception("Failed to initiate libav codec");
     if (!session->InitVideo(width, height))
         throw Exception("Failed to initiate video");
@@ -773,6 +792,7 @@ void StreamView::streamingTick()
         return;
     }
 
+#if AKIRA_PLATFORM_NX
     if (auto* input = session->getInputManager())
     {
         if (input->extendedInput().consumeDegradedNotice())
@@ -783,6 +803,7 @@ void StreamView::streamingTick()
         }
     }
 
+#endif
     if (!session->MainLoop())
     {
         brls::Application::setSwapInterval(1);
@@ -1018,6 +1039,7 @@ void StreamView::onEnded(const libchiaking::play::Outcome& outcome)
     }
 }
 
+#if AKIRA_PLATFORM_NX
 void StreamView::pauseStreamForUi()
 {
     capturePausedFrame();
@@ -1214,6 +1236,7 @@ void StreamView::onSeatDropped(uint8_t slot)
         libchiaking::play::SeatRefusal::passcode_attempts_status));
 }
 
+#endif
 void StreamView::onLoginPinNeeded(bool pinIncorrect)
 {
     brls::Logger::info("Login PIN request (incorrect: {})", pinIncorrect);
@@ -1319,7 +1342,9 @@ void StreamView::showDisconnectMenu()
 
     auto* menu = new StreamMenu();
     menu->setSleepAvailable(!host->isCloud());
+#if AKIRA_PLATFORM_NX
     menu->setPlayersAvailable(!host->isCloud());
+#endif
 
     menu->setConsoleName(host->getHostName());
     menu->setConsoleIsPs5(host->isPS5());
@@ -1350,6 +1375,7 @@ void StreamView::showDisconnectMenu()
         brls::Application::pushActivity(new brls::Activity(remapView), brls::TransitionAnimation::NONE);
     });
 
+#if AKIRA_PLATFORM_NX
     menu->setOnPlayers([weak]() {
         auto self = weak.lock();
         if (!self)
@@ -1363,6 +1389,7 @@ void StreamView::showDisconnectMenu()
         brls::Application::pushActivity(new brls::Activity(panel), brls::TransitionAnimation::NONE);
     });
 
+#endif
     menu->setOnDisconnect([weak](bool sleep) {
         if (auto self = weak.lock()) {
             brls::Logger::info("Disconnect requested, sleep={}", sleep);
@@ -1385,6 +1412,7 @@ void StreamView::showDisconnectMenu()
     brls::Logger::info("showDisconnectMenu: menu opened");
 }
 
+#if AKIRA_PLATFORM_NX
 void StreamView::abandonBeforeStart()
 {
     brls::Logger::info("Pad choice abandoned before the stream started");
@@ -1405,6 +1433,7 @@ void StreamView::abandonBeforeStart()
 
 
 
+#endif
 void StreamView::disconnectWithSleep(bool sleep)
 {
     intentionalDisconnect = true;

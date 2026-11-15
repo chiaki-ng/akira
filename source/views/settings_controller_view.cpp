@@ -1,6 +1,8 @@
 #include "views/settings_controller_view.hpp"
 #include "views/controller_remap_view.hpp"
+#if AKIRA_PLATFORM_NX
 #include "input/extended_input_manager.hpp"
+#endif
 #include "input/pad_path.hpp"
 #include "views/settings_controllers_view.hpp"
 

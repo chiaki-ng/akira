@@ -3,25 +3,32 @@
 
 #include <switch.h>
 
+#if AKIRA_PLATFORM_NX
 #include <libchiaking/play_types.hpp>
 
 #include <cstdint>
 #include <memory>
+#endif
 #include <vector>
 
+#if AKIRA_PLATFORM_NX
 #include "input/pad_output_state.hpp"
 
 class ExtendedInputManager;
+#endif
 
 namespace akira::input {
 
 enum class PadPathKind {
     JoyCon,
     SwitchPro,
+#if AKIRA_PLATFORM_NX
     McPsNative,
     McGeneric,
+#endif
 };
 
+#if AKIRA_PLATFORM_NX
 struct PadCapabilities {
     bool analog_triggers = false;
     bool touchpad        = false;
@@ -101,12 +108,14 @@ public:
 
     virtual void setExcludedNpads(uint64_t mask) { (void)mask; }
 };
+#endif
 
 struct PadDescription {
     HidNpadIdType   npad  = HidNpadIdType_No1;
     PadPathKind     kind  = PadPathKind::JoyCon;
     HidNpadStyleTag style = HidNpadStyleTag_NpadFullKey;
     const char*     label = "";
+#if AKIRA_PLATFORM_NX
     PadCapabilities caps;
 
     uint16_t vendor_id  = 0;
@@ -114,8 +123,10 @@ struct PadDescription {
 
     uint8_t  bt_addr[6]{};
     bool     has_address = false;
+#endif
 };
 
+#if AKIRA_PLATFORM_NX
 
 PadDriverState ResolvePadDriverState(const PadDescription& desc,
                                      ExtendedInputManager& extended);
@@ -123,12 +134,15 @@ PadDriverState ResolvePadDriverState(const PadDescription& desc,
 PadDriver ResolvePadDriver(const PadDescription& desc, ExtendedInputManager& extended);
 
 std::vector<PadDescription> DescribePads(ExtendedInputManager& extended);
+#endif
 
 std::vector<PadDescription> DescribePads();
 
+#if AKIRA_PLATFORM_NX
 std::unique_ptr<PadPath> MakePath(const PadDescription& desc, ExtendedInputManager& extended);
 
 std::unique_ptr<PadPath> DefaultPadPath(ExtendedInputManager& extended);
+#endif
 
 } // namespace akira::input
 

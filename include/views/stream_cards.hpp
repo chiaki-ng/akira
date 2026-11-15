@@ -62,6 +62,7 @@ private:
     std::function<void()> reset;
 };
 
+#if AKIRA_PLATFORM_NX
 class PlayersCard : public StreamCard
 {
 public:
@@ -80,6 +81,7 @@ private:
     std::function<void()> open;
 };
 
+#endif
 class PowerCard : public StreamCard
 {
 public:

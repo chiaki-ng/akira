@@ -6,9 +6,12 @@
 #include "stream/haptic_manager.hpp"
 #include "stream/input_manager.hpp"
 #include "stream/video_renderer.hpp"
+#include "util/crash_report.hpp"
+#if AKIRA_PLATFORM_NX
 #include "stream/ipc_service.hpp"
 
 #include <cstring>
+#endif
 
 Session* Session::GetInstance()
 {
@@ -66,6 +69,14 @@ void Session::setRumbleSource(akira::input::RumbleSource source)
         m_haptic_manager->setRumbleSource(source);
 }
 
+#if AKIRA_PLATFORM_OUNCE
+void Session::setHapticIntensity(akira::input::HapticIntensity intensity)
+{
+    if (m_haptic_manager)
+        m_haptic_manager->setHapticIntensity(intensity);
+}
+#endif
+
 Session::Session()
 {
     m_audio_manager = std::make_unique<AudioManager>();
@@ -73,8 +84,10 @@ Session::Session()
     m_input_manager = std::make_unique<InputManager>();
 
     m_haptic_manager->setInputManager(m_input_manager.get());
+#if AKIRA_PLATFORM_NX
 
     m_haptic_manager->setExtendedInput(&m_input_manager->extendedInput());
+#endif
     m_video = akira::video::Provider::create();
     m_video->ensureDecoder();
 }
@@ -84,9 +97,11 @@ Session::~Session()
     FreeVideo();
 }
 
+#if AKIRA_PLATFORM_NX
 void Session::SetMesaConfig()
 {
 }
+#endif
 
 void Session::describeStream(const libchiaking::media::StreamDescription& description)
 {
@@ -210,6 +225,7 @@ libchiaking::media::AudioResult Session::submitAudio(const libchiaking::media::A
 bool Session::InitVideo(int video_width, int video_height)
 {
     brls::Logger::info("load InitVideo");
+    akira::CrashReport::stage("stream video");
     std::lock_guard lock(m_media_mutex);
     this->quit = false;
 
@@ -245,13 +261,16 @@ bool Session::InitVideo(int video_width, int video_height)
 bool Session::FreeVideo()
 {
     this->quit = true;
+    akira::CrashReport::stage("stream teardown");
 
     m_video_worker.reset();
 
     m_video->detachFrames();
 
+#if AKIRA_PLATFORM_NX
     if (m_ipc_service)
         m_ipc_service->SetStreamActive(false);
+#endif
 
     m_first_frame_received = false;
     SettingsManager::getInstance()->setStreamingActive(false);
@@ -277,6 +296,7 @@ void Session::SetRumble(uint8_t left, uint8_t right)
     }
 }
 
+#if AKIRA_PLATFORM_NX
 void Session::SetTriggerEffects(const libchiaking::controllers::TriggerEffects& effects)
 {
     if (!m_input_manager)
@@ -317,6 +337,13 @@ void Session::SetLedColor(uint8_t red, uint8_t green, uint8_t blue)
 
     m_input_manager->sendLightbar(red, green, blue);
 }
+#else
+void Session::SetConsoleVibration(uint8_t vibration)
+{
+    if (m_haptic_manager)
+        m_haptic_manager->setConsoleVibration(vibration);
+}
+#endif
 
 void Session::HapticCB(std::span<const std::byte> pcm)
 {
@@ -349,10 +376,10 @@ void Session::updateActualResolution(int width, int height)
         renderer->updateResolution(width, height);
 }
 
-bool Session::InitAVCodec(bool hevc, int video_width, int video_height)
+bool Session::InitAVCodec(bool hevc, bool ps5, int video_width, int video_height)
 {
     std::lock_guard lock(m_media_mutex);
-    return m_video->ensureDecoder().initCodec(hevc, hevc, video_width, video_height);
+    return m_video->ensureDecoder().initCodec(hevc, ps5, video_width, video_height);
 }
 
 bool Session::InitController()
@@ -375,6 +402,7 @@ void Session::UpdateControllerState(libchiaking::controllers::ControllerInput& i
     }
 }
 
+#if AKIRA_PLATFORM_NX
 void Session::UpdateSecondaryPads(std::span<libchiaking::controllers::ControllerInput> states, uint8_t& count)
 {
     if (m_input_manager)
@@ -382,6 +410,7 @@ void Session::UpdateSecondaryPads(std::span<libchiaking::controllers::Controller
         m_input_manager->readSecondaryPads(states, count);
     }
 }
+#endif
 
 bool Session::MainLoop()
 {
@@ -408,6 +437,7 @@ void Session::frameArriving(const akira::video::FrameInfo& frame)
         updateActualResolution(static_cast<int>(frame.width), static_cast<int>(frame.height));
         SettingsManager::getInstance()->setStreamingActive(true);
         brls::Logger::info("First video frame received!");
+#if AKIRA_PLATFORM_NX
 
         if (SettingsManager::getInstance()->getIpcStatsEnabled())
         {
@@ -418,6 +448,7 @@ void Session::frameArriving(const akira::video::FrameInfo& frame)
             }
             m_ipc_service->SetStreamActive(true);
         }
+#endif
     }
 
     if (akira::video::Decoder* decoder = m_video->decoder())
@@ -448,6 +479,7 @@ StreamStats Session::getStreamStats()
     stats.requested_fps = m_requested_fps;
     stats.requested_bitrate = m_requested_bitrate;
     stats.requested_hevc = m_requested_hevc;
+#if AKIRA_PLATFORM_NX
     
     if (m_input_manager) {
         auto& extended = m_input_manager->extendedInput();
@@ -455,6 +487,7 @@ StreamStats Session::getStreamStats()
         stats.analog_l2 = extended.l2();
         stats.analog_r2 = extended.r2();
     }
+#endif
 
     if (IVideoRenderer* renderer = m_video->renderer())
         stats.fps = renderer->getRenderFPS();

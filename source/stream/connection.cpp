@@ -60,7 +60,11 @@ auto Connection::preferencesFor(Host& host, SettingsManager& settings) -> std::o
         vpn ? settings.getVpnVideoBitrate() : settings.getVideoBitrate(&host),
         static_cast<int>(play::PictureRequest::minimum_bitrate_kbps),
         static_cast<int>(play::PictureRequest::maximum_bitrate_kbps)));
+#if AKIRA_PLATFORM_OUNCE
+    const auto codec = libchiaking::media::VideoCodec::h264;
+#else
     const auto codec = host.isPS5() ? libchiaking::media::VideoCodec::h265 : libchiaking::media::VideoCodec::h264;
+#endif
     if (codec == libchiaking::media::VideoCodec::h264)
         height = std::min(height, play::PictureRequest::maximum_h264_height);
 
@@ -91,7 +95,11 @@ auto Connection::cloudPreferencesFor(const cloud::CloudLaunch& launch, SettingsM
     -> std::optional<play::Preferences>
 {
     const bool ps5Cloud = launch.ps5();
+#if AKIRA_PLATFORM_OUNCE
+    const auto codec = libchiaking::media::VideoCodec::h264;
+#else
     const auto codec = ps5Cloud ? libchiaking::media::VideoCodec::h265 : libchiaking::media::VideoCodec::h264;
+#endif
     auto height = static_cast<uint32_t>(settings.getCloudVideoResolution(ps5Cloud));
     if (codec == libchiaking::media::VideoCodec::h264)
         height = std::min(height, play::PictureRequest::maximum_h264_height);
@@ -188,8 +196,12 @@ void Connection::feed(play::Session& running, const platform::StopToken& stop)
     auto next = core.clock().now_microseconds();
     auto journalDue = next;
 
+#if AKIRA_PLATFORM_NX
     for (auto& input : inputs)
         input.set_idle();
+#else
+    controllerInput.set_idle();
+#endif
 
     while (!stop.stop_requested() && running.state() != play::SessionState::ended)
     {
@@ -221,17 +233,26 @@ void Connection::sendInput(play::Session& running)
     if (inputSuppressed.load(std::memory_order_acquire))
     {
         fingerIdTouchId.clear();
+#if AKIRA_PLATFORM_NX
         for (auto& input : inputs)
             input.set_idle();
+#else
+        controllerInput.set_idle();
+#endif
     }
     else
     {
+#if AKIRA_PLATFORM_NX
         media.UpdateControllerState(inputs[0], &fingerIdTouchId);
         uint8_t count = 1;
         media.UpdateSecondaryPads(inputs, count);
         couchPadCount = count;
+#else
+        media.UpdateControllerState(controllerInput, &fingerIdTouchId);
+#endif
     }
 
+#if AKIRA_PLATFORM_NX
     static_cast<void>(running.controllers().send(libchiaking::controllers::SeatNumber::first(), inputs[0].state()));
     for (uint8_t slot = 1; slot < couchPadCount && slot < seatCount; slot++)
     {
@@ -239,6 +260,9 @@ void Connection::sendInput(play::Session& running)
         if (seat && running.seats().seat(*seat).state() == play::SeatState::playing)
             static_cast<void>(running.controllers().send(*seat, inputs[slot].state()));
     }
+#else
+    static_cast<void>(running.controllers().send(libchiaking::controllers::SeatNumber::first(), controllerInput.state()));
+#endif
 }
 
 auto Connection::session() const -> std::shared_ptr<play::Session>
@@ -288,6 +312,7 @@ void Connection::setInputSuppressed(bool suppressed)
     inputSuppressed.store(suppressed, std::memory_order_release);
 }
 
+#if AKIRA_PLATFORM_NX
 bool Connection::addPlayer(uint8_t slot, std::optional<int64_t> profileId)
 {
     const auto seat = libchiaking::controllers::SeatNumber::create(slot);
@@ -398,6 +423,7 @@ auto Connection::couchProfileChoices(uint8_t slot) const -> std::vector<CouchPro
     }
     return choices;
 }
+#endif
 
 void Connection::on_stream_description(const libchiaking::media::StreamDescription& description)
 {
@@ -420,14 +446,20 @@ auto Connection::on_audio(const libchiaking::media::AudioUnit& unit) -> libchiak
 
 auto Connection::decoder_name() const -> std::string_view
 {
+#if AKIRA_PLATFORM_OUNCE
+    return "Switch 2 hardware decoder";
+#else
     return "FFmpeg nvtegra";
+#endif
 }
 
 void Connection::on_feedback(const libchiaking::controllers::ControllerFeedback& feedback)
 {
     if (feedback.seat.is_added())
     {
+#if AKIRA_PLATFORM_NX
         routeCouchFeedback(feedback);
+#endif
         return;
     }
 
@@ -440,6 +472,7 @@ void Connection::on_feedback(const libchiaking::controllers::ControllerFeedback&
     {
         media.SetRumble(rumble->left, rumble->right);
     }
+#if AKIRA_PLATFORM_NX
     else if (const auto* effects = feedback.get<libchiaking::controllers::TriggerEffects>())
     {
         media.SetTriggerEffects(*effects);
@@ -458,6 +491,12 @@ void Connection::on_feedback(const libchiaking::controllers::ControllerFeedback&
     {
         media.SetLedColor(light->colour.red, light->colour.green, light->colour.blue);
     }
+#else
+    else if (const auto* haptic = feedback.get<libchiaking::controllers::HapticIntensity>())
+    {
+        media.SetConsoleVibration(static_cast<uint8_t>(haptic->level));
+    }
+#endif
     else if (feedback.get<libchiaking::controllers::MotionReset>())
     {
         if (auto* input = media.getInputManager())
@@ -465,6 +504,7 @@ void Connection::on_feedback(const libchiaking::controllers::ControllerFeedback&
     }
 }
 
+#if AKIRA_PLATFORM_NX
 void Connection::routeCouchFeedback(const libchiaking::controllers::ControllerFeedback& feedback)
 {
     const uint8_t slot = feedback.seat.index();
@@ -499,6 +539,7 @@ void Connection::routeCouchFeedback(const libchiaking::controllers::ControllerFe
         input->extendedInput().setCouchLightbar(addr, colour.red, colour.green, colour.blue);
     }
 }
+#endif
 
 void Connection::on_state(play::SessionState state)
 {
@@ -526,6 +567,7 @@ void Connection::on_login_pin_needed(bool previousWasWrong)
     post([previousWasWrong](Connection&, ConnectionListener& to) { to.onLoginPinNeeded(previousWasWrong); });
 }
 
+#if AKIRA_PLATFORM_NX
 void Connection::on_seat_passcode_needed(libchiaking::controllers::SeatNumber seat, bool retry)
 {
     post([slot = seat.index(), retry](Connection& self, ConnectionListener& to) {
@@ -573,5 +615,6 @@ void Connection::on_seat_refused(const play::SeatRefusal& refusal)
         to.onSeatRefused(slot, refusal);
     });
 }
+#endif
 
 }

@@ -13,10 +13,12 @@ set(LIBCHIAKING_PS5_CLOUD_LAUNCH ${AKIRA_PS5_CLOUD_LAUNCH} CACHE BOOL "" FORCE)
 option(AKIRA_PS4_CLOUD_LAUNCH "Allow PS Now launches; PS Cloud is unaffected" OFF)
 set(LIBCHIAKING_PS4_CLOUD_LAUNCH ${AKIRA_PS4_CLOUD_LAUNCH} CACHE BOOL "" FORCE)
 
-list(PREPEND CMAKE_PREFIX_PATH
-    $ENV{NX_DEPS}/curl
-    $ENV{NX_DEPS}/nghttp2
-    $ENV{NX_DEPS}/simdutf)
+if (NOT PLATFORM_SWITCH2)
+    list(PREPEND CMAKE_PREFIX_PATH
+        $ENV{NX_DEPS}/curl
+        $ENV{NX_DEPS}/nghttp2
+        $ENV{NX_DEPS}/simdutf)
+endif()
 
 get_directory_property(akira_compile_options COMPILE_OPTIONS)
 separate_arguments(akira_core_flags UNIX_COMMAND "${NX_ARCH_SETTINGS} ${NX_COMMON_FLAGS}")

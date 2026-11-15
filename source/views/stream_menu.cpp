@@ -196,11 +196,13 @@ void StreamMenu::buildCards()
             onButtonMapping();
     }));
 
+#if AKIRA_PLATFORM_NX
     cards.push_back(std::make_unique<PlayersCard>(playersAvailable, [this]() {
         if (onPlayers)
             onPlayers();
     }));
 
+#endif
     cards.push_back(std::make_unique<MotionCard>([this]() {
         if (onGyroReset)
             onGyroReset();
@@ -371,11 +373,13 @@ void StreamMenu::setOnButtonMapping(std::function<void()> callback)
     onButtonMapping = std::move(callback);
 }
 
+#if AKIRA_PLATFORM_NX
 void StreamMenu::setOnPlayers(std::function<void()> callback)
 {
     onPlayers = std::move(callback);
 }
 
+#endif
 void StreamMenu::setStatsMode(StatsOverlayMode mode)
 {
     statsMode = mode;
@@ -388,12 +392,14 @@ void StreamMenu::setSleepAvailable(bool available)
     buildCards();
 }
 
+#if AKIRA_PLATFORM_NX
 void StreamMenu::setPlayersAvailable(bool available)
 {
     playersAvailable = available;
     buildCards();
 }
 
+#endif
 void StreamMenu::syncGeometry(float width, float height)
 {
     theme.s = height / 720.0f;
@@ -744,6 +750,7 @@ void StreamMenu::drawGlyph(NVGcontext* vg, CardGlyph g, float x, float y, float 
             }
             break;
         }
+#if AKIRA_PLATFORM_NX
         case CardGlyph::Party:
         {
             nvgBeginPath(vg);
@@ -763,6 +770,7 @@ void StreamMenu::drawGlyph(NVGcontext* vg, CardGlyph g, float x, float y, float 
             stroked(vg, c, s * 0.075f);
             break;
         }
+#endif
         case CardGlyph::Chat:
         {
             nvgBeginPath(vg);

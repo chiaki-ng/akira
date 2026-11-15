@@ -431,22 +431,28 @@ void SettingsPictureView::initCloudResolutionSelector(bool pscloud,
         "akira/settings/res_1080p"_i18n,
         "1080p (FSR)",
     };
+#if AKIRA_PLATFORM_NX
     if (pscloud) {
         options.push_back("1440p");
         options.push_back("2160p");
     }
+#endif
 
     int currentIndex;
     if (settings->getCloudFsrEnabled(pscloud)) {
         currentIndex = 2;
     } else {
         int currentResolution = settings->getCloudVideoResolution(pscloud);
+#if AKIRA_PLATFORM_NX
         if (pscloud && currentResolution >= 2160)
             currentIndex = 4;
         else if (pscloud && currentResolution >= 1440)
             currentIndex = 3;
         else
             currentIndex = currentResolution <= 720 ? 0 : 1;
+#else
+        currentIndex = currentResolution <= 720 ? 0 : 1;
+#endif
     }
 
     brls::SliderCell* slider = pscloud ? pscloudBitrateSlider : psnowBitrateSlider;
@@ -463,8 +469,10 @@ void SettingsPictureView::initCloudResolutionSelector(bool pscloud,
                 case 0: resolution = 720; break;
                 case 1: resolution = 1080; break;
                 case 2: resolution = 720; fsr = true; break;
+#if AKIRA_PLATFORM_NX
                 case 3: resolution = 1440; break;
                 case 4: resolution = 2160; break;
+#endif
                 default: resolution = 1080; break;
             }
             settings->setCloudVideoResolution(pscloud, resolution);
