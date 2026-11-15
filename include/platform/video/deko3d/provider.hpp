@@ -21,6 +21,7 @@ public:
     const char* name() const override { return "Deko3d"; }
     std::string_view decoderName() const override { return "FFmpeg nvtegra"; }
     std::string_view decoderStat() const override { return "NVTEGRA"; }
+    bool addSettings(brls::Box&) const override { return false; }
 
     VideoDecoder* decoder() override;
     VideoDecoder& ensureDecoder() override;

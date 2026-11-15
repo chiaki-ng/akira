@@ -807,7 +807,7 @@
     "trophies_enabled": "Show trophy page",
     "menu_developer": "Developer",
     "dev_fake_hosts": "Fake hosts (20 PS5s)",
-    "video": "Video",
+    "renderer": "Renderer",
     "zero_copy": "Zero-copy video",
     "zero_copy_note": "Off by default. On some consoles this has caused a black screen during streams, and the cause is not known yet.",
     "dev_takion_version_ps4": "Takion version for PS4",

@@ -6,12 +6,34 @@
 #include "platform/video/vulkan/decoder.hpp"
 #include "platform/video/vulkan/renderer.hpp"
 
+using namespace brls::literals;
+
 namespace akira::platform::vulkan
 {
 
 VulkanVideoProvider::VulkanVideoProvider() = default;
 
 VulkanVideoProvider::~VulkanVideoProvider() = default;
+
+bool VulkanVideoProvider::addSettings(brls::Box& group) const
+{
+    auto* settings = SettingsManager::getInstance();
+    auto* zeroCopy = new brls::BooleanCell();
+    zeroCopy->init("akira/settings/zero_copy"_i18n, settings->getZeroCopyVideo(), [settings](bool isOn) {
+        settings->setZeroCopyVideo(isOn);
+        settings->writeFile();
+        brls::Logger::info("Zero-copy video set to {}", isOn ? "on" : "off");
+    });
+    group.addView(zeroCopy);
+
+    auto* note = new brls::Label();
+    note->setText("akira/settings/zero_copy_note"_i18n);
+    note->setFontSize(18);
+    note->setTextColor(brls::Application::getTheme().getColor("brls/text_disabled"));
+    note->setMarginBottom(15);
+    group.addView(note);
+    return true;
+}
 
 VideoDecoder* VulkanVideoProvider::decoder()
 {

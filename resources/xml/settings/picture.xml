@@ -211,33 +211,33 @@
             </brls:Box>
 
             <brls:Header
-                id="settings/videoHeader"
-                title="@i18n/akira/settings/video"
+                id="settings/rendererHeader"
+                title="@i18n/akira/settings/renderer"
                 marginBottom="10"/>
 
             <brls:Box
-                id="settings/videoSection"
+                id="settings/rendererSection"
                 width="auto"
                 height="auto"
                 axis="column"
                 grow="1.0"
                 backgroundColor="@theme/color/card"
                 cornerRadius="14"
+                paddingLeft="15"
+                paddingRight="15"
                 marginBottom="30">
 
-                <brls:BooleanCell
-                    id="settings/zeroCopy"
-                    title="@i18n/akira/settings/zero_copy"
-                    marginLeft="15"
-                    marginRight="15"/>
-
                 <brls:Label
-                    text="@i18n/akira/settings/zero_copy_note"
-                    fontSize="18"
-                    textColor="@theme/brls/text_disabled"
-                    marginLeft="15"
-                    marginRight="15"
-                    marginBottom="15"/>
+                    id="settings/rendererName"
+                    fontSize="22"
+                    marginTop="15"
+                    marginBottom="5"/>
+
+                <brls:Box
+                    id="settings/rendererOptions"
+                    width="auto"
+                    height="auto"
+                    axis="column"/>
 
             </brls:Box>
 

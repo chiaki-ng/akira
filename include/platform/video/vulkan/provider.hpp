@@ -21,6 +21,7 @@ public:
     const char* name() const override { return "Vulkan"; }
     std::string_view decoderName() const override { return "Switch 2 hardware decoder"; }
     std::string_view decoderStat() const override { return "HW"; }
+    bool addSettings(brls::Box& group) const override;
 
     VideoDecoder* decoder() override;
     VideoDecoder& ensureDecoder() override;

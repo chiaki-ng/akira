@@ -774,7 +774,7 @@
     "trophies_enabled": "显示奖杯页面",
     "menu_developer": "开发者",
     "dev_fake_hosts": "模拟主机（20 台 PS5）",
-    "video": "视频",
+    "renderer": "渲染器",
     "zero_copy": "零拷贝视频",
     "zero_copy_note": "默认关闭。在部分主机上开启后串流会黑屏，原因尚不清楚。",
     "menu_updates": "更新",

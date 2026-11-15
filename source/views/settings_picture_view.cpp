@@ -51,7 +51,7 @@ SettingsPictureView::SettingsPictureView() {
     initDitheringStrengthSlider();
     initRcasEnabledToggle();
     initRcasSharpnessSlider();
-    initZeroCopyToggle();
+    initRendererSection();
 }
 
 std::vector<SettingsPictureView::ResolutionPreset> SettingsPictureView::resolutionPresets() {
@@ -561,18 +561,11 @@ void SettingsPictureView::initRcasSharpnessSlider() {
     rcasSharpnessSlider->detail->setText(std::format("{}%", percent));
 }
 
-void SettingsPictureView::initZeroCopyToggle() {
-    if (!akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::zero_copy)) {
-        videoHeader->setVisibility(brls::Visibility::GONE);
-        videoSection->setVisibility(brls::Visibility::GONE);
-        return;
+void SettingsPictureView::initRendererSection() {
+    const auto video = akira::platform::PlatformFactory::instance().createVideo();
+    rendererName->setText(video->name());
+    if (!video->addSettings(*rendererOptions)) {
+        rendererHeader->setVisibility(brls::Visibility::GONE);
+        rendererSection->setVisibility(brls::Visibility::GONE);
     }
-    zeroCopyToggle->init(
-        "akira/settings/zero_copy"_i18n,
-        settings->getZeroCopyVideo(),
-        [this](bool isOn) {
-            settings->setZeroCopyVideo(isOn);
-            settings->writeFile();
-            brls::Logger::info("Zero-copy video set to {}", isOn ? "on" : "off");
-        });
 }
