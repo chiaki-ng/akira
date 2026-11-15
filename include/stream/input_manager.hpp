@@ -10,9 +10,9 @@
 #include <switch.h>
 
 #include "input/gesture_timing.hpp"
-#include "input/pad.hpp"
+#include "platform/pads/pad.hpp"
 #include "input/sample_cadence.hpp"
-#include "platform/pad_source.hpp"
+#include "platform/pads/provider.hpp"
 
 
 #include <libchiaking/play_types.hpp>
@@ -88,7 +88,7 @@ private:
     bool m_is_ps5 = false;
     SDL_Joystick* m_sdl_joystick_ptr[SDL_JOYSTICK_COUNT] = {nullptr};
 
-    akira::platform::PadSource& m_pads;
+    akira::platform::PadProvider& m_pads;
     std::mutex& m_state_mutex;
     std::atomic<bool> m_menu_held{false};
 

@@ -3,7 +3,7 @@
 #include <borealis/core/application.hpp>
 #include <borealis/extern/nlohmann/json.hpp>
 
-#include "platform/platform.hpp"
+#include "platform/factory.hpp"
 
 #include <array>
 #include <fstream>
@@ -47,8 +47,9 @@ static const std::unordered_map<std::string, SettingDescription>& table()
 
         std::string locale = brls::Application::getLocale();
 
+        auto& platform = akira::platform::PlatformFactory::instance();
         for (const auto& names : {std::span<const char* const>(kHelpFiles),
-                                  akira::platform::Platform::instance().helpFiles()}) {
+                                  platform.helpFiles(), platform.updates().helpFiles()}) {
             for (const char* name : names) {
                 mergeHelpFile(std::string("romfs:/help/") + name + ".json", m);
                 if (!locale.empty() && locale != "en-US")

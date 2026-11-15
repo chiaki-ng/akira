@@ -1,7 +1,7 @@
 #include "views/settings_developer_view.hpp"
 #include "views/host_list_tab.hpp"
 #include "views/log_browser_view.hpp"
-#include "platform/platform.hpp"
+#include "platform/factory.hpp"
 
 #include <borealis/core/i18n.hpp>
 
@@ -133,7 +133,10 @@ SettingsDeveloperView::SettingsDeveloperView() {
     takionPsNowSelector->setVisibility(brls::Visibility::GONE);
 #endif
 
-    akira::platform::Platform::instance().initSimulateUpdate(*simulateUpdateCell);
+    if (auto& platform = akira::platform::PlatformFactory::instance(); platform.supplies(akira::platform::PlatformCapability::self_update))
+        platform.updates().initSimulateRow(*simulateUpdateCell);
+    else
+        simulateUpdateCell->setVisibility(brls::Visibility::GONE);
     tlsVerifyProbeCell->setText("akira/settings/dev_tls_verify_probe"_i18n);
     logBrowserCell->setText("akira/settings/dev_logs"_i18n);
     logBrowserCell->setDetailText(SettingsManager::LOG_DIR);

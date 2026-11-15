@@ -1,7 +1,7 @@
 
 #include "test_util.hpp"
 
-#include "platform/nx/ps_output.hpp"
+#include "platform/pads/extended/ps_output.hpp"
 
 #include <cstring>
 

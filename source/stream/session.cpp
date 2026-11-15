@@ -7,7 +7,7 @@
 #include "stream/input_manager.hpp"
 #include "stream/video_renderer.hpp"
 #include "util/crash_report.hpp"
-#include "platform/platform.hpp"
+#include "platform/factory.hpp"
 
 #include <cstring>
 
@@ -77,7 +77,7 @@ Session::Session()
 {
     m_audio_manager = std::make_unique<AudioManager>();
     m_input_manager = std::make_unique<InputManager>();
-    auto& platform = akira::platform::Platform::instance();
+    auto& platform = akira::platform::PlatformFactory::instance();
     m_haptic_manager = std::make_unique<HapticManager>(platform.createHaptics());
     m_haptic_manager->setInputManager(m_input_manager.get());
     m_pad_feedback = platform.createFeedback(*m_haptic_manager);
@@ -255,7 +255,7 @@ bool Session::FreeVideo()
 
     m_video->detachFrames();
 
-    akira::platform::Platform::instance().streamStopped();
+    akira::platform::PlatformFactory::instance().stats().streamStopped();
 
     m_first_frame_received = false;
     SettingsManager::getInstance()->setStreamingActive(false);
@@ -348,7 +348,7 @@ void Session::UpdateSecondaryPads(std::span<libchiaking::controllers::Controller
 {
     if (m_input_manager)
     {
-        akira::platform::Platform::instance().pads().readSecondaryPads(*m_input_manager, states, count);
+        akira::platform::PlatformFactory::instance().pads().readSecondaryPads(*m_input_manager, states, count);
     }
 }
 
@@ -377,7 +377,7 @@ void Session::frameArriving(const akira::video::FrameInfo& frame)
         updateActualResolution(static_cast<int>(frame.width), static_cast<int>(frame.height));
         SettingsManager::getInstance()->setStreamingActive(true);
         brls::Logger::info("First video frame received!");
-        akira::platform::Platform::instance().streamStarted(*this);
+        akira::platform::PlatformFactory::instance().stats().streamStarted(*this);
     }
 
     if (akira::video::Decoder* decoder = m_video->decoder())
@@ -408,7 +408,7 @@ StreamStats Session::getStreamStats()
     stats.requested_fps = m_requested_fps;
     stats.requested_bitrate = m_requested_bitrate;
     stats.requested_hevc = m_requested_hevc;
-    akira::platform::Platform::instance().pads().fillStreamStats(stats);
+    akira::platform::PlatformFactory::instance().pads().fillStreamStats(stats);
 
     if (IVideoRenderer* renderer = m_video->renderer())
         stats.fps = renderer->getRenderFPS();

@@ -1,6 +1,6 @@
 #include "views/settings_controller_view.hpp"
 #include "views/controller_remap_view.hpp"
-#include "platform/platform.hpp"
+#include "platform/factory.hpp"
 #include "views/settings_controllers_view.hpp"
 
 #include <borealis/core/i18n.hpp>
@@ -36,7 +36,7 @@ void SettingsControllerView::initConnectedControllers()
 {
     connectedControllersCell->setText("akira/settings/connected_controllers"_i18n);
 
-    const size_t count = akira::platform::Platform::instance().pads().scanPads().size();
+    const size_t count = akira::platform::PlatformFactory::instance().pads().scanPads().size();
     connectedControllersCell->setDetailText(
         count == 0 ? "akira/settings/connected_controllers_none"_i18n
                    : std::to_string(count));

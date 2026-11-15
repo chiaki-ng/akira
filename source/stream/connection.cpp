@@ -15,8 +15,8 @@
 #include "input/sample_cadence.hpp"
 #include "stream/input_manager.hpp"
 #include "stream/session.hpp"
-#include "video/provider.hpp"
-#include "platform/platform.hpp"
+#include "platform/video/provider.hpp"
+#include "platform/factory.hpp"
 
 namespace akira::stream {
 
@@ -294,7 +294,7 @@ void Connection::setInputSuppressed(bool suppressed)
 
 bool Connection::addPlayer(uint8_t slot, std::optional<int64_t> profileId)
 {
-    if (!akira::platform::Platform::instance().pads().seatsAllowed())
+    if (!akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::couch_seats))
         return false;
 
     const auto seat = libchiaking::controllers::SeatNumber::create(slot);
@@ -369,7 +369,7 @@ auto Connection::couchSeat(uint8_t slot) const -> const CouchSeat&
 
 bool Connection::couchSlotAvailable() const
 {
-    if (!akira::platform::Platform::instance().pads().seatsAllowed() || !session())
+    if (!akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::couch_seats) || !session())
         return false;
     for (uint8_t slot = 1; slot < seatCount; slot++)
     {
@@ -463,7 +463,7 @@ void Connection::routeCouchFeedback(const libchiaking::controllers::ControllerFe
     const uint8_t slot = feedback.seat.index();
     if (!seatPlaying(slot))
         return;
-    akira::platform::Platform::instance().pads().routeSeatFeedback(slot, feedback);
+    akira::platform::PlatformFactory::instance().pads().routeSeatFeedback(slot, feedback);
 }
 
 void Connection::on_state(play::SessionState state)

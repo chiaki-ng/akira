@@ -6,7 +6,7 @@
 
 #include <string>
 
-#include "input/pad.hpp"
+#include "platform/pads/pad.hpp"
 
 class SettingsControllersView : public brls::Box {
 public:

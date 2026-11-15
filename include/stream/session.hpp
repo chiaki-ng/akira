@@ -16,10 +16,10 @@
 
 #include "core/exception.hpp"
 #include "input/rumble_profile.hpp"
-#include "platform/pad_feedback.hpp"
+#include "platform/feedback/provider.hpp"
 #include "stream/stream_stats.hpp"
 #include "stream/video_worker.hpp"
-#include "video/provider.hpp"
+#include "platform/video/provider.hpp"
 
 class AudioManager;
 class HapticManager;
@@ -37,7 +37,7 @@ private:
     std::unique_ptr<AudioManager> m_audio_manager;
     std::unique_ptr<HapticManager> m_haptic_manager;
     std::unique_ptr<InputManager> m_input_manager;
-    std::unique_ptr<akira::platform::PadFeedback> m_pad_feedback;
+    std::unique_ptr<akira::platform::FeedbackProvider> m_pad_feedback;
     std::unique_ptr<akira::video::Provider> m_video;
     std::unique_ptr<akira::stream::VideoWorker> m_video_worker;
     std::optional<libchiaking::media::AudioDecoder> m_audio_decoder;

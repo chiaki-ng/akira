@@ -1,8 +1,8 @@
 #include "test_util.hpp"
 
 #include "input/rumble_profile.hpp"
-#include "platform/nx/pad_output_state.hpp"
-#include "platform/nx/rumble_keys.hpp"
+#include "platform/pads/extended/pad_output_state.hpp"
+#include "platform/pads/extended/rumble_keys.hpp"
 
 #include <vector>
 

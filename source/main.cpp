@@ -50,7 +50,7 @@
 #include "ui/akira_header.hpp"
 #include "util/crash_report.hpp"
 #include "akira_version.h"
-#include "platform/platform.hpp"
+#include "platform/factory.hpp"
 
 #include <borealis/core/i18n.hpp>
 using namespace brls::literals;
@@ -505,7 +505,7 @@ public:
             return true;
         }, false);
 
-        akira::platform::Platform::instance().launched();
+        akira::platform::PlatformFactory::instance().updates().launched();
     }
 };
 
@@ -553,7 +553,9 @@ int main(int argc, char* argv[])
     akira::CrashReport::stage("theme");
     initCustomTheme();
 
-    akira::platform::Platform::instance().beforeInit(argc, argv);
+    auto& platform = akira::platform::PlatformFactory::instance();
+    platform.updates().prepare(argc, argv);
+    platform.display().prepare();
 
     akira::CrashReport::stage("borealis init");
     if (!brls::Application::init())

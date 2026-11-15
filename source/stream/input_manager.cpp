@@ -5,7 +5,7 @@
 #include "core/settings_manager.hpp"
 #include "core/swipe_direction.hpp"
 #include "input/remap_target.hpp"
-#include "platform/platform.hpp"
+#include "platform/factory.hpp"
 #include <borealis.hpp>
 #include <cmath>
 #include <cstring>
@@ -13,7 +13,7 @@
 #include <array>
 
 InputManager::InputManager()
-    : m_pads(akira::platform::Platform::instance().pads())
+    : m_pads(akira::platform::PlatformFactory::instance().pads())
     , m_state_mutex(m_pads.mutex())
 {
 }
@@ -209,7 +209,7 @@ void InputManager::applyPadInput(akira::input::Pad& pad, libchiaking::controller
 
 void InputManager::update(libchiaking::controllers::ControllerInput& input, std::map<uint32_t, int8_t>* finger_id_touch_id)
 {
-    akira::platform::PadSource::Callbacks callbacks;
+    akira::platform::PadProvider::Callbacks callbacks;
     std::unique_lock<std::mutex> lock(m_state_mutex);
 
     akira::input::Pad* pad = m_pads.acquire(callbacks);

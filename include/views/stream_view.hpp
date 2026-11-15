@@ -22,7 +22,7 @@
 #include "core/host.hpp"
 #include "input/rumble_profile.hpp"
 #include "stream/connection.hpp"
-#include "platform/stream_controls.hpp"
+#include "platform/stream/provider.hpp"
 #include "stream/session.hpp"
 #include "core/settings_manager.hpp"
 
@@ -61,7 +61,7 @@ private:
     void pauseForUi() override { pauseStreamForUi(); }
     void resumeAfterUi() override { resumeStreamAfterUi(); }
 
-    std::unique_ptr<akira::platform::StreamControls> controls;
+    std::unique_ptr<akira::platform::StreamControlsProvider> controls;
     Host* host = nullptr;
     std::shared_ptr<Host> hostOwner;
     akira::BackgroundWork::Pause backgroundPause;

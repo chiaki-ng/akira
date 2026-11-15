@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "platform/platform.hpp"
+#include "platform/factory.hpp"
 
 #include <borealis/core/i18n.hpp>
 
@@ -35,7 +35,7 @@ SettingsPadView::SettingsPadView(const akira::input::PadDescription& pad)
 {
     settings = SettingsManager::getInstance();
 
-    m_platform = akira::platform::Platform::instance().createPadSettings(pad);
+    m_platform = akira::platform::PlatformFactory::instance().createPadSettings(pad);
     m_key = m_platform->rumbleKey(*settings);
 
     settings->seedRumbleProfile(m_key);

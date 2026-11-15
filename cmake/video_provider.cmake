@@ -22,8 +22,8 @@ else()
     set(AKIRA_VIDEO_PROVIDER deko3d)
 endif()
 
-list(FILTER MAIN_SRC EXCLUDE REGEX "/source/video/(vulkan|deko3d)/")
-file(GLOB_RECURSE AKIRA_VIDEO_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/source/video/${AKIRA_VIDEO_PROVIDER}/*.cpp)
+list(FILTER MAIN_SRC EXCLUDE REGEX "/source/platform/video/(vulkan|deko3d)/")
+file(GLOB_RECURSE AKIRA_VIDEO_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/source/platform/video/${AKIRA_VIDEO_PROVIDER}/*.cpp)
 list(APPEND MAIN_SRC ${AKIRA_VIDEO_SOURCES})
 
 message(STATUS "Video provider: ${AKIRA_VIDEO_PROVIDER}")

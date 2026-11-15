@@ -2,7 +2,7 @@
 #include "views/benchmark_view.hpp"
 #include "views/host_list_tab.hpp"
 #include "core/trophy_manager.hpp"
-#include "platform/platform.hpp"
+#include "platform/factory.hpp"
 
 #include <borealis/core/i18n.hpp>
 #include <algorithm>
@@ -16,7 +16,10 @@ SettingsPowerUserView::SettingsPowerUserView() {
     settings = SettingsManager::getInstance();
 
     initUnlockBitrateMaxToggle();
-    akira::platform::Platform::instance().initIpcStatsToggle(*ipcStatsToggle);
+    if (auto& platform = akira::platform::PlatformFactory::instance(); platform.supplies(akira::platform::PlatformCapability::stats_export))
+        platform.stats().initToggle(*ipcStatsToggle);
+    else
+        ipcStatsToggle->setVisibility(brls::Visibility::GONE);
     initPortGuessingToggle();
     initPortGuessingCountSlider();
     initPortGuessingSocksSlider();

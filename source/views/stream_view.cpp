@@ -1,7 +1,7 @@
 #include "views/stream_view.hpp"
 #include "views/stream_nav.hpp"
-#include "input/pad.hpp"
-#include "platform/platform.hpp"
+#include "platform/pads/pad.hpp"
+#include "platform/factory.hpp"
 #include "views/stream_menu.hpp"
 #include "views/connecting_view.hpp"
 #if AKIRA_CLOUD
@@ -121,7 +121,7 @@ void StreamView::setupCallbacks()
 
     session->getInputManager()->setTargetPS5(host->isPS5());
 
-    controls = akira::platform::Platform::instance().createStreamControls(weak_from_this());
+    controls = akira::platform::PlatformFactory::instance().createStreamControls(weak_from_this());
     controls->attach();
 
     exitSubscription = brls::Application::getExitEvent()->subscribe([weak]() {
@@ -281,7 +281,7 @@ void StreamView::startStream()
 
 akira::input::RumbleProfile StreamView::activePadProfile()
 {
-    return akira::platform::Platform::instance().pads().primaryRumbleProfile();
+    return akira::platform::PlatformFactory::instance().pads().primaryRumbleProfile();
 }
 
 void StreamView::openConnection()

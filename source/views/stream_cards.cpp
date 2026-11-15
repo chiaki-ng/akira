@@ -1,7 +1,7 @@
 #include "views/stream_cards.hpp"
 #include "stream/session.hpp"
 #include "ui/theme.hpp"
-#include "video/provider.hpp"
+#include "platform/video/provider.hpp"
 
 #include <borealis/core/i18n.hpp>
 #include <format>

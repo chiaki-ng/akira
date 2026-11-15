@@ -10,14 +10,14 @@
 #include <memory>
 #include <span>
 
-#include "platform/pad_haptics.hpp"
+#include "platform/haptics/provider.hpp"
 
 class InputManager;
 
 class HapticManager
 {
 public:
-    explicit HapticManager(std::unique_ptr<akira::platform::PadHaptics> pad);
+    explicit HapticManager(std::unique_ptr<akira::platform::HapticsProvider> pad);
     ~HapticManager();
 
     // Disable copy
@@ -66,7 +66,7 @@ private:
     void emit(float left, float right);
 
     InputManager* m_input = nullptr;
-    std::unique_ptr<akira::platform::PadHaptics> m_pad;
+    std::unique_ptr<akira::platform::HapticsProvider> m_pad;
     float m_rumble_strength = 1.0f;
 
     std::atomic<uint8_t> m_console_vibration{

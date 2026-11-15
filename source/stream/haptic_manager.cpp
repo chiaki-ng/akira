@@ -9,7 +9,7 @@
 #include <cstring>
 #include <borealis.hpp>
 
-HapticManager::HapticManager(std::unique_ptr<akira::platform::PadHaptics> pad)
+HapticManager::HapticManager(std::unique_ptr<akira::platform::HapticsProvider> pad)
     : m_pad(std::move(pad))
 {
 }

@@ -12,8 +12,8 @@
 #include <string>
 
 #include "core/settings_manager.hpp"
-#include "input/pad.hpp"
-#include "platform/pad_settings.hpp"
+#include "platform/pads/pad.hpp"
+#include "platform/pad_settings/provider.hpp"
 
 class SettingsPadView : public brls::Box {
 public:
@@ -43,7 +43,7 @@ private:
     SettingsManager*            settings = nullptr;
     akira::input::PadDescription m_pad;
     akira::input::RumbleProfile  m_profile;
-    std::unique_ptr<akira::platform::PadSettings> m_platform;
+    std::unique_ptr<akira::platform::PadSettingsProvider> m_platform;
 
     std::string                  m_key;
 
