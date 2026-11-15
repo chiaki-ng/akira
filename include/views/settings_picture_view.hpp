@@ -34,6 +34,9 @@ private:
     BRLS_BIND(brls::SliderCell, ditheringStrengthSlider, "settings/ditheringStrength");
     BRLS_BIND(brls::BooleanCell, rcasEnabledToggle, "settings/rcasEnabled");
     BRLS_BIND(brls::SliderCell, rcasSharpnessSlider, "settings/rcasSharpness");
+    BRLS_BIND(brls::Header, videoHeader, "settings/videoHeader");
+    BRLS_BIND(brls::Box, videoSection, "settings/videoSection");
+    BRLS_BIND(brls::BooleanCell, zeroCopyToggle, "settings/zeroCopy");
 
     struct ResolutionPreset {
         std::string label;
@@ -68,6 +71,7 @@ private:
     void initDitheringStrengthSlider();
     void initRcasEnabledToggle();
     void initRcasSharpnessSlider();
+    void initZeroCopyToggle();
 };
 
 #endif // AKIRA_SETTINGS_PICTURE_VIEW_HPP

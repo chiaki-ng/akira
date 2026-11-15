@@ -19,7 +19,7 @@ PlatformFactory& PlatformFactory::instance()
 
 PlatformInfo OuncePlatformFactory::info() const noexcept
 {
-    return {"ounce", PlatformCapability::fsr_4k};
+    return {"ounce", PlatformCapability::fsr_4k | PlatformCapability::zero_copy};
 }
 
 std::span<const char* const> OuncePlatformFactory::helpFiles() const

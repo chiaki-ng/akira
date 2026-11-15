@@ -144,6 +144,7 @@ private:
     bool unlockBitrateMax = false;
     bool autoReconnect = true;
     bool devFakeHosts = false;
+    bool zeroCopyVideo = false;
     bool hideAccountName = false;
     std::string updateChannel = "stable";
     std::string uiTheme = "playstation";
@@ -394,6 +395,8 @@ public:
     void setAutoReconnect(bool enabled);
     bool getDevFakeHosts() const;
     void setDevFakeHosts(bool enabled);
+    bool getZeroCopyVideo() const;
+    void setZeroCopyVideo(bool enabled);
 
     bool getHideAccountName() const;
     void setHideAccountName(bool enabled);

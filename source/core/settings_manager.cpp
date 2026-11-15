@@ -496,6 +496,7 @@ void SettingsManager::parseTomlFile() {
             remoteFsrEnabled = *val;
         if (auto val = config["video"]["vpn"]["fsr_enabled"].value<bool>())
             vpnFsrEnabled = *val;
+        zeroCopyVideo = config["video"]["zero_copy"].value_or(false);
         localFsrTarget = static_cast<int>(config["video"]["local"]["fsr_target"].value_or(int64_t{0}));
         remoteFsrTarget = static_cast<int>(config["video"]["remote"]["fsr_target"].value_or(int64_t{0}));
         vpnFsrTarget = static_cast<int>(config["video"]["vpn"]["fsr_target"].value_or(int64_t{0}));
@@ -1082,6 +1083,7 @@ toml::table SettingsManager::ownedSettings() {
         video.insert("vpn", videoProfile(resolutionToString(vpnVideoResolution),
             fpsToInt(vpnVideoFPS), vpnVideoBitrate, vpnFsrEnabled, vpnFsrTarget));
         video.insert("cloud", std::move(cloudVideo));
+        video.insert("zero_copy", zeroCopyVideo);
         config.insert("video", std::move(video));
     }
 
@@ -2126,6 +2128,14 @@ std::string SettingsManager::maskAccountName(const std::string& name) const {
 
 void SettingsManager::setDevFakeHosts(bool enabled) {
     devFakeHosts = enabled;
+}
+
+bool SettingsManager::getZeroCopyVideo() const {
+    return zeroCopyVideo;
+}
+
+void SettingsManager::setZeroCopyVideo(bool enabled) {
+    zeroCopyVideo = enabled;
 }
 
 std::string SettingsManager::getUpdateChannel() const {

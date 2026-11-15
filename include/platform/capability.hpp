@@ -12,6 +12,7 @@ enum class PlatformCapability : std::uint32_t {
     stats_export = 1u << 2,
     hevc = 1u << 3,
     fsr_4k = 1u << 4,
+    zero_copy = 1u << 5,
 };
 
 constexpr PlatformCapability operator|(PlatformCapability left, PlatformCapability right) noexcept

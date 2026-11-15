@@ -2,6 +2,7 @@
 
 #include <borealis.hpp>
 
+#include "core/settings_manager.hpp"
 #include "platform/video/vulkan/decoder.hpp"
 #include "platform/video/vulkan/renderer.hpp"
 
@@ -36,7 +37,10 @@ bool VulkanVideoProvider::startRenderer(int width, int height, FrameHooks hooks)
     if (!renderer->initialize(width, height))
         return false;
 
-    m_decoder->setOutputDevice(renderer->decoderOutputDevice());
+    if (SettingsManager::getInstance()->getZeroCopyVideo())
+        m_decoder->setOutputDevice(renderer->decoderOutputDevice());
+    else
+        brls::Logger::info("Zero-copy video is off, decoded frames are copied");
     m_renderer = std::move(renderer);
 
     m_decoder->setFrameReadyCallback([this, hooks = std::move(hooks)](VulkanDecoder::Frame frame) {
