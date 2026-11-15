@@ -131,6 +131,7 @@ jobs:
           path: build/ounce/akira.elf
 
   build-companion:
+    if: github.repository == 'chiaki-ng/akira'
     strategy:
       matrix:
         include:
@@ -191,7 +192,7 @@ jobs:
           path: apps/akira-companion/${{ matrix.artifact }}
 
   comment:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && !cancelled() && !failure()
     needs: [build-nx, build-ounce, build-companion]
     runs-on: ubuntu-latest
     permissions:
@@ -215,9 +216,11 @@ jobs:
               `| \`akira-nx-elf-${sha}\` | ELF with debug symbols for Switch |`,
               `| \`akira-ounce-nro-${sha}\` | NRO for Switch 2 |`,
               `| \`akira-ounce-elf-${sha}\` | ELF with debug symbols for Switch 2 |`,
-              `| \`akira-companion-linux-amd64-${sha}\` | Companion (Linux) |`,
-              `| \`akira-companion-darwin-arm64-${sha}\` | Companion (macOS) |`,
-              `| \`akira-companion-windows-amd64.exe-${sha}\` | Companion (Windows) |`,
+              ...('${{ needs.build-companion.result }}' === 'success' ? [
+                `| \`akira-companion-linux-amd64-${sha}\` | Companion (Linux) |`,
+                `| \`akira-companion-darwin-arm64-${sha}\` | Companion (macOS) |`,
+                `| \`akira-companion-windows-amd64.exe-${sha}\` | Companion (Windows) |`,
+              ] : []),
             ].join('\n');
 
             // Find existing bot comment to update instead of spamming
