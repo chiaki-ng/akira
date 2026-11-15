@@ -45,6 +45,7 @@ public:
     input::Pad* acquire(Callbacks& callbacks) override;
     input::Pad* current() override;
     std::vector<input::PadDescription> scanPads() const override;
+    input::RumbleProfile primaryRumbleProfile() const override;
 
     bool seatsAllowed() const override { return true; }
     void readSecondaryPads(InputManager& input, std::span<libchiaking::controllers::ControllerInput> states,

@@ -10,9 +10,7 @@ enum class CardGlyph
     Pad,
     Motion,
     Picture,
-#if AKIRA_PLATFORM_NX
     Party,
-#endif
     Chat,
     Power,
 };

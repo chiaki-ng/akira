@@ -218,10 +218,8 @@ std::string MotionCard::label() const
 {
     return "akira/stream_menu/card_motion"_i18n;
 }
-#if AKIRA_PLATFORM_NX
 
 std::string PlayersCard::label() const
 {
     return "akira/stream_menu/card_players"_i18n;
 }
-#endif

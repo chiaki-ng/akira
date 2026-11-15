@@ -8,6 +8,7 @@
 #include <libchiaking/play.hpp>
 
 #include "input/pad.hpp"
+#include "input/rumble_profile.hpp"
 
 class InputManager;
 struct StreamStats;
@@ -29,6 +30,7 @@ public:
     virtual input::Pad* acquire(Callbacks& callbacks) = 0;
     virtual input::Pad* current() = 0;
     virtual std::vector<input::PadDescription> scanPads() const = 0;
+    virtual input::RumbleProfile primaryRumbleProfile() const = 0;
 
     virtual bool seatsAllowed() const = 0;
     virtual void readSecondaryPads(InputManager& input, std::span<libchiaking::controllers::ControllerInput> states,

@@ -10,8 +10,8 @@
 #include <libchiaking/platform/platform.hpp>
 
 #include "akira_input/ipc.h"
-#include "input/pad_output_state.hpp"
-#include "input/ps_output.hpp"
+#include "platform/nx/pad_output_state.hpp"
+#include "platform/nx/ps_output.hpp"
 
 class ExtendedInputManager
 {

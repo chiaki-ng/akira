@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "input/pad.hpp"
-#include "input/pad_output_state.hpp"
+#include "platform/nx/pad_output_state.hpp"
 
 class ExtendedInputManager;
 

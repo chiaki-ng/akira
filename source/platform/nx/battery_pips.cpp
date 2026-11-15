@@ -1,4 +1,4 @@
-#include "views/battery_pips.hpp"
+#include "platform/nx/battery_pips.hpp"
 
 BatteryPips::BatteryPips(HidNpadIdType npad, bool split, float width, float height)
     : m_npad(npad)

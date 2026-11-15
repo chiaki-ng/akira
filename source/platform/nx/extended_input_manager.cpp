@@ -1,4 +1,5 @@
 #include "platform/nx/extended_input_manager.hpp"
+#include "platform/nx/nx_pad_settings.hpp"
 #include "input/sample_cadence.hpp"
 
 #include <borealis.hpp>
@@ -12,7 +13,7 @@
 #include "core/settings_manager.hpp"
 #include "core/chiaki_core.hpp"
 #include "platform/nx/pad_path.hpp"
-#include "input/ps_output.hpp"
+#include "platform/nx/ps_output.hpp"
 
 namespace {
 
@@ -534,7 +535,7 @@ void ExtendedInputManager::refreshDirectGates(uint16_t vendor_id, uint16_t produ
         return;
 
     const akira::input::RumbleProfile profile =
-        settings->resolveRumbleProfile(vendor_id, product_id, address, false, false);
+        akira::platform::NxPadSettings::resolveProfile(*settings, vendor_id, product_id, address, false, false);
 
     s_direct_vid_pid.store(((uint32_t)vendor_id << 16) | product_id,
                            std::memory_order_release);
@@ -788,7 +789,7 @@ bool ExtendedInputManager::resolveLightbar(uint8_t* rgb) const
         return false;
 
     const akira::input::RumbleProfile profile =
-        settings->resolveRumbleProfile((uint16_t)(ids >> 16), (uint16_t)(ids & 0xffff),
+        akira::platform::NxPadSettings::resolveProfile(*settings, (uint16_t)(ids >> 16), (uint16_t)(ids & 0xffff),
                                        m_direct_addr, false, false);
     if (!profile.lightbar_enabled)
         return false;

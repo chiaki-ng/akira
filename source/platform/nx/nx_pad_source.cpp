@@ -1,10 +1,12 @@
 #include "platform/nx/nx_pad_source.hpp"
+#include "platform/nx/nx_pad_settings.hpp"
 
 #include <algorithm>
 
 #include <borealis.hpp>
 
-#include "input/ps_output.hpp"
+#include "core/settings_manager.hpp"
+#include "platform/nx/ps_output.hpp"
 #include "stream/input_manager.hpp"
 #include "stream/stream_stats.hpp"
 
@@ -66,6 +68,23 @@ input::Pad* NxPadSource::current()
 std::vector<input::PadDescription> NxPadSource::scanPads() const
 {
     return akira::input::DescribePads();
+}
+
+input::RumbleProfile NxPadSource::primaryRumbleProfile() const
+{
+    auto* settings = SettingsManager::getInstance();
+    const std::vector<input::PadDescription> pads = scanPads();
+    if (pads.empty())
+        return settings->getRumbleProfile(input::kRumbleKeyDefault);
+
+    const input::PadDescription& pad = pads.front();
+    const bool switchNative = pad.kind == input::PadPathKind::JoyCon
+                           || pad.kind == input::PadPathKind::SwitchPro;
+
+    return akira::platform::NxPadSettings::resolveProfile(*settings, pad.vendor_id, pad.product_id,
+                                          pad.has_address ? pad.bt_addr : nullptr,
+                                          switchNative,
+                                          pad.kind == input::PadPathKind::JoyCon);
 }
 
 void NxPadSource::fillStreamStats(StreamStats& stats)

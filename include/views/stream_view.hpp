@@ -22,11 +22,13 @@
 #include "core/host.hpp"
 #include "input/rumble_profile.hpp"
 #include "stream/connection.hpp"
+#include "platform/stream_controls.hpp"
 #include "stream/session.hpp"
 #include "core/settings_manager.hpp"
 
 class StreamView : public brls::Box,
                    public akira::stream::ConnectionListener,
+                   public akira::platform::StreamControlsHost,
                    public std::enable_shared_from_this<StreamView> {
 public:
     explicit StreamView(Host* host, std::shared_ptr<Host> hostOwner = {});
@@ -42,9 +44,6 @@ public:
 
     brls::View* getDefaultFocus() override { return this; }
 
-#if AKIRA_PLATFORM_NX
-    bool beginPadChoice();
-#endif
     void startStream();
     void stopStream();
     void setSessionAlreadyStarted(bool started) { sessionPreStarted = started; }
@@ -52,12 +51,17 @@ public:
     static brls::View* create();
 
 private:
-#if AKIRA_PLATFORM_NX
-    void waitForPads(int attempt);
-    void abandonBeforeStart();
-    void finishPadChoice();
+    Session* controlsSession() override { return session; }
+    std::shared_ptr<akira::stream::Connection> controlsConnection() override { return connection; }
+    Host* controlsHost() override { return host; }
+    bool controlsMenuOpen() const override { return menuOpen; }
+    bool prepareController() override;
+    void continueStart() override { startStream(); }
+    void abandonStart() override;
+    void pauseForUi() override { pauseStreamForUi(); }
+    void resumeAfterUi() override { resumeStreamAfterUi(); }
 
-#endif
+    std::unique_ptr<akira::platform::StreamControls> controls;
     Host* host = nullptr;
     std::shared_ptr<Host> hostOwner;
     akira::BackgroundWork::Pause backgroundPause;
@@ -69,9 +73,6 @@ private:
     bool streamActive = false;
     bool sessionStarted = false;
     bool sessionPreStarted = false;
-#if AKIRA_PLATFORM_NX
-    bool padChoiceDone = false;
-#endif
     bool controllerReady = false;
 
     bool menuOpen = false;
@@ -89,7 +90,6 @@ private:
     bool reconnecting = false;
     bool loginPinEnteredThisSession = false;
     bool couchPasscodeDialogOpen = false;
-    bool couchArrivalPromptOpen = false;
     std::chrono::steady_clock::time_point minusHoldStart;
     bool minusWasHeld = false;
     brls::Event<>::Subscription exitSubscription;
@@ -119,11 +119,6 @@ private:
     void openConnection();
     void pauseStreamForUi();
     void resumeStreamAfterUi();
-#if AKIRA_PLATFORM_NX
-    void onPadArrived(HidNpadIdType npad);
-    void openCouchClaim();
-    void openPrimaryControllerPicker();
-#endif
 
     void checkMenuTrigger();
     void prepareVideoPipelineTick();

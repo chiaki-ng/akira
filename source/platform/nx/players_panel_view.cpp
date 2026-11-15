@@ -1,4 +1,4 @@
-#include "views/players_panel_view.hpp"
+#include "platform/nx/players_panel_view.hpp"
 
 #include <algorithm>
 #include <string>

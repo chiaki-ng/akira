@@ -8,7 +8,9 @@
 
 #include "platform/pad_feedback.hpp"
 #include "platform/pad_haptics.hpp"
+#include "platform/pad_settings.hpp"
 #include "platform/pad_source.hpp"
+#include "platform/stream_controls.hpp"
 
 namespace brls
 {
@@ -53,6 +55,8 @@ public:
     virtual PadSource& pads() = 0;
     virtual std::unique_ptr<PadHaptics> createHaptics() = 0;
     virtual std::unique_ptr<PadFeedback> createFeedback(HapticManager& haptics) = 0;
+    virtual std::unique_ptr<StreamControls> createStreamControls(std::weak_ptr<StreamControlsHost> host) = 0;
+    virtual std::unique_ptr<PadSettings> createPadSettings(const input::PadDescription& pad) = 0;
 
 protected:
     Platform() = default;

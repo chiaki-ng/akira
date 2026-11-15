@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-#include "input/ps_output.hpp"
+#include "platform/nx/ps_output.hpp"
 #include "stream/haptic_manager.hpp"
 #include "platform/nx/nx_pad_source.hpp"
 

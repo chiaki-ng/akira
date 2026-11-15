@@ -7,6 +7,8 @@
 
 #include "platform/ounce/ounce_haptics.hpp"
 #include "platform/ounce/ounce_pad_feedback.hpp"
+#include "platform/ounce/ounce_pad_settings.hpp"
+#include "platform/ounce/ounce_stream_controls.hpp"
 #include "util/crash_report.hpp"
 
 namespace akira::platform
@@ -71,6 +73,16 @@ std::unique_ptr<PadHaptics> OuncePlatform::createHaptics()
 std::unique_ptr<PadFeedback> OuncePlatform::createFeedback(HapticManager& haptics)
 {
     return std::make_unique<OuncePadFeedback>(haptics);
+}
+
+std::unique_ptr<StreamControls> OuncePlatform::createStreamControls(std::weak_ptr<StreamControlsHost> host)
+{
+    return std::make_unique<OunceStreamControls>(std::move(host));
+}
+
+std::unique_ptr<PadSettings> OuncePlatform::createPadSettings(const input::PadDescription& pad)
+{
+    return std::make_unique<OuncePadSettings>(pad);
 }
 
 }

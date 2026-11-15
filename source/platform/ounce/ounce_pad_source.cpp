@@ -1,5 +1,8 @@
 #include "platform/ounce/ounce_pad_source.hpp"
 
+#include "core/settings_manager.hpp"
+#include "platform/ounce/ounce_pad_settings.hpp"
+
 namespace akira::platform
 {
 
@@ -21,6 +24,16 @@ input::Pad* OuncePadSource::acquire(Callbacks&)
 input::Pad* OuncePadSource::current()
 {
     return m_pad ? &*m_pad : nullptr;
+}
+
+input::RumbleProfile OuncePadSource::primaryRumbleProfile() const
+{
+    auto* settings = SettingsManager::getInstance();
+    const std::vector<input::PadDescription> pads = scanPads();
+    if (pads.empty())
+        return settings->getRumbleProfile(input::kRumbleKeyDefault);
+    return settings->getRumbleProfile(
+        OuncePadSettings::resolveKey(*settings, pads.front().kind == input::PadPathKind::JoyCon));
 }
 
 std::vector<input::PadDescription> OuncePadSource::scanPads() const

@@ -1,4 +1,4 @@
-#include "input/rumble_profile.hpp"
+#include "platform/nx/rumble_keys.hpp"
 
 #include <cstdio>
 #include <cstdlib>

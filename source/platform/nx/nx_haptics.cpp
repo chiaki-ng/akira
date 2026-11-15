@@ -1,8 +1,10 @@
 #include "platform/nx/nx_haptics.hpp"
+#include "platform/nx/nx_pad_settings.hpp"
 
 #include <borealis.hpp>
 
 #include "core/settings_manager.hpp"
+#include "platform/nx/rumble_keys.hpp"
 #include "stream/haptic_manager.hpp"
 #include "platform/nx/nx_pad_source.hpp"
 
@@ -32,7 +34,7 @@ void NxHaptics::prepare(HapticManager& haptics)
     if (!path.available)
         return;
 
-    haptics.setProfile(SettingsManager::getInstance()->resolveRumbleProfile(
+    haptics.setProfile(akira::platform::NxPadSettings::resolveProfile(*SettingsManager::getInstance(), 
         path.vendorId, path.productId, path.hasAddress ? path.address.data() : nullptr,
         path.switchNative, path.kind == input::PadPathKind::JoyCon));
 }

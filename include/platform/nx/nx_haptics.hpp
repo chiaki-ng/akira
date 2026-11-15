@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "input/ps_output.hpp"
+#include "platform/nx/ps_output.hpp"
 #include "platform/pad_haptics.hpp"
 
 

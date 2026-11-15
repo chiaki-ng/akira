@@ -1,10 +1,10 @@
-#include "views/controller_picker_view.hpp"
+#include "platform/nx/controller_picker_view.hpp"
 
 #include <string>
 #include <vector>
 
-#include "views/battery_pips.hpp"
-#include "input/pad_art.hpp"
+#include "platform/nx/battery_pips.hpp"
+#include "platform/nx/pad_art.hpp"
 
 #include "ui/glass.hpp"
 #include "ui/theme.hpp"

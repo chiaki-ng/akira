@@ -353,20 +353,6 @@ public:
     void setDirectHapticsInStream(bool value);
 
 
-#if AKIRA_PLATFORM_NX
-    akira::input::RumbleProfile resolveRumbleProfile(uint16_t vendorId, uint16_t productId,
-                                                     const uint8_t* address,
-                                                     bool switchNative, bool joycon) const;
-
-    std::string resolveRumbleKey(uint16_t vendorId, uint16_t productId,
-                                 const uint8_t* address, bool switchNative,
-                                 bool joycon) const;
-#else
-    akira::input::RumbleProfile resolveRumbleProfile(bool joycon) const;
-
-    std::string resolveRumbleKey(bool joycon) const;
-#endif
-
     akira::input::RumbleProfile getRumbleProfile(const std::string& key) const;
     void setRumbleProfile(const std::string& key, const akira::input::RumbleProfile& profile);
     bool hasRumbleProfile(const std::string& key) const;

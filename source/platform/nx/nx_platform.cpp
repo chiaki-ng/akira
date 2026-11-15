@@ -8,6 +8,8 @@
 #include "platform/nx/ipc_service.hpp"
 #include "platform/nx/nx_haptics.hpp"
 #include "platform/nx/nx_pad_feedback.hpp"
+#include "platform/nx/nx_pad_settings.hpp"
+#include "platform/nx/nx_stream_controls.hpp"
 #include "platform/nx/settings_updates_view.hpp"
 #include "platform/nx/update_flow.hpp"
 #include "platform/nx/update_manager.hpp"
@@ -106,6 +108,16 @@ std::unique_ptr<PadHaptics> NxPlatform::createHaptics()
 std::unique_ptr<PadFeedback> NxPlatform::createFeedback(HapticManager& haptics)
 {
     return std::make_unique<NxPadFeedback>(m_pads, haptics);
+}
+
+std::unique_ptr<StreamControls> NxPlatform::createStreamControls(std::weak_ptr<StreamControlsHost> host)
+{
+    return std::make_unique<NxStreamControls>(m_pads, std::move(host));
+}
+
+std::unique_ptr<PadSettings> NxPlatform::createPadSettings(const input::PadDescription& pad)
+{
+    return std::make_unique<NxPadSettings>(pad);
 }
 
 }

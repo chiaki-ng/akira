@@ -1,4 +1,5 @@
 #include "platform/nx/pad_path.hpp"
+#include "platform/nx/nx_pad_settings.hpp"
 
 #include <cstring>
 #include "input/pad_names.hpp"
@@ -400,7 +401,7 @@ PadDriverState ResolvePadDriverState(const PadDescription& desc,
 
     if (in.supported_pad) {
         const RumbleProfile profile =
-            SettingsManager::getInstance()->resolveRumbleProfile(
+            akira::platform::NxPadSettings::resolveProfile(*SettingsManager::getInstance(), 
                 desc.vendor_id, desc.product_id,
                 desc.has_address ? desc.bt_addr : nullptr, false, false);
         in.profile_native = profile.output_mode == PadOutputMode::Native;

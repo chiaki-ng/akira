@@ -3,14 +3,13 @@
 
 #include <cstdint>
 
-#if AKIRA_PLATFORM_NX
+#include "input/ds5_intensity.hpp"
+
 #include <cstddef>
 #include <cstring>
-#endif
 
 namespace akira::input {
 
-#if AKIRA_PLATFORM_NX
 inline constexpr std::size_t kDs5EffectsBytes = 47;
 
 inline constexpr std::size_t kDs5TriggerParamBytes = 10;
@@ -61,16 +60,8 @@ enum Ds5Enable3 : std::uint8_t {
     Ds5Enable3_Rumble          = 1u << 2,
     Ds5Enable3_RumbleNotHaptic = 1u << 3,
 };
-#endif
 
-enum class Ds5EffectIntensity : std::uint8_t {
-    Off    = 0,
-    Strong = 1,
-    Medium = 2,
-    Weak   = 3,
-};
 
-#if AKIRA_PLATFORM_NX
 inline std::uint8_t Ds5IntensityByte(Ds5EffectIntensity vibration,
                                      Ds5EffectIntensity trigger)
 {
@@ -94,31 +85,8 @@ inline std::uint8_t Ds5IntensityByte(Ds5EffectIntensity vibration,
 }
 
 inline constexpr std::uint8_t kDs5IntensityFull = 0x00;
-#endif
 
-inline float Ds5IntensityScale(Ds5EffectIntensity intensity)
-{
-    switch (intensity) {
-        case Ds5EffectIntensity::Off:    return 0.0f;
-        case Ds5EffectIntensity::Weak:   return 0.33f;
-        case Ds5EffectIntensity::Medium: return 0.5f;
-        case Ds5EffectIntensity::Strong: return 1.0f;
-    }
-    return 1.0f;
-}
 
-inline Ds5EffectIntensity Ds5IntensityFromWire(std::uint8_t value)
-{
-    switch (value) {
-        case 0: return Ds5EffectIntensity::Off;
-        case 1: return Ds5EffectIntensity::Strong;
-        case 2: return Ds5EffectIntensity::Medium;
-        case 3: return Ds5EffectIntensity::Weak;
-        default: return Ds5EffectIntensity::Strong;
-    }
-}
-
-#if AKIRA_PLATFORM_NX
 inline std::uint32_t Ds5Crc32(std::uint32_t crc, const std::uint8_t* data, std::size_t len)
 {
     for (std::size_t i = 0; i < len; i++) {
@@ -414,7 +382,6 @@ inline bool PadTakesDirectOutput(std::uint16_t vendor_id, std::uint16_t product_
 {
     return vendor_id == 0x054c && (product_id == 0x0ce6 || product_id == 0x0df2);
 }
-#endif
 
 } // namespace akira::input
 

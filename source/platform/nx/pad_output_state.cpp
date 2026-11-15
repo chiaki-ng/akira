@@ -1,4 +1,4 @@
-#include "input/pad_output_state.hpp"
+#include "platform/nx/pad_output_state.hpp"
 
 namespace akira::input {
 

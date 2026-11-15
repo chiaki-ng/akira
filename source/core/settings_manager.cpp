@@ -1728,57 +1728,6 @@ void SettingsManager::setHaptic(Host* host, const std::string& value) {
     setHaptic(host, preset);
 }
 
-#if AKIRA_PLATFORM_NX
-std::string SettingsManager::resolveRumbleKey(uint16_t vendorId, uint16_t productId,
-                                              const uint8_t* address, bool switchNative,
-                                              bool joycon) const
-{
-
-    if (address != nullptr) {
-        const std::string unit = akira::input::RumbleKeyForUnit(address);
-        if (rumbleProfiles.find(unit) != rumbleProfiles.end())
-            return unit;
-    }
-
-    if (vendorId != 0 || productId != 0) {
-        const std::string model = akira::input::RumbleKeyForModel(vendorId, productId);
-        if (rumbleProfiles.find(model) != rumbleProfiles.end())
-            return model;
-    }
-
-    const std::string category =
-        akira::input::RumbleKeyForCategory(
-            akira::input::PadCategoryFor(vendorId, productId, switchNative, joycon));
-    if (rumbleProfiles.find(category) != rumbleProfiles.end())
-        return category;
-
-    return akira::input::kRumbleKeyDefault;
-}
-
-akira::input::RumbleProfile SettingsManager::resolveRumbleProfile(uint16_t vendorId, uint16_t productId,
-                                                                  const uint8_t* address,
-                                                                  bool switchNative,
-                                                                  bool joycon) const
-{
-    return getRumbleProfile(resolveRumbleKey(vendorId, productId, address, switchNative, joycon));
-}
-#else
-std::string SettingsManager::resolveRumbleKey(bool joycon) const
-{
-    const std::string category = joycon ? akira::input::kRumbleKeyJoyCon
-                                        : akira::input::kRumbleKeySwitchPro;
-    if (rumbleProfiles.find(category) != rumbleProfiles.end())
-        return category;
-
-    return akira::input::kRumbleKeyDefault;
-}
-
-akira::input::RumbleProfile SettingsManager::resolveRumbleProfile(bool joycon) const
-{
-    return getRumbleProfile(resolveRumbleKey(joycon));
-}
-#endif
-
 akira::input::RumbleProfile SettingsManager::getRumbleProfile(const std::string& key) const
 {
     const auto it = rumbleProfiles.find(key);

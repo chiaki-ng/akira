@@ -5,7 +5,7 @@
 #include <chrono>
 #include <atomic>
 
-#include "input/ps_output.hpp"
+#include "input/ds5_intensity.hpp"
 #include "input/rumble_profile.hpp"
 #include <memory>
 #include <span>

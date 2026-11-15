@@ -13,7 +13,7 @@
 
 #include "core/settings_manager.hpp"
 #include "input/pad.hpp"
-#include "input/pad_output_state.hpp"
+#include "platform/pad_settings.hpp"
 
 class SettingsPadView : public brls::Box {
 public:
@@ -21,44 +21,30 @@ public:
 
     ~SettingsPadView() override { *m_alive = false; }
 
+    static brls::Box* makeCard();
+    static brls::Label* makeHeading(const std::string& text);
+
 private:
     void buildHeader();
-#if AKIRA_PLATFORM_NX
-    void buildOutputRows();
-#endif
     void buildSourceRows();
     void buildEnvelopeRows();
     void buildIntensityRow();
     void buildStrengthRows();
     void buildFrequencyRows();
-#if AKIRA_PLATFORM_NX
-    void buildLightbarRows();
-#endif
     void buildGyroRow();
     void buildActionRows();
 
-#if AKIRA_PLATFORM_NX
-    bool takesDirectOutput() const;
-
-#endif
     void store();
     void reopen();
     void previewBuzz();
-#if AKIRA_PLATFORM_NX
-    void previewDirectBuzz();
-#endif
 
     brls::Box* content = nullptr;
 
     SettingsManager*            settings = nullptr;
     akira::input::PadDescription m_pad;
     akira::input::RumbleProfile  m_profile;
+    std::unique_ptr<akira::platform::PadSettings> m_platform;
 
-#if AKIRA_PLATFORM_NX
-    akira::input::PadDriverState m_driver;
-
-    brls::Box* m_lightbar_swatch = nullptr;
-#endif
     std::string                  m_key;
 
     std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);

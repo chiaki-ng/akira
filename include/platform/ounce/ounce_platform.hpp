@@ -25,6 +25,8 @@ public:
     OuncePadSource& pads() override;
     std::unique_ptr<PadHaptics> createHaptics() override;
     std::unique_ptr<PadFeedback> createFeedback(HapticManager& haptics) override;
+    std::unique_ptr<StreamControls> createStreamControls(std::weak_ptr<StreamControlsHost> host) override;
+    std::unique_ptr<PadSettings> createPadSettings(const input::PadDescription& pad) override;
 
 private:
     OuncePadSource m_pads;

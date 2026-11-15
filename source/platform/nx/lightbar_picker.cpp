@@ -1,4 +1,4 @@
-#include "views/lightbar_picker.hpp"
+#include "platform/nx/lightbar_picker.hpp"
 
 #include <borealis/core/i18n.hpp>
 

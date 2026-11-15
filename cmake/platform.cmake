@@ -6,20 +6,6 @@ else()
     set(AKIRA_PLATFORM_NX ON)
 endif()
 
-set(AKIRA_PLATFORM_NX_SOURCES
-    input/pad_output_state
-    input/rumble_profile
-    views/battery_pips
-    views/controller_picker_view
-    views/lightbar_picker
-    views/players_panel_view)
-
-if (NOT AKIRA_PLATFORM_NX)
-    foreach (source IN LISTS AKIRA_PLATFORM_NX_SOURCES)
-        list(REMOVE_ITEM MAIN_SRC ${CMAKE_CURRENT_SOURCE_DIR}/source/${source}.cpp)
-    endforeach()
-endif()
-
 if (AKIRA_PLATFORM_NX)
     set(AKIRA_PLATFORM_DIR nx)
 else()

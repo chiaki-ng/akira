@@ -4,7 +4,7 @@
 #include <cstring>
 
 #include "platform/nx/extended_input_manager.hpp"
-#include "input/ps_output.hpp"
+#include "platform/nx/ps_output.hpp"
 #include "core/settings_manager.hpp"
 
 #include <borealis.hpp>
