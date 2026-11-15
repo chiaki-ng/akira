@@ -553,7 +553,6 @@ void SettingsManager::parseTomlFile() {
                     const int64_t clamped = std::max<int64_t>(0, std::min<int64_t>(5, *v));
                     profile.haptic_intensity = static_cast<akira::input::HapticIntensity>(clamped);
                 }
-#if AKIRA_PLATFORM_NX
                 if (auto v = (*entry)["direct_output"].value<bool>())
                     profile.output_mode = *v ? akira::input::PadOutputMode::Native
                                              : akira::input::PadOutputMode::Basic;
@@ -570,7 +569,6 @@ void SettingsManager::parseTomlFile() {
                 if (auto v = (*entry)["lightbar_b"].value<int64_t>())
                     profile.lightbar_b = (std::uint8_t)std::clamp<int64_t>(*v, 0, 255);
 
-#endif
                 auto source = (*entry)["rumble_source"].value<int64_t>();
                 if (!source)
                     source = (*entry)["console_feedback"].value<int64_t>();
@@ -620,7 +618,6 @@ void SettingsManager::parseTomlFile() {
             }
         }
 
-#if AKIRA_PLATFORM_NX
         if (rumbleProfiles.find(akira::input::kRumbleKeyDualSense) == rumbleProfiles.end()) {
             akira::input::RumbleProfile ds = akira::input::DefaultRumbleProfile();
 
@@ -630,7 +627,6 @@ void SettingsManager::parseTomlFile() {
         }
         if (rumbleProfiles.find(akira::input::kRumbleKeyGeneric) == rumbleProfiles.end())
             rumbleProfiles[akira::input::kRumbleKeyGeneric] = akira::input::DefaultRumbleProfile();
-#endif
         if (rumbleProfiles.find(akira::input::kRumbleKeyDefault) == rumbleProfiles.end())
             rumbleProfiles[akira::input::kRumbleKeyDefault] = akira::input::DefaultRumbleProfile();
 
@@ -846,8 +842,6 @@ void SettingsManager::parseTomlFile() {
         logProfileCensus("load");
 
         refreshLegacyGate();
-
-        loadedDocument = config;
 
         if (configMigrated) {
             brls::Logger::info("Config migrated to current schema, rewriting");
@@ -1150,14 +1144,12 @@ toml::table SettingsManager::ownedSettings() {
     }
 
     {
-#if AKIRA_PLATFORM_NX
         toml::table updates;
         updates.insert("channel", updateChannel);
         updates.insert("auto_check", autoCheckUpdates);
         if (lastUpdateCheck != 0) updates.insert("last_check", lastUpdateCheck);
         if (!updateInstallPath.empty()) updates.insert("install_path", updateInstallPath);
         config.insert("updates", std::move(updates));
-#endif
     }
 
     {
@@ -1172,15 +1164,11 @@ toml::table SettingsManager::ownedSettings() {
             debug.insert("chiaki_log_level", chiakiLogVerbosityToString(chiakiLogVerbosity));
         if (debugDiscoveryLog) debug.insert("discovery_log", true);
         if (debugFfmpegLog) debug.insert("ffmpeg_log", true);
-#if AKIRA_PLATFORM_NX
         if (ipcStatsEnabled) debug.insert("ipc_stats", true);
-#endif
         if (devFakeHosts) debug.insert("fake_hosts", true);
         if (powerUserMenuUnlocked) debug.insert("power_user_menu_unlocked", true);
         if (unlockBitrateMax) debug.insert("unlock_bitrate_max", true);
-#if AKIRA_PLATFORM_NX
         if (!devUpdateServer.empty()) debug.insert("update_server", devUpdateServer);
-#endif
         if (!debug.empty())
             config.insert("debug", std::move(debug));
     }
@@ -1206,14 +1194,12 @@ toml::table SettingsManager::ownedSettings() {
 
             entry.insert("haptic_intensity",
                          static_cast<int64_t>(std::to_underlying(profile.haptic_intensity)));
-#if AKIRA_PLATFORM_NX
             entry.insert("output_mode",
                          static_cast<int64_t>(std::to_underlying(profile.output_mode)));
             entry.insert("lightbar_enabled", profile.lightbar_enabled);
             entry.insert("lightbar_r", (int64_t)profile.lightbar_r);
             entry.insert("lightbar_g", (int64_t)profile.lightbar_g);
             entry.insert("lightbar_b", (int64_t)profile.lightbar_b);
-#endif
             entry.insert("rumble_source",
                          static_cast<int64_t>(std::to_underlying(profile.rumble_source)));
 
@@ -1310,8 +1296,6 @@ toml::table SettingsManager::ownedSettings() {
 }
 
 int SettingsManager::persist(toml::table config) {
-    carryForeignKeys(config);
-
     {
         toml::table datacenters;
         std::lock_guard<std::mutex> datacenterLock(datacenterMutex);
@@ -1356,47 +1340,7 @@ int SettingsManager::persist(toml::table config) {
         std::remove(tmpPath.c_str());
         return -1;
     }
-    loadedDocument = std::move(config);
     return 0;
-}
-
-void SettingsManager::carryForeignKeys([[maybe_unused]] toml::table& config) const {
-#if AKIRA_PLATFORM_OUNCE
-    carryKey(config, loadedDocument, "updates");
-
-    if (const auto* debug = loadedDocument["debug"].as_table()) {
-        toml::table carried;
-        if (const auto* current = config["debug"].as_table())
-            carried = *current;
-        for (std::string_view key : {"ipc_stats", "update_server"})
-            carryKey(carried, *debug, key);
-        if (!carried.empty())
-            config.insert_or_assign("debug", std::move(carried));
-    }
-
-    const auto* loadedRumble = loadedDocument["input"]["rumble"].as_table();
-    auto* rumble = config["input"]["rumble"].as_table();
-    if (!loadedRumble || !rumble)
-        return;
-    for (auto&& [key, value] : *loadedRumble) {
-        const auto* loadedEntry = value.as_table();
-        if (!loadedEntry)
-            continue;
-        if (auto* entry = (*rumble)[key.str()].as_table()) {
-            for (std::string_view field : {"output_mode", "lightbar_enabled", "lightbar_r", "lightbar_g", "lightbar_b"})
-                carryKey(*entry, *loadedEntry, field);
-        } else if (key.str() == "dualsense" || key.str() == "generic") {
-            rumble->insert(key, *loadedEntry);
-        }
-    }
-#endif
-}
-
-void SettingsManager::carryKey(toml::table& to, const toml::table& from, std::string_view key) {
-    if (to.contains(key))
-        return;
-    if (const toml::node* node = from.get(key))
-        to.insert(key, *node);
 }
 
 std::string SettingsManager::resolutionToString(VideoResolution resolution) {

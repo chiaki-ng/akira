@@ -201,12 +201,9 @@ private:
     akira::SignInStore signInStore{*this};
     akira::PairingStore pairingStore{*this};
     toml::table owned;
-    toml::table loadedDocument;
 
     toml::table ownedSettings();
     int persist(toml::table config);
-    void carryForeignKeys(toml::table& config) const;
-    static void carryKey(toml::table& to, const toml::table& from, std::string_view key);
 
     void parseTomlFile();
     void parseLegacyFile();

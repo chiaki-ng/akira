@@ -1,9 +1,10 @@
 #ifndef AKIRA_INPUT_RUMBLE_PROFILE_HPP
 #define AKIRA_INPUT_RUMBLE_PROFILE_HPP
 
+#include <cstdint>
+
 #if AKIRA_PLATFORM_NX
 #include <cstddef>
-#include <cstdint>
 #include <string>
 
 #include "input/ps_output.hpp"
@@ -16,6 +17,16 @@ inline constexpr const char* kRumbleKeyDefault = "default";
 
 inline constexpr const char* kRumbleKeySwitch = "switch";
 
+inline constexpr const char* kRumbleKeyDualSense = "dualsense";
+inline constexpr const char* kRumbleKeyJoyCon    = "joycon";
+inline constexpr const char* kRumbleKeySwitchPro = "switchpro";
+inline constexpr const char* kRumbleKeyGeneric   = "generic";
+
+enum class PadOutputMode {
+    Native = 0,
+    Basic,
+};
+
 #if AKIRA_PLATFORM_NX
 enum class PadCategory {
     DualSense = 0,
@@ -23,13 +34,6 @@ enum class PadCategory {
     SwitchPro,
     Generic,
 };
-
-inline constexpr const char* kRumbleKeyDualSense = "dualsense";
-#endif
-inline constexpr const char* kRumbleKeyJoyCon    = "joycon";
-inline constexpr const char* kRumbleKeySwitchPro = "switchpro";
-#if AKIRA_PLATFORM_NX
-inline constexpr const char* kRumbleKeyGeneric   = "generic";
 
 inline const char* RumbleKeyForCategory(PadCategory category)
 {
@@ -64,11 +68,6 @@ inline const char* PadCategoryName(PadCategory category)
     }
     return "Other controllers";
 }
-
-enum class PadOutputMode {
-    Native = 0,
-    Basic,
-};
 #endif
 
 enum class RumbleSource {
@@ -100,19 +99,14 @@ struct RumbleProfile {
 
     HapticIntensity haptic_intensity = HapticIntensity::Normal;
 
-#if AKIRA_PLATFORM_NX
     PadOutputMode output_mode = PadOutputMode::Native;
 
-
-#endif
     RumbleSource rumble_source = RumbleSource::Derived;
-#if AKIRA_PLATFORM_NX
 
     bool          lightbar_enabled = false;
     std::uint8_t  lightbar_r = 0x00;
     std::uint8_t  lightbar_g = 0x80;
     std::uint8_t  lightbar_b = 0xff;
-#endif
 };
 
 inline RumbleProfile DefaultRumbleProfile()
