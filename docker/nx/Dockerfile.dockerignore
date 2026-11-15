@@ -1,0 +1,6 @@
+*
+!Dockerfile
+!scripts/docker/
+!library/uam/
+library/uam/.git
+library/uam/build/

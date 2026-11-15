@@ -1,32 +1,44 @@
 #!/bin/bash
 set -eo pipefail
-source /opt/devkitpro/switchvars.sh
+
+AKIRA_PLATFORM="${AKIRA_PLATFORM:-nx}"
+case "${AKIRA_PLATFORM}" in
+    nx) source /opt/devkitpro/switchvars.sh ;;
+    ounce) source /opt/devkitpro/switch2vars.sh ;;
+    *) echo "AKIRA_PLATFORM must be nx or ounce, not ${AKIRA_PLATFORM}"; exit 1 ;;
+esac
 
 SOURCE_DIR="${AKIRA_SOURCE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-BUILD_DIR="${SOURCE_DIR}/build"
+BUILD_DIR="${SOURCE_DIR}/build/${AKIRA_PLATFORM}"
 DOCKER_SCRIPTS="${SOURCE_DIR}/scripts/docker"
 ENVIRONMENT_FILE="${BUILD_DIR}/.akira-environment"
 
 git config --global --add safe.directory '*'
 
-if [ -n "${WITH_NX_DEPS}" ]; then
-    bash "${DOCKER_SCRIPTS}/install-nx-deps.sh" pool "${WITH_NX_DEPS}"
-fi
-
-for library in curl ffmpeg nghttp2 simdutf; do
-    variable="WITH_${library^^}"
-    if [ -n "${!variable}" ]; then
-        bash "${DOCKER_SCRIPTS}/install-nx-deps.sh" "${library}" "${!variable}"
+if [ "${AKIRA_PLATFORM}" = "nx" ]; then
+    if [ -n "${WITH_NX_DEPS}" ]; then
+        bash "${DOCKER_SCRIPTS}/install-nx-deps.sh" pool "${WITH_NX_DEPS}"
     fi
-done
 
-if [ -n "${WITH_UAM}" ]; then
-    bash "${DOCKER_SCRIPTS}/build-uam.sh" "${WITH_UAM}"
+    for library in curl ffmpeg nghttp2 simdutf; do
+        variable="WITH_${library^^}"
+        if [ -n "${!variable}" ]; then
+            bash "${DOCKER_SCRIPTS}/install-nx-deps.sh" "${library}" "${!variable}"
+        fi
+    done
+
+    if [ -n "${WITH_UAM}" ]; then
+        bash "${DOCKER_SCRIPTS}/build-uam.sh" "${WITH_UAM}"
+    fi
 fi
 
-CORE_DIR="${WITH_CORE:-${SOURCE_DIR}/library/libchiaki-core}"
-BOREALIS_DIR="${WITH_BOREALIS:-${SOURCE_DIR}/library/borealis}"
-WIREGUARD_DIR="${WITH_WIREGUARD:-${SOURCE_DIR}/library/switch-wireguard}"
+LIBRARY_SUFFIX=""
+if [ "${AKIRA_PLATFORM}" = "ounce" ]; then
+    LIBRARY_SUFFIX="-ounce"
+fi
+CORE_DIR="${WITH_CORE:-${SOURCE_DIR}/library/libchiaki-core${LIBRARY_SUFFIX}}"
+BOREALIS_DIR="${WITH_BOREALIS:-${SOURCE_DIR}/library/borealis${LIBRARY_SUFFIX}}"
+WIREGUARD_DIR="${WITH_WIREGUARD:-${SOURCE_DIR}/library/switch-wireguard${LIBRARY_SUFFIX}}"
 LWIP_DIR="${WITH_LWIP:-${SOURCE_DIR}/library/lwip}"
 
 for override in CORE BOREALIS WIREGUARD LWIP UAM NX_DEPS CURL FFMPEG NGHTTP2 SIMDUTF; do
@@ -36,13 +48,13 @@ for override in CORE BOREALIS WIREGUARD LWIP UAM NX_DEPS CURL FFMPEG NGHTTP2 SIM
     fi
 done
 
-ENVIRONMENT="image=${AKIRA_IMAGE} source=${SOURCE_DIR} nx_deps=${WITH_NX_DEPS} curl=${WITH_CURL} ffmpeg=${WITH_FFMPEG} nghttp2=${WITH_NGHTTP2} simdutf=${WITH_SIMDUTF} uam=${WITH_UAM}"
+ENVIRONMENT="platform=${AKIRA_PLATFORM} image=${AKIRA_IMAGE} source=${SOURCE_DIR} borealis=${BOREALIS_DIR} nx_deps=${WITH_NX_DEPS} curl=${WITH_CURL} ffmpeg=${WITH_FFMPEG} nghttp2=${WITH_NGHTTP2} simdutf=${WITH_SIMDUTF} uam=${WITH_UAM}"
 if [ "$(cat "${ENVIRONMENT_FILE}" 2>/dev/null)" != "${ENVIRONMENT}" ]; then
     echo "=== Build environment changed, starting a clean build ==="
     rm -rf "${BUILD_DIR}"
 fi
 
-AKIRA_CORE_DIR="${CORE_DIR}" bash "${SOURCE_DIR}/scripts/write-build-info.sh" "${SOURCE_DIR}"
+AKIRA_PLATFORM="${AKIRA_PLATFORM}" AKIRA_CORE_DIR="${CORE_DIR}" bash "${SOURCE_DIR}/scripts/write-build-info.sh" "${SOURCE_DIR}"
 
 MUTE_CHIAKI_LOGS=OFF
 if [ "${MUTE_CHIAKI}" = "true" ]; then
@@ -66,6 +78,7 @@ fi
 
 cmake -G Ninja -S "${SOURCE_DIR}" -B "${BUILD_DIR}" \
     -DPLATFORM_SWITCH=ON \
+    -DAKIRA_PLATFORM="${AKIRA_PLATFORM}" \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DBUILD_CHANNEL="${BUILD_CHANNEL:-dev}" \
     -DVERSION_PRERELEASE="${VERSION_PRERELEASE}" \

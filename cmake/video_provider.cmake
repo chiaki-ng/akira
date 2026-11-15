@@ -41,4 +41,8 @@ foreach (source IN LISTS AKIRA_VIDEO_SOURCES)
     list(APPEND MAIN_SRC ${CMAKE_CURRENT_SOURCE_DIR}/source/${source}.cpp)
 endforeach()
 
+if (NOT AKIRA_VIDEO_DEKO3D)
+    list(APPEND AKIRA_FOREIGN_RESOURCES shaders)
+endif()
+
 message(STATUS "Video provider: ${AKIRA_VIDEO_SOURCES}")

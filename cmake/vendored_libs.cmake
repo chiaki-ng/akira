@@ -1,5 +1,5 @@
 # WireGuard library
-set(WIREGUARD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/switch-wireguard CACHE PATH "switch-wireguard source tree")
+set(WIREGUARD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/switch-wireguard${AKIRA_LIBRARY_SUFFIX} CACHE PATH "switch-wireguard source tree")
 
 file(GLOB WIREGUARD_SRCS CONFIGURE_DEPENDS
     ${WIREGUARD_DIR}/src/*.c

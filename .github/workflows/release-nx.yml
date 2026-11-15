@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build and Release (Switch)
 
 on:
   push:
@@ -10,6 +10,7 @@ permissions: read-all
 
 jobs:
   build:
+    if: github.repository == 'chiaki-ng/akira'
     runs-on: ubuntu-latest
 
     steps:
@@ -22,10 +23,7 @@ jobs:
         id: version
         run: |
           TAG="${GITHUB_REF_NAME}"
-          VERSION_MAJOR=$(grep 'set(VERSION_MAJOR' cmake/version.cmake | sed 's/[^0-9]*//g')
-          VERSION_MINOR=$(grep 'set(VERSION_MINOR' cmake/version.cmake | sed 's/[^0-9]*//g')
-          VERSION_PATCH=$(grep 'set(VERSION_PATCH' cmake/version.cmake | sed 's/[^0-9]*//g')
-          CORE="${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}"
+          CORE=$(sed -n 's/^set(AKIRA_VERSION_NX "\(.*\)")$/\1/p' cmake/version.cmake)
 
           TAG_VERSION="${TAG#v}"
           PRERELEASE=""
@@ -58,12 +56,13 @@ jobs:
 
       - name: Name the builder image
         id: image
-        run: echo "tag=$(make -s image-tag)" >> "$GITHUB_OUTPUT"
+        run: echo "tag=$(make -s image-tag-nx)" >> "$GITHUB_OUTPUT"
 
       - name: Build the builder image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          file: docker/nx/Dockerfile
           load: true
           tags: ${{ steps.image.outputs.tag }}
           cache-from: type=gha
@@ -73,25 +72,26 @@ jobs:
         env:
           BUILD_CHANNEL: ${{ steps.version.outputs.channel }}
           VERSION_PRERELEASE: ${{ steps.version.outputs.prerelease }}
-        run: make build CLOUD=false
+        run: make build-nx CLOUD=false
 
       - name: Upload NRO artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: akira-nro
-          path: build/akira.nro
+          path: build/nx/akira.nro
 
       - name: Upload ELF artifact (debug symbols)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: akira-elf
-          path: build/akira.elf
+          path: build/nx/akira.elf
 
     outputs:
       version: ${{ steps.version.outputs.version }}
       channel: ${{ steps.version.outputs.channel }}
 
   build-companion:
+    if: github.repository == 'chiaki-ng/akira'
     strategy:
       fail-fast: false
       matrix:

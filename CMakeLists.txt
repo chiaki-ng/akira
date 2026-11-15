@@ -1,14 +1,37 @@
 cmake_minimum_required(VERSION 3.13)
 
+set(AKIRA_PLATFORM "nx" CACHE STRING "Target console: nx or ounce")
+set_property(CACHE AKIRA_PLATFORM PROPERTY STRINGS nx ounce)
+if (NOT AKIRA_PLATFORM MATCHES "^(nx|ounce)$")
+    message(FATAL_ERROR "AKIRA_PLATFORM must be nx or ounce, not ${AKIRA_PLATFORM}")
+endif()
+
 # Force Switch platform
 set(PLATFORM_SWITCH ON CACHE BOOL "Build for Nintendo Switch" FORCE)
+if (AKIRA_PLATFORM STREQUAL "ounce")
+    set(PLATFORM_SWITCH2 ON CACHE BOOL "Build for Switch 2 with libounce" FORCE)
+else()
+    set(PLATFORM_SWITCH2 OFF CACHE BOOL "Build for Switch 2 with libounce" FORCE)
+endif()
 
 # Borealis paths
-set(BOREALIS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/borealis CACHE PATH "Borealis source tree")
+if (PLATFORM_SWITCH2)
+    set(AKIRA_LIBRARY_SUFFIX "-ounce")
+else()
+    set(AKIRA_LIBRARY_SUFFIX "")
+endif()
+
+set(BOREALIS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/library/borealis${AKIRA_LIBRARY_SUFFIX} CACHE PATH "Borealis source tree")
 set(BOREALIS_LIBRARY ${BOREALIS_DIR}/library)
 
-# Use deko3d for video rendering (must be set BEFORE commonOption.cmake)
-set(USE_DEKO3D ON CACHE BOOL "Use deko3d for video rendering" FORCE)
+if (PLATFORM_SWITCH2)
+    set(USE_VULKAN ON CACHE BOOL "Use Vulkan for rendering" FORCE)
+    set(USE_DEKO3D OFF CACHE BOOL "Use deko3d for video rendering" FORCE)
+else()
+    # Use deko3d for video rendering (must be set BEFORE commonOption.cmake)
+    set(USE_DEKO3D ON CACHE BOOL "Use deko3d for video rendering" FORCE)
+    set(USE_VULKAN OFF CACHE BOOL "Use Vulkan for rendering" FORCE)
+endif()
 
 option(DEBUG_DEKO3D_RENDERING "Enable debug squares in video shader" OFF)
 
@@ -17,6 +40,8 @@ include(${BOREALIS_LIBRARY}/cmake/commonOption.cmake)
 include(${BOREALIS_LIBRARY}/cmake/toolchain.cmake)
 
 project(akira)
+
+add_compile_options(-fno-omit-frame-pointer)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 

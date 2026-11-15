@@ -1,0 +1,91 @@
+name: Release (Switch 2)
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    if: github.repository == 'chiaki-ng/akira-ounce'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Derive the version from the tag
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          CORE=$(sed -n 's/^set(AKIRA_VERSION_OUNCE "\(.*\)")$/\1/p' cmake/version.cmake)
+          VERSION="${TAG#v}"
+          PRERELEASE=""
+          CHANNEL="stable"
+          if [[ "$VERSION" == *-* ]]; then
+            PRERELEASE="${VERSION#*-}"
+            CHANNEL="rc"
+          fi
+          if [ "${VERSION%%-*}" != "$CORE" ]; then
+            echo "::error::Tag ${TAG} does not match cmake/version.cmake ${CORE}"
+            exit 1
+          fi
+          {
+            echo "VERSION=${VERSION}"
+            echo "BUILD_CHANNEL=${CHANNEL}"
+            echo "VERSION_PRERELEASE=${PRERELEASE}"
+            echo "devkit=$(make -s devkit-pin)"
+          } >> "$GITHUB_ENV"
+
+      - name: Restore the ounce devkit
+        uses: actions/cache@v4
+        with:
+          path: .cache/ounce-devkit
+          key: ounce-devkit-${{ env.devkit }}
+
+      - name: Restore the native deps
+        uses: actions/cache@v4
+        with:
+          path: library/native-deps/out
+          key: ounce-deps-${{ env.devkit }}-${{ hashFiles('library/native-deps/config/ounce.toml', 'library/native-deps/deps/*/ounce.toml', 'library/native-deps/deps/*/patches/*', 'library/native-deps/scripts/*') }}
+
+      - name: Build the devkit image
+        run: make devkit-image
+
+      - name: Build the native deps
+        run: make ounce-deps
+
+      - name: Build akira
+        run: make build-ounce CLOUD=false
+
+      - name: Package for the SD card
+        run: |
+          mkdir -p dist/switch
+          cp build/ounce/akira.nro dist/switch/akira.nro
+          ( cd dist && zip -r "akira-ounce-${VERSION}.zip" switch )
+          cp build/ounce/akira.nro dist/akira.nro
+          ( cd build/ounce && zip -9 "../../dist/akira-ounce-${VERSION}-debug-symbols.zip" akira.elf )
+          ( cd dist && sha256sum "akira-ounce-${VERSION}.zip" akira.nro "akira-ounce-${VERSION}-debug-symbols.zip" > SHA256SUMS )
+
+      - name: Add the build versions to the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            gh release view "${GITHUB_REF_NAME}" --json body -q .body
+            echo
+            make -s release-notes
+          } > dist/RELEASE_NOTES.md
+          gh release edit "${GITHUB_REF_NAME}" --notes-file dist/RELEASE_NOTES.md
+
+      - name: Upload the release files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" --clobber \
+            "dist/akira-ounce-${VERSION}.zip" dist/akira.nro "dist/akira-ounce-${VERSION}-debug-symbols.zip" dist/SHA256SUMS

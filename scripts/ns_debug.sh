@@ -61,6 +61,19 @@ else
   }
 fi
 
+if printf '%s\n' "$crash_report" | grep -q ' crash report ('; then
+  printf '%s\n' "$crash_report" | grep -v ' elf+0x'
+  echo "===>    Symbolicated:"
+  while IFS= read -r line; do
+    label="$(printf '%s' "$line" | awk '{print $1}')"
+    off="$(printf '%s' "$line" | grep -oE 'elf\+0x[0-9a-f]+' | cut -c5-)"
+    printf '%-4s %s\n' "$label" "$(addr2line_batch "$off" | tr '\n' ' ')"
+  done <<EOF
+$(printf '%s\n' "$crash_report" | grep ' elf+0x')
+EOF
+  exit 0
+fi
+
 ascii_of_hex() {
   local hex="$1" out="" i byte dec
   for ((i=${#hex}-2; i>=0; i-=2)); do

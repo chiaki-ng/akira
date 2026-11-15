@@ -1,6 +1,33 @@
 [submodule "library/borealis"]
 	path = library/borealis
 	url = git@github.com:xlanor/borealis.git
+[submodule "library/borealis-ounce"]
+	path = library/borealis-ounce
+	url = https://github.com/xlanor/borealis-ounce.git
+	branch = main
+[submodule "library/tomlplusplus"]
+	path = library/tomlplusplus
+	url = https://github.com/marzer/tomlplusplus.git
+[submodule "library/switch-wireguard"]
+	path = library/switch-wireguard
+	url = https://github.com/xlanor/wg-nx.git
+[submodule "library/switch-wireguard-ounce"]
+	path = library/switch-wireguard-ounce
+	url = https://github.com/xlanor/switch-wireguard-ounce.git
+	branch = main
+[submodule "library/lwip"]
+	path = library/lwip
+	url = https://github.com/lwip-tcpip/lwip.git
+[submodule "library/libchiaki-core"]
+	path = library/libchiaki-core
+	url = git@github.com:chiaki-ng/chiaki-ng-core.git
+[submodule "library/libchiaki-core-ounce"]
+	path = library/libchiaki-core-ounce
+	url = https://github.com/chiaki-ng/chiaki-ng-core.git
+[submodule "library/native-deps"]
+	path = library/native-deps
+	url = https://github.com/xlanor/native-deps-ounce.git
+	branch = main
 [submodule "references/wiliwili"]
 	path = references/wiliwili
 	url = https://github.com/xfangfang/wiliwili.git
@@ -22,15 +49,6 @@
 [submodule "references/psn-api"]
 	path = references/psn-api
 	url = git@github.com:achievements-app/psn-api.git
-[submodule "library/tomlplusplus"]
-	path = library/tomlplusplus
-	url = https://github.com/marzer/tomlplusplus.git
-[submodule "library/switch-wireguard"]
-	path = library/switch-wireguard
-	url = https://github.com/xlanor/wg-nx.git
-[submodule "library/lwip"]
-	path = library/lwip
-	url = https://github.com/lwip-tcpip/lwip.git
 [submodule "library/uam"]
 	path = library/uam
 	url = https://github.com/RSDuck/uam.git
@@ -47,6 +65,3 @@
 [submodule "references/Pylux"]
 	path = references/Pylux
 	url = https://github.com/ForWard-Technologies-LLC/Pylux.git
-[submodule "library/libchiaki-core"]
-	path = library/libchiaki-core
-	url = git@github.com:chiaki-ng/chiaki-ng-core.git

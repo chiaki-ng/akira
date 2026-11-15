@@ -1,13 +1,21 @@
 name: CI
 
 on:
+  push:
+    branches: ['**']
+    paths-ignore:
+      - '**.md'
   pull_request:
     branches: [master, 'release/**']
 
 permissions: read-all
 
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  build-nx:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,10 +29,12 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Stamp PR version
+      - name: Stamp the version
         run: |
           echo "BUILD_CHANNEL=dev" >> "$GITHUB_ENV"
-          echo "VERSION_PRERELEASE=pr${{ github.event.pull_request.number }}" >> "$GITHUB_ENV"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "VERSION_PRERELEASE=pr${{ github.event.pull_request.number }}" >> "$GITHUB_ENV"
+          fi
 
       - name: Log in to Container Registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
@@ -38,31 +48,87 @@ jobs:
 
       - name: Name the builder image
         id: image
-        run: echo "tag=$(make -s image-tag)" >> "$GITHUB_OUTPUT"
+        run: echo "tag=$(make -s image-tag-nx)" >> "$GITHUB_OUTPUT"
 
       - name: Build the builder image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          file: docker/nx/Dockerfile
           load: true
           tags: ${{ steps.image.outputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=nx
+          cache-to: type=gha,mode=max,scope=nx
 
       - name: Build Akira
-        run: make build CLOUD=false
+        run: make build-nx CLOUD=false
 
       - name: Upload NRO artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: akira-nro-${{ steps.sha.outputs.short }}
-          path: build/akira.nro
+          name: akira-nx-nro-${{ steps.sha.outputs.short }}
+          path: build/nx/akira.nro
 
       - name: Upload ELF artifact (debug symbols)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: akira-elf-${{ steps.sha.outputs.short }}
-          path: build/akira.elf
+          name: akira-nx-elf-${{ steps.sha.outputs.short }}
+          path: build/nx/akira.elf
+
+  build-ounce:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set short SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Stamp the version
+        run: |
+          echo "BUILD_CHANNEL=dev" >> "$GITHUB_ENV"
+          echo "devkit=$(make -s devkit-pin)" >> "$GITHUB_ENV"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "VERSION_PRERELEASE=pr${{ github.event.pull_request.number }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Restore the ounce devkit
+        uses: actions/cache@v4
+        with:
+          path: .cache/ounce-devkit
+          key: ounce-devkit-${{ env.devkit }}
+
+      - name: Restore the native deps
+        uses: actions/cache@v4
+        with:
+          path: library/native-deps/out
+          key: ounce-deps-${{ env.devkit }}-${{ hashFiles('library/native-deps/config/ounce.toml', 'library/native-deps/deps/*/ounce.toml', 'library/native-deps/deps/*/patches/*', 'library/native-deps/scripts/*') }}
+
+      - name: Build the devkit image
+        run: make devkit-image
+
+      - name: Build the native deps
+        run: make ounce-deps
+
+      - name: Build akira
+        run: make build-ounce CLOUD=false
+
+      - name: Upload NRO artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: akira-ounce-nro-${{ steps.sha.outputs.short }}
+          path: build/ounce/akira.nro
+
+      - name: Upload ELF artifact (debug symbols)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: akira-ounce-elf-${{ steps.sha.outputs.short }}
+          path: build/ounce/akira.elf
 
   build-companion:
     strategy:
@@ -112,7 +178,8 @@ jobs:
           path: apps/akira-companion/${{ matrix.artifact }}
 
   comment:
-    needs: [build, build-companion]
+    if: github.event_name == 'pull_request'
+    needs: [build-nx, build-ounce, build-companion]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -131,8 +198,10 @@ jobs:
               ``,
               `| Artifact | Description |`,
               `|----------|-------------|`,
-              `| \`akira-nro-${sha}\` | NRO for Switch |`,
-              `| \`akira-elf-${sha}\` | ELF with debug symbols |`,
+              `| \`akira-nx-nro-${sha}\` | NRO for Switch |`,
+              `| \`akira-nx-elf-${sha}\` | ELF with debug symbols for Switch |`,
+              `| \`akira-ounce-nro-${sha}\` | NRO for Switch 2 |`,
+              `| \`akira-ounce-elf-${sha}\` | ELF with debug symbols for Switch 2 |`,
               `| \`akira-companion-linux-amd64-${sha}\` | Companion (Linux) |`,
               `| \`akira-companion-darwin-arm64-${sha}\` | Companion (macOS) |`,
               `| \`akira-companion-windows-amd64.exe-${sha}\` | Companion (Windows) |`,
