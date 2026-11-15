@@ -24,9 +24,6 @@ class AudioManager;
 class HapticManager;
 class InputManager;
 class IVideoRenderer;
-#if AKIRA_PLATFORM_NX
-class IpcStatsService;
-#endif
 
 class Session
 {
@@ -41,9 +38,6 @@ private:
     std::unique_ptr<InputManager> m_input_manager;
     std::unique_ptr<akira::video::Provider> m_video;
     std::unique_ptr<akira::stream::VideoWorker> m_video_worker;
-#if AKIRA_PLATFORM_NX
-    std::unique_ptr<IpcStatsService> m_ipc_service;
-#endif
     std::optional<libchiaking::media::AudioDecoder> m_audio_decoder;
 
     StatsOverlayMode m_stats_overlay_mode = StatsOverlayMode::Off;
@@ -97,9 +91,6 @@ public:
 
     ~Session();
 
-#if AKIRA_PLATFORM_NX
-    void SetMesaConfig();
-#endif
     void describeStream(const libchiaking::media::StreamDescription& description);
     libchiaking::media::VideoResult submitVideo(const libchiaking::media::VideoUnit& unit);
     libchiaking::media::AudioResult submitAudio(const libchiaking::media::AudioUnit& unit);

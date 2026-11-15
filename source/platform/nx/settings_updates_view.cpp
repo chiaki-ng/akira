@@ -1,13 +1,13 @@
-#include "views/settings_updates_view.hpp"
+#include "platform/nx/settings_updates_view.hpp"
 
 #include <borealis/core/i18n.hpp>
 #include <string>
 #include <vector>
 
-#include "core/update_manager.hpp"
+#include "platform/nx/update_manager.hpp"
 #include "core/version.hpp"
 #include "util/http_pool.hpp"
-#include "views/update_flow.hpp"
+#include "platform/nx/update_flow.hpp"
 
 using namespace brls::literals;
 

@@ -7,18 +7,14 @@ else()
 endif()
 
 set(AKIRA_PLATFORM_NX_SOURCES
-    core/update_manager
     input/extended_input_manager
     input/pad_output_state
     input/pad_path_mc
     input/rumble_profile
-    stream/ipc_service
     views/battery_pips
     views/controller_picker_view
     views/lightbar_picker
-    views/players_panel_view
-    views/settings_updates_view
-    views/update_flow)
+    views/players_panel_view)
 
 if (NOT AKIRA_PLATFORM_NX)
     foreach (source IN LISTS AKIRA_PLATFORM_NX_SOURCES)
@@ -27,8 +23,16 @@ if (NOT AKIRA_PLATFORM_NX)
 endif()
 
 if (AKIRA_PLATFORM_NX)
-    list(APPEND MAIN_SRC ${CMAKE_CURRENT_SOURCE_DIR}/source/stream/nxext_ipc_server.c)
+    set(AKIRA_PLATFORM_DIR nx)
+else()
+    set(AKIRA_PLATFORM_DIR ounce)
 endif()
+
+list(FILTER MAIN_SRC EXCLUDE REGEX "/source/platform/(nx|ounce)/")
+file(GLOB_RECURSE AKIRA_PLATFORM_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/source/platform/${AKIRA_PLATFORM_DIR}/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/source/platform/${AKIRA_PLATFORM_DIR}/*.c)
+list(APPEND MAIN_SRC ${AKIRA_PLATFORM_SOURCES})
 
 set(AKIRA_PLATFORM_NX_RESOURCES
     img/pads

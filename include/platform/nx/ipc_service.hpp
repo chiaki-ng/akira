@@ -2,7 +2,7 @@
 
 #include <switch.h>
 #include <atomic>
-#include "stream/nxext_ipc_server.h"
+#include "platform/nx/nxext_ipc_server.h"
 
 class Session;
 

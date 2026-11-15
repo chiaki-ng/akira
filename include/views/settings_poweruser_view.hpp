@@ -25,9 +25,6 @@ private:
     SettingsManager* settings = nullptr;
 
     void initUnlockBitrateMaxToggle();
-#if AKIRA_PLATFORM_NX
-    void initIpcStatsToggle();
-#endif
     void initAutoReconnectToggle();
     void initHideAccountNameToggle();
     void initPortGuessingToggle();

@@ -1,4 +1,4 @@
-#include "core/update_manager.hpp"
+#include "platform/nx/update_manager.hpp"
 
 #include <cctype>
 #include <cerrno>

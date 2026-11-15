@@ -1,4 +1,4 @@
-#include "stream/ipc_service.hpp"
+#include "platform/nx/ipc_service.hpp"
 #include "stream/session.hpp"
 #include "core/wireguard_manager.hpp"
 #include <akira/ipc.h>

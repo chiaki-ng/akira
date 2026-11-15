@@ -1,4 +1,4 @@
-#include "stream/nxext_ipc_server.h"
+#include "platform/nx/nxext_ipc_server.h"
 #include <string.h>
 
 Result ipcServerInit(IpcServer* server, const char* name, u32 max_sessions)

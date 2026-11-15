@@ -50,10 +50,7 @@
 #include "ui/akira_header.hpp"
 #include "util/crash_report.hpp"
 #include "akira_version.h"
-#if AKIRA_PLATFORM_NX
-#include "core/update_manager.hpp"
-#include "views/update_flow.hpp"
-#endif
+#include "platform/platform.hpp"
 
 #include <borealis/core/i18n.hpp>
 using namespace brls::literals;
@@ -507,10 +504,8 @@ public:
             akiraOpenSettings();
             return true;
         }, false);
-#if AKIRA_PLATFORM_NX
 
-        akira::UpdateFlow::checkOnLaunch();
-#endif
+        akira::platform::Platform::instance().launched();
     }
 };
 
@@ -533,10 +528,6 @@ int main(int argc, char* argv[])
         akira::AppLog::open(SettingsManager::getLogFilePath());
     akira::CrashReport::stage("log open");
     brls::Logger::info("akira {} starting", AKIRA_VERSION_STRING);
-#if AKIRA_PLATFORM_NX
-
-    akira::UpdateManager::setSelfPath(argc > 0 && argv[0] ? argv[0] : "");
-#endif
 
     for (int i = 1; i < argc; i++)
     {
@@ -562,12 +553,8 @@ int main(int argc, char* argv[])
     akira::CrashReport::stage("theme");
     initCustomTheme();
 
-#if AKIRA_PLATFORM_OUNCE
-    akira::CrashReport::stage("window size");
-    if (const Result rc = nwindowSetModeDimensions(nwindowGetDefault(), 0, 0, 0, 0); R_FAILED(rc))
-        brls::Logger::warning("switch: per-mode window size refused (0x{:x}), drawing at the default window size", rc);
+    akira::platform::Platform::instance().beforeInit(argc, argv);
 
-#endif
     akira::CrashReport::stage("borealis init");
     if (!brls::Application::init())
     {
@@ -641,10 +628,6 @@ int main(int argc, char* argv[])
 
     AppletType appletType = appletGetAppletType();
     brls::Logger::info("Applet type: {} ({})", appletTypeToString(appletType), static_cast<int>(appletType));
-#if AKIRA_PLATFORM_NX
-
-    Session::GetInstance()->SetMesaConfig();
-#endif
 
     brls::Application::registerXMLView("HostListTab", HostListTab::create);
     brls::Application::registerXMLView("PsnGatedBox", PsnGatedBox::create);

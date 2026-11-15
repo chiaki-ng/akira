@@ -1,4 +1,4 @@
-#include "views/update_flow.hpp"
+#include "platform/nx/update_flow.hpp"
 
 #include <borealis.hpp>
 #include <borealis/core/i18n.hpp>

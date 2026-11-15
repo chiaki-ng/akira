@@ -1,7 +1,7 @@
 #ifndef AKIRA_UPDATE_FLOW_HPP
 #define AKIRA_UPDATE_FLOW_HPP
 
-#include "core/update_manager.hpp"
+#include "platform/nx/update_manager.hpp"
 
 namespace akira {
 

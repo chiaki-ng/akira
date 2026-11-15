@@ -3,8 +3,11 @@
 #include <borealis/core/application.hpp>
 #include <borealis/extern/nlohmann/json.hpp>
 
+#include "platform/platform.hpp"
+
 #include <array>
 #include <fstream>
+#include <span>
 #include <string>
 #include <unordered_map>
 
@@ -12,12 +15,6 @@ namespace akira {
 
 static const auto kHelpFiles = std::to_array<const char*>({
     "general", "quality", "controls", "debug", "account", "poweruser", "developer",
-#if AKIRA_PLATFORM_NX
-    "updates",
-#endif
-#if AKIRA_PLATFORM_OUNCE
-    "ounce",
-#endif
 });
 
 static void mergeHelpFile(const std::string& path, std::unordered_map<std::string, SettingDescription>& m)
@@ -50,10 +47,13 @@ static const std::unordered_map<std::string, SettingDescription>& table()
 
         std::string locale = brls::Application::getLocale();
 
-        for (const char* name : kHelpFiles) {
-            mergeHelpFile(std::string("romfs:/help/") + name + ".json", m);
-            if (!locale.empty() && locale != "en-US")
-                mergeHelpFile(std::string("romfs:/help/") + locale + "/" + name + ".json", m);
+        for (const auto& names : {std::span<const char* const>(kHelpFiles),
+                                  akira::platform::Platform::instance().helpFiles()}) {
+            for (const char* name : names) {
+                mergeHelpFile(std::string("romfs:/help/") + name + ".json", m);
+                if (!locale.empty() && locale != "en-US")
+                    mergeHelpFile(std::string("romfs:/help/") + locale + "/" + name + ".json", m);
+            }
         }
         return m;
     }();

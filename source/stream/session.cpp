@@ -7,11 +7,9 @@
 #include "stream/input_manager.hpp"
 #include "stream/video_renderer.hpp"
 #include "util/crash_report.hpp"
-#if AKIRA_PLATFORM_NX
-#include "stream/ipc_service.hpp"
+#include "platform/platform.hpp"
 
 #include <cstring>
-#endif
 
 Session* Session::GetInstance()
 {
@@ -97,11 +95,6 @@ Session::~Session()
     FreeVideo();
 }
 
-#if AKIRA_PLATFORM_NX
-void Session::SetMesaConfig()
-{
-}
-#endif
 
 void Session::describeStream(const libchiaking::media::StreamDescription& description)
 {
@@ -267,10 +260,7 @@ bool Session::FreeVideo()
 
     m_video->detachFrames();
 
-#if AKIRA_PLATFORM_NX
-    if (m_ipc_service)
-        m_ipc_service->SetStreamActive(false);
-#endif
+    akira::platform::Platform::instance().streamStopped();
 
     m_first_frame_received = false;
     SettingsManager::getInstance()->setStreamingActive(false);
@@ -437,18 +427,7 @@ void Session::frameArriving(const akira::video::FrameInfo& frame)
         updateActualResolution(static_cast<int>(frame.width), static_cast<int>(frame.height));
         SettingsManager::getInstance()->setStreamingActive(true);
         brls::Logger::info("First video frame received!");
-#if AKIRA_PLATFORM_NX
-
-        if (SettingsManager::getInstance()->getIpcStatsEnabled())
-        {
-            if (!m_ipc_service)
-            {
-                m_ipc_service = std::make_unique<IpcStatsService>(this);
-                m_ipc_service->Start();
-            }
-            m_ipc_service->SetStreamActive(true);
-        }
-#endif
+        akira::platform::Platform::instance().streamStarted(*this);
     }
 
     if (akira::video::Decoder* decoder = m_video->decoder())
