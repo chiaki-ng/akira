@@ -1,4 +1,3 @@
-#if AKIRA_PLATFORM_NX
 #include "test_util.hpp"
 
 #include "util/semver.hpp"
@@ -50,4 +49,3 @@ TEST(semver_validity)
     CHECK(!isValid("nightly-2026-07-26"));
     CHECK(!isValid("1.2.3-"));
 }
-#endif

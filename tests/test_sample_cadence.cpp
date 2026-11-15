@@ -52,7 +52,6 @@ TEST(sample_cadence_emits_only_once_after_a_long_stall)
     CHECK(cadence.due(start + 116ms));
 }
 
-#if AKIRA_PLATFORM_NX
 TEST(sample_cadence_limits_direct_device_discovery_to_twice_per_second)
 {
     akira::input::SampleCadence cadence(akira::input::DirectDiscoveryPeriod);
@@ -66,4 +65,3 @@ TEST(sample_cadence_limits_direct_device_discovery_to_twice_per_second)
 
     CHECK_EQ(attempts, 2);
 }
-#endif

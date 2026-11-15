@@ -34,7 +34,6 @@ IMAGE_DEPS   := devkit-image ounce-deps-check
 OVERRIDES    := CORE BOREALIS WIREGUARD LWIP
 SUBMODULE_FLAGS :=
 LIBRARY_SUFFIX := -ounce
-TEST_DEFINES := -DAKIRA_PLATFORM_NX=0 -DAKIRA_PLATFORM_OUNCE=1
 TEST_PLATFORM_SRC :=
 else
 IMAGE_HASH   := $(shell { cat "$(CURDIR)/docker/nx/Dockerfile" "$(CURDIR)/docker/nx/Dockerfile.dockerignore" \
@@ -46,9 +45,8 @@ IMAGE_DEPS   :=
 OVERRIDES    := CORE BOREALIS WIREGUARD LWIP UAM NX_DEPS CURL FFMPEG NGHTTP2 SIMDUTF
 SUBMODULE_FLAGS := --recursive
 LIBRARY_SUFFIX :=
-TEST_DEFINES := -DAKIRA_PLATFORM_NX=1 -DAKIRA_PLATFORM_OUNCE=0
-TEST_PLATFORM_SRC := $(CURDIR)/source/input/rumble_profile.cpp \
-                     $(CURDIR)/source/input/pad_output_state.cpp
+TEST_PLATFORM_SRC := $(CURDIR)/source/platform/nx/rumble_keys.cpp \
+                     $(CURDIR)/source/platform/nx/pad_output_state.cpp
 endif
 DOCKER_IMAGE ?= akira-builder:$(IMAGE_HASH)
 NRO_FILE     := $(CURDIR)/build/$(PLATFORM)/akira.nro
@@ -85,6 +83,7 @@ DOCKER_RUN := docker run --rm -v "$(CURDIR):$(CURDIR)" $(WORKTREE_DOCKER_MOUNTS)
 # builds and runs natively. Everything else in the app needs the Switch toolchain.
 TEST_BIN     := $(CURDIR)/build/tests/$(PLATFORM)/psn_tests
 TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
+                $(wildcard $(CURDIR)/tests/$(PLATFORM)/*.cpp) \
                 $(CURDIR)/source/cloud/models.cpp \
                 $(CURDIR)/source/cloud/library_listing.cpp \
                 $(CURDIR)/source/cloud/game_actions.cpp \
@@ -197,7 +196,7 @@ test: platform
 	fi
 	@mkdir -p "$(CURDIR)/build/tests/$(PLATFORM)"
 	@printf "$(GREEN)[*]$(NC) Building host tests...\n"
-	@c++ -std=c++23 -g -O0 -Wall -Wextra -Wno-unused-parameter $(TEST_DEFINES) \
+	@c++ -std=c++23 -g -O0 -Wall -Wextra -Wno-unused-parameter \
 		-I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" \
 		-I"$(CURDIR)/library/tomlplusplus/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(OPENSSL_PREFIX)/include" \
 		$(TEST_SRC) $(CORE_TEST_SRC) -L"$(JSONC_PREFIX)/lib" -ljson-c -L"$(SIMDUTF_PREFIX)/lib" -lsimdutf \
