@@ -210,7 +210,7 @@ void VulkanRenderer::setViewport(VkCommandBuffer cmd, VkExtent2D extent)
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 }
 
-VulkanRenderer::PlaneLayout VulkanRenderer::planeLayout(const akira::platform::vulkan::HardwareFrame& frame)
+VulkanRenderer::PlaneLayout VulkanRenderer::planeLayout(const akira::platform::vulkan::HardwareFrame& frame) const
 {
     return PlaneLayout{
         .backing = frame.backing(),
@@ -219,8 +219,138 @@ VulkanRenderer::PlaneLayout VulkanRenderer::planeLayout(const akira::platform::v
         .height = frame.height(),
         .luma = frame.luma(),
         .chroma = frame.chroma(),
-        .decoderBuffer = frame.outputBuffer(),
+        .decoderBuffer = m_decoder_sampling == DecoderSampling::Broken ? VK_NULL_HANDLE : frame.outputBuffer(),
     };
+}
+
+bool VulkanRenderer::decoderSamplingMatches(const PlaneLayout& layout)
+{
+    const std::uint32_t rows = std::min(layout.height, SamplingProbeRows);
+    const VkDeviceSize offset = layout.luma.offset + VkDeviceSize{ layout.luma.pitch } * ((layout.height - rows) / 2);
+    const VkDeviceSize size = VkDeviceSize{ layout.luma.pitch } * (rows - 1) + layout.width;
+    if (rows == 0 || offset + size > layout.backingSize)
+        return false;
+
+    const VkBufferCreateInfo info{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = size,
+        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+    VkBuffer bufferHandle = VK_NULL_HANDLE;
+    if (!succeeded(vkCreateBuffer(m_device, &info, nullptr, &bufferHandle), "vkCreateBuffer (sampling probe)"))
+        return false;
+    Buffer buffer(m_device, bufferHandle);
+    VkMemoryRequirements requirements{};
+    vkGetBufferMemoryRequirements(m_device, buffer.get(), &requirements);
+    const auto type = m_vctx->findMemoryType(requirements.memoryTypeBits,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    if (!type)
+        return false;
+    const VkMemoryAllocateInfo allocation{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = requirements.size,
+        .memoryTypeIndex = *type,
+    };
+    VkDeviceMemory memoryHandle = VK_NULL_HANDLE;
+    if (!succeeded(vkAllocateMemory(m_device, &allocation, nullptr, &memoryHandle), "vkAllocateMemory (sampling probe)"))
+        return false;
+    DeviceMemory memory(m_device, memoryHandle);
+    void* mapped = nullptr;
+    if (!succeeded(vkBindBufferMemory(m_device, buffer.get(), memory.get(), 0), "vkBindBufferMemory (sampling probe)") ||
+        !succeeded(vkMapMemory(m_device, memory.get(), 0, VK_WHOLE_SIZE, 0, &mapped), "vkMapMemory (sampling probe)"))
+        return false;
+
+    const VkCommandPoolCreateInfo poolInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+        .queueFamilyIndex = m_vctx->queueFamilyIndex(),
+    };
+    VkCommandPool poolHandle = VK_NULL_HANDLE;
+    if (!succeeded(vkCreateCommandPool(m_device, &poolInfo, nullptr, &poolHandle), "vkCreateCommandPool (sampling probe)"))
+        return false;
+    CommandPool pool(m_device, poolHandle);
+    const VkCommandBufferAllocateInfo commandInfo{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = pool.get(),
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    if (!succeeded(vkAllocateCommandBuffers(m_device, &commandInfo, &cmd), "vkAllocateCommandBuffers (sampling probe)"))
+        return false;
+    const VkFenceCreateInfo fenceInfo{ .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+    VkFence fenceHandle = VK_NULL_HANDLE;
+    if (!succeeded(vkCreateFence(m_device, &fenceInfo, nullptr, &fenceHandle), "vkCreateFence (sampling probe)"))
+        return false;
+    Fence fence(m_device, fenceHandle);
+
+    const VkCommandBufferBeginInfo begin{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+    if (!succeeded(vkBeginCommandBuffer(cmd, &begin), "vkBeginCommandBuffer (sampling probe)"))
+        return false;
+    const VkBufferMemoryBarrier2 decoderWrite{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_NONE,
+        .srcAccessMask = VK_ACCESS_2_NONE,
+        .dstStageMask = VK_PIPELINE_STAGE_2_COPY_BIT,
+        .dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT,
+        .dstQueueFamilyIndex = m_vctx->queueFamilyIndex(),
+        .buffer = layout.decoderBuffer,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE,
+    };
+    const VkDependencyInfo acquire{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &decoderWrite,
+    };
+    vkCmdPipelineBarrier2(cmd, &acquire);
+    const VkBufferCopy region{ .srcOffset = offset, .dstOffset = 0, .size = size };
+    vkCmdCopyBuffer(cmd, layout.decoderBuffer, buffer.get(), 1, &region);
+    const VkMemoryBarrier2 hostRead{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT,
+        .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_2_HOST_BIT,
+        .dstAccessMask = VK_ACCESS_2_HOST_READ_BIT,
+    };
+    const VkDependencyInfo release{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .memoryBarrierCount = 1,
+        .pMemoryBarriers = &hostRead,
+    };
+    vkCmdPipelineBarrier2(cmd, &release);
+    if (!succeeded(vkEndCommandBuffer(cmd), "vkEndCommandBuffer (sampling probe)"))
+        return false;
+
+    const VkCommandBufferSubmitInfo commandSubmit{
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
+        .commandBuffer = cmd,
+    };
+    const VkSubmitInfo2 submit{
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
+        .commandBufferInfoCount = 1,
+        .pCommandBufferInfos = &commandSubmit,
+    };
+    {
+        std::lock_guard lock(m_vctx->queueMutex());
+        if (!succeeded(vkQueueSubmit2(m_vctx->queue(), 1, &submit, fence.get()), "vkQueueSubmit2 (sampling probe)"))
+            return false;
+    }
+    if (!succeeded(vkWaitForFences(m_device, 1, &fenceHandle, VK_TRUE, SamplingProbeTimeoutNs), "vkWaitForFences (sampling probe)"))
+    {
+        std::lock_guard lock(m_vctx->queueMutex());
+        vkQueueWaitIdle(m_vctx->queue());
+        return false;
+    }
+
+    auto* decoded = static_cast<std::uint8_t*>(const_cast<void*>(layout.backing)) + offset;
+    armDCacheFlush(decoded, static_cast<std::size_t>(size));
+    return std::memcmp(mapped, decoded, static_cast<std::size_t>(size)) == 0;
 }
 
 std::optional<akira::platform::vulkan::DecoderOutput::Device> VulkanRenderer::decoderOutputDevice() const
@@ -995,7 +1125,18 @@ std::shared_ptr<VulkanRenderer::ImportCache> VulkanRenderer::createImportCache(s
 
 VulkanRenderer::PlaneImport* VulkanRenderer::acquireImport(const Frame& frame)
 {
-    const PlaneLayout layout = planeLayout(*frame);
+    PlaneLayout layout = planeLayout(*frame);
+    if (layout.decoderBuffer && m_decoder_sampling == DecoderSampling::Unchecked)
+    {
+        m_decoder_sampling = decoderSamplingMatches(layout) ? DecoderSampling::Verified : DecoderSampling::Broken;
+        if (m_decoder_sampling == DecoderSampling::Verified)
+            brls::Logger::info("VulkanRenderer: the GPU reads what the decoder wrote, frames are sampled in place");
+        else
+        {
+            brls::Logger::warning("VulkanRenderer: the GPU does not read what the decoder wrote, frames are copied");
+            layout = planeLayout(*frame);
+        }
+    }
     const std::uint32_t slot = frame->slot();
     if (slot >= akira::platform::vulkan::HardwareDecoder::ImageCount)
     {

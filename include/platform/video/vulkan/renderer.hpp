@@ -85,6 +85,7 @@ private:
     using Fence = brls::vk::DeviceHandle<VkFence, &vkDestroyFence>;
 
     enum class PlanePath { Image = 0, TexelBuffer = 1 };
+    enum class DecoderSampling { Unchecked, Verified, Broken };
     enum class Program { Video, Easu, Rcas, Pass, Overlay, Border };
     enum class Target { Swapchain, Offscreen };
     enum class Shader
@@ -372,6 +373,8 @@ private:
     static constexpr int CAPTURE_WIDTH = 640;
     static constexpr VkFormat OffscreenFormat = VK_FORMAT_R8G8B8A8_UNORM;
     static constexpr std::uint64_t LinearModifier = 0;
+    static constexpr std::uint32_t SamplingProbeRows = 16;
+    static constexpr std::uint64_t SamplingProbeTimeoutNs = 1'000'000'000;
 
     static bool succeeded(VkResult result, std::string_view what);
     static float ovlSize(float px);
@@ -381,7 +384,6 @@ private:
         VkImageLayout newLayout, VkPipelineStageFlags2 srcStage, VkAccessFlags2 srcAccess, VkPipelineStageFlags2 dstStage,
         VkAccessFlags2 dstAccess);
     static void setViewport(VkCommandBuffer cmd, VkExtent2D extent);
-    static PlaneLayout planeLayout(const akira::platform::vulkan::HardwareFrame& frame);
     static FsrConfig fsrConfig(int inputWidth, int inputHeight, VkExtent2D display);
 
     static VkShaderStageFlags pushStages(Program program);
@@ -408,6 +410,8 @@ private:
     std::unique_ptr<PlaneImport> importPlanes(const PlaneLayout& layout, const HostRange& range,
         ImportCache& cache) const;
     std::shared_ptr<ImportCache> createImportCache(std::uint64_t generation) const;
+    PlaneLayout planeLayout(const akira::platform::vulkan::HardwareFrame& frame) const;
+    bool decoderSamplingMatches(const PlaneLayout& layout);
     PlaneImport* acquireImport(const Frame& frame);
     VkPipelineLayout layoutFor(const PipelineKey& key) const;
     VkPipeline pipeline(const PipelineKey& key);
@@ -470,6 +474,7 @@ private:
     PFN_vkGetMemoryHostPointerPropertiesEXT m_get_host_pointer_properties = nullptr;
     Capabilities m_caps;
     PlanePath m_path = PlanePath::Image;
+    DecoderSampling m_decoder_sampling = DecoderSampling::Unchecked;
 
     SharedObjects m_shared;
 
