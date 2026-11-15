@@ -1,22 +1,19 @@
-#include "input/pad_path.hpp"
+#include "platform/nx/pad_path.hpp"
 
-#if AKIRA_PLATFORM_NX
 #include <cstring>
 #include "input/pad_names.hpp"
-#include "input/pad_path_hos.hpp"
-#include "input/pad_path_mc.hpp"
+#include "platform/nx/pad_path_hos.hpp"
+#include "platform/nx/pad_path_mc.hpp"
 
 #include "core/settings_manager.hpp"
-#include "input/extended_input_manager.hpp"
+#include "platform/nx/extended_input_manager.hpp"
 
 #include <borealis.hpp>
 
 #include <algorithm>
-#endif
 
 namespace akira::input {
 
-#if AKIRA_PLATFORM_NX
 namespace {
 
 class JoyConPath : public HosPadPath {
@@ -117,16 +114,16 @@ public:
         state.r2 = m_extended.r2();
     }
 
-    bool readGyro(HidSixAxisSensorState* out) override
+    std::optional<HidSixAxisSensorState> readGyro() override
     {
         uint64_t styleSet = padGetStyleSet(&m_pad);
 
         if (styleSet & HidNpadStyleTag_NpadHandheld) {
-            return hidGetSixAxisSensorStates(m_sixaxis[0], out, 1) != 0;
+            return readSixAxis(m_sixaxis[0]);
         }
 
         if (styleSet & HidNpadStyleTag_NpadFullKey) {
-            return hidGetSixAxisSensorStates(m_sixaxis[1], out, 1) != 0;
+            return readSixAxis(m_sixaxis[1]);
         }
 
         if (styleSet & HidNpadStyleTag_NpadJoyDual) {
@@ -148,13 +145,13 @@ public:
             }
 
             if (useLeft)
-                return hidGetSixAxisSensorStates(m_sixaxis[2], out, 1) != 0;
+                return readSixAxis(m_sixaxis[2]);
             if (useRight)
-                return hidGetSixAxisSensorStates(m_sixaxis[3], out, 1) != 0;
-            return false;
+                return readSixAxis(m_sixaxis[3]);
+            return std::nullopt;
         }
 
-        return false;
+        return std::nullopt;
     }
 
     void resetMotion() override
@@ -220,63 +217,15 @@ std::vector<PadDescription> DescribePads(ExtendedInputManager& extended)
 
     return DescribeWith(devices, haveDevices);
 }
-#endif
 
 std::vector<PadDescription> DescribePads()
 {
-#if AKIRA_PLATFORM_NX
     AkiraInputDeviceList devices{};
     const bool haveDevices = ExtendedInputManager::listDevicesOnce(&devices);
 
     return DescribeWith(devices, haveDevices);
-#else
-    static constexpr HidNpadIdType scanOrder[] = {
-        HidNpadIdType_Handheld,
-        HidNpadIdType_No1,
-        HidNpadIdType_No2,
-        HidNpadIdType_No3,
-        HidNpadIdType_No4,
-    };
-
-    std::vector<PadDescription> out;
-
-    for (HidNpadIdType npad : scanOrder) {
-        PadState probe{};
-        padInitialize(&probe, npad);
-        padUpdate(&probe);
-
-        if (!padIsConnected(&probe))
-            continue;
-
-        const uint64_t styleSet = padGetStyleSet(&probe);
-
-        PadDescription desc;
-        desc.npad = npad;
-
-        if (styleSet & HidNpadStyleTag_NpadHandheld) {
-            desc.kind  = PadPathKind::JoyCon;
-            desc.style = HidNpadStyleTag_NpadHandheld;
-            desc.label = "Handheld";
-        } else if (styleSet & HidNpadStyleTag_NpadFullKey) {
-            desc.kind  = PadPathKind::SwitchPro;
-            desc.style = HidNpadStyleTag_NpadFullKey;
-            desc.label = "Controller";
-        } else if (styleSet & HidNpadStyleTag_NpadJoyDual) {
-            desc.kind  = PadPathKind::JoyCon;
-            desc.style = HidNpadStyleTag_NpadJoyDual;
-            desc.label = "Joy-Con (L/R)";
-        } else {
-            continue;
-        }
-
-        out.push_back(desc);
-    }
-
-    return out;
-#endif
 }
 
-#if AKIRA_PLATFORM_NX
 namespace {
 
 bool HidsysReady()
@@ -507,6 +456,5 @@ std::unique_ptr<PadPath> DefaultPadPath(ExtendedInputManager& extended)
 {
     return std::make_unique<LegacyPadPath>(extended);
 }
-#endif
 
 } // namespace akira::input

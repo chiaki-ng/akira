@@ -2,12 +2,11 @@
 #include "views/settings_pad_view.hpp"
 
 #include "core/settings_manager.hpp"
-#if AKIRA_PLATFORM_NX
-#include "input/extended_input_manager.hpp"
-#endif
-#include "input/pad_path.hpp"
+#include "platform/platform.hpp"
 #if AKIRA_PLATFORM_NX
 #include "input/ps_output.hpp"
+#include "platform/nx/extended_input_manager.hpp"
+#include "platform/nx/pad_path.hpp"
 #endif
 
 #include <borealis/core/i18n.hpp>
@@ -103,7 +102,7 @@ void SettingsControllersView::rebuild()
     list->clearViews();
 
     auto* settings = SettingsManager::getInstance();
-    const std::vector<akira::input::PadDescription> pads = akira::input::DescribePads();
+    const std::vector<akira::input::PadDescription> pads = akira::platform::Platform::instance().pads().scanPads();
 
     if (pads.empty()) {
         auto* empty = new brls::Label();

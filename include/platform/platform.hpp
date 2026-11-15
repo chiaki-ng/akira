@@ -8,6 +8,7 @@
 
 #include "platform/pad_feedback.hpp"
 #include "platform/pad_haptics.hpp"
+#include "platform/pad_source.hpp"
 
 namespace brls
 {
@@ -17,7 +18,6 @@ class DetailCell;
 }
 
 class HapticManager;
-class InputManager;
 class Session;
 
 namespace akira::platform
@@ -50,8 +50,9 @@ public:
     virtual void streamStarted(Session& session) = 0;
     virtual void streamStopped() = 0;
 
-    virtual std::unique_ptr<PadHaptics> createHaptics(InputManager& input) = 0;
-    virtual std::unique_ptr<PadFeedback> createFeedback(InputManager& input, HapticManager& haptics) = 0;
+    virtual PadSource& pads() = 0;
+    virtual std::unique_ptr<PadHaptics> createHaptics() = 0;
+    virtual std::unique_ptr<PadFeedback> createFeedback(HapticManager& haptics) = 0;
 
 protected:
     Platform() = default;

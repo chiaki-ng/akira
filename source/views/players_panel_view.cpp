@@ -9,8 +9,7 @@
 #include "core/settings_manager.hpp"
 #include "core/trophy_manager.hpp"
 #include "stream/connection.hpp"
-#include "stream/input_manager.hpp"
-#include "input/pad_path.hpp"
+#include "platform/nx/nx_pad_source.hpp"
 #include "ui/glass.hpp"
 #include "ui/theme.hpp"
 
@@ -249,7 +248,7 @@ std::string WithAccount(const std::string& text, const Host* host, const Connect
 
 } // namespace
 
-PlayersPanelView::PlayersPanelView(Host* host, std::weak_ptr<Connection> connection, InputManager* input,
+PlayersPanelView::PlayersPanelView(Host* host, std::weak_ptr<Connection> connection, akira::platform::NxPadSource* input,
                                    bool claimImmediately)
     : m_host(host)
     , m_connection(std::move(connection))
@@ -902,7 +901,7 @@ void PlayersPanelView::leaveSlot(HidNpadIdType npad)
 
     const uint8_t slot = m_input->CouchPadIndexForController(npad);
 
-    if (slot != InputManager::kNoCouchSlot && slot != 0) {
+    if (slot != akira::platform::NxPadSource::kNoCouchSlot && slot != 0) {
         uint8_t addr[6];
         if (m_input->couchSlotOutputTarget(slot, addr, nullptr, nullptr))
             m_input->extendedInput().unregisterCouchOutput(addr);
@@ -910,7 +909,7 @@ void PlayersPanelView::leaveSlot(HidNpadIdType npad)
 
     m_input->couchLeave(npad);
     const auto connection = m_connection.lock();
-    if (connection && slot != InputManager::kNoCouchSlot && slot != 0)
+    if (connection && slot != akira::platform::NxPadSource::kNoCouchSlot && slot != 0)
         connection->removePlayer(slot);
 
     rebuild(true);

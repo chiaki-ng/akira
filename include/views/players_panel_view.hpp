@@ -11,7 +11,7 @@
 #include <vector>
 
 class Host;
-class InputManager;
+namespace akira::platform { class NxPadSource; }
 
 namespace akira::stream {
 class Connection;
@@ -20,7 +20,7 @@ class Connection;
 class PlayersPanelView : public brls::Box
 {
 public:
-    PlayersPanelView(Host* host, std::weak_ptr<akira::stream::Connection> connection, InputManager* input,
+    PlayersPanelView(Host* host, std::weak_ptr<akira::stream::Connection> connection, akira::platform::NxPadSource* input,
                      bool claimImmediately = false);
     ~PlayersPanelView() override;
 
@@ -58,7 +58,7 @@ private:
 
     Host*          m_host    = nullptr;
     std::weak_ptr<akira::stream::Connection> m_connection;
-    InputManager*  m_input   = nullptr;
+    akira::platform::NxPadSource* m_input = nullptr;
     brls::Box*     m_panel   = nullptr;
     brls::Box*     m_slots   = nullptr;
     brls::Label*   m_title   = nullptr;

@@ -7,15 +7,16 @@
 #include "input/ps_output.hpp"
 #include "platform/pad_haptics.hpp"
 
-class InputManager;
 
 namespace akira::platform
 {
 
+class NxPadSource;
+
 class NxHaptics final : public PadHaptics
 {
 public:
-    explicit NxHaptics(InputManager& input);
+    explicit NxHaptics(NxPadSource& pads);
 
     input::RumbleSource effectiveSource(input::RumbleSource configured) const override;
     void prepare(HapticManager& haptics) override;
@@ -31,7 +32,7 @@ private:
     static constexpr float kNativeSilence = 2.0f / 255.0f;
     static constexpr std::uint32_t kNativeHapticLogInterval = 60;
 
-    InputManager& m_input;
+    NxPadSource& m_pads;
 
     std::uint64_t m_profile_generation = 0;
     float m_native_env_left = 0.0f;

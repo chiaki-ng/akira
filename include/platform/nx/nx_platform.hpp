@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "platform/nx/nx_pad_source.hpp"
 #include "platform/platform.hpp"
 
 class IpcStatsService;
@@ -12,6 +13,8 @@ namespace akira::platform
 class NxPlatform final : public Platform
 {
 public:
+    static NxPlatform& instance();
+
     NxPlatform();
     ~NxPlatform() override;
 
@@ -26,10 +29,12 @@ public:
     void streamStarted(Session& session) override;
     void streamStopped() override;
 
-    std::unique_ptr<PadHaptics> createHaptics(InputManager& input) override;
-    std::unique_ptr<PadFeedback> createFeedback(InputManager& input, HapticManager& haptics) override;
+    NxPadSource& pads() override;
+    std::unique_ptr<PadHaptics> createHaptics() override;
+    std::unique_ptr<PadFeedback> createFeedback(HapticManager& haptics) override;
 
 private:
+    NxPadSource m_pads;
     std::unique_ptr<IpcStatsService> m_ipc_service;
 };
 

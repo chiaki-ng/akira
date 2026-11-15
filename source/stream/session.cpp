@@ -8,6 +8,9 @@
 #include "stream/video_renderer.hpp"
 #include "util/crash_report.hpp"
 #include "platform/platform.hpp"
+#if AKIRA_PLATFORM_NX
+#include "platform/nx/nx_platform.hpp"
+#endif
 
 #include <cstring>
 
@@ -78,9 +81,9 @@ Session::Session()
     m_audio_manager = std::make_unique<AudioManager>();
     m_input_manager = std::make_unique<InputManager>();
     auto& platform = akira::platform::Platform::instance();
-    m_haptic_manager = std::make_unique<HapticManager>(platform.createHaptics(*m_input_manager));
+    m_haptic_manager = std::make_unique<HapticManager>(platform.createHaptics());
     m_haptic_manager->setInputManager(m_input_manager.get());
-    m_pad_feedback = platform.createFeedback(*m_input_manager, *m_haptic_manager);
+    m_pad_feedback = platform.createFeedback(*m_haptic_manager);
     m_video = akira::video::Provider::create();
     m_video->ensureDecoder();
 }
@@ -349,7 +352,7 @@ void Session::UpdateSecondaryPads(std::span<libchiaking::controllers::Controller
 {
     if (m_input_manager)
     {
-        m_input_manager->readSecondaryPads(states, count);
+        akira::platform::NxPlatform::instance().pads().readSecondaryPads(*m_input_manager, states, count);
     }
 }
 #endif
@@ -412,8 +415,8 @@ StreamStats Session::getStreamStats()
     stats.requested_hevc = m_requested_hevc;
 #if AKIRA_PLATFORM_NX
     
-    if (m_input_manager) {
-        auto& extended = m_input_manager->extendedInput();
+    {
+        auto& extended = akira::platform::NxPlatform::instance().pads().extendedInput();
         stats.analog_triggers_active = extended.hasFreshAnalogState();
         stats.analog_l2 = extended.l2();
         stats.analog_r2 = extended.r2();

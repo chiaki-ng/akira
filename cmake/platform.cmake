@@ -7,9 +7,7 @@ else()
 endif()
 
 set(AKIRA_PLATFORM_NX_SOURCES
-    input/extended_input_manager
     input/pad_output_state
-    input/pad_path_mc
     input/rumble_profile
     views/battery_pips
     views/controller_picker_view

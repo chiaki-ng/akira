@@ -16,6 +16,9 @@
 #include "stream/input_manager.hpp"
 #include "stream/session.hpp"
 #include "video/provider.hpp"
+#if AKIRA_PLATFORM_NX
+#include "platform/nx/nx_platform.hpp"
+#endif
 
 namespace akira::stream {
 
@@ -478,25 +481,25 @@ void Connection::on_feedback(const libchiaking::controllers::ControllerFeedback&
 void Connection::routeCouchFeedback(const libchiaking::controllers::ControllerFeedback& feedback)
 {
     const uint8_t slot = feedback.seat.index();
-    auto* input = media.getInputManager();
-    if (!input || !seatPlaying(slot))
+    auto& pads = akira::platform::NxPlatform::instance().pads();
+    if (!seatPlaying(slot))
         return;
 
     uint8_t addr[6];
     uint16_t vid = 0;
     uint16_t pid = 0;
-    if (!input->couchSlotOutputTarget(slot, addr, &vid, &pid))
+    if (!pads.couchSlotOutputTarget(slot, addr, &vid, &pid))
         return;
 
     if (const auto* rumble = feedback.get<libchiaking::controllers::Rumble>())
     {
-        input->extendedInput().registerCouchOutput(addr, vid, pid);
-        input->extendedInput().setCouchRumble(addr, rumble->left, rumble->right);
+        pads.extendedInput().registerCouchOutput(addr, vid, pid);
+        pads.extendedInput().setCouchRumble(addr, rumble->left, rumble->right);
     }
     else if (const auto* effects = feedback.get<libchiaking::controllers::TriggerEffects>())
     {
-        input->extendedInput().registerCouchOutput(addr, vid, pid);
-        input->extendedInput().setCouchTriggerEffects(addr,
+        pads.extendedInput().registerCouchOutput(addr, vid, pid);
+        pads.extendedInput().setCouchTriggerEffects(addr,
             effects->left.mode, effects->left.parameters.data(),
             effects->right.mode, effects->right.parameters.data());
     }
@@ -505,8 +508,8 @@ void Connection::routeCouchFeedback(const libchiaking::controllers::ControllerFe
         const auto& colour = confirmed->colour;
         if ((colour.red | colour.green | colour.blue) == 0)
             return;
-        input->extendedInput().registerCouchOutput(addr, vid, pid);
-        input->extendedInput().setCouchLightbar(addr, colour.red, colour.green, colour.blue);
+        pads.extendedInput().registerCouchOutput(addr, vid, pid);
+        pads.extendedInput().setCouchLightbar(addr, colour.red, colour.green, colour.blue);
     }
 }
 #endif

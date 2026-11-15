@@ -3,7 +3,8 @@
 #if AKIRA_PLATFORM_NX
 #include "views/lightbar_picker.hpp"
 
-#include "input/extended_input_manager.hpp"
+#include "platform/nx/extended_input_manager.hpp"
+#include "platform/nx/pad_path.hpp"
 #include "input/ps_output.hpp"
 
 #include <cmath>

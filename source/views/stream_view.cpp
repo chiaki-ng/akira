@@ -3,9 +3,10 @@
 #if AKIRA_PLATFORM_NX
 #include "views/controller_picker_view.hpp"
 #include "views/players_panel_view.hpp"
-#include "input/extended_input_manager.hpp"
+#include "platform/nx/nx_platform.hpp"
 #endif
-#include "input/pad_path.hpp"
+#include "input/pad.hpp"
+#include "platform/platform.hpp"
 #include "views/stream_menu.hpp"
 #include "views/connecting_view.hpp"
 #if AKIRA_CLOUD
@@ -126,14 +127,14 @@ void StreamView::setupCallbacks()
     session->getInputManager()->setTargetPS5(host->isPS5());
 
 #if AKIRA_PLATFORM_NX
-    session->getInputManager()->setOnPadArrived([weak](HidNpadIdType npad) {
+    akira::platform::NxPlatform::instance().pads().setOnPadArrived([weak](HidNpadIdType npad) {
         brls::sync([weak, npad]() {
             if (auto self = weak.lock())
                 self->onPadArrived(npad);
         });
     });
 
-    session->getInputManager()->setOnCouchDisconnected([weak](HidNpadIdType, uint8_t slot) {
+    akira::platform::NxPlatform::instance().pads().setOnCouchDisconnected([weak](HidNpadIdType, uint8_t slot) {
         brls::sync([weak, slot]() {
             if (auto self = weak.lock()) {
                 if (self->connection)
@@ -241,7 +242,7 @@ void StreamView::waitForPads(int attempt)
     constexpr int kMaxAttempts = 20;
     constexpr int kIntervalMs  = 100;
 
-    auto* input = session ? session->getInputManager() : nullptr;
+    auto* input = session ? &akira::platform::NxPlatform::instance().pads() : nullptr;
     if (input == nullptr) {
         finishPadChoice();
         return;
@@ -285,7 +286,7 @@ void StreamView::finishPadChoice()
 {
     padChoiceDone = true;
 
-    auto* input = session ? session->getInputManager() : nullptr;
+    auto* input = session ? &akira::platform::NxPlatform::instance().pads() : nullptr;
     if (input == nullptr) {
         startStream();
         return;
@@ -335,7 +336,7 @@ void StreamView::finishPadChoice()
     auto weak = weak_from_this();
     auto describe = [weak]() -> std::vector<akira::input::PadDescription> {
         if (auto self = weak.lock()) {
-            if (auto* mgr = self->session ? self->session->getInputManager() : nullptr)
+            if (auto* mgr = self->session ? &akira::platform::NxPlatform::instance().pads() : nullptr)
                 return mgr->describePads();
         }
         return {};
@@ -358,7 +359,7 @@ void StreamView::finishPadChoice()
             return;
 
         if (npad != ControllerPickerView::kNoChoice) {
-            if (auto* mgr = self->session ? self->session->getInputManager() : nullptr)
+            if (auto* mgr = self->session ? &akira::platform::NxPlatform::instance().pads() : nullptr)
                 mgr->selectNpad(npad);
         }
         self->startStream();
@@ -461,7 +462,7 @@ void StreamView::startStream()
 akira::input::RumbleProfile StreamView::activePadProfile()
 {
     auto* settings = SettingsManager::getInstance();
-    const std::vector<akira::input::PadDescription> pads = akira::input::DescribePads();
+    const std::vector<akira::input::PadDescription> pads = akira::platform::Platform::instance().pads().scanPads();
 
     if (pads.empty())
         return settings->getRumbleProfile(akira::input::kRumbleKeyDefault);
@@ -793,14 +794,11 @@ void StreamView::streamingTick()
     }
 
 #if AKIRA_PLATFORM_NX
-    if (auto* input = session->getInputManager())
+    if (akira::platform::NxPlatform::instance().pads().extendedInput().consumeDegradedNotice())
     {
-        if (input->extendedInput().consumeDegradedNotice())
-        {
-            brls::sync([]() {
-                brls::Application::notify("akira/settings/analog_triggers_degraded"_i18n);
-            });
-        }
+        brls::sync([]() {
+            brls::Application::notify("akira/settings/analog_triggers_degraded"_i18n);
+        });
     }
 
 #endif
@@ -1088,7 +1086,7 @@ void StreamView::onPadArrived(HidNpadIdType npad)
         if (!self)
             return;
         self->couchArrivalPromptOpen = false;
-        auto* input = self->session ? self->session->getInputManager() : nullptr;
+        auto* input = self->session ? &akira::platform::NxPlatform::instance().pads() : nullptr;
         if (input)
             input->resolvePadArrival();
         if (input && input->couchRoster().empty()) {
@@ -1103,7 +1101,7 @@ void StreamView::onPadArrived(HidNpadIdType npad)
         if (!self)
             return;
         self->couchArrivalPromptOpen = false;
-        if (auto* input = self->session ? self->session->getInputManager() : nullptr)
+        if (auto* input = self->session ? &akira::platform::NxPlatform::instance().pads() : nullptr)
             input->resolvePadArrival();
         self->resumeStreamAfterUi();
     });
@@ -1114,7 +1112,7 @@ void StreamView::onPadArrived(HidNpadIdType npad)
 
 void StreamView::openCouchClaim()
 {
-    auto* input = session ? session->getInputManager() : nullptr;
+    auto* input = session ? &akira::platform::NxPlatform::instance().pads() : nullptr;
     if (input == nullptr) {
         brls::Logger::warning("StreamView: no input manager for couch claim");
         resumeStreamAfterUi();
@@ -1127,7 +1125,7 @@ void StreamView::openCouchClaim()
         auto self = weak.lock();
         if (!self)
             return;
-        if (auto* mgr = self->session ? self->session->getInputManager() : nullptr)
+        if (auto* mgr = self->session ? &akira::platform::NxPlatform::instance().pads() : nullptr)
             mgr->resolvePadArrival();
         self->resumeStreamAfterUi();
     });
@@ -1136,7 +1134,7 @@ void StreamView::openCouchClaim()
 
 void StreamView::openPrimaryControllerPicker()
 {
-    auto* input = session ? session->getInputManager() : nullptr;
+    auto* input = session ? &akira::platform::NxPlatform::instance().pads() : nullptr;
     if (!input) {
         resumeStreamAfterUi();
         return;
@@ -1153,7 +1151,7 @@ void StreamView::openPrimaryControllerPicker()
     auto weak = weak_from_this();
     auto describe = [weak]() -> std::vector<akira::input::PadDescription> {
         if (auto self = weak.lock()) {
-            if (auto* mgr = self->session ? self->session->getInputManager() : nullptr)
+            if (auto* mgr = self->session ? &akira::platform::NxPlatform::instance().pads() : nullptr)
                 return mgr->describePads();
         }
         return {};
@@ -1167,7 +1165,7 @@ void StreamView::openPrimaryControllerPicker()
             return;
         if (npad != ControllerPickerView::kCancelled &&
             npad != ControllerPickerView::kNoChoice) {
-            if (auto* mgr = self->session ? self->session->getInputManager() : nullptr)
+            if (auto* mgr = self->session ? &akira::platform::NxPlatform::instance().pads() : nullptr)
                 mgr->selectNpad(npad);
         }
         self->resumeStreamAfterUi();
@@ -1380,7 +1378,7 @@ void StreamView::showDisconnectMenu()
         auto self = weak.lock();
         if (!self)
             return;
-        auto* input = self->session ? self->session->getInputManager() : nullptr;
+        auto* input = self->session ? &akira::platform::NxPlatform::instance().pads() : nullptr;
         if (input == nullptr) {
             brls::Logger::warning("StreamMenu: no input manager for players panel");
             return;

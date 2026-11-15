@@ -12,7 +12,8 @@
 #include <string>
 
 #include "core/settings_manager.hpp"
-#include "input/pad_path.hpp"
+#include "input/pad.hpp"
+#include "input/pad_output_state.hpp"
 
 class SettingsPadView : public brls::Box {
 public:

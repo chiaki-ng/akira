@@ -58,12 +58,17 @@ void OuncePlatform::streamStopped()
 {
 }
 
-std::unique_ptr<PadHaptics> OuncePlatform::createHaptics(InputManager&)
+OuncePadSource& OuncePlatform::pads()
+{
+    return m_pads;
+}
+
+std::unique_ptr<PadHaptics> OuncePlatform::createHaptics()
 {
     return std::make_unique<OunceHaptics>();
 }
 
-std::unique_ptr<PadFeedback> OuncePlatform::createFeedback(InputManager&, HapticManager& haptics)
+std::unique_ptr<PadFeedback> OuncePlatform::createFeedback(HapticManager& haptics)
 {
     return std::make_unique<OuncePadFeedback>(haptics);
 }

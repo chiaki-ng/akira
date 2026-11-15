@@ -4,13 +4,13 @@
 
 #include "input/ps_output.hpp"
 #include "stream/haptic_manager.hpp"
-#include "stream/input_manager.hpp"
+#include "platform/nx/nx_pad_source.hpp"
 
 namespace akira::platform
 {
 
-NxPadFeedback::NxPadFeedback(InputManager& input, HapticManager& haptics)
-    : m_input(input)
+NxPadFeedback::NxPadFeedback(NxPadSource& pads, HapticManager& haptics)
+    : m_pads(pads)
     , m_haptics(haptics)
 {
 }
@@ -33,7 +33,7 @@ void NxPadFeedback::apply(const libchiaking::controllers::ControllerFeedback& fe
     }
     else if (const auto* light = feedback.get<libchiaking::controllers::Lightbar>())
     {
-        m_input.sendLightbar(light->colour.red, light->colour.green, light->colour.blue);
+        m_pads.sendLightbar(light->colour.red, light->colour.green, light->colour.blue);
     }
 }
 
@@ -50,12 +50,12 @@ void NxPadFeedback::applyTriggerEffects(const libchiaking::controllers::TriggerE
     right.type = effects.right.mode;
     std::memcpy(right.params, effects.right.parameters.data(), sizeof(right.params));
 
-    m_input.sendTriggerEffects(left, right);
+    m_pads.sendTriggerEffects(left, right);
 }
 
 void NxPadFeedback::applyIntensity()
 {
-    m_input.sendEffectIntensity(m_haptic_intensity, m_trigger_intensity);
+    m_pads.sendEffectIntensity(m_haptic_intensity, m_trigger_intensity);
     m_haptics.setConsoleVibration(m_haptic_intensity);
 }
 

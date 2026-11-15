@@ -1,7 +1,7 @@
 #ifndef AKIRA_INPUT_PAD_ART_HPP
 #define AKIRA_INPUT_PAD_ART_HPP
 
-#include "input/pad_path.hpp"
+#include "input/pad.hpp"
 
 namespace akira::input {
 

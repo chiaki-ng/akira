@@ -7,7 +7,7 @@
 #include <functional>
 #include <vector>
 
-#include "input/pad_path.hpp"
+#include "platform/nx/pad_path.hpp"
 
 class InputManager;
 

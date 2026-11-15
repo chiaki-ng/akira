@@ -1,7 +1,7 @@
 #ifndef AKIRA_INPUT_PAD_PATH_MC_HPP
 #define AKIRA_INPUT_PAD_PATH_MC_HPP
 
-#include "input/pad_path_hos.hpp"
+#include "platform/nx/pad_path_hos.hpp"
 #include "input/ps_report.hpp"
 
 #include <cstdint>

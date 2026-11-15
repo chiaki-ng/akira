@@ -1,5 +1,6 @@
 #pragma once
 
+#include "platform/ounce/ounce_pad_source.hpp"
 #include "platform/platform.hpp"
 
 namespace akira::platform
@@ -21,8 +22,12 @@ public:
     void streamStarted(Session& session) override;
     void streamStopped() override;
 
-    std::unique_ptr<PadHaptics> createHaptics(InputManager& input) override;
-    std::unique_ptr<PadFeedback> createFeedback(InputManager& input, HapticManager& haptics) override;
+    OuncePadSource& pads() override;
+    std::unique_ptr<PadHaptics> createHaptics() override;
+    std::unique_ptr<PadFeedback> createFeedback(HapticManager& haptics) override;
+
+private:
+    OuncePadSource m_pads;
 };
 
 }

@@ -19,6 +19,11 @@ namespace akira::platform
 
 Platform& Platform::instance()
 {
+    return NxPlatform::instance();
+}
+
+NxPlatform& NxPlatform::instance()
+{
     static NxPlatform platform;
     return platform;
 }
@@ -88,14 +93,19 @@ void NxPlatform::streamStopped()
         m_ipc_service->SetStreamActive(false);
 }
 
-std::unique_ptr<PadHaptics> NxPlatform::createHaptics(InputManager& input)
+NxPadSource& NxPlatform::pads()
 {
-    return std::make_unique<NxHaptics>(input);
+    return m_pads;
 }
 
-std::unique_ptr<PadFeedback> NxPlatform::createFeedback(InputManager& input, HapticManager& haptics)
+std::unique_ptr<PadHaptics> NxPlatform::createHaptics()
 {
-    return std::make_unique<NxPadFeedback>(input, haptics);
+    return std::make_unique<NxHaptics>(m_pads);
+}
+
+std::unique_ptr<PadFeedback> NxPlatform::createFeedback(HapticManager& haptics)
+{
+    return std::make_unique<NxPadFeedback>(m_pads, haptics);
 }
 
 }

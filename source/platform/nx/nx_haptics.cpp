@@ -3,15 +3,14 @@
 #include <borealis.hpp>
 
 #include "core/settings_manager.hpp"
-#include "input/extended_input_manager.hpp"
 #include "stream/haptic_manager.hpp"
-#include "stream/input_manager.hpp"
+#include "platform/nx/nx_pad_source.hpp"
 
 namespace akira::platform
 {
 
-NxHaptics::NxHaptics(InputManager& input)
-    : m_input(input)
+NxHaptics::NxHaptics(NxPadSource& pads)
+    : m_pads(pads)
 {
 }
 
@@ -26,7 +25,7 @@ input::RumbleSource NxHaptics::effectiveSource(input::RumbleSource configured) c
 
 void NxHaptics::prepare(HapticManager& haptics)
 {
-    const PadPathInfo path = m_input.pathInfo();
+    const PadPathInfo path = m_pads.pathInfo();
     if (path.generation == m_profile_generation)
         return;
     m_profile_generation = path.generation;
@@ -52,19 +51,19 @@ bool NxHaptics::play(HapticManager& haptics, std::span<const std::int16_t> stere
 
 bool NxHaptics::nativeRumble() const
 {
-    const PadPathInfo path = m_input.pathInfo();
+    const PadPathInfo path = m_pads.pathInfo();
     return path.available && path.nativeRumble;
 }
 
 bool NxHaptics::tunedForPad() const
 {
-    const PadPathInfo path = m_input.pathInfo();
+    const PadPathInfo path = m_pads.pathInfo();
     return path.available && input::PadTakesDirectOutput(path.vendorId, path.productId);
 }
 
 bool NxHaptics::streamNativeHaptics(HapticManager& haptics, std::span<const std::int16_t> stereo)
 {
-    ExtendedInputManager& extended = m_input.extendedInput();
+    ExtendedInputManager& extended = m_pads.extendedInput();
     if (!extended.directHapticsReady()) {
         if (!m_haptic_stopped_logged && m_haptic_sent != 0) {
             m_haptic_stopped_logged = true;

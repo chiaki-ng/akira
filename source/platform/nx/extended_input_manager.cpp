@@ -1,4 +1,4 @@
-#include "input/extended_input_manager.hpp"
+#include "platform/nx/extended_input_manager.hpp"
 #include "input/sample_cadence.hpp"
 
 #include <borealis.hpp>
@@ -11,7 +11,7 @@
 
 #include "core/settings_manager.hpp"
 #include "core/chiaki_core.hpp"
-#include "input/pad_path.hpp"
+#include "platform/nx/pad_path.hpp"
 #include "input/ps_output.hpp"
 
 namespace {
