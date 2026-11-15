@@ -1,6 +1,7 @@
 #include "views/stream_cards.hpp"
 #include "stream/session.hpp"
 #include "ui/theme.hpp"
+#include "video/provider.hpp"
 
 #include <borealis/core/i18n.hpp>
 #include <format>
@@ -159,11 +160,7 @@ void StatsCard::drawPanel(NVGcontext* vg, const CardTheme& t, float x, float y, 
         { "akira/stream_menu/stat_rtt"_i18n,    rtt,                                             "ms",   rttTone },
         { "akira/stream_menu/stat_loss"_i18n,   std::format("{:.1f}", st.packet_loss_percent),   "%",    lossTone },
         { "akira/stream_menu/stat_lost"_i18n,   std::format("{}", st.network_frames_lost),       "",     kVal },
-#if AKIRA_PLATFORM_NX
-        { "akira/stream_menu/stat_decode"_i18n, st.is_hardware_decoder ? "NVTEGRA" : "SW",       "",     kVal },
-#else
-        { "akira/stream_menu/stat_decode"_i18n, st.is_hardware_decoder ? "HW" : "SW",       "",     kVal },
-#endif
+        { "akira/stream_menu/stat_decode"_i18n, st.is_hardware_decoder ? std::string(akira::video::Provider::capabilities().decoderStat) : "SW", "", kVal },
     };
 
     std::vector<Readout> latency = {

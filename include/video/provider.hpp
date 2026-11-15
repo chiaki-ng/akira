@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <string_view>
 
 #include "video/decoder.hpp"
 
@@ -26,7 +27,15 @@ public:
         std::function<void()> presented;
     };
 
+    struct Capabilities
+    {
+        bool hevc = false;
+        std::string_view decoderName;
+        std::string_view decoderStat;
+    };
+
     static std::unique_ptr<Provider> create();
+    static Capabilities capabilities();
 
     virtual ~Provider() = default;
 

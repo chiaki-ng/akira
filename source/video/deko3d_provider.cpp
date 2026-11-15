@@ -13,6 +13,11 @@ std::unique_ptr<Provider> Provider::create()
     return std::make_unique<Deko3dProvider>();
 }
 
+Provider::Capabilities Provider::capabilities()
+{
+    return {.hevc = true, .decoderName = "FFmpeg nvtegra", .decoderStat = "NVTEGRA"};
+}
+
 Deko3dProvider::Deko3dProvider() = default;
 
 Deko3dProvider::~Deko3dProvider() = default;

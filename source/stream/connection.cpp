@@ -15,6 +15,7 @@
 #include "input/sample_cadence.hpp"
 #include "stream/input_manager.hpp"
 #include "stream/session.hpp"
+#include "video/provider.hpp"
 
 namespace akira::stream {
 
@@ -60,11 +61,8 @@ auto Connection::preferencesFor(Host& host, SettingsManager& settings) -> std::o
         vpn ? settings.getVpnVideoBitrate() : settings.getVideoBitrate(&host),
         static_cast<int>(play::PictureRequest::minimum_bitrate_kbps),
         static_cast<int>(play::PictureRequest::maximum_bitrate_kbps)));
-#if AKIRA_PLATFORM_OUNCE
-    const auto codec = libchiaking::media::VideoCodec::h264;
-#else
-    const auto codec = host.isPS5() ? libchiaking::media::VideoCodec::h265 : libchiaking::media::VideoCodec::h264;
-#endif
+    const auto codec = host.isPS5() && akira::video::Provider::capabilities().hevc
+        ? libchiaking::media::VideoCodec::h265 : libchiaking::media::VideoCodec::h264;
     if (codec == libchiaking::media::VideoCodec::h264)
         height = std::min(height, play::PictureRequest::maximum_h264_height);
 
@@ -95,11 +93,8 @@ auto Connection::cloudPreferencesFor(const cloud::CloudLaunch& launch, SettingsM
     -> std::optional<play::Preferences>
 {
     const bool ps5Cloud = launch.ps5();
-#if AKIRA_PLATFORM_OUNCE
-    const auto codec = libchiaking::media::VideoCodec::h264;
-#else
-    const auto codec = ps5Cloud ? libchiaking::media::VideoCodec::h265 : libchiaking::media::VideoCodec::h264;
-#endif
+    const auto codec = ps5Cloud && akira::video::Provider::capabilities().hevc
+        ? libchiaking::media::VideoCodec::h265 : libchiaking::media::VideoCodec::h264;
     auto height = static_cast<uint32_t>(settings.getCloudVideoResolution(ps5Cloud));
     if (codec == libchiaking::media::VideoCodec::h264)
         height = std::min(height, play::PictureRequest::maximum_h264_height);
@@ -446,11 +441,7 @@ auto Connection::on_audio(const libchiaking::media::AudioUnit& unit) -> libchiak
 
 auto Connection::decoder_name() const -> std::string_view
 {
-#if AKIRA_PLATFORM_OUNCE
-    return "Switch 2 hardware decoder";
-#else
-    return "FFmpeg nvtegra";
-#endif
+    return akira::video::Provider::capabilities().decoderName;
 }
 
 void Connection::on_feedback(const libchiaking::controllers::ControllerFeedback& feedback)

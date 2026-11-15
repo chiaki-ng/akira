@@ -13,6 +13,11 @@ std::unique_ptr<Provider> Provider::create()
     return std::make_unique<VulkanProvider>();
 }
 
+Provider::Capabilities Provider::capabilities()
+{
+    return {.hevc = false, .decoderName = "Switch 2 hardware decoder", .decoderStat = "HW"};
+}
+
 VulkanProvider::VulkanProvider() = default;
 
 VulkanProvider::~VulkanProvider() = default;
