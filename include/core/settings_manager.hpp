@@ -171,6 +171,9 @@ private:
     bool localFsrEnabled = false;
     bool remoteFsrEnabled = false;
     bool vpnFsrEnabled = false;
+    int localFsrTarget = 0;
+    int remoteFsrTarget = 0;
+    int vpnFsrTarget = 0;
     bool rcasEnabled = false;
     float rcasSharpness = 0.2f;
 
@@ -483,6 +486,8 @@ public:
 
     bool getEasuEnabled() const;
     int getEasuTargetHeight() const;
+    int getFsrTarget(StreamProfile profile) const;
+    void setFsrTarget(StreamProfile profile, int height);
     bool getLocalFsrEnabled() const;
     void setLocalFsrEnabled(bool enabled);
     bool getRemoteFsrEnabled() const;

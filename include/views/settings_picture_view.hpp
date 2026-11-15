@@ -35,7 +35,18 @@ private:
     BRLS_BIND(brls::BooleanCell, rcasEnabledToggle, "settings/rcasEnabled");
     BRLS_BIND(brls::SliderCell, rcasSharpnessSlider, "settings/rcasSharpness");
 
+    struct ResolutionPreset {
+        std::string label;
+        VideoResolution resolution;
+        int fsrTarget;
+    };
+
     SettingsManager* settings = nullptr;
+
+    static std::vector<ResolutionPreset> resolutionPresets();
+    static std::vector<std::string> presetLabels(const std::vector<ResolutionPreset>& presets);
+    static int presetIndex(const std::vector<ResolutionPreset>& presets, VideoResolution resolution, bool fsr,
+        int fsrTarget);
 
     void initLocalResolutionSelector();
     void initLocalFpsSelector();

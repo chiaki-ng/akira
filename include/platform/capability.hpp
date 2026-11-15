@@ -11,6 +11,7 @@ enum class PlatformCapability : std::uint32_t {
     self_update = 1u << 1,
     stats_export = 1u << 2,
     hevc = 1u << 3,
+    fsr_4k = 1u << 4,
 };
 
 constexpr PlatformCapability operator|(PlatformCapability left, PlatformCapability right) noexcept

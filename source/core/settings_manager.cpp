@@ -3,6 +3,7 @@
 #include "core/host.hpp"
 #include "core/migrations/registry.hpp"
 #include "core/core_log.hpp"
+#include "platform/factory.hpp"
 #include "input/remap_target.hpp"
 #include "util/base64.hpp"
 #include "util/custom_dns.hpp"
@@ -495,6 +496,9 @@ void SettingsManager::parseTomlFile() {
             remoteFsrEnabled = *val;
         if (auto val = config["video"]["vpn"]["fsr_enabled"].value<bool>())
             vpnFsrEnabled = *val;
+        localFsrTarget = static_cast<int>(config["video"]["local"]["fsr_target"].value_or(int64_t{0}));
+        remoteFsrTarget = static_cast<int>(config["video"]["remote"]["fsr_target"].value_or(int64_t{0}));
+        vpnFsrTarget = static_cast<int>(config["video"]["vpn"]["fsr_target"].value_or(int64_t{0}));
         if (auto val = config["video"]["cloud"]["pscloud"]["fsr_enabled"].value<bool>())
             cloudFsrEnabledPscloud = *val;
         if (auto val = config["video"]["cloud"]["psnow"]["fsr_enabled"].value<bool>())
@@ -1046,12 +1050,13 @@ toml::table SettingsManager::ownedSettings() {
     config.insert("version", chiaki_migrations::buildSettingsMigrator().latest_version());
 
     {
-        auto videoProfile = [](const std::string& resolution, int fps, int bitrate, bool fsr) {
+        auto videoProfile = [](const std::string& resolution, int fps, int bitrate, bool fsr, int fsrTarget) {
             toml::table t;
             t.insert("resolution", resolution);
             t.insert("fps", fps);
             t.insert("bitrate", bitrate);
             t.insert("fsr_enabled", fsr);
+            t.insert("fsr_target", fsrTarget);
             return t;
         };
 
@@ -1071,11 +1076,11 @@ toml::table SettingsManager::ownedSettings() {
 
         toml::table video;
         video.insert("local", videoProfile(resolutionToString(localVideoResolution),
-            fpsToInt(localVideoFPS), localVideoBitrate, localFsrEnabled));
+            fpsToInt(localVideoFPS), localVideoBitrate, localFsrEnabled, localFsrTarget));
         video.insert("remote", videoProfile(resolutionToString(remoteVideoResolution),
-            fpsToInt(remoteVideoFPS), remoteVideoBitrate, remoteFsrEnabled));
+            fpsToInt(remoteVideoFPS), remoteVideoBitrate, remoteFsrEnabled, remoteFsrTarget));
         video.insert("vpn", videoProfile(resolutionToString(vpnVideoResolution),
-            fpsToInt(vpnVideoFPS), vpnVideoBitrate, vpnFsrEnabled));
+            fpsToInt(vpnVideoFPS), vpnVideoBitrate, vpnFsrEnabled, vpnFsrTarget));
         video.insert("cloud", std::move(cloudVideo));
         config.insert("video", std::move(video));
     }
@@ -1413,7 +1418,10 @@ int SettingsManager::getDefaultBitrateForResolution(VideoResolution res) {
     switch (res) {
         case VideoResolution::P2160: return 50000;
         case VideoResolution::P1440: return 30000;
-        case VideoResolution::P1080: return 15000;
+        case VideoResolution::P1080:
+            return akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::fsr_4k)
+                ? 25000
+                : 15000;
         case VideoResolution::P720: return 10000;
         case VideoResolution::P540: return 5000;
         case VideoResolution::P360: return 2000;
@@ -2275,7 +2283,30 @@ int SettingsManager::getEasuTargetHeight() const {
         case StreamProfile::Local:
         default: res = localVideoResolution; break;
     }
+    if (const int target = getFsrTarget(activeStreamProfile); target > 0 &&
+        (target <= 1080 || akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::fsr_4k)))
+        return target;
     return fsrTargetHeightForResolution(res);
+}
+
+int SettingsManager::getFsrTarget(StreamProfile profile) const {
+    switch (profile) {
+        case StreamProfile::Local: return localFsrTarget;
+        case StreamProfile::Remote: return remoteFsrTarget;
+        case StreamProfile::Vpn: return vpnFsrTarget;
+        case StreamProfile::Cloud:
+        default: return 0;
+    }
+}
+
+void SettingsManager::setFsrTarget(StreamProfile profile, int height) {
+    switch (profile) {
+        case StreamProfile::Local: localFsrTarget = height; break;
+        case StreamProfile::Remote: remoteFsrTarget = height; break;
+        case StreamProfile::Vpn: vpnFsrTarget = height; break;
+        case StreamProfile::Cloud:
+        default: break;
+    }
 }
 
 bool SettingsManager::getLocalFsrEnabled() const {

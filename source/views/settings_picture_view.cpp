@@ -3,6 +3,7 @@
 #include <borealis/core/i18n.hpp>
 #include <algorithm>
 #include <format>
+#include <iterator>
 
 #include "platform/factory.hpp"
 
@@ -53,54 +54,65 @@ SettingsPictureView::SettingsPictureView() {
 
 }
 
-void SettingsPictureView::initLocalResolutionSelector() {
-    std::vector<std::string> options = {
-        "akira/settings/res_360p"_i18n,
-        "akira/settings/res_540p"_i18n,
-        "akira/settings/res_720p"_i18n,
-        "akira/settings/res_1080p"_i18n,
-        "720p (FSR)",
-        "1080p (FSR)",
+std::vector<SettingsPictureView::ResolutionPreset> SettingsPictureView::resolutionPresets() {
+    std::vector<ResolutionPreset> presets = {
+        {"akira/settings/res_360p"_i18n, VideoResolution::P360, 0},
+        {"akira/settings/res_540p"_i18n, VideoResolution::P540, 0},
+        {"akira/settings/res_720p"_i18n, VideoResolution::P720, 0},
+        {"akira/settings/res_1080p"_i18n, VideoResolution::P1080, 0},
+        {"720p (FSR)", VideoResolution::P540, 720},
+        {"1080p (FSR)", VideoResolution::P720, 1080},
     };
-
-    int currentIndex = 2;
-    auto current = settings->getLocalVideoResolution();
-    bool fsrOn = settings->getLocalFsrEnabled();
-    if (fsrOn && current == VideoResolution::P540) {
-        currentIndex = 4;
-    } else if (fsrOn && current == VideoResolution::P720) {
-        currentIndex = 5;
-    } else {
-        switch (current) {
-            case VideoResolution::P360: currentIndex = 0; break;
-            case VideoResolution::P540: currentIndex = 1; break;
-            case VideoResolution::P720: currentIndex = 2; break;
-            case VideoResolution::P1080: currentIndex = 3; break;
-        }
+    if (akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::fsr_4k)) {
+        presets.push_back({"1440p (FSR)", VideoResolution::P1080, 1440});
+        presets.push_back({"2160p (FSR)", VideoResolution::P1080, 2160});
     }
+    return presets;
+}
 
+std::vector<std::string> SettingsPictureView::presetLabels(const std::vector<ResolutionPreset>& presets) {
+    std::vector<std::string> labels;
+    labels.reserve(presets.size());
+    std::ranges::transform(presets, std::back_inserter(labels), &ResolutionPreset::label);
+    return labels;
+}
+
+int SettingsPictureView::presetIndex(const std::vector<ResolutionPreset>& presets, VideoResolution resolution,
+    bool fsr, int fsrTarget) {
+    const int target = !fsr ? 0
+        : fsrTarget > 0 ? fsrTarget
+        : resolution == VideoResolution::P540 ? 720
+        : resolution == VideoResolution::P720 ? 1080
+        : 0;
+    const auto matches = [&](int wanted) {
+        return std::ranges::find_if(presets, [&](const ResolutionPreset& preset) {
+            return preset.resolution == resolution && preset.fsrTarget == wanted;
+        });
+    };
+    auto found = matches(target);
+    if (found == presets.end())
+        found = matches(0);
+    if (found == presets.end())
+        return 2;
+    return static_cast<int>(std::distance(presets.begin(), found));
+}
+
+void SettingsPictureView::initLocalResolutionSelector() {
+    const auto presets = resolutionPresets();
     localResolutionSelector->init(
         "akira/settings/local_resolution"_i18n,
-        options,
-        currentIndex,
+        presetLabels(presets),
+        presetIndex(presets, settings->getLocalVideoResolution(), settings->getLocalFsrEnabled(),
+            settings->getFsrTarget(SettingsManager::StreamProfile::Local)),
         [](int selected) {},
-        [this](int selected) {
-            VideoResolution preset;
-            bool fsr = false;
-            switch (selected) {
-                case 0: preset = VideoResolution::P360; break;
-                case 1: preset = VideoResolution::P540; break;
-                case 2: preset = VideoResolution::P720; break;
-                case 3: preset = VideoResolution::P1080; break;
-                case 4: preset = VideoResolution::P540; fsr = true; break;
-                case 5: preset = VideoResolution::P720; fsr = true; break;
-                default: preset = VideoResolution::P720; break;
-            }
-            settings->setLocalVideoResolution(preset);
-            settings->setLocalFsrEnabled(fsr);
+        [this, presets](int selected) {
+            const ResolutionPreset& preset = presets.at(static_cast<std::size_t>(selected));
+            settings->setLocalVideoResolution(preset.resolution);
+            settings->setLocalFsrEnabled(preset.fsrTarget > 0);
+            settings->setFsrTarget(SettingsManager::StreamProfile::Local, preset.fsrTarget);
             updateLocalBitrateSlider();
             settings->writeFile();
-            brls::Logger::info("Local resolution set to {}{}", SettingsManager::resolutionToString(preset), fsr ? " (FSR)" : "");
+            brls::Logger::info("Local resolution set to {}", preset.label);
         }
     );
 }
@@ -181,53 +193,21 @@ void SettingsPictureView::updateLocalBitrateSlider() {
 }
 
 void SettingsPictureView::initRemoteResolutionSelector() {
-    std::vector<std::string> options = {
-        "akira/settings/res_360p"_i18n,
-        "akira/settings/res_540p"_i18n,
-        "akira/settings/res_720p"_i18n,
-        "akira/settings/res_1080p"_i18n,
-        "720p (FSR)",
-        "1080p (FSR)",
-    };
-
-    int currentIndex = 2;
-    auto current = settings->getRemoteVideoResolution();
-    bool fsrOn = settings->getRemoteFsrEnabled();
-    if (fsrOn && current == VideoResolution::P540) {
-        currentIndex = 4;
-    } else if (fsrOn && current == VideoResolution::P720) {
-        currentIndex = 5;
-    } else {
-        switch (current) {
-            case VideoResolution::P360: currentIndex = 0; break;
-            case VideoResolution::P540: currentIndex = 1; break;
-            case VideoResolution::P720: currentIndex = 2; break;
-            case VideoResolution::P1080: currentIndex = 3; break;
-        }
-    }
-
+    const auto presets = resolutionPresets();
     remoteResolutionSelector->init(
         "akira/settings/remote_resolution"_i18n,
-        options,
-        currentIndex,
+        presetLabels(presets),
+        presetIndex(presets, settings->getRemoteVideoResolution(), settings->getRemoteFsrEnabled(),
+            settings->getFsrTarget(SettingsManager::StreamProfile::Remote)),
         [](int selected) {},
-        [this](int selected) {
-            VideoResolution preset;
-            bool fsr = false;
-            switch (selected) {
-                case 0: preset = VideoResolution::P360; break;
-                case 1: preset = VideoResolution::P540; break;
-                case 2: preset = VideoResolution::P720; break;
-                case 3: preset = VideoResolution::P1080; break;
-                case 4: preset = VideoResolution::P540; fsr = true; break;
-                case 5: preset = VideoResolution::P720; fsr = true; break;
-                default: preset = VideoResolution::P720; break;
-            }
-            settings->setRemoteVideoResolution(preset);
-            settings->setRemoteFsrEnabled(fsr);
+        [this, presets](int selected) {
+            const ResolutionPreset& preset = presets.at(static_cast<std::size_t>(selected));
+            settings->setRemoteVideoResolution(preset.resolution);
+            settings->setRemoteFsrEnabled(preset.fsrTarget > 0);
+            settings->setFsrTarget(SettingsManager::StreamProfile::Remote, preset.fsrTarget);
             updateRemoteBitrateSlider();
             settings->writeFile();
-            brls::Logger::info("Remote resolution set to {}{}", SettingsManager::resolutionToString(preset), fsr ? " (FSR)" : "");
+            brls::Logger::info("Remote resolution set to {}", preset.label);
         }
     );
 }
@@ -308,50 +288,21 @@ void SettingsPictureView::updateRemoteBitrateSlider() {
 }
 
 void SettingsPictureView::initVpnResolutionSelector() {
-    std::vector<std::string> options = {
-        "akira/settings/res_360p"_i18n,
-        "akira/settings/res_540p"_i18n,
-        "akira/settings/res_720p"_i18n,
-        "720p (FSR)",
-        "1080p (FSR)",
-    };
-
-    int currentIndex = 2;
-    auto current = settings->getVpnVideoResolution();
-    bool fsrOn = settings->getVpnFsrEnabled();
-    if (fsrOn && current == VideoResolution::P540) {
-        currentIndex = 3;
-    } else if (fsrOn && current == VideoResolution::P720) {
-        currentIndex = 4;
-    } else {
-        switch (current) {
-            case VideoResolution::P360: currentIndex = 0; break;
-            case VideoResolution::P540: currentIndex = 1; break;
-            case VideoResolution::P720: currentIndex = 2; break;
-            default: currentIndex = 2; break;
-        }
-    }
-
+    const auto presets = resolutionPresets();
     vpnResolutionSelector->init(
         "akira/settings/vpn_resolution"_i18n,
-        options,
-        currentIndex,
+        presetLabels(presets),
+        presetIndex(presets, settings->getVpnVideoResolution(), settings->getVpnFsrEnabled(),
+            settings->getFsrTarget(SettingsManager::StreamProfile::Vpn)),
         [](int selected) {},
-        [this](int selected) {
-            VideoResolution preset;
-            bool fsr = false;
-            switch (selected) {
-                case 0: preset = VideoResolution::P360; break;
-                case 1: preset = VideoResolution::P540; break;
-                case 2: preset = VideoResolution::P720; break;
-                case 3: preset = VideoResolution::P540; fsr = true; break;
-                case 4: preset = VideoResolution::P720; fsr = true; break;
-                default: preset = VideoResolution::P720; break;
-            }
-            settings->setVpnVideoResolution(preset);
-            settings->setVpnFsrEnabled(fsr);
+        [this, presets](int selected) {
+            const ResolutionPreset& preset = presets.at(static_cast<std::size_t>(selected));
+            settings->setVpnVideoResolution(preset.resolution);
+            settings->setVpnFsrEnabled(preset.fsrTarget > 0);
+            settings->setFsrTarget(SettingsManager::StreamProfile::Vpn, preset.fsrTarget);
+            updateVpnBitrateSlider();
             settings->writeFile();
-            brls::Logger::info("VPN resolution set to {}{}", SettingsManager::resolutionToString(preset), fsr ? " (FSR)" : "");
+            brls::Logger::info("Vpn resolution set to {}", preset.label);
         }
     );
 }
