@@ -17,6 +17,11 @@ public:
     input::Pad* current() override;
     std::vector<input::PadDescription> scanPads() const override;
 
+    bool seatsAllowed() const override { return false; }
+    void readSecondaryPads(InputManager&, std::span<libchiaking::controllers::ControllerInput>, uint8_t&) override {}
+    void routeSeatFeedback(uint8_t, const libchiaking::controllers::ControllerFeedback&) override {}
+    void fillStreamStats(StreamStats&) override {}
+
 private:
     std::optional<HosPad> m_pad;
 };

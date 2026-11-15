@@ -1037,7 +1037,6 @@ void StreamView::onEnded(const libchiaking::play::Outcome& outcome)
     }
 }
 
-#if AKIRA_PLATFORM_NX
 void StreamView::pauseStreamForUi()
 {
     capturePausedFrame();
@@ -1055,6 +1054,7 @@ void StreamView::resumeStreamAfterUi()
     brls::Application::blockInputs(true);
 }
 
+#if AKIRA_PLATFORM_NX
 void StreamView::onPadArrived(HidNpadIdType npad)
 {
     if (!connection || !connection->couchSlotAvailable()) {
@@ -1174,6 +1174,7 @@ void StreamView::openPrimaryControllerPicker()
     brls::Application::pushActivity(new brls::Activity(picker),
                                     brls::TransitionAnimation::NONE);
 }
+#endif
 
 void StreamView::onSeatPasscodeNeeded(uint8_t slot, bool retry)
 {
@@ -1234,7 +1235,6 @@ void StreamView::onSeatDropped(uint8_t slot)
         libchiaking::play::SeatRefusal::passcode_attempts_status));
 }
 
-#endif
 void StreamView::onLoginPinNeeded(bool pinIncorrect)
 {
     brls::Logger::info("Login PIN request (incorrect: {})", pinIncorrect);

@@ -16,9 +16,7 @@
 #include "stream/input_manager.hpp"
 #include "stream/session.hpp"
 #include "video/provider.hpp"
-#if AKIRA_PLATFORM_NX
-#include "platform/nx/nx_platform.hpp"
-#endif
+#include "platform/platform.hpp"
 
 namespace akira::stream {
 
@@ -194,12 +192,8 @@ void Connection::feed(play::Session& running, const platform::StopToken& stop)
     auto next = core.clock().now_microseconds();
     auto journalDue = next;
 
-#if AKIRA_PLATFORM_NX
     for (auto& input : inputs)
         input.set_idle();
-#else
-    controllerInput.set_idle();
-#endif
 
     while (!stop.stop_requested() && running.state() != play::SessionState::ended)
     {
@@ -231,26 +225,17 @@ void Connection::sendInput(play::Session& running)
     if (inputSuppressed.load(std::memory_order_acquire))
     {
         fingerIdTouchId.clear();
-#if AKIRA_PLATFORM_NX
         for (auto& input : inputs)
             input.set_idle();
-#else
-        controllerInput.set_idle();
-#endif
     }
     else
     {
-#if AKIRA_PLATFORM_NX
         media.UpdateControllerState(inputs[0], &fingerIdTouchId);
         uint8_t count = 1;
         media.UpdateSecondaryPads(inputs, count);
         couchPadCount = count;
-#else
-        media.UpdateControllerState(controllerInput, &fingerIdTouchId);
-#endif
     }
 
-#if AKIRA_PLATFORM_NX
     static_cast<void>(running.controllers().send(libchiaking::controllers::SeatNumber::first(), inputs[0].state()));
     for (uint8_t slot = 1; slot < couchPadCount && slot < seatCount; slot++)
     {
@@ -258,9 +243,6 @@ void Connection::sendInput(play::Session& running)
         if (seat && running.seats().seat(*seat).state() == play::SeatState::playing)
             static_cast<void>(running.controllers().send(*seat, inputs[slot].state()));
     }
-#else
-    static_cast<void>(running.controllers().send(libchiaking::controllers::SeatNumber::first(), controllerInput.state()));
-#endif
 }
 
 auto Connection::session() const -> std::shared_ptr<play::Session>
@@ -310,9 +292,11 @@ void Connection::setInputSuppressed(bool suppressed)
     inputSuppressed.store(suppressed, std::memory_order_release);
 }
 
-#if AKIRA_PLATFORM_NX
 bool Connection::addPlayer(uint8_t slot, std::optional<int64_t> profileId)
 {
+    if (!akira::platform::Platform::instance().pads().seatsAllowed())
+        return false;
+
     const auto seat = libchiaking::controllers::SeatNumber::create(slot);
     const auto running = session();
     if (!seat || seat->is_first() || !running)
@@ -385,7 +369,7 @@ auto Connection::couchSeat(uint8_t slot) const -> const CouchSeat&
 
 bool Connection::couchSlotAvailable() const
 {
-    if (!session())
+    if (!akira::platform::Platform::instance().pads().seatsAllowed() || !session())
         return false;
     for (uint8_t slot = 1; slot < seatCount; slot++)
     {
@@ -421,7 +405,6 @@ auto Connection::couchProfileChoices(uint8_t slot) const -> std::vector<CouchPro
     }
     return choices;
 }
-#endif
 
 void Connection::on_stream_description(const libchiaking::media::StreamDescription& description)
 {
@@ -451,9 +434,7 @@ void Connection::on_feedback(const libchiaking::controllers::ControllerFeedback&
 {
     if (feedback.seat.is_added())
     {
-#if AKIRA_PLATFORM_NX
         routeCouchFeedback(feedback);
-#endif
         return;
     }
 
@@ -477,42 +458,13 @@ void Connection::on_feedback(const libchiaking::controllers::ControllerFeedback&
     }
 }
 
-#if AKIRA_PLATFORM_NX
 void Connection::routeCouchFeedback(const libchiaking::controllers::ControllerFeedback& feedback)
 {
     const uint8_t slot = feedback.seat.index();
-    auto& pads = akira::platform::NxPlatform::instance().pads();
     if (!seatPlaying(slot))
         return;
-
-    uint8_t addr[6];
-    uint16_t vid = 0;
-    uint16_t pid = 0;
-    if (!pads.couchSlotOutputTarget(slot, addr, &vid, &pid))
-        return;
-
-    if (const auto* rumble = feedback.get<libchiaking::controllers::Rumble>())
-    {
-        pads.extendedInput().registerCouchOutput(addr, vid, pid);
-        pads.extendedInput().setCouchRumble(addr, rumble->left, rumble->right);
-    }
-    else if (const auto* effects = feedback.get<libchiaking::controllers::TriggerEffects>())
-    {
-        pads.extendedInput().registerCouchOutput(addr, vid, pid);
-        pads.extendedInput().setCouchTriggerEffects(addr,
-            effects->left.mode, effects->left.parameters.data(),
-            effects->right.mode, effects->right.parameters.data());
-    }
-    else if (const auto* confirmed = feedback.get<libchiaking::controllers::SeatConfirmed>())
-    {
-        const auto& colour = confirmed->colour;
-        if ((colour.red | colour.green | colour.blue) == 0)
-            return;
-        pads.extendedInput().registerCouchOutput(addr, vid, pid);
-        pads.extendedInput().setCouchLightbar(addr, colour.red, colour.green, colour.blue);
-    }
+    akira::platform::Platform::instance().pads().routeSeatFeedback(slot, feedback);
 }
-#endif
 
 void Connection::on_state(play::SessionState state)
 {
@@ -540,7 +492,6 @@ void Connection::on_login_pin_needed(bool previousWasWrong)
     post([previousWasWrong](Connection&, ConnectionListener& to) { to.onLoginPinNeeded(previousWasWrong); });
 }
 
-#if AKIRA_PLATFORM_NX
 void Connection::on_seat_passcode_needed(libchiaking::controllers::SeatNumber seat, bool retry)
 {
     post([slot = seat.index(), retry](Connection& self, ConnectionListener& to) {
@@ -588,6 +539,5 @@ void Connection::on_seat_refused(const play::SeatRefusal& refusal)
         to.onSeatRefused(slot, refusal);
     });
 }
-#endif
 
 }

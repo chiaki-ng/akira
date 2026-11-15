@@ -6,6 +6,7 @@
 
 #include "input/ps_output.hpp"
 #include "stream/input_manager.hpp"
+#include "stream/stream_stats.hpp"
 
 namespace akira::platform
 {
@@ -65,6 +66,43 @@ input::Pad* NxPadSource::current()
 std::vector<input::PadDescription> NxPadSource::scanPads() const
 {
     return akira::input::DescribePads();
+}
+
+void NxPadSource::fillStreamStats(StreamStats& stats)
+{
+    stats.analog_triggers_active = m_extended.hasFreshAnalogState();
+    stats.analog_l2 = m_extended.l2();
+    stats.analog_r2 = m_extended.r2();
+}
+
+void NxPadSource::routeSeatFeedback(uint8_t slot, const libchiaking::controllers::ControllerFeedback& feedback)
+{
+    uint8_t addr[6];
+    uint16_t vid = 0;
+    uint16_t pid = 0;
+    if (!couchSlotOutputTarget(slot, addr, &vid, &pid))
+        return;
+
+    if (const auto* rumble = feedback.get<libchiaking::controllers::Rumble>())
+    {
+        m_extended.registerCouchOutput(addr, vid, pid);
+        m_extended.setCouchRumble(addr, rumble->left, rumble->right);
+    }
+    else if (const auto* effects = feedback.get<libchiaking::controllers::TriggerEffects>())
+    {
+        m_extended.registerCouchOutput(addr, vid, pid);
+        m_extended.setCouchTriggerEffects(addr,
+            effects->left.mode, effects->left.parameters.data(),
+            effects->right.mode, effects->right.parameters.data());
+    }
+    else if (const auto* confirmed = feedback.get<libchiaking::controllers::SeatConfirmed>())
+    {
+        const auto& colour = confirmed->colour;
+        if ((colour.red | colour.green | colour.blue) == 0)
+            return;
+        m_extended.registerCouchOutput(addr, vid, pid);
+        m_extended.setCouchLightbar(addr, colour.red, colour.green, colour.blue);
+    }
 }
 
 void NxPadSource::setPath(std::unique_ptr<akira::input::PadPath> path)

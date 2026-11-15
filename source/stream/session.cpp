@@ -8,9 +8,6 @@
 #include "stream/video_renderer.hpp"
 #include "util/crash_report.hpp"
 #include "platform/platform.hpp"
-#if AKIRA_PLATFORM_NX
-#include "platform/nx/nx_platform.hpp"
-#endif
 
 #include <cstring>
 
@@ -347,15 +344,13 @@ void Session::UpdateControllerState(libchiaking::controllers::ControllerInput& i
     }
 }
 
-#if AKIRA_PLATFORM_NX
 void Session::UpdateSecondaryPads(std::span<libchiaking::controllers::ControllerInput> states, uint8_t& count)
 {
     if (m_input_manager)
     {
-        akira::platform::NxPlatform::instance().pads().readSecondaryPads(*m_input_manager, states, count);
+        akira::platform::Platform::instance().pads().readSecondaryPads(*m_input_manager, states, count);
     }
 }
-#endif
 
 bool Session::MainLoop()
 {
@@ -413,15 +408,7 @@ StreamStats Session::getStreamStats()
     stats.requested_fps = m_requested_fps;
     stats.requested_bitrate = m_requested_bitrate;
     stats.requested_hevc = m_requested_hevc;
-#if AKIRA_PLATFORM_NX
-    
-    {
-        auto& extended = akira::platform::NxPlatform::instance().pads().extendedInput();
-        stats.analog_triggers_active = extended.hasFreshAnalogState();
-        stats.analog_l2 = extended.l2();
-        stats.analog_r2 = extended.r2();
-    }
-#endif
+    akira::platform::Platform::instance().pads().fillStreamStats(stats);
 
     if (IVideoRenderer* renderer = m_video->renderer())
         stats.fps = renderer->getRenderFPS();

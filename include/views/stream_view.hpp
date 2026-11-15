@@ -88,10 +88,8 @@ private:
     bool intentionalDisconnect = false;
     bool reconnecting = false;
     bool loginPinEnteredThisSession = false;
-#if AKIRA_PLATFORM_NX
     bool couchPasscodeDialogOpen = false;
     bool couchArrivalPromptOpen = false;
-#endif
     std::chrono::steady_clock::time_point minusHoldStart;
     bool minusWasHeld = false;
     brls::Event<>::Subscription exitSubscription;
@@ -113,17 +111,15 @@ private:
     void onEnded(const libchiaking::play::Outcome& outcome) override;
     void onRefused(const libchiaking::play::StartRefusal& refusal) override;
     void onLoginPinNeeded(bool previousWasWrong) override;
-#if AKIRA_PLATFORM_NX
     void onSeatPasscodeNeeded(uint8_t slot, bool retry) override;
     void onSeatRefused(uint8_t slot, const libchiaking::play::SeatRefusal& refusal) override;
     void onSeatDropped(uint8_t slot) override;
-#endif
 
     static akira::input::RumbleProfile activePadProfile();
     void openConnection();
-#if AKIRA_PLATFORM_NX
     void pauseStreamForUi();
     void resumeStreamAfterUi();
+#if AKIRA_PLATFORM_NX
     void onPadArrived(HidNpadIdType npad);
     void openCouchClaim();
     void openPrimaryControllerPicker();

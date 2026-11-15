@@ -102,9 +102,7 @@ public:
     bool MainLoop();
     void UpdateControllerState(libchiaking::controllers::ControllerInput& input, std::map<uint32_t, int8_t>* finger_id_touch_id);
 
-#if AKIRA_PLATFORM_NX
     void UpdateSecondaryPads(std::span<libchiaking::controllers::ControllerInput> states, uint8_t& count);
-#endif
     void SetRumble(uint8_t left, uint8_t right);
 
     void ApplyPadFeedback(const libchiaking::controllers::ControllerFeedback& feedback);
