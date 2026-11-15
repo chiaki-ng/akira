@@ -10,43 +10,6 @@ xlanor, kkwong
 ## Disclaimer
 This project is not endorsed or certified by Sony Interactive Entertainment LLC. This project is free and open-source, and licensed under the same license as the core library it uses, chiaki-ng.
 
-## Switch 2 (Akira-ounce)
-![KaiHEN](https://img.shields.io/badge/kaiHEN-0.0.4-green)
-
-> [!WARNING]  
-> **This is an unofficial project that is not endorsed or certified by Sony Interactive Entertainment LLC.**
-
-> [!WARNING]  
-> **Please do NOT use this on your switch 2 UNLESS you are able to accept any of the risks and/or disclaimers that the ouncebrew project has mentioned. Switch 2 CFW is in its infancy.**
-
-
-This is still a work in progress, but It does boot and run well enough. I am still cleaning up the sub libraries before I release a build.
-
-This is compiled with libounce, OunceVK, and other associated tools provided by ouncebrew and is meant to be used with the [ouncebrew](https://github.com/ouncebrew) project, primarily, KaiHEN.
-
-### You MUST own a PS4/5 to use this. 
-
-**This is compatible with 90DNS, however, in order to be able to use it while 90DNS is active, In akira only, any getaddrinfo calls are wrapped to use a [custom resolver](https://github.com/chiaki-ng/akira-ounce/blob/master/source/util/custom_dns.cpp) via 1.1.1.1 and 8.8.8.8 for any [sony domains](https://github.com/chiaki-ng/akira-ounce/blob/master/include/util/custom_dns.hpp#L31-L40) only. This does NOT affect your systems 90DNS setup and is contained in the app**
-
-
-![img](readme/Untitled-1.jpg)
-
-This is still very early and experimental and I will most likely rewrite significant portions of it.
-
-I have tested PS5 setup and stream directly.
-
-Additional credits to the following individuals:
-
-- [XITRIX](https://github.com/XITRIX) over from switch 1 moonlight who helped to test this on PS4
-- [aveao](https://github.com/aveao) who was helping with getting my env to a testable state.
-- [ouncebrew](https://github.com/ouncebrew) for providing a homebrew development environment.
-
-### Switch 2 issues
-
-Issues are disabled as homebrew users usually turn up to report unreproducible issues which cannot be diagnosed without having a proper conversation, but they don't ever come back to help solve those issues
-
-Please come to discord to chat if you have an issue
-
 ## Read the documentation
 
 Please read the docs at [chiaki-ng.github.io/akira](https://chiaki-ng.github.io/akira)
@@ -82,15 +45,6 @@ If you find a bug or have a feature request, please help out and open a PR with 
 - Auto-registration over PSN, requires holepunching.
 - Cross-subnet discovery (swept by unicast)
 - AIA chain repair (when encountering a PSN node with only leaf TLS certs)
-
-## Building
-
-One tree builds for both consoles. Run `make help` for every target.
-
-| Console | Command | Output |
-| --- | --- | --- |
-| Switch (libnx, deko3d) | `make build-nx` | `build/nx/akira.nro` |
-| Switch 2 (libounce, Vulkan) | `make build-ounce` | `build/ounce/akira.nro` |
 
 ## How to get started
 Please read the docs at [chiaki-ng.github.io/akira](https://chiaki-ng.github.io/akira)
