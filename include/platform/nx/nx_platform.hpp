@@ -26,6 +26,9 @@ public:
     void streamStarted(Session& session) override;
     void streamStopped() override;
 
+    std::unique_ptr<PadHaptics> createHaptics(InputManager& input) override;
+    std::unique_ptr<PadFeedback> createFeedback(InputManager& input, HapticManager& haptics) override;
+
 private:
     std::unique_ptr<IpcStatsService> m_ipc_service;
 };

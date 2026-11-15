@@ -160,8 +160,6 @@ private:
     std::map<uint32_t, int8_t> fingerIdTouchId;
 #if AKIRA_PLATFORM_NX
     uint8_t couchPadCount = 1;
-    uint8_t hapticIntensity = 1;
-    uint8_t triggerIntensity = 1;
 
     std::array<CouchSeat, seatCount> seats{};
 #endif

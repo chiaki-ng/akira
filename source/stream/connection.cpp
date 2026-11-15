@@ -463,35 +463,14 @@ void Connection::on_feedback(const libchiaking::controllers::ControllerFeedback&
     {
         media.SetRumble(rumble->left, rumble->right);
     }
-#if AKIRA_PLATFORM_NX
-    else if (const auto* effects = feedback.get<libchiaking::controllers::TriggerEffects>())
-    {
-        media.SetTriggerEffects(*effects);
-    }
-    else if (const auto* haptic = feedback.get<libchiaking::controllers::HapticIntensity>())
-    {
-        hapticIntensity = static_cast<uint8_t>(haptic->level);
-        media.SetEffectIntensity(hapticIntensity, triggerIntensity);
-    }
-    else if (const auto* trigger = feedback.get<libchiaking::controllers::TriggerIntensity>())
-    {
-        triggerIntensity = static_cast<uint8_t>(trigger->level);
-        media.SetEffectIntensity(hapticIntensity, triggerIntensity);
-    }
-    else if (const auto* light = feedback.get<libchiaking::controllers::Lightbar>())
-    {
-        media.SetLedColor(light->colour.red, light->colour.green, light->colour.blue);
-    }
-#else
-    else if (const auto* haptic = feedback.get<libchiaking::controllers::HapticIntensity>())
-    {
-        media.SetConsoleVibration(static_cast<uint8_t>(haptic->level));
-    }
-#endif
     else if (feedback.get<libchiaking::controllers::MotionReset>())
     {
         if (auto* input = media.getInputManager())
             input->resetMotionControls();
+    }
+    else
+    {
+        media.ApplyPadFeedback(feedback);
     }
 }
 

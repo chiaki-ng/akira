@@ -16,6 +16,7 @@
 
 #include "core/exception.hpp"
 #include "input/rumble_profile.hpp"
+#include "platform/pad_feedback.hpp"
 #include "stream/stream_stats.hpp"
 #include "stream/video_worker.hpp"
 #include "video/provider.hpp"
@@ -36,6 +37,7 @@ private:
     std::unique_ptr<AudioManager> m_audio_manager;
     std::unique_ptr<HapticManager> m_haptic_manager;
     std::unique_ptr<InputManager> m_input_manager;
+    std::unique_ptr<akira::platform::PadFeedback> m_pad_feedback;
     std::unique_ptr<akira::video::Provider> m_video;
     std::unique_ptr<akira::stream::VideoWorker> m_video_worker;
     std::optional<libchiaking::media::AudioDecoder> m_audio_decoder;
@@ -85,9 +87,7 @@ public:
     void setEnvelopeAttack(float attack);
     void setRumbleCeiling(float ceiling);
     void setRumbleSource(akira::input::RumbleSource source);
-#if AKIRA_PLATFORM_OUNCE
     void setHapticIntensity(akira::input::HapticIntensity intensity);
-#endif
 
     ~Session();
 
@@ -107,20 +107,7 @@ public:
 #endif
     void SetRumble(uint8_t left, uint8_t right);
 
-#if AKIRA_PLATFORM_NX
-    void SetTriggerEffects(const libchiaking::controllers::TriggerEffects& effects);
-
-    void SetEffectIntensity(uint8_t vibration, uint8_t trigger);
-
-    void SetLedColor(uint8_t red, uint8_t green, uint8_t blue);
-
-private:
-    uint8_t m_trigger_intensity = 1;
-
-public:
-#else
-    void SetConsoleVibration(uint8_t vibration);
-#endif
+    void ApplyPadFeedback(const libchiaking::controllers::ControllerFeedback& feedback);
     void HapticCB(std::span<const std::byte> pcm);
     void CleanUpHaptic();
 

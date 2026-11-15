@@ -67,25 +67,20 @@ void Session::setRumbleSource(akira::input::RumbleSource source)
         m_haptic_manager->setRumbleSource(source);
 }
 
-#if AKIRA_PLATFORM_OUNCE
 void Session::setHapticIntensity(akira::input::HapticIntensity intensity)
 {
     if (m_haptic_manager)
         m_haptic_manager->setHapticIntensity(intensity);
 }
-#endif
 
 Session::Session()
 {
     m_audio_manager = std::make_unique<AudioManager>();
-    m_haptic_manager = std::make_unique<HapticManager>();
     m_input_manager = std::make_unique<InputManager>();
-
+    auto& platform = akira::platform::Platform::instance();
+    m_haptic_manager = std::make_unique<HapticManager>(platform.createHaptics(*m_input_manager));
     m_haptic_manager->setInputManager(m_input_manager.get());
-#if AKIRA_PLATFORM_NX
-
-    m_haptic_manager->setExtendedInput(&m_input_manager->extendedInput());
-#endif
+    m_pad_feedback = platform.createFeedback(*m_input_manager, *m_haptic_manager);
     m_video = akira::video::Provider::create();
     m_video->ensureDecoder();
 }
@@ -286,54 +281,11 @@ void Session::SetRumble(uint8_t left, uint8_t right)
     }
 }
 
-#if AKIRA_PLATFORM_NX
-void Session::SetTriggerEffects(const libchiaking::controllers::TriggerEffects& effects)
+void Session::ApplyPadFeedback(const libchiaking::controllers::ControllerFeedback& feedback)
 {
-    if (!m_input_manager)
-        return;
-
-    if (akira::input::Ds5IntensityFromWire(m_trigger_intensity)
-        == akira::input::Ds5EffectIntensity::Off)
-        return;
-
-    akira::input::PadPath::TriggerEffect left;
-    akira::input::PadPath::TriggerEffect right;
-
-    left.type = effects.left.mode;
-    std::memcpy(left.params, effects.left.parameters.data(), sizeof(left.params));
-    right.type = effects.right.mode;
-    std::memcpy(right.params, effects.right.parameters.data(), sizeof(right.params));
-
-    m_input_manager->sendTriggerEffects(left, right);
+    if (m_pad_feedback)
+        m_pad_feedback->apply(feedback);
 }
-
-void Session::SetEffectIntensity(uint8_t vibration, uint8_t trigger)
-{
-    m_trigger_intensity = trigger;
-
-    if (!m_input_manager)
-        return;
-
-    m_input_manager->sendEffectIntensity(vibration, trigger);
-
-    if (m_haptic_manager)
-        m_haptic_manager->setConsoleVibration(vibration);
-}
-
-void Session::SetLedColor(uint8_t red, uint8_t green, uint8_t blue)
-{
-    if (!m_input_manager)
-        return;
-
-    m_input_manager->sendLightbar(red, green, blue);
-}
-#else
-void Session::SetConsoleVibration(uint8_t vibration)
-{
-    if (m_haptic_manager)
-        m_haptic_manager->setConsoleVibration(vibration);
-}
-#endif
 
 void Session::HapticCB(std::span<const std::byte> pcm)
 {

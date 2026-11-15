@@ -6,6 +6,8 @@
 
 #include "core/settings_manager.hpp"
 #include "platform/nx/ipc_service.hpp"
+#include "platform/nx/nx_haptics.hpp"
+#include "platform/nx/nx_pad_feedback.hpp"
 #include "platform/nx/settings_updates_view.hpp"
 #include "platform/nx/update_flow.hpp"
 #include "platform/nx/update_manager.hpp"
@@ -84,6 +86,16 @@ void NxPlatform::streamStopped()
 {
     if (m_ipc_service)
         m_ipc_service->SetStreamActive(false);
+}
+
+std::unique_ptr<PadHaptics> NxPlatform::createHaptics(InputManager& input)
+{
+    return std::make_unique<NxHaptics>(input);
+}
+
+std::unique_ptr<PadFeedback> NxPlatform::createFeedback(InputManager& input, HapticManager& haptics)
+{
+    return std::make_unique<NxPadFeedback>(input, haptics);
 }
 
 }

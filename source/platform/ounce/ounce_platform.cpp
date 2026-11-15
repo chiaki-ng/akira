@@ -5,6 +5,8 @@
 #include <borealis.hpp>
 #include <switch.h>
 
+#include "platform/ounce/ounce_haptics.hpp"
+#include "platform/ounce/ounce_pad_feedback.hpp"
 #include "util/crash_report.hpp"
 
 namespace akira::platform
@@ -54,6 +56,16 @@ void OuncePlatform::streamStarted(Session&)
 
 void OuncePlatform::streamStopped()
 {
+}
+
+std::unique_ptr<PadHaptics> OuncePlatform::createHaptics(InputManager&)
+{
+    return std::make_unique<OunceHaptics>();
+}
+
+std::unique_ptr<PadFeedback> OuncePlatform::createFeedback(InputManager&, HapticManager& haptics)
+{
+    return std::make_unique<OuncePadFeedback>(haptics);
 }
 
 }
