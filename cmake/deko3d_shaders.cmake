@@ -15,7 +15,7 @@ if (USE_DEKO3D)
     target_include_directories(${PROJECT_NAME} PRIVATE "${DEVKITPRO}/portlibs/switch/include")
     target_link_options(${PROJECT_NAME} PRIVATE -Wl,-z,muldefs)
 
-    set(SHADER_DIR "${PROJECT_RESOURCES}/shaders")
+    set(SHADER_DIR "${PROJECT_RESOURCES}/video/deko3d/shaders")
     set(SHADER_OUT_DIR "${CMAKE_BINARY_DIR}/resources/shaders")
 
     # Compile borealis/nanovg shaders
