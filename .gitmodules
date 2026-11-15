@@ -62,6 +62,3 @@
 [submodule "references/pylux"]
 	path = references/pylux
 	url = https://github.com/ForWard-Technologies-LLC/Pylux.git
-[submodule "references/Pylux"]
-	path = references/Pylux
-	url = https://github.com/ForWard-Technologies-LLC/Pylux.git
