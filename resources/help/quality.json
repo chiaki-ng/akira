@@ -15,5 +15,6 @@
   "settings/enableDithering":    { "title": "Dithering", "body": "Add subtle noise to reduce visible color banding in gradients.", "image": "" },
   "settings/ditheringStrength":  { "title": "Dither strength", "body": "Set the amount of dithering noise from level 1 to 10.", "image": "" },
   "settings/rcasEnabled":        { "title": "RCAS sharpening", "body": "Apply contrast-adaptive sharpening to the decoded image.", "image": "" },
-  "settings/rcasSharpness":      { "title": "RCAS strength", "body": "Set sharpening in 5-percentage-point steps. High values can emphasize compression artifacts.", "image": "" }
+  "settings/rcasSharpness":      { "title": "RCAS strength", "body": "Set sharpening in 5-percentage-point steps. High values can emphasize compression artifacts.", "image": "" },
+  "settings/zeroCopy":           { "title": "Zero-copy video", "body": "The hardware decoder writes each frame straight into memory the GPU draws from, instead of copying every frame. Off by default: on some consoles this has caused a black screen during streams, and the cause is not known yet.", "image": "" }
 }

@@ -776,7 +776,6 @@
     "dev_fake_hosts": "模拟主机（20 台 PS5）",
     "renderer": "渲染器",
     "zero_copy": "零拷贝视频",
-    "zero_copy_note": "默认关闭。在部分主机上开启后串流会黑屏，原因尚不清楚。",
     "menu_updates": "更新",
     "simulate_update": "模拟可用更新",
     "dev_update_server_hint": "开发更新服务器 (host:port)",

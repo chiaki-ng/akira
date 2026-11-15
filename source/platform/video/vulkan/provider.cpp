@@ -24,14 +24,8 @@ bool VulkanVideoProvider::addSettings(brls::Box& group) const
         settings->writeFile();
         brls::Logger::info("Zero-copy video set to {}", isOn ? "on" : "off");
     });
+    zeroCopy->setId("settings/zeroCopy");
     group.addView(zeroCopy);
-
-    auto* note = new brls::Label();
-    note->setText("akira/settings/zero_copy_note"_i18n);
-    note->setFontSize(18);
-    note->setTextColor(brls::Application::getTheme().getColor("brls/text_disabled"));
-    note->setMarginBottom(15);
-    group.addView(note);
     return true;
 }
 
