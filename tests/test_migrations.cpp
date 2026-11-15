@@ -672,7 +672,7 @@ name = "PS5"
     toml::table doc = toml::parse(src);
     chiaki_migrations::buildSettingsMigrator().migrate(doc);
 
-    CHECK_EQ(version_of(doc), 10);
+    CHECK_EQ(version_of(doc), 11);
     CHECK(!doc.contains("sign_ins"));
     CHECK(!doc.contains("pairings"));
     CHECK_EQ(arr_size(doc, "paired_consoles"), 1);
@@ -705,7 +705,7 @@ packet_loss_max = 0.05
 )");
     chiaki_migrations::buildSettingsMigrator().migrate(doc);
 
-    CHECK_EQ(version_of(doc), 10);
+    CHECK_EQ(version_of(doc), 11);
     const toml::table* stream = doc["stream"].as_table();
     CHECK(!stream->contains("takion_version"));
     const toml::table* versions = (*stream)["takion_versions"].as_table();
@@ -716,4 +716,34 @@ packet_loss_max = 0.05
     toml::table untouched = toml::parse("version = 9\n[stream]\npacket_loss_max = 0.05\n");
     chiaki_migrations::buildSettingsMigrator().migrate(untouched);
     CHECK(!untouched["stream"].as_table()->contains("takion_versions"));
+}
+
+TEST(m010_records_the_fsr_target_of_each_profile)
+{
+    toml::table doc = toml::parse(R"(
+version = 10
+
+[video.local]
+resolution = "540p"
+fsr_enabled = true
+
+[video.remote]
+resolution = "720p"
+fsr_enabled = true
+
+[video.vpn]
+resolution = "720p"
+fsr_enabled = false
+)");
+    chiaki_migrations::buildSettingsMigrator().migrate(doc);
+
+    CHECK_EQ(version_of(doc), 11);
+    const toml::table* video = doc["video"].as_table();
+    CHECK_EQ(tint((*video)["local"].as_table(), "fsr_target"), int64_t(720));
+    CHECK_EQ(tint((*video)["remote"].as_table(), "fsr_target"), int64_t(1080));
+    CHECK(!(*video)["vpn"].as_table()->contains("fsr_target"));
+
+    toml::table kept = toml::parse("version = 10\n[video.local]\nresolution = \"1080p\"\nfsr_enabled = true\nfsr_target = 2160\n");
+    chiaki_migrations::buildSettingsMigrator().migrate(kept);
+    CHECK_EQ(tint(kept["video"]["local"].as_table(), "fsr_target"), int64_t(2160));
 }

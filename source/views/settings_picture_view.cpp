@@ -79,11 +79,7 @@ std::vector<std::string> SettingsPictureView::presetLabels(const std::vector<Res
 
 int SettingsPictureView::presetIndex(const std::vector<ResolutionPreset>& presets, VideoResolution resolution,
     bool fsr, int fsrTarget) {
-    const int target = !fsr ? 0
-        : fsrTarget > 0 ? fsrTarget
-        : resolution == VideoResolution::P540 ? 720
-        : resolution == VideoResolution::P720 ? 1080
-        : 0;
+    const int target = fsr ? fsrTarget : 0;
     const auto matches = [&](int wanted) {
         return std::ranges::find_if(presets, [&](const ResolutionPreset& preset) {
             return preset.resolution == resolution && preset.fsrTarget == wanted;
