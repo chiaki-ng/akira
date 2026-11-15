@@ -24,12 +24,12 @@ VideoDecoder::~VideoDecoder()
     cleanup();
 }
 
-bool VideoDecoder::initCodec(bool is_PS5, int width, int height)
+bool VideoDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, int height)
 {
     brls::Logger::info("VideoDecoder: loading AVCodec");
 
-    m_is_hevc = is_PS5;
-    if (is_PS5)
+    m_is_hevc = hevc;
+    if (hevc)
     {
         m_codec = avcodec_find_decoder_by_name("hevc");
     }

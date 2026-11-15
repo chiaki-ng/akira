@@ -18,14 +18,13 @@
 #include "input/rumble_profile.hpp"
 #include "stream/stream_stats.hpp"
 #include "stream/video_worker.hpp"
+#include "video/provider.hpp"
 
 class AudioManager;
 class HapticManager;
 class InputManager;
-class VideoDecoder;
 class IVideoRenderer;
 class IpcStatsService;
-typedef struct AVFrame AVFrame;
 
 class Session
 {
@@ -38,8 +37,7 @@ private:
     std::unique_ptr<AudioManager> m_audio_manager;
     std::unique_ptr<HapticManager> m_haptic_manager;
     std::unique_ptr<InputManager> m_input_manager;
-    std::unique_ptr<VideoDecoder> m_video_decoder;
-    std::unique_ptr<IVideoRenderer> m_video_renderer;
+    std::unique_ptr<akira::video::Provider> m_video;
     std::unique_ptr<akira::stream::VideoWorker> m_video_worker;
     std::unique_ptr<IpcStatsService> m_ipc_service;
     std::optional<libchiaking::media::AudioDecoder> m_audio_decoder;
@@ -72,7 +70,7 @@ private:
     std::weak_ptr<libchiaking::play::Session> m_play;
     std::chrono::steady_clock::time_point m_stream_start_time;
 
-    void presentDecodedFrame(AVFrame* frame);
+    void frameArriving(const akira::video::FrameInfo& frame);
     bool configureAudio(const libchiaking::media::AudioFormat& format, bool raw_pcm);
     std::shared_ptr<libchiaking::play::Session> attached() const;
 
@@ -132,7 +130,7 @@ public:
     void updateActualResolution(int width, int height);
 
     InputManager* getInputManager() { return m_input_manager.get(); }
-    IVideoRenderer* getVideoRenderer() { return m_video_renderer.get(); }
+    IVideoRenderer* getVideoRenderer() { return m_video->renderer(); }
 
     void attach(std::weak_ptr<libchiaking::play::Session> play);
     void detach();

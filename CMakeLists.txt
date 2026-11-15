@@ -51,6 +51,7 @@ if (NOT AKIRA_CLOUD)
     list(FILTER MAIN_SRC EXCLUDE REGEX "/source/cloud/(service|library_listing|library_view|game_detail_view|game_actions|launch_checks|launch_screen|fetch_progress|start_steps|cloud_connect_task)\\.cpp$")
     list(FILTER MAIN_SRC EXCLUDE REGEX "/source/views/cloud_shortcuts_rail\\.cpp$")
 endif()
+include(video_provider)
 list(APPEND MAIN_SRC ${CMAKE_CURRENT_SOURCE_DIR}/source/stream/nxext_ipc_server.c)
 
 # Switch wrapper for libnx initialization
@@ -65,6 +66,9 @@ add_subdirectory(library/tomlplusplus EXCLUDE_FROM_ALL)
 ###########################################
 program_target(${PROJECT_NAME} "${MAIN_SRC}")
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 23)
+if (AKIRA_VIDEO_VULKAN)
+    include(vulkan_shaders)
+endif()
 
 # Borealis uses DEBUG only to attach nxlinkStdio() in its Switch wrapper.
 # Keep that capture path in optimized builds without compiling the whole app
@@ -132,7 +136,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 # deko3d shader compilation + uam runtime link
-include(deko3d_shaders)
+if (AKIRA_VIDEO_DEKO3D)
+    include(deko3d_shaders)
+endif()
 
 # SDL2 depends on EGL/OpenGL libraries on Switch
 if (PLATFORM_SWITCH)

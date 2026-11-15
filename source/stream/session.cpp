@@ -5,8 +5,7 @@
 #include "stream/audio_manager.hpp"
 #include "stream/haptic_manager.hpp"
 #include "stream/input_manager.hpp"
-#include "stream/video_decoder.hpp"
-#include "stream/deko3d_renderer.hpp"
+#include "stream/video_renderer.hpp"
 #include "stream/ipc_service.hpp"
 
 #include <cstring>
@@ -76,7 +75,8 @@ Session::Session()
     m_haptic_manager->setInputManager(m_input_manager.get());
 
     m_haptic_manager->setExtendedInput(&m_input_manager->extendedInput());
-    m_video_decoder = std::make_unique<VideoDecoder>();
+    m_video = akira::video::Provider::create();
+    m_video->ensureDecoder();
 }
 
 Session::~Session()
@@ -124,12 +124,13 @@ libchiaking::media::VideoResult Session::submitVideo(const libchiaking::media::V
 {
     using libchiaking::media::VideoVerdict;
 
-    if (this->quit || !m_video_decoder)
+    akira::video::Decoder* decoder = m_video->decoder();
+    if (this->quit || !decoder)
         return {VideoVerdict::dropped, 0};
 
-    if (unit.profile_changed() && unit.hevc() != m_video_decoder->isHEVC())
+    if (unit.profile_changed() && unit.hevc() != decoder->isHEVC())
         brls::Logger::warning("Stream sent {} video to a {} decoder",
-            unit.hevc() ? "HEVC" : "H.264", m_video_decoder->isHEVC() ? "HEVC" : "H.264");
+            unit.hevc() ? "HEVC" : "H.264", decoder->isHEVC() ? "HEVC" : "H.264");
 
     if (!m_video_worker || !m_video_worker->submit(unit.profile_header(), unit.frame().bytes()))
         m_needs_recover.store(true, std::memory_order_relaxed);
@@ -212,32 +213,29 @@ bool Session::InitVideo(int video_width, int video_height)
     std::lock_guard lock(m_media_mutex);
     this->quit = false;
 
-    if (!m_video_decoder || !m_video_decoder->initVideo(video_width, video_height))
+    akira::video::Decoder* decoder = m_video->decoder();
+    if (!decoder || !decoder->initVideo(video_width, video_height))
     {
         brls::Logger::error("Failed to initialize video decoder");
         return false;
     }
 
-    brls::Logger::info("Creating Deko3d renderer");
-    m_video_renderer = std::make_unique<Deko3dRenderer>();
-
-    if (!m_video_renderer->initialize(video_width, video_height))
+    const akira::video::Provider::FrameHooks hooks{
+        .arriving = [this](const akira::video::FrameInfo& frame) { frameArriving(frame); },
+        .presented = [this] { m_presented.store(true, std::memory_order_relaxed); },
+    };
+    if (!m_video->startRenderer(video_width, video_height, hooks))
     {
         brls::Logger::error("Failed to initialize video renderer");
-        m_video_renderer.reset();
         return false;
     }
-
-    m_video_decoder->setFrameReadyCallback([this](AVFrame* frame) {
-        presentDecodedFrame(frame);
-        av_frame_free(&frame);
-    });
 
     m_needs_recover = false;
     m_presented = false;
     m_video_worker = std::make_unique<akira::stream::VideoWorker>(
         [this](const AVBufferHandle& packet, std::size_t size) {
-            if (!m_video_decoder->decode(packet, size) || m_video_decoder->lastDecodeCorrupt())
+            akira::video::Decoder* decoder = m_video->decoder();
+            if (!decoder->decode(packet, size) || decoder->lastDecodeCorrupt())
                 m_needs_recover.store(true, std::memory_order_relaxed);
         });
 
@@ -250,8 +248,7 @@ bool Session::FreeVideo()
 
     m_video_worker.reset();
 
-    if (m_video_decoder)
-        m_video_decoder->setFrameReadyCallback(nullptr);
+    m_video->detachFrames();
 
     if (m_ipc_service)
         m_ipc_service->SetStreamActive(false);
@@ -261,10 +258,7 @@ bool Session::FreeVideo()
 
     {
         std::lock_guard lock(m_media_mutex);
-        if (m_video_renderer)
-            m_video_renderer->waitIdle();
-        m_video_decoder.reset();
-        m_video_renderer.reset();
+        m_video->release();
     }
     m_audio_decoder.reset();
     if (m_audio_manager)
@@ -348,22 +342,17 @@ void Session::updateActualResolution(int width, int height)
             m_requested_width, m_requested_height, width, height);
     }
 
-    if (m_video_decoder)
-        m_video_decoder->updateResolution(width, height);
+    if (akira::video::Decoder* decoder = m_video->decoder())
+        decoder->updateResolution(width, height);
 
-    if (m_video_renderer)
-        m_video_renderer->updateResolution(width, height);
+    if (IVideoRenderer* renderer = m_video->renderer())
+        renderer->updateResolution(width, height);
 }
 
 bool Session::InitAVCodec(bool hevc, int video_width, int video_height)
 {
     std::lock_guard lock(m_media_mutex);
-    if (!m_video_decoder)
-    {
-        m_video_decoder = std::make_unique<VideoDecoder>();
-    }
-
-    return m_video_decoder->initCodec(hevc, video_width, video_height);
+    return m_video->ensureDecoder().initCodec(hevc, hevc, video_width, video_height);
 }
 
 bool Session::InitController()
@@ -396,29 +385,27 @@ void Session::UpdateSecondaryPads(std::span<libchiaking::controllers::Controller
 
 bool Session::MainLoop()
 {
-    if (m_video_renderer && m_video_renderer->isInitialized() && m_video_decoder)
+    IVideoRenderer* renderer = m_video->renderer();
+    if (renderer && renderer->isInitialized() && m_video->decoder())
     {
-        m_video_renderer->setStatsOverlayMode(m_stats_overlay_mode);
+        renderer->setStatsOverlayMode(m_stats_overlay_mode);
         if (m_stats_overlay_mode != StatsOverlayMode::Off)
         {
-            m_video_renderer->setStreamStats(getStreamStats());
+            renderer->setStreamStats(getStreamStats());
         }
-        m_video_renderer->updateOverlayTexture();
+        renderer->updateOverlayTexture();
     }
 
     return !this->quit;
 }
 
-void Session::presentDecodedFrame(AVFrame* frame)
+void Session::frameArriving(const akira::video::FrameInfo& frame)
 {
-    if (!frame || !frame->data[0] || !m_video_renderer)
-        return;
-
     if (!m_first_frame_received)
     {
         m_first_frame_received = true;
         brls::Application::setRenderSuspended(true);
-        updateActualResolution(frame->width, frame->height);
+        updateActualResolution(static_cast<int>(frame.width), static_cast<int>(frame.height));
         SettingsManager::getInstance()->setStreamingActive(true);
         brls::Logger::info("First video frame received!");
 
@@ -433,9 +420,9 @@ void Session::presentDecodedFrame(AVFrame* frame)
         }
     }
 
-    if (m_video_decoder)
+    if (akira::video::Decoder* decoder = m_video->decoder())
     {
-        auto emit = m_video_decoder->lastEmitTime();
+        auto emit = decoder->lastEmitTime();
         if (emit != std::chrono::steady_clock::time_point{})
         {
             auto gap = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -449,9 +436,6 @@ void Session::presentDecodedFrame(AVFrame* frame)
             }
         }
     }
-
-    m_video_renderer->presentFrame(frame);
-    m_presented.store(true, std::memory_order_relaxed);
 }
 
 StreamStats Session::getStreamStats()
@@ -472,17 +456,17 @@ StreamStats Session::getStreamStats()
         stats.analog_r2 = extended.r2();
     }
 
-    if (m_video_renderer)
-        stats.fps = m_video_renderer->getRenderFPS();
+    if (IVideoRenderer* renderer = m_video->renderer())
+        stats.fps = renderer->getRenderFPS();
 
-    if (m_video_decoder)
+    if (akira::video::Decoder* decoder = m_video->decoder())
     {
-        stats.video_width = m_video_decoder->getVideoWidth();
-        stats.video_height = m_video_decoder->getVideoHeight();
-        stats.is_hevc = m_video_decoder->isHEVC();
-        stats.is_hardware_decoder = m_video_decoder->isHardwareAccelerated();
+        stats.video_width = decoder->getVideoWidth();
+        stats.video_height = decoder->getVideoHeight();
+        stats.is_hevc = decoder->isHEVC();
+        stats.is_hardware_decoder = decoder->isHardwareAccelerated();
 
-        auto ds = m_video_decoder->getStats();
+        auto ds = decoder->getStats();
         stats.decode_ms = ds.decode_ms;
         stats.source_fps = ds.source_fps;
         stats.jitter_ms = ds.jitter_ms;
@@ -490,7 +474,7 @@ StreamStats Session::getStreamStats()
         stats.present_ms = m_present_ms.load(std::memory_order_relaxed);
     }
 
-    stats.renderer_name = "Deko3d";
+    stats.renderer_name = m_video->name();
 
     if (const auto play = attached())
     {
@@ -540,21 +524,21 @@ void Session::setRequestedProfile(int width, int height, int fps, int bitrate, b
 
 void Session::setVideoPaused(bool paused)
 {
-    if (m_video_renderer)
-        m_video_renderer->setPaused(paused);
+    if (IVideoRenderer* renderer = m_video->renderer())
+        renderer->setPaused(paused);
 }
 
 void Session::setConnectionContext(const std::string& context)
 {
-    if (m_video_renderer)
-        m_video_renderer->setConnectionContext(context);
+    if (IVideoRenderer* renderer = m_video->renderer())
+        renderer->setConnectionContext(context);
 }
 
 
 void Session::triggerBorderFlash()
 {
-    if (m_video_renderer)
-        m_video_renderer->triggerBorderFlash();
+    if (IVideoRenderer* renderer = m_video->renderer())
+        renderer->triggerBorderFlash();
 }
 
 void Session::attach(std::weak_ptr<libchiaking::play::Session> play)

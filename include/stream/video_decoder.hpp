@@ -16,14 +16,15 @@ extern "C"
 }
 
 #include "util/av_wrappers.hpp"
+#include "video/decoder.hpp"
 
-class VideoDecoder
+class VideoDecoder final : public akira::video::Decoder
 {
 public:
     using FrameReadyCallback = std::function<void(AVFrame*)>;
 
     VideoDecoder();
-    ~VideoDecoder();
+    ~VideoDecoder() override;
 
     // Disable copy
     VideoDecoder(const VideoDecoder&) = delete;
@@ -33,37 +34,31 @@ public:
 
     // Initialize codec (H.264 or HEVC for PS5)
     // For deko3d, width/height are required for NVTEGRA hardware decoder
-    bool initCodec(bool is_PS5, int width = 0, int height = 0);
+    bool initCodec(bool hevc, bool ps5, int width, int height) override;
 
     // Initialize video with frame queue
-    bool initVideo(int video_width, int video_height);
+    bool initVideo(int video_width, int video_height) override;
 
     // Decode a video packet (returns false if waiting for keyframe)
-    bool decode(const AVBufferHandle& data, std::size_t size);
+    bool decode(const AVBufferHandle& data, std::size_t size) override;
 
     // Flush decoder buffers and set waiting-for-keyframe state
-    void flush();
+    void flush() override;
 
     // Cleanup
-    void cleanup();
+    void cleanup() override;
 
-    int getVideoWidth() const { return m_video_width; }
-    int getVideoHeight() const { return m_video_height; }
-    void updateResolution(int width, int height) { m_video_width = width; m_video_height = height; }
-    bool isHEVC() const { return m_is_hevc; }
-    bool isHardwareAccelerated() const { return m_hw_accel_enabled; }
+    int getVideoWidth() const override { return m_video_width; }
+    int getVideoHeight() const override { return m_video_height; }
+    void updateResolution(int width, int height) override { m_video_width = width; m_video_height = height; }
+    bool isHEVC() const override { return m_is_hevc; }
+    bool isHardwareAccelerated() const override { return m_hw_accel_enabled; }
 
-    struct DecoderStats
-    {
-        float decode_ms = 0.0f;
-        float source_fps = 0.0f;
-        float jitter_ms = 0.0f;
-        uint64_t decoder_drops = 0;
-    };
+    using DecoderStats = akira::video::Decoder::Stats;
 
-    DecoderStats getStats() const;
-    std::chrono::steady_clock::time_point lastEmitTime() const { return m_last_emit; }
-    bool lastDecodeCorrupt() const { return m_corrupt_in_call; }
+    DecoderStats getStats() const override;
+    std::chrono::steady_clock::time_point lastEmitTime() const override { return m_last_emit; }
+    bool lastDecodeCorrupt() const override { return m_corrupt_in_call; }
 
 private:
     void noteDecodeSample(std::chrono::steady_clock::duration d);

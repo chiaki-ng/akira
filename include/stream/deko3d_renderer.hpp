@@ -35,8 +35,8 @@ public:
 
     bool initialize(int frame_width, int frame_height) override;
     bool isInitialized() const override { return m_initialized; }
-    void draw(AVFrame* frame) override;
-    void presentFrame(AVFrame* frame) override;
+    void draw(AVFrame* frame);
+    void presentFrame(AVFrame* frame);
     void cleanup() override;
     void waitIdle() override;
 

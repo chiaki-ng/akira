@@ -8,10 +8,6 @@
 #include <cstdint>
 #include "stream/stream_stats.hpp"
 
-extern "C"
-{
-#include <libavcodec/avcodec.h>
-}
 
 // Abstract interface for video rendering
 // Implementations: OpenGLRenderer, Deko3dRenderer
@@ -23,10 +19,6 @@ public:
     virtual bool initialize(int frame_width, int frame_height) = 0;
 
     virtual bool isInitialized() const = 0;
-
-    virtual void draw(AVFrame* frame) = 0;
-
-    virtual void presentFrame(AVFrame* frame) { draw(frame); }
 
     virtual void cleanup() = 0;
 
