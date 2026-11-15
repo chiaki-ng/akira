@@ -250,7 +250,7 @@ docker-image: platform submodules $(IMAGE_DEPS)
 image-tag: platform
 	@echo $(DOCKER_IMAGE)
 
-release-notes:
+release-notes: platform
 	@"$(CURDIR)/scripts/release-notes.sh" "$(OUNCE_DEVKIT)" "$(DOCKER_IMAGE)"
 
 build: platform docker-image

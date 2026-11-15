@@ -79,7 +79,7 @@ jobs:
           {
             gh release view "${GITHUB_REF_NAME}" --json body -q .body
             echo
-            make -s release-notes
+            make -s release-notes-ounce
           } > dist/RELEASE_NOTES.md
           gh release edit "${GITHUB_REF_NAME}" --notes-file dist/RELEASE_NOTES.md
 
