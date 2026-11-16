@@ -9,6 +9,7 @@
 #include <vector>
 #include <chrono>
 #include <mutex>
+#include <optional>
 
 extern "C"
 {
@@ -17,6 +18,7 @@ extern "C"
 
 #include "util/av_wrappers.hpp"
 #include "platform/video/decoder.hpp"
+#include "platform/video/deko3d/frame.hpp"
 
 namespace akira::platform::deko3d
 {
@@ -24,7 +26,7 @@ namespace akira::platform::deko3d
 class Deko3dDecoder final : public akira::platform::VideoDecoder
 {
 public:
-    using FrameReadyCallback = std::function<void(AVFrame*)>;
+    using FrameReadyCallback = std::function<void(const VideoFrame&)>;
 
     Deko3dDecoder();
     ~Deko3dDecoder() override;
@@ -64,6 +66,9 @@ public:
     bool lastDecodeCorrupt() const override { return m_corrupt_in_call; }
 
 private:
+    static std::optional<VideoFrame> adoptFrame(AVFrame* frame);
+    static constexpr std::uint32_t NvdecBlockHeightLog2 = 1;
+
     void noteDecodeSample(std::chrono::steady_clock::duration d);
     void notePacketArrival(std::chrono::steady_clock::time_point now);
     void publishStats(std::chrono::steady_clock::time_point now);

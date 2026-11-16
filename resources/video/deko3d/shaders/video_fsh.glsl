@@ -50,6 +50,13 @@ layout (binding = 0, std140) uniform FsrRcasConstants {
 #endif
 
 #ifdef DITHER_NOISE
+#ifndef DITHER_STRENGTH
+layout (binding = 1, std140) uniform DitherConstants {
+    float DitherStrengthUniform;
+};
+#define DITHER_STRENGTH DitherStrengthUniform
+#endif
+
 float interleavedGradientNoise(vec2 uv) {
     return fract(52.9829189 * fract(dot(uv, vec2(0.06711056, 0.00583715))));
 }

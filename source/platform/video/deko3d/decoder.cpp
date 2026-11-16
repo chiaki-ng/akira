@@ -3,6 +3,7 @@
 #include <bit>
 #include <chrono>
 #include <cstring>
+#include <memory>
 #include "core/exception.hpp"
 #include "core/settings_manager.hpp"
 #include "util/av_wrappers.hpp"
@@ -25,6 +26,38 @@ Deko3dDecoder::Deko3dDecoder()
 Deko3dDecoder::~Deko3dDecoder()
 {
     cleanup();
+}
+
+std::optional<VideoFrame> Deko3dDecoder::adoptFrame(AVFrame* frame)
+{
+    std::shared_ptr<AVFrame> owned(frame, [](AVFrame* f) { av_frame_free(&f); });
+#ifdef BOREALIS_USE_DEKO3D
+    if (frame->format != AV_PIX_FMT_NVTEGRA || !frame->data[0] || !frame->buf[0])
+        return std::nullopt;
+
+    AVNVTegraMap* map = av_nvtegra_frame_get_fbuf_map(frame);
+    if (!map)
+        return std::nullopt;
+
+    void* storage = av_nvtegra_map_get_addr(map);
+    const std::size_t size = av_nvtegra_map_get_size(map);
+    return VideoFrame{
+        .width = frame->width,
+        .height = frame->height,
+        .storage = storage,
+        .storageSize = size,
+        .chromaOffset = static_cast<std::size_t>(frame->data[1] - frame->data[0]),
+        .lumaPitch = static_cast<std::uint32_t>(frame->linesize[0]),
+        .chromaPitch = static_cast<std::uint32_t>(frame->linesize[1]),
+        .layout = PlaneLayout::BlockLinear,
+        .blockHeightLog2 = NvdecBlockHeightLog2,
+        .cacheKey = av_nvtegra_map_get_handle(map),
+        .lifetime = owned,
+        .prepareCpuRead = [map, storage, size] { av_nvtegra_map_cache_op(map, NVMAP_CACHE_OP_INV, storage, size); },
+    };
+#else
+    return std::nullopt;
+#endif
 }
 
 bool Deko3dDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, int height)
@@ -261,7 +294,8 @@ bool Deko3dDecoder::decode(const AVBufferHandle& data, std::size_t size)
                 m_frames_emitted++;
                 if (m_frame_ready_callback)
                 {
-                    m_frame_ready_callback(queued_frame);
+                    if (auto frame = adoptFrame(queued_frame))
+                        m_frame_ready_callback(*frame);
                 }
                 else
                 {

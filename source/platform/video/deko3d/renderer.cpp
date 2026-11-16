@@ -15,12 +15,12 @@
 #include <cstdio>
 #include <cstring>
 #include <format>
-#include <uam.h>
+#include <iterator>
+#include <utility>
 
 extern "C"
 {
 #include <libavutil/pixfmt.h>
-#include <libavutil/hwcontext_nvtegra.h>
 #include <libswscale/swscale.h>
 }
 
@@ -77,82 +77,16 @@ namespace
     }
 }
 
-static std::string loadShaderSource(const char* path)
-{
-    FILE* f = fopen(path, "rb");
-    if (!f)
-    {
-        brls::Logger::error("Failed to open shader source: {}", path);
-        return "";
-    }
-
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    rewind(f);
-
-    std::string source(size, '\0');
-    fread(&source[0], 1, size, f);
-    fclose(f);
-    return source;
-}
-
 void Deko3dRenderer::setConnectionContext(const std::string& context)
 {
     m_connection_context = context;
     m_ovl_dirty = true;
 }
 
-static std::string injectShaderDefines(const std::string& source, const std::string& defines)
+Deko3dRenderer::Deko3dRenderer(std::unique_ptr<ShaderSource> shaders, std::string decoderLabel)
+    : m_shaders(std::move(shaders))
+    , m_decoder_label(std::move(decoderLabel))
 {
-    if (defines.empty())
-        return source;
-
-    // Find #version directive if it exists
-    size_t version_pos = source.find("#version");
-    if (version_pos == std::string::npos)
-    {
-        // No #version, insert at first newline
-        auto pos = source.find('\n');
-        if (pos == std::string::npos)
-            return source + "\n" + defines;
-        std::string result = source;
-        result.insert(pos + 1, defines);
-        return result;
-    }
-
-    // Found #version, insert after the #version line
-    size_t insert_pos = source.find('\n', version_pos);
-    if (insert_pos == std::string::npos)
-        return source + "\n" + defines;
-
-    std::string result = source;
-    result.insert(insert_pos + 1, defines);
-    return result;
-}
-
-static std::string buildVideoFragmentDefines(bool dithering, bool fsrEasu, bool fsrRcas, bool fsrPass)
-{
-    std::string defines;
-
-    if (fsrEasu)
-        defines += "#define FSR_EASU\n";
-    if (fsrRcas)
-        defines += "#define FSR_RCAS\n";
-    if (fsrPass)
-        defines += "#define FSR_PASS\n";
-    if (dithering)
-    {
-        float strength = SettingsManager::getInstance()->getDitheringStrength();
-        defines += std::format("#define DITHER_NOISE\n#define DITHER_STRENGTH {:.1f}\n", strength);
-    }
-
-    return defines;
-}
-
-Deko3dRenderer::Deko3dRenderer()
-{
-    uam_init();
-    m_uam_initialized = true;
 }
 
 Deko3dRenderer::~Deko3dRenderer()
@@ -167,12 +101,6 @@ Deko3dRenderer::~Deko3dRenderer()
     m_fsr_easu_shader = nullptr;
     m_fsr_rcas_shader = nullptr;
     m_fsr_pass_shader = nullptr;
-
-    if (m_uam_initialized)
-    {
-        uam_deinit();
-        m_uam_initialized = false;
-    }
 }
 
 bool Deko3dRenderer::initialize(int frame_width, int frame_height)
@@ -219,6 +147,12 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
         m_overlay_norm_y.store(saved_y, std::memory_order_relaxed);
     }
 
+    if (ditherUniformNeeded())
+    {
+        m_dither_uniform = m_pool_data->allocate(DK_UNIFORM_BUF_ALIGNMENT, DK_UNIFORM_BUF_ALIGNMENT);
+        writeDitherUniform();
+    }
+
     bool dithering = SettingsManager::getInstance()->getEnableDithering();
     if (!compileVideoShaders(dithering))
     {
@@ -239,39 +173,51 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
     return true;
 }
 
-bool Deko3dRenderer::setupTextures(AVFrame* frame)
+Deko3dRenderer::FrameFormat Deko3dRenderer::formatOf(const VideoFrame& frame)
+{
+    FrameFormat format{ .width = frame.width, .height = frame.height, .layout = frame.layout };
+    if (frame.layout == PlaneLayout::PitchLinear)
+    {
+        format.lumaPitch = frame.lumaPitch;
+        format.chromaPitch = frame.chromaPitch;
+    }
+    return format;
+}
+
+void Deko3dRenderer::initializePlaneLayout(dk::ImageLayout& layout, DkImageFormat format,
+                                           int width, int height, uint32_t pitch) const
+{
+    dk::ImageLayoutMaker maker{m_device};
+    maker.setType(DkImageType_2D)
+        .setFormat(format)
+        .setDimensions(width, height, 1);
+    if (m_frame_format.layout == PlaneLayout::PitchLinear)
+        maker.setFlags(DkImageFlags_PitchLinear | DkImageFlags_Usage2DEngine).setPitchStride(pitch);
+    else
+        maker.setFlags(DkImageFlags_UsageLoadStore | DkImageFlags_Usage2DEngine | DkImageFlags_UsageVideo);
+    maker.initialize(layout);
+}
+
+bool Deko3dRenderer::setupTextures(const VideoFrame& frame)
 {
     if (m_textures_initialized)
         return true;
 
-    brls::Logger::info("Deko3dRenderer::setupTextures: frame={}x{}, format={}",
-        frame->width, frame->height, static_cast<int>(frame->format));
+    m_frame_format = formatOf(frame);
+    brls::Logger::info("Deko3dRenderer::setupTextures: frame={}x{}, pitch_linear={}, pitch={}/{}",
+        frame.width, frame.height, frame.layout == PlaneLayout::PitchLinear,
+        m_frame_format.lumaPitch, m_frame_format.chromaPitch);
 
-    if (frame->format != AV_PIX_FMT_NVTEGRA)
-    {
-        brls::Logger::error("Frame is not NVTEGRA (format={})", static_cast<int>(frame->format));
-        return false;
-    }
-
-    m_frame_width = frame->width;
-    m_frame_height = frame->height;
+    m_frame_width = frame.width;
+    m_frame_height = frame.height;
 
     m_luma_texture_id = m_vctx->allocateImageIndex();
     m_chroma_texture_id = m_vctx->allocateImageIndex();
 
-    dk::ImageLayoutMaker{m_device}
-        .setType(DkImageType_2D)
-        .setFormat(DkImageFormat_R8_Unorm)
-        .setDimensions(m_frame_width, m_frame_height, 1)
-        .setFlags(DkImageFlags_UsageLoadStore | DkImageFlags_Usage2DEngine | DkImageFlags_UsageVideo)
-        .initialize(m_luma_layout);
-
-    dk::ImageLayoutMaker{m_device}
-        .setType(DkImageType_2D)
-        .setFormat(DkImageFormat_RG8_Unorm)
-        .setDimensions(m_frame_width / 2, m_frame_height / 2, 1)
-        .setFlags(DkImageFlags_UsageLoadStore | DkImageFlags_Usage2DEngine | DkImageFlags_UsageVideo)
-        .initialize(m_chroma_layout);
+    initializePlaneLayout(m_luma_layout, DkImageFormat_R8_Unorm,
+        m_frame_width, m_frame_height, m_frame_format.lumaPitch);
+    initializePlaneLayout(m_chroma_layout, DkImageFormat_RG8_Unorm,
+        m_frame_width / 2, m_frame_height / 2, m_frame_format.chromaPitch);
 
     bool easuSetting = SettingsManager::getInstance()->getEasuEnabled();
     bool rcasSetting = SettingsManager::getInstance()->getRcasEnabled();
@@ -292,8 +238,7 @@ void Deko3dRenderer::releaseTextures()
 {
     m_queue.waitIdle();
 
-    if (m_current_frame)
-        av_frame_free(&m_current_frame);
+    m_current_frame.reset();
     m_frame_bound = false;
 
     cleanupFsr();
@@ -332,6 +277,7 @@ void Deko3dRenderer::recordStaticVideoCommands()
     m_cmdbuf.bindShaders(DkStageFlag_GraphicsMask, { m_vertex_shader, *m_fragment_shader });
     m_cmdbuf.bindTextures(DkStage_Fragment, 0, dkMakeTextureHandle(m_luma_texture_id, 0));
     m_cmdbuf.bindTextures(DkStage_Fragment, 1, dkMakeTextureHandle(m_chroma_texture_id, 0));
+    bindDitherUniform(m_cmdbuf);
 
     m_cmdbuf.bindVtxBuffer(0, m_vertex_buffer.getGpuAddr(), m_vertex_buffer.getSize());
     m_cmdbuf.bindVtxAttribState(VertexAttribState);
@@ -343,47 +289,26 @@ void Deko3dRenderer::recordStaticVideoCommands()
     brls::Logger::info("Deko3dRenderer: static video command list recorded");
 }
 
-bool Deko3dRenderer::compileShaderFromSource(CShader& shader, const std::string& source, bool isVertex)
+bool Deko3dRenderer::loadShader(CShader& shader, std::optional<ShaderSource::Code> code)
 {
-    uint8_t* dksh_out = nullptr;
-    uint32_t dksh_size = 0;
-
-    uam_pipeline_stage stage = isVertex ? uam_pipeline_stage_vertex : uam_pipeline_stage_fragment;
-
-    brls::Logger::info("Deko3dRenderer: compiling {} shader ({} bytes)",
-        isVertex ? "vertex" : "fragment", source.size());
-
-    if (!uam_compileDksh(stage, source.c_str(), 3, &dksh_out, &dksh_size))
-    {
-        brls::Logger::error("Deko3dRenderer: failed to compile {} shader",
-            isVertex ? "vertex" : "fragment");
+    if (!code)
         return false;
-    }
-
-    brls::Logger::info("Deko3dRenderer: {} shader compiled ({} bytes dksh)",
-        isVertex ? "vertex" : "fragment", dksh_size);
 
     shader.destroy();
-    bool result = shader.loadFromMemory(*m_pool_code, dksh_out, dksh_size);
-    std::free(dksh_out);
-
-    if (!result)
-        brls::Logger::error("Deko3dRenderer: failed to load compiled {} shader into GPU memory",
-            isVertex ? "vertex" : "fragment");
-
-    return result;
+    if (!shader.loadFromMemory(*m_pool_code, code->data(), static_cast<uint32_t>(code->size())))
+    {
+        brls::Logger::error("Deko3dRenderer: failed to load shader into GPU memory");
+        return false;
+    }
+    return true;
 }
 
 bool Deko3dRenderer::ensureVertexShaderCompiled()
 {
-    std::string vsh_source = loadShaderSource("romfs:/shaders/video_vsh.glsl");
-    if (vsh_source.empty())
-        return false;
-
-    return compileShaderFromSource(m_vertex_shader, vsh_source, true);
+    return loadShader(m_vertex_shader, m_shaders->load(StaticShader::VideoVertex));
 }
 
-CShader* Deko3dRenderer::getOrCreateFragmentShader(const ShaderVariantKey& key)
+CShader* Deko3dRenderer::getOrCreateFragmentShader(const VideoFragmentVariant& key)
 {
     for (auto& variant : m_fragment_shader_cache)
     {
@@ -391,21 +316,36 @@ CShader* Deko3dRenderer::getOrCreateFragmentShader(const ShaderVariantKey& key)
             return &variant->shader;
     }
 
-    std::string fsh_source = loadShaderSource("romfs:/shaders/video_fsh.glsl");
-    if (fsh_source.empty())
-        return nullptr;
-
     auto variant = std::make_unique<CachedFragmentShader>();
     variant->key = key;
 
-    if (!compileShaderFromSource(variant->shader,
-        injectShaderDefines(fsh_source,
-            buildVideoFragmentDefines(key.dithering, key.fsrEasu, key.fsrRcas, key.fsrPass)), false))
+    if (!loadShader(variant->shader, m_shaders->load(key)))
         return nullptr;
 
     CShader* shader = &variant->shader;
     m_fragment_shader_cache.emplace_back(std::move(variant));
     return shader;
+}
+
+bool Deko3dRenderer::ditherUniformNeeded() const
+{
+    return m_shaders->ditherStrength() == DitherStrength::Uniform;
+}
+
+void Deko3dRenderer::writeDitherUniform()
+{
+    if (!m_dither_uniform)
+        return;
+
+    const std::array<float, 4> constants{ SettingsManager::getInstance()->getDitheringStrength(), 0.0f, 0.0f, 0.0f };
+    memcpy(m_dither_uniform.getCpuAddr(), constants.data(), sizeof(constants));
+}
+
+void Deko3dRenderer::bindDitherUniform(dk::CmdBuf cmdbuf)
+{
+    if (m_dither_uniform)
+        cmdbuf.bindUniformBuffer(DkStage_Fragment, DitherUniformBinding,
+            m_dither_uniform.getGpuAddr(), m_dither_uniform.getSize());
 }
 
 bool Deko3dRenderer::compileVideoShaders(bool dithering)
@@ -415,13 +355,14 @@ bool Deko3dRenderer::compileVideoShaders(bool dithering)
     if (!ensureVertexShaderCompiled())
         return false;
 
-    m_fragment_shader = getOrCreateFragmentShader(ShaderVariantKey{
+    m_fragment_shader = getOrCreateFragmentShader(VideoFragmentVariant{
         .dithering = dithering,
     });
     if (!m_fragment_shader)
         return false;
 
     m_dithering_enabled = dithering;
+    writeDitherUniform();
     brls::Logger::info("Deko3dRenderer: video shaders compiled successfully");
     return true;
 }
@@ -480,7 +421,7 @@ void Deko3dRenderer::initFsr()
 
     if (m_easu_enabled)
     {
-        m_fsr_easu_shader = getOrCreateFragmentShader(ShaderVariantKey{
+        m_fsr_easu_shader = getOrCreateFragmentShader(VideoFragmentVariant{
             .dithering = dithering,
             .fsrEasu = true,
         });
@@ -489,13 +430,13 @@ void Deko3dRenderer::initFsr()
     }
     if (m_rcas_enabled)
     {
-        m_fsr_rcas_shader = getOrCreateFragmentShader(ShaderVariantKey{
+        m_fsr_rcas_shader = getOrCreateFragmentShader(VideoFragmentVariant{
             .fsrRcas = true,
         });
         if (!m_fsr_rcas_shader)
             return;
     }
-    m_fsr_pass_shader = getOrCreateFragmentShader(ShaderVariantKey{
+    m_fsr_pass_shader = getOrCreateFragmentShader(VideoFragmentVariant{
         .fsrPass = true,
     });
     if (!m_fsr_pass_shader)
@@ -638,12 +579,14 @@ void Deko3dRenderer::recordFsrCommands()
         m_fsr_static_cmdbuf.bindTextures(DkStage_Fragment, 1, dkMakeTextureHandle(m_chroma_texture_id, 0));
         m_fsr_static_cmdbuf.bindUniformBuffer(DkStage_Fragment, 0,
             m_fsr_uniform_buffer.getGpuAddr(), 64);
+        bindDitherUniform(m_fsr_static_cmdbuf);
     }
     else
     {
         m_fsr_static_cmdbuf.bindShaders(DkStageFlag_GraphicsMask, { m_vertex_shader, *m_fragment_shader });
         m_fsr_static_cmdbuf.bindTextures(DkStage_Fragment, 0, dkMakeTextureHandle(m_luma_texture_id, 0));
         m_fsr_static_cmdbuf.bindTextures(DkStage_Fragment, 1, dkMakeTextureHandle(m_chroma_texture_id, 0));
+        bindDitherUniform(m_fsr_static_cmdbuf);
     }
     m_fsr_static_cmdbuf.bindVtxBuffer(0, m_vertex_buffer.getGpuAddr(), m_vertex_buffer.getSize());
     m_fsr_static_cmdbuf.bindVtxAttribState(VertexAttribState);
@@ -690,18 +633,18 @@ void Deko3dRenderer::cleanupFsr()
     m_fsr_enabled = false;
 }
 
-void Deko3dRenderer::draw(AVFrame* frame)
+void Deko3dRenderer::draw(const VideoFrame& frame)
 {
     if (!m_initialized)
         return;
 
-    if (!frame || frame->format != AV_PIX_FMT_NVTEGRA)
+    if (!frame.storage || frame.width <= 0 || frame.height <= 0)
         return;
 
-    if (m_textures_initialized && (frame->width != m_frame_width || frame->height != m_frame_height))
+    if (m_textures_initialized && formatOf(frame) != m_frame_format)
     {
-        brls::Logger::info("Deko3dRenderer: frame size changed from {}x{} to {}x{}, rebuilding textures",
-            m_frame_width, m_frame_height, frame->width, frame->height);
+        brls::Logger::info("Deko3dRenderer: frame format changed from {}x{} to {}x{}, rebuilding textures",
+            m_frame_width, m_frame_height, frame.width, frame.height);
         releaseTextures();
     }
 
@@ -714,21 +657,11 @@ void Deko3dRenderer::draw(AVFrame* frame)
     if (m_paused.load(std::memory_order_relaxed))
         return;
 
-    AVFrame* new_ref = av_frame_alloc();
-    if (!new_ref || av_frame_ref(new_ref, frame) < 0)
-    {
-        if (new_ref) av_frame_free(&new_ref);
-        return;
-    }
-
-    if (m_current_frame)
-        av_frame_free(&m_current_frame);
-
-    m_current_frame = new_ref;
+    m_current_frame = frame;
     m_frame_bound = true;
 }
 
-void Deko3dRenderer::presentFrame(AVFrame* frame)
+void Deko3dRenderer::presentFrame(const VideoFrame& frame)
 {
     draw(frame);
 
@@ -778,19 +711,17 @@ void Deko3dRenderer::renderVideo()
     if (!m_fsr_enabled && !m_video_cmdlist)
         return;
 
-    AVFrame* bound = m_current_frame;
+    const VideoFrame* bound = nullptr;
     {
         std::lock_guard lock(m_frame_ring_mutex);
-        const int oldest = m_frame_ring_index;
-        if (m_frame_ring[oldest])
-            av_frame_free(&m_frame_ring[oldest]);
-
-        m_frame_ring[oldest] = m_current_frame;
-        m_current_frame = nullptr;
+        auto& slot = m_frame_ring[m_frame_ring_index];
+        slot = std::move(m_current_frame);
+        m_current_frame.reset();
+        bound = &*slot;
         m_frame_ring_index = (m_frame_ring_index + 1) % FRAME_RING_SIZE;
     }
 
-    updateFrameBindings(bound);
+    updateFrameBindings(*bound);
 
     if (m_fsr_enabled)
     {
@@ -898,43 +829,30 @@ void Deko3dRenderer::unregisterCallback()
     brls::Logger::info("Deko3dRenderer: post-render callback unregistered");
 }
 
-void Deko3dRenderer::updateFrameBindings(AVFrame* frame)
+void Deko3dRenderer::updateFrameBindings(const VideoFrame& frame)
 {
-    AVNVTegraMap* map = av_nvtegra_frame_get_fbuf_map(frame);
-    if (!map)
-        return;
-
-    uint32_t handle = av_nvtegra_map_get_handle(map);
-    void* cpuAddr = av_nvtegra_map_get_addr(map);
-    uint32_t size = av_nvtegra_map_get_size(map);
-    uint32_t chromaOffset = static_cast<uint32_t>(frame->data[1] - frame->data[0]);
-
-    int mappingIndex = -1;
-    for (size_t i = 0; i < m_frame_mappings.size(); ++i)
-    {
-        const auto& m = m_frame_mappings[i];
-        if (m.handle == handle && m.cpuAddr == cpuAddr && m.size == size && m.chromaOffset == chromaOffset)
-        {
-            mappingIndex = static_cast<int>(i);
-            break;
-        }
-    }
+    const auto match = std::ranges::find_if(m_frame_mappings, [&](const FrameMapping& m) {
+        return m.cacheKey == frame.cacheKey && m.storage == frame.storage
+            && m.size == frame.storageSize && m.chromaOffset == frame.chromaOffset;
+    });
+    int mappingIndex = match == m_frame_mappings.end()
+        ? -1 : static_cast<int>(std::distance(m_frame_mappings.begin(), match));
 
     if (mappingIndex < 0)
     {
         FrameMapping mapping;
-        mapping.handle = handle;
-        mapping.cpuAddr = cpuAddr;
-        mapping.size = size;
-        mapping.chromaOffset = chromaOffset;
+        mapping.cacheKey = frame.cacheKey;
+        mapping.storage = frame.storage;
+        mapping.size = frame.storageSize;
+        mapping.chromaOffset = frame.chromaOffset;
 
-        mapping.memblock = dk::MemBlockMaker{m_device, size}
+        mapping.memblock = dk::MemBlockMaker{m_device, static_cast<uint32_t>(frame.storageSize)}
             .setFlags(DkMemBlockFlags_CpuUncached | DkMemBlockFlags_GpuCached | DkMemBlockFlags_Image)
-            .setStorage(cpuAddr)
+            .setStorage(frame.storage)
             .create();
 
         mapping.luma.initialize(m_luma_layout, mapping.memblock, 0);
-        mapping.chroma.initialize(m_chroma_layout, mapping.memblock, chromaOffset);
+        mapping.chroma.initialize(m_chroma_layout, mapping.memblock, static_cast<uint32_t>(frame.chromaOffset));
 
         mapping.lumaDesc.initialize(mapping.luma);
         mapping.chromaDesc.initialize(mapping.chroma);
@@ -985,22 +903,18 @@ void Deko3dRenderer::cleanup()
 
     m_queue.waitIdle();
 
-    if (m_current_frame)
-        av_frame_free(&m_current_frame);
+    m_current_frame.reset();
 
     {
         std::lock_guard lock(m_frame_ring_mutex);
-        for (int i = 0; i < FRAME_RING_SIZE; ++i)
-        {
-            if (m_frame_ring[i])
-                av_frame_free(&m_frame_ring[i]);
-        }
+        m_frame_ring.fill(std::nullopt);
         m_frame_ring_index = 0;
     }
 
     cleanupFsr();
 
     m_vertex_buffer.destroy();
+    m_dither_uniform.destroy();
 
     if (m_luma_texture_id) {
         m_vctx->freeImageIndex(m_luma_texture_id);
@@ -1020,6 +934,7 @@ void Deko3dRenderer::cleanup()
 
     m_luma_layout = dk::ImageLayout{};
     m_chroma_layout = dk::ImageLayout{};
+    m_frame_format = FrameFormat{};
 
     m_frame_bound = false;
 
@@ -1080,7 +995,7 @@ void Deko3dRenderer::rebuildOverlayText()
 
     m_ov.out_res = std::format("{}x{}", m_stats.video_width, m_stats.video_height);
     m_ov.out_codec = m_stats.is_hevc ? "HEVC" : "H.264";
-    m_ov.out_path = m_stats.is_hardware_decoder ? "NVTEGRA" : "SW";
+    m_ov.out_path = m_stats.is_hardware_decoder ? m_decoder_label : std::string("SW");
 
     m_ov.fsr_active = m_fsr_enabled;
     m_ov.fsr_path.clear();
@@ -1792,17 +1707,9 @@ bool Deko3dRenderer::ensureOverlayShaders()
     if (!m_pool_data)
         return false;
 
-    std::string vsh = loadShaderSource("romfs:/shaders/overlay_vsh.glsl");
-    std::string fsh = loadShaderSource("romfs:/shaders/overlay_fsh.glsl");
-    std::string bsh = loadShaderSource("romfs:/shaders/border_fsh.glsl");
-    if (vsh.empty() || fsh.empty() || bsh.empty())
-    {
-        brls::Logger::error("overlay: blit shader sources missing");
-        return false;
-    }
-    if (!compileShaderFromSource(m_ovl_vertex_shader, vsh, true) ||
-        !compileShaderFromSource(m_ovl_fragment_shader, fsh, false) ||
-        !compileShaderFromSource(m_border_fragment_shader, bsh, false))
+    if (!loadShader(m_ovl_vertex_shader, m_shaders->load(StaticShader::OverlayVertex)) ||
+        !loadShader(m_ovl_fragment_shader, m_shaders->load(StaticShader::OverlayFragment)) ||
+        !loadShader(m_border_fragment_shader, m_shaders->load(StaticShader::BorderFragment)))
     {
         brls::Logger::error("overlay: blit shader compilation failed");
         return false;
@@ -2143,65 +2050,48 @@ bool Deko3dRenderer::captureLastFrame(std::vector<uint8_t>& rgba, int& width, in
     if (!m_initialized)
         return false;
 
-    using Frame = std::unique_ptr<AVFrame, decltype([](AVFrame* frame) { av_frame_free(&frame); })>;
-    Frame held;
+    std::optional<VideoFrame> held;
     {
         std::lock_guard lock(m_frame_ring_mutex);
         const int newest = (m_frame_ring_index - 1 + FRAME_RING_SIZE) % FRAME_RING_SIZE;
-        if (m_frame_ring[newest])
-            held.reset(av_frame_clone(m_frame_ring[newest]));
+        held = m_frame_ring[newest];
     }
-    AVFrame* src = held.get();
-    if (!src || src->width <= 0 || src->height <= 0)
+    if (!held || !held->storage || held->width <= 0 || held->height <= 0)
         return false;
 
-    AVFrame* sw = av_frame_alloc();
-    if (!sw)
-        return false;
+    const VideoFrame& src = *held;
+    if (src.prepareCpuRead)
+        src.prepareCpuRead();
 
-    bool owns_sw = true;
-    if (src->hw_frames_ctx)
-    {
-        const auto* frames = reinterpret_cast<const AVHWFramesContext*>(src->hw_frames_ctx->data);
-        sw->format = frames->sw_format;
-        sw->width = src->width;
-        sw->height = src->height;
-        if (av_frame_get_buffer(sw, HW_TRANSFER_ALIGNMENT) < 0 || av_hwframe_transfer_data(sw, src, 0) < 0)
-        {
-            av_frame_free(&sw);
-            return false;
-        }
-    }
-    else
-    {
-        av_frame_free(&sw);
-        sw = src;
-        owns_sw = false;
-    }
+    const int srcW = src.width & ~1;
+    const int srcH = src.height & ~1;
+    const uint32_t rowBytes = static_cast<uint32_t>(srcW);
+    std::vector<uint8_t> nv12(static_cast<size_t>(rowBytes) * srcH * 3 / 2);
+    const std::span<uint8_t> luma{nv12.data(), static_cast<size_t>(rowBytes) * srcH};
+    const std::span<uint8_t> chroma = std::span<uint8_t>{nv12}.subspan(luma.size());
+    copyPlane(src, 0, src.lumaPitch, rowBytes, srcH, luma);
+    copyPlane(src, src.chromaOffset, src.chromaPitch, rowBytes, srcH / 2, chroma);
 
     int dstW = CAPTURE_WIDTH;
-    int dstH = (int)((int64_t)dstW * src->height / src->width) & ~1;
+    int dstH = (int)((int64_t)dstW * srcH / srcW) & ~1;
     if (dstH <= 0)
         dstH = CAPTURE_WIDTH * 9 / 16;
 
     SwsContext* sws = sws_getContext(
-        sw->width, sw->height, (AVPixelFormat)sw->format,
+        srcW, srcH, AV_PIX_FMT_NV12,
         dstW, dstH, AV_PIX_FMT_RGBA,
         SWS_BILINEAR, nullptr, nullptr, nullptr);
     if (!sws)
-    {
-        if (owns_sw) av_frame_free(&sw);
         return false;
-    }
 
     rgba.assign((size_t)dstW * dstH * 4, 0);
+    const uint8_t* srcData[4] = { luma.data(), chroma.data(), nullptr, nullptr };
+    const int srcLinesize[4] = { srcW, srcW, 0, 0 };
     uint8_t* dstData[4] = { rgba.data(), nullptr, nullptr, nullptr };
     int dstLinesize[4] = { dstW * 4, 0, 0, 0 };
 
-    int scaled = sws_scale(sws, sw->data, sw->linesize, 0, sw->height, dstData, dstLinesize);
+    int scaled = sws_scale(sws, srcData, srcLinesize, 0, srcH, dstData, dstLinesize);
     sws_freeContext(sws);
-    if (owns_sw)
-        av_frame_free(&sw);
 
     if (scaled <= 0)
     {
@@ -2213,6 +2103,54 @@ bool Deko3dRenderer::captureLastFrame(std::vector<uint8_t>& rgba, int& width, in
     height = dstH;
     return true;
 }
+
+void Deko3dRenderer::copyPlane(const VideoFrame& frame, size_t offset, uint32_t pitch,
+                               uint32_t rowBytes, int rows, std::span<uint8_t> dst)
+{
+    const auto* base = static_cast<const uint8_t*>(frame.storage) + offset;
+    const size_t available = frame.storageSize > offset ? frame.storageSize - offset : 0;
+
+    for (int y = 0; y < rows; ++y)
+    {
+        uint8_t* out = dst.data() + static_cast<size_t>(y) * rowBytes;
+        if (frame.layout == PlaneLayout::PitchLinear)
+        {
+            const size_t start = static_cast<size_t>(y) * pitch;
+            if (start + rowBytes > available)
+                return;
+            std::memcpy(out, base + start, rowBytes);
+            continue;
+        }
+        for (uint32_t x = 0; x < rowBytes; x += 16)
+        {
+            const size_t start = blockLinearOffset(x, static_cast<uint32_t>(y), pitch, frame.blockHeightLog2);
+            const uint32_t span = std::min<uint32_t>(16, rowBytes - x);
+            if (start + span > available)
+                return;
+            std::memcpy(out + x, base + start, span);
+        }
+    }
+}
+
+size_t Deko3dRenderer::blockLinearOffset(uint32_t x, uint32_t y, uint32_t pitch, uint32_t blockHeightLog2)
+{
+    constexpr uint32_t GobWidth = 64;
+    constexpr uint32_t GobHeight = 8;
+    constexpr uint32_t GobSize = GobWidth * GobHeight;
+
+    const uint32_t blockRows = GobHeight << blockHeightLog2;
+    const size_t blockSize = static_cast<size_t>(GobSize) << blockHeightLog2;
+    const uint32_t gobsPerRow = pitch / GobWidth;
+
+    const size_t blockRow = y / blockRows;
+    const uint32_t gobInBlock = (y % blockRows) / GobHeight;
+    const uint32_t gx = x % GobWidth;
+    const uint32_t gy = y % GobHeight;
+
+    const size_t gobOffset = ((gx / 32) * 256) + ((gy / 2) * 64) + (((gx % 32) / 16) * 32) + ((gy % 2) * 16) + (gx % 16);
+    return blockRow * gobsPerRow * blockSize + (x / GobWidth) * blockSize + gobInBlock * GobSize + gobOffset;
+}
+
 
 
 }

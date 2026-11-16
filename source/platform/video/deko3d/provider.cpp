@@ -4,6 +4,7 @@
 
 #include "platform/video/deko3d/renderer.hpp"
 #include "platform/video/deko3d/decoder.hpp"
+#include "platform/video/deko3d/uam_shader_source.hpp"
 
 namespace akira::platform::deko3d
 {
@@ -32,20 +33,19 @@ VideoRenderer* Deko3dVideoProvider::renderer()
 bool Deko3dVideoProvider::startRenderer(int width, int height, FrameHooks hooks)
 {
     brls::Logger::info("Creating {} renderer", name());
-    auto renderer = std::make_unique<Deko3dRenderer>();
+    auto renderer = std::make_unique<Deko3dRenderer>(
+        std::make_unique<UamShaderSource>("romfs:/shaders"), std::string(decoderStat()));
     if (!renderer->initialize(width, height))
         return false;
     m_renderer = std::move(renderer);
 
-    m_decoder->setFrameReadyCallback([this, hooks = std::move(hooks)](AVFrame* frame) {
-        if (frame && frame->data[0] && m_renderer)
-        {
-            hooks.arriving(FrameInfo{ .width = static_cast<std::uint32_t>(frame->width),
-                .height = static_cast<std::uint32_t>(frame->height) });
-            m_renderer->presentFrame(frame);
-            hooks.presented();
-        }
-        av_frame_free(&frame);
+    m_decoder->setFrameReadyCallback([this, hooks = std::move(hooks)](const VideoFrame& frame) {
+        if (!m_renderer)
+            return;
+        hooks.arriving(FrameInfo{ .width = static_cast<std::uint32_t>(frame.width),
+            .height = static_cast<std::uint32_t>(frame.height) });
+        m_renderer->presentFrame(frame);
+        hooks.presented();
     });
     return true;
 }

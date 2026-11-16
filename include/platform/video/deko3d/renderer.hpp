@@ -6,11 +6,13 @@
 #include "platform/video/renderer.hpp"
 
 #include <deko3d.hpp>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -22,10 +24,8 @@
 #include <nanovg/framework/CCmdMemRing.h>
 #include <nanovg/framework/CDescriptorSet.h>
 
-extern "C"
-{
-#include <libavutil/hwcontext_nvtegra.h>
-}
+#include "platform/video/deko3d/frame.hpp"
+#include "platform/video/deko3d/shader_source.hpp"
 
 namespace akira::platform::deko3d
 {
@@ -33,13 +33,15 @@ namespace akira::platform::deko3d
 class Deko3dRenderer : public VideoRenderer
 {
 public:
-    Deko3dRenderer();
+    Deko3dRenderer(std::unique_ptr<ShaderSource> shaders, std::string decoderLabel);
     ~Deko3dRenderer() override;
+    Deko3dRenderer(const Deko3dRenderer&) = delete;
+    Deko3dRenderer& operator=(const Deko3dRenderer&) = delete;
 
     bool initialize(int frame_width, int frame_height) override;
     bool isInitialized() const override { return m_initialized; }
-    void draw(AVFrame* frame);
-    void presentFrame(AVFrame* frame);
+    void draw(const VideoFrame& frame);
+    void presentFrame(const VideoFrame& frame);
     void cleanup() override;
     void waitIdle() override;
 
@@ -72,6 +74,8 @@ public:
     void setDithering(bool enabled);
 
 private:
+    std::unique_ptr<ShaderSource> m_shaders;
+    std::string m_decoder_label;
     std::atomic<bool> m_paused{false};
     std::optional<CMemPool> m_pool_code;
     std::optional<CMemPool> m_pool_data;
@@ -224,17 +228,8 @@ private:
 
     CShader m_vertex_shader;
 
-    struct ShaderVariantKey {
-        bool dithering = false;
-        bool fsrEasu = false;
-        bool fsrRcas = false;
-        bool fsrPass = false;
-
-        bool operator==(const ShaderVariantKey& other) const = default;
-    };
-
     struct CachedFragmentShader {
-        ShaderVariantKey key;
+        VideoFragmentVariant key;
         CShader shader;
     };
 
@@ -245,11 +240,23 @@ private:
     dk::ImageLayout m_luma_layout;
     dk::ImageLayout m_chroma_layout;
 
+    struct FrameFormat {
+        int width = 0;
+        int height = 0;
+        PlaneLayout layout = PlaneLayout::BlockLinear;
+        uint32_t lumaPitch = 0;
+        uint32_t chromaPitch = 0;
+
+        bool operator==(const FrameFormat& other) const = default;
+    };
+
+    FrameFormat m_frame_format;
+
     struct FrameMapping {
-        uint32_t handle = 0;
-        void* cpuAddr = nullptr;
-        uint32_t size = 0;
-        uint32_t chromaOffset = 0;
+        uint64_t cacheKey = 0;
+        void* storage = nullptr;
+        size_t size = 0;
+        size_t chromaOffset = 0;
         dk::UniqueMemBlock memblock;
         dk::Image luma;
         dk::Image chroma;
@@ -265,17 +272,23 @@ private:
 
     bool m_textures_initialized = false;
 
-    bool setupTextures(AVFrame* frame);
+    static FrameFormat formatOf(const VideoFrame& frame);
+    bool setupTextures(const VideoFrame& frame);
+    void initializePlaneLayout(dk::ImageLayout& layout, DkImageFormat format, int width, int height, uint32_t pitch) const;
     void releaseTextures();
-    void updateFrameBindings(AVFrame* frame);
+    void updateFrameBindings(const VideoFrame& frame);
     void recordStaticVideoCommands();
 
-    bool compileShaderFromSource(CShader& shader, const std::string& source, bool isVertex);
+    bool loadShader(CShader& shader, std::optional<ShaderSource::Code> code);
     bool ensureVertexShaderCompiled();
-    CShader* getOrCreateFragmentShader(const ShaderVariantKey& key);
+    CShader* getOrCreateFragmentShader(const VideoFragmentVariant& key);
     bool compileVideoShaders(bool dithering);
+    bool ditherUniformNeeded() const;
+    void writeDitherUniform();
+    void bindDitherUniform(dk::CmdBuf cmdbuf);
+    static constexpr uint32_t DitherUniformBinding = 1;
+    CMemPool::Handle m_dither_uniform;
     bool m_dithering_enabled = false;
-    bool m_uam_initialized = false;
     bool m_fsr_enabled = false;
     bool m_fsr_pending = false;
     bool m_easu_enabled = false;
@@ -322,12 +335,15 @@ private:
     bool m_frame_bound = false;
 
     static constexpr int CAPTURE_WIDTH = 640;
-    static constexpr int HW_TRANSFER_ALIGNMENT = 256;
     static constexpr int FRAME_RING_SIZE = 3;
     std::mutex m_frame_ring_mutex;
-    AVFrame* m_frame_ring[FRAME_RING_SIZE] = {};
+    std::array<std::optional<VideoFrame>, FRAME_RING_SIZE> m_frame_ring;
     int m_frame_ring_index = 0;
-    AVFrame* m_current_frame = nullptr;
+    std::optional<VideoFrame> m_current_frame;
+
+    static void copyPlane(const VideoFrame& frame, size_t offset, uint32_t pitch,
+                          uint32_t rowBytes, int rows, std::span<uint8_t> dst);
+    static size_t blockLinearOffset(uint32_t x, uint32_t y, uint32_t pitch, uint32_t blockHeightLog2);
 
     void renderVideo();
     void recordPresentedFrame();
