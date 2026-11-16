@@ -470,7 +470,7 @@ private:
     std::atomic<bool> m_paused{false};
     std::atomic<bool> m_dithering_enabled{false};
 
-    brls::SwitchVideoContext* m_vctx = nullptr;
+    brls::SwitchVulkanVideoContext* m_vctx = nullptr;
     VkDevice m_device = VK_NULL_HANDLE;
     PFN_vkGetMemoryHostPointerPropertiesEXT m_get_host_pointer_properties = nullptr;
     Capabilities m_caps;

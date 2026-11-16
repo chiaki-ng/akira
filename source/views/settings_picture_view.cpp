@@ -558,9 +558,30 @@ void SettingsPictureView::initRcasSharpnessSlider() {
 }
 
 void SettingsPictureView::initRendererSection() {
-    const auto video = akira::platform::PlatformFactory::instance().createVideo();
+    auto& platform = akira::platform::PlatformFactory::instance();
+    const auto choices = platform.rendererChoices();
+    const bool choosable = choices.size() > 1;
+    if (choosable) {
+        std::vector<std::string> labels;
+        std::ranges::transform(choices, std::back_inserter(labels), &akira::platform::RendererChoice::label);
+        const auto current = std::ranges::find(choices, settings->getVideoRenderer(), &akira::platform::RendererChoice::kind);
+        rendererChoice->init(
+            "akira/settings/renderer_choice"_i18n,
+            labels,
+            current == choices.end() ? 0 : static_cast<int>(std::distance(choices.begin(), current)),
+            [](int selected) {},
+            [this, choices](int selected) {
+                settings->setVideoRenderer(choices.at(static_cast<std::size_t>(selected)).kind);
+                settings->writeFile();
+                brls::Logger::info("Renderer set to {} for the next launch", choices.at(static_cast<std::size_t>(selected)).label);
+            });
+    } else {
+        rendererChoice->setVisibility(brls::Visibility::GONE);
+    }
+
+    const auto video = platform.createVideo();
     rendererName->setText(video->name());
-    if (!video->addSettings(*rendererOptions)) {
+    if (!video->addSettings(*rendererOptions) && !choosable) {
         rendererHeader->setVisibility(brls::Visibility::GONE);
         rendererSection->setVisibility(brls::Visibility::GONE);
     }

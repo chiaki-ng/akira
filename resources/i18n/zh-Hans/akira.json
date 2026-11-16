@@ -775,6 +775,7 @@
     "menu_developer": "开发者",
     "dev_fake_hosts": "模拟主机（20 台 PS5）",
     "renderer": "渲染器",
+    "renderer_choice": "渲染器（重启后生效）",
     "zero_copy": "零拷贝视频",
     "menu_updates": "更新",
     "simulate_update": "模拟可用更新",

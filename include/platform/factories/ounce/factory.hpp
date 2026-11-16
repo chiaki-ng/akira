@@ -6,6 +6,11 @@
 #include "platform/stats/none/provider.hpp"
 #include "platform/updates/none/provider.hpp"
 
+namespace brls
+{
+class SwitchPlatform;
+}
+
 namespace akira::platform
 {
 
@@ -22,6 +27,8 @@ public:
     none::NoStatsProvider& stats() override { return m_stats; }
     hid::HidPadProvider& pads() override { return m_pads; }
 
+    void prepareVideo() override;
+    std::vector<RendererChoice> rendererChoices() const override;
     std::unique_ptr<VideoProvider> createVideo() override;
     std::unique_ptr<HapticsProvider> createHaptics() override;
     std::unique_ptr<FeedbackProvider> createFeedback(HapticManager& haptics) override;
@@ -29,6 +36,8 @@ public:
     std::unique_ptr<PadSettingsProvider> createPadSettings(const input::PadDescription& pad) override;
 
 private:
+    static brls::SwitchPlatform& switchPlatform();
+
     per_mode::PerModeDisplayProvider m_display;
     none::NoUpdateProvider m_updates;
     none::NoStatsProvider m_stats;

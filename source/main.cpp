@@ -642,6 +642,8 @@ int main(int argc, char* argv[])
     brls::Application::registerXMLView("StreamView", StreamView::create);
     brls::Application::registerXMLView("EnterPinView", EnterPinView::create);
 
+    platform.prepareVideo();
+
     akira::CrashReport::stage("create window");
     brls::Application::createWindow("Akira");
 

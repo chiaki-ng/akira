@@ -36,6 +36,7 @@ private:
     BRLS_BIND(brls::SliderCell, rcasSharpnessSlider, "settings/rcasSharpness");
     BRLS_BIND(brls::Header, rendererHeader, "settings/rendererHeader");
     BRLS_BIND(brls::Box, rendererSection, "settings/rendererSection");
+    BRLS_BIND(brls::SelectorCell, rendererChoice, "settings/rendererChoice");
     BRLS_BIND(brls::Label, rendererName, "settings/rendererName");
     BRLS_BIND(brls::Box, rendererOptions, "settings/rendererOptions");
 

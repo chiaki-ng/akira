@@ -29,6 +29,8 @@ else()
         factories/ounce
         video/viddec
         video/vulkan
+        video/deko3d
+        video/drako3d
         display/per_mode
         updates/none
         stats/none

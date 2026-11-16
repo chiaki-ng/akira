@@ -23,6 +23,15 @@ PlatformInfo NxPlatformFactory::info() const noexcept
                   | PlatformCapability::hevc};
 }
 
+void NxPlatformFactory::prepareVideo()
+{
+}
+
+std::vector<RendererChoice> NxPlatformFactory::rendererChoices() const
+{
+    return {};
+}
+
 std::unique_ptr<VideoProvider> NxPlatformFactory::createVideo()
 {
     return std::make_unique<deko3d::Deko3dVideoProvider>(

@@ -88,5 +88,10 @@
     "title": "零拷贝视频",
     "body": "硬件解码器把每一帧直接写入 GPU 读取的内存，不再逐帧复制。默认关闭：在部分主机上开启后串流会黑屏，原因尚不清楚。",
     "image": ""
+  },
+  "settings/rendererChoice": {
+    "title": "渲染器",
+    "body": "选择应用和串流使用的图形接口。重启 akira 后生效。如果 drako3d 无法启动，akira 会改用 Vulkan。",
+    "image": ""
   }
 }

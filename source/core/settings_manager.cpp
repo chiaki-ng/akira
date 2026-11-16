@@ -497,6 +497,9 @@ void SettingsManager::parseTomlFile() {
         if (auto val = config["video"]["vpn"]["fsr_enabled"].value<bool>())
             vpnFsrEnabled = *val;
         zeroCopyVideo = config["video"]["zero_copy"].value_or(false);
+        videoRenderer = config["video"]["renderer"].value_or(std::string("vulkan")) == "drako3d"
+            ? RendererKind::Drako3d
+            : RendererKind::Vulkan;
         localFsrTarget = static_cast<int>(config["video"]["local"]["fsr_target"].value_or(int64_t{0}));
         remoteFsrTarget = static_cast<int>(config["video"]["remote"]["fsr_target"].value_or(int64_t{0}));
         vpnFsrTarget = static_cast<int>(config["video"]["vpn"]["fsr_target"].value_or(int64_t{0}));
@@ -1084,6 +1087,7 @@ toml::table SettingsManager::ownedSettings() {
             fpsToInt(vpnVideoFPS), vpnVideoBitrate, vpnFsrEnabled, vpnFsrTarget));
         video.insert("cloud", std::move(cloudVideo));
         video.insert("zero_copy", zeroCopyVideo);
+        video.insert("renderer", videoRenderer == RendererKind::Drako3d ? "drako3d" : "vulkan");
         config.insert("video", std::move(video));
     }
 
@@ -2136,6 +2140,14 @@ bool SettingsManager::getZeroCopyVideo() const {
 
 void SettingsManager::setZeroCopyVideo(bool enabled) {
     zeroCopyVideo = enabled;
+}
+
+RendererKind SettingsManager::getVideoRenderer() const {
+    return videoRenderer;
+}
+
+void SettingsManager::setVideoRenderer(RendererKind renderer) {
+    videoRenderer = renderer;
 }
 
 std::string SettingsManager::getUpdateChannel() const {

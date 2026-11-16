@@ -227,6 +227,10 @@
                 paddingRight="15"
                 marginBottom="30">
 
+                <brls:SelectorCell
+                    id="settings/rendererChoice"
+                    title="@i18n/akira/settings/renderer_choice"/>
+
                 <brls:Label
                     id="settings/rendererName"
                     fontSize="22"

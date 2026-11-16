@@ -808,6 +808,7 @@
     "menu_developer": "Developer",
     "dev_fake_hosts": "Fake hosts (20 PS5s)",
     "renderer": "Renderer",
+    "renderer_choice": "Renderer (restart to apply)",
     "zero_copy": "Zero-copy video",
     "dev_takion_version_ps4": "Takion version for PS4",
     "dev_takion_version_ps5": "Takion version for PS5",

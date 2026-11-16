@@ -26,6 +26,7 @@ set(BOREALIS_LIBRARY ${BOREALIS_DIR}/library)
 
 if (PLATFORM_SWITCH2)
     set(USE_VULKAN ON CACHE BOOL "Use Vulkan for rendering" FORCE)
+    set(USE_DRAKO3D ON CACHE BOOL "Use drako3d with a Vulkan fallback" FORCE)
     set(USE_DEKO3D OFF CACHE BOOL "Use deko3d for video rendering" FORCE)
 else()
     # Use deko3d for video rendering (must be set BEFORE commonOption.cmake)

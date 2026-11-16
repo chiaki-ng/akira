@@ -425,10 +425,10 @@ bool VulkanRenderer::initialize(int frame_width, int frame_height)
 
     brls::Logger::info("VulkanRenderer::initialize: frame={}x{}", frame_width, frame_height);
 
-    m_vctx = static_cast<brls::SwitchVideoContext*>(brls::Application::getPlatform()->getVideoContext());
+    m_vctx = static_cast<brls::SwitchVulkanVideoContext*>(brls::Application::getPlatform()->getVideoContext());
     if (!m_vctx)
     {
-        brls::Logger::error("VulkanRenderer: no SwitchVideoContext");
+        brls::Logger::error("VulkanRenderer: no SwitchVulkanVideoContext");
         return false;
     }
     m_device = m_vctx->device();

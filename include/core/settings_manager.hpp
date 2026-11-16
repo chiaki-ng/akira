@@ -24,6 +24,7 @@
 // Forward declaration
 #include "input/rumble_profile.hpp"
 #include "util/ipv4_address.hpp"
+#include "core/renderer_kind.hpp"
 
 class Host;
 
@@ -145,6 +146,7 @@ private:
     bool autoReconnect = true;
     bool devFakeHosts = false;
     bool zeroCopyVideo = false;
+    RendererKind videoRenderer = RendererKind::Vulkan;
     bool hideAccountName = false;
     std::string updateChannel = "stable";
     std::string uiTheme = "playstation";
@@ -397,6 +399,8 @@ public:
     void setDevFakeHosts(bool enabled);
     bool getZeroCopyVideo() const;
     void setZeroCopyVideo(bool enabled);
+    RendererKind getVideoRenderer() const;
+    void setVideoRenderer(RendererKind renderer);
 
     bool getHideAccountName() const;
     void setHideAccountName(bool enabled);
