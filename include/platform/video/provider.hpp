@@ -41,6 +41,7 @@ public:
 
     virtual VideoDecoder* decoder() = 0;
     virtual VideoDecoder& ensureDecoder() = 0;
+    virtual VideoDecoder& ensureDecoderFor(bool) { return ensureDecoder(); }
     virtual VideoRenderer* renderer() = 0;
 
     virtual bool startRenderer(int width, int height, FrameHooks hooks) = 0;

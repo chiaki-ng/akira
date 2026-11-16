@@ -777,6 +777,7 @@
     "renderer": "渲染器",
     "renderer_choice": "渲染器（重启后生效）",
     "zero_copy": "零拷贝视频",
+    "software_hevc": "软件 HEVC 解码",
     "menu_updates": "更新",
     "simulate_update": "模拟可用更新",
     "dev_update_server_hint": "开发更新服务器 (host:port)",

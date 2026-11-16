@@ -497,6 +497,7 @@ void SettingsManager::parseTomlFile() {
         if (auto val = config["video"]["vpn"]["fsr_enabled"].value<bool>())
             vpnFsrEnabled = *val;
         zeroCopyVideo = config["video"]["zero_copy"].value_or(false);
+        softwareHevc = config["video"]["software_hevc"].value_or(false);
         videoRenderer = config["video"]["renderer"].value_or(std::string("vulkan")) == "drako3d"
             ? RendererKind::Drako3d
             : RendererKind::Vulkan;
@@ -1087,6 +1088,7 @@ toml::table SettingsManager::ownedSettings() {
             fpsToInt(vpnVideoFPS), vpnVideoBitrate, vpnFsrEnabled, vpnFsrTarget));
         video.insert("cloud", std::move(cloudVideo));
         video.insert("zero_copy", zeroCopyVideo);
+        video.insert("software_hevc", softwareHevc);
         video.insert("renderer", videoRenderer == RendererKind::Drako3d ? "drako3d" : "vulkan");
         config.insert("video", std::move(video));
     }
@@ -2140,6 +2142,14 @@ bool SettingsManager::getZeroCopyVideo() const {
 
 void SettingsManager::setZeroCopyVideo(bool enabled) {
     zeroCopyVideo = enabled;
+}
+
+bool SettingsManager::getSoftwareHevc() const {
+    return softwareHevc;
+}
+
+void SettingsManager::setSoftwareHevc(bool enabled) {
+    softwareHevc = enabled;
 }
 
 RendererKind SettingsManager::getVideoRenderer() const {

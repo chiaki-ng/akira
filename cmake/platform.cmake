@@ -28,6 +28,7 @@ else()
     set(AKIRA_PLATFORM_BACKENDS
         factories/ounce
         video/viddec
+        video/software
         video/vulkan
         video/deko3d
         video/drako3d

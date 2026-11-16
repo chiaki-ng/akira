@@ -11,6 +11,13 @@ class ViddecDecoder;
 
 }
 
+namespace akira::platform::software
+{
+
+class HevcDecoder;
+
+}
+
 namespace akira::platform::vulkan
 {
 
@@ -25,12 +32,13 @@ public:
     VulkanVideoProvider& operator=(const VulkanVideoProvider&) = delete;
 
     const char* name() const override { return "Vulkan"; }
-    std::string_view decoderName() const override { return "Switch 2 hardware decoder"; }
-    std::string_view decoderStat() const override { return "HW"; }
+    std::string_view decoderName() const override;
+    std::string_view decoderStat() const override;
     bool addSettings(brls::Box& group) const override;
 
     VideoDecoder* decoder() override;
     VideoDecoder& ensureDecoder() override;
+    VideoDecoder& ensureDecoderFor(bool hevc) override;
     VideoRenderer* renderer() override;
 
     bool startRenderer(int width, int height, FrameHooks hooks) override;
@@ -39,6 +47,7 @@ public:
 
 private:
     std::unique_ptr<akira::platform::viddec::ViddecDecoder> m_decoder;
+    std::unique_ptr<akira::platform::software::HevcDecoder> m_software;
     std::unique_ptr<VulkanRenderer> m_renderer;
 };
 

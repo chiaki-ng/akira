@@ -146,6 +146,7 @@ private:
     bool autoReconnect = true;
     bool devFakeHosts = false;
     bool zeroCopyVideo = false;
+    bool softwareHevc = false;
     RendererKind videoRenderer = RendererKind::Vulkan;
     bool hideAccountName = false;
     std::string updateChannel = "stable";
@@ -399,6 +400,8 @@ public:
     void setDevFakeHosts(bool enabled);
     bool getZeroCopyVideo() const;
     void setZeroCopyVideo(bool enabled);
+    bool getSoftwareHevc() const;
+    void setSoftwareHevc(bool enabled);
     RendererKind getVideoRenderer() const;
     void setVideoRenderer(RendererKind renderer);
 
