@@ -17,6 +17,7 @@
 #include <span>
 #include <vector>
 
+#include "platform/video/nv12_frame.hpp"
 #include "platform/video/viddec/output_image.hpp"
 #include "platform/video/viddec/output_memory.hpp"
 
@@ -25,30 +26,24 @@ namespace akira::platform::viddec
 
 class HardwareDecoder;
 
-struct HardwarePlane
-{
-    std::size_t offset;
-    std::uint32_t pitch;
-};
-
-class HardwareFrame
+class HardwareFrame final : public akira::platform::Nv12Frame
 {
 public:
     HardwareFrame(std::shared_ptr<HardwareDecoder> owner, const VideoFrame& frame);
-    ~HardwareFrame();
+    ~HardwareFrame() override;
     HardwareFrame(const HardwareFrame&) = delete;
     HardwareFrame& operator=(const HardwareFrame&) = delete;
 
-    std::uint32_t width() const { return m_frame.width; }
-    std::uint32_t height() const { return m_frame.height; }
-    std::uint32_t slot() const { return m_frame.slot; }
-    std::int64_t timestampNs() const { return m_frame.timestamp_ns; }
-    std::uint64_t generation() const;
-    const void* backing() const;
-    std::size_t backingSize() const;
-    HardwarePlane luma() const;
-    HardwarePlane chroma() const;
-    std::optional<OutputHandle> output() const;
+    std::uint32_t width() const override { return m_frame.width; }
+    std::uint32_t height() const override { return m_frame.height; }
+    std::uint32_t slot() const override { return m_frame.slot; }
+    std::int64_t timestampNs() const override { return m_frame.timestamp_ns; }
+    std::uint64_t generation() const override;
+    const void* backing() const override;
+    std::size_t backingSize() const override;
+    akira::platform::Nv12Plane luma() const override;
+    akira::platform::Nv12Plane chroma() const override;
+    std::optional<OutputHandle> output() const override;
 
 private:
     std::shared_ptr<HardwareDecoder> m_owner;
@@ -93,6 +88,7 @@ public:
     void setReporter(std::function<void(const std::string&)> reporter) { m_reporter = std::move(reporter); }
 
     static constexpr std::uint32_t ImageCount = VIDDEC_MAX_IMAGES;
+    static_assert(ImageCount <= akira::platform::Nv12Frame::SlotCount);
 
 private:
     friend class HardwareFrame;

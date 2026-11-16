@@ -211,7 +211,7 @@ void VulkanRenderer::setViewport(VkCommandBuffer cmd, VkExtent2D extent)
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 }
 
-VulkanRenderer::PlaneLayout VulkanRenderer::planeLayout(const akira::platform::viddec::HardwareFrame& frame) const
+VulkanRenderer::PlaneLayout VulkanRenderer::planeLayout(const akira::platform::Nv12Frame& frame) const
 {
     return PlaneLayout{
         .backing = frame.backing(),
@@ -869,7 +869,7 @@ std::optional<VulkanRenderer::ImagePlanes> VulkanRenderer::importImagePlanes(con
     }
 
     const auto createPlane = [this](VkFormat format, std::uint32_t width, std::uint32_t height,
-                                 const akira::platform::viddec::HardwarePlane& plane) -> std::optional<Image>
+                                 const akira::platform::Nv12Plane& plane) -> std::optional<Image>
     {
         const VkSubresourceLayout subresource{
             .offset = plane.offset,
@@ -1115,7 +1115,7 @@ std::unique_ptr<VulkanRenderer::PlaneImport> VulkanRenderer::importPlanes(const 
 
 std::shared_ptr<VulkanRenderer::ImportCache> VulkanRenderer::createImportCache(std::uint64_t generation) const
 {
-    constexpr std::uint32_t slots = akira::platform::viddec::HardwareDecoder::ImageCount;
+    constexpr std::uint32_t slots = akira::platform::Nv12Frame::SlotCount;
     auto pool = createDescriptorPool(m_path == PlanePath::Image ? VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
                                                                 : VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
         slots, slots * 2);
@@ -1141,7 +1141,7 @@ VulkanRenderer::PlaneImport* VulkanRenderer::acquireImport(const Frame& frame)
         }
     }
     const std::uint32_t slot = frame->slot();
-    if (slot >= akira::platform::viddec::HardwareDecoder::ImageCount)
+    if (slot >= akira::platform::Nv12Frame::SlotCount)
     {
         brls::Logger::error("VulkanRenderer: decoder slot {} is out of range", slot);
         return nullptr;

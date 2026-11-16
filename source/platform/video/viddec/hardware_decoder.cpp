@@ -44,13 +44,13 @@ std::size_t HardwareFrame::backingSize() const
     return m_owner->backingSize(m_frame.slot);
 }
 
-HardwarePlane HardwareFrame::luma() const
+akira::platform::Nv12Plane HardwareFrame::luma() const
 {
     auto* base = static_cast<const std::uint8_t*>(backing());
     return {static_cast<std::size_t>(m_frame.planes[0] - base), m_frame.pitches[0]};
 }
 
-HardwarePlane HardwareFrame::chroma() const
+akira::platform::Nv12Plane HardwareFrame::chroma() const
 {
     auto* base = static_cast<const std::uint8_t*>(backing());
     return {static_cast<std::size_t>(m_frame.planes[1] - base), m_frame.pitches[1]};
@@ -64,8 +64,7 @@ std::optional<OutputHandle> HardwareFrame::output() const
 HardwareDecoder::HardwareDecoder(std::uint32_t width, std::uint32_t height)
     : m_width(width), m_height(height)
 {
-    static std::atomic<std::uint64_t> generations{0};
-    m_generation = ++generations;
+    m_generation = akira::platform::Nv12Frame::nextGeneration();
     m_returned.reserve(ImageCount);
 }
 
