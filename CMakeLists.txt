@@ -34,6 +34,16 @@ else()
     set(USE_VULKAN OFF CACHE BOOL "Use Vulkan for rendering" FORCE)
 endif()
 
+if (PLATFORM_SWITCH2)
+    set(AKIRA_WORKER_CORE_MASK "0x3F")
+    set(AKIRA_MAIN_CORE "4")
+    set(BOREALIS_SWITCH_CORE_MASK "0x20" CACHE STRING "" FORCE)
+    set(LIBCHIAKING_HORIZON_CORE_MASK ${AKIRA_WORKER_CORE_MASK} CACHE STRING "" FORCE)
+else()
+    set(AKIRA_WORKER_CORE_MASK "0x7")
+    set(AKIRA_MAIN_CORE "-1")
+endif()
+
 option(DEBUG_DEKO3D_RENDERING "Enable debug squares in video shader" OFF)
 
 # Platform common options + toolchain from borealis
@@ -137,6 +147,8 @@ if (USE_DEKO3D)
 endif()
 
 option(MUTE_CHIAKI_LOGS "Drop every core log line" OFF)
+target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_WORKER_CORE_MASK=${AKIRA_WORKER_CORE_MASK}
+    AKIRA_MAIN_CORE=${AKIRA_MAIN_CORE})
 target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_MUTE_CORE_LOGS=$<BOOL:${MUTE_CHIAKI_LOGS}>)
 target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_CLOUD=$<BOOL:${AKIRA_CLOUD}>)
 target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_PS5_CLOUD_LAUNCH=$<BOOL:${AKIRA_PS5_CLOUD_LAUNCH}>)

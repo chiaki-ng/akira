@@ -26,6 +26,7 @@
 #include <optional>
 #include "ui/theme.hpp"
 #include "util/app_log.hpp"
+#include "util/worker_cores.hpp"
 #include "util/http.hpp"
 #include "util/http_pool.hpp"
 #include "util/sony_dns_checker.hpp"
@@ -521,6 +522,7 @@ int main(int argc, char* argv[])
     if (std::freopen("sdmc:/switch/akira/logs/akira-stderr.txt", "w", stderr))
         std::setvbuf(stderr, nullptr, _IONBF, 0);
     brls::Logger::setLogLevel(brls::LogLevel::LOG_INFO);
+    const Result mainPlaced = akira::WorkerCores::placeMainThread();
     akira::CrashReport::stage("settings");
     auto* settings = SettingsManager::getInstance();
     settings->applyChiakiLogVerbosity();
@@ -528,6 +530,7 @@ int main(int argc, char* argv[])
         akira::AppLog::open(SettingsManager::getLogFilePath());
     akira::CrashReport::stage("log open");
     brls::Logger::info("akira {} starting", AKIRA_VERSION_STRING);
+    brls::Logger::info("main thread core {} placement {:#x}", svcGetCurrentProcessorNumber(), mainPlaced);
 
     for (int i = 1; i < argc; i++)
     {

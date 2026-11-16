@@ -157,7 +157,7 @@ auto Connection::consoleStarter(std::shared_ptr<libchiaking::consoles::Console> 
 bool Connection::open(Starter starter)
 {
     auto started = platform::Thread::start(ChiakiCore::current().threading(), "stream-input",
-        platform::ThreadRole::feedback,
+        platform::ThreadRole::input,
         [this, starter = std::move(starter)](platform::StopToken stop) {
             auto opened = starter(*this, *this, stop);
             if (!opened)

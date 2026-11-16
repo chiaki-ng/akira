@@ -20,9 +20,9 @@ ChiakiCore* ChiakiCore::instance = nullptr;
 auto ChiakiCore::threadPlacement() noexcept -> platform::horizon::ThreadPlacementPolicy
 {
     platform::horizon::ThreadPlacementPolicy policy;
-    const auto session = policy.placement(platform::ThreadRole::session);
+    const auto base = policy.placement(platform::ThreadRole::unspecified);
     if (const auto background = platform::horizon::ThreadPlacement::make(
-            session.core(), static_cast<std::uint8_t>(session.priority() + 1), session.stack_size()))
+            base.core(), static_cast<std::uint8_t>(base.priority() + 1), base.stack_size()))
         policy.place(platform::ThreadRole::unspecified, *background);
     return policy;
 }

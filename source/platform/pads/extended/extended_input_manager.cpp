@@ -383,7 +383,7 @@ bool ExtendedInputManager::initializeOptional()
 
     m_running.store(true, std::memory_order_release);
     auto started = libchiaking::platform::Thread::start(akira::ChiakiCore::current().threading(),
-        "extended-input", libchiaking::platform::ThreadRole::feedback,
+        "extended-input", libchiaking::platform::ThreadRole::input,
         [this](libchiaking::platform::StopToken) { poll(); });
     if (!started) {
         brls::Logger::warning("analog triggers: poll thread failed");

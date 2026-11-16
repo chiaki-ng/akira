@@ -12,7 +12,7 @@ VideoWorker::VideoWorker(Decode decode)
     : decode(std::move(decode))
 {
     auto started = libchiaking::platform::Thread::start(akira::ChiakiCore::current().threading(), "video",
-        libchiaking::platform::ThreadRole::feedback, [this](libchiaking::platform::StopToken) { run(); });
+        libchiaking::platform::ThreadRole::video, [this](libchiaking::platform::StopToken) { run(); });
     if (!started)
         throw Exception("Failed to start the video thread");
     thread = std::move(started).value();
