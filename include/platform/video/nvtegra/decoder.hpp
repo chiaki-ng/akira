@@ -17,25 +17,24 @@ extern "C"
 }
 
 #include "util/av_wrappers.hpp"
-#include "platform/video/decoder.hpp"
-#include "platform/video/deko3d/frame.hpp"
+#include "platform/video/deko3d/frame_decoder.hpp"
 
-namespace akira::platform::deko3d
+namespace akira::platform::nvtegra
 {
 
-class Deko3dDecoder final : public akira::platform::VideoDecoder
+class NvtegraDecoder final : public deko3d::FrameDecoder
 {
 public:
-    using FrameReadyCallback = std::function<void(const VideoFrame&)>;
+    using FrameReadyCallback = deko3d::FrameDecoder::FrameReadyCallback;
 
-    Deko3dDecoder();
-    ~Deko3dDecoder() override;
+    NvtegraDecoder();
+    ~NvtegraDecoder() override;
 
     // Disable copy
-    Deko3dDecoder(const Deko3dDecoder&) = delete;
-    Deko3dDecoder& operator=(const Deko3dDecoder&) = delete;
+    NvtegraDecoder(const NvtegraDecoder&) = delete;
+    NvtegraDecoder& operator=(const NvtegraDecoder&) = delete;
 
-    void setFrameReadyCallback(FrameReadyCallback callback) { m_frame_ready_callback = std::move(callback); }
+    void setFrameReadyCallback(FrameReadyCallback callback) override { m_frame_ready_callback = std::move(callback); }
 
     // Initialize codec (H.264 or HEVC for PS5)
     // For deko3d, width/height are required for NVTEGRA hardware decoder
@@ -66,7 +65,7 @@ public:
     bool lastDecodeCorrupt() const override { return m_corrupt_in_call; }
 
 private:
-    static std::optional<VideoFrame> adoptFrame(AVFrame* frame);
+    static std::optional<deko3d::VideoFrame> adoptFrame(AVFrame* frame);
     static constexpr std::uint32_t NvdecBlockHeightLog2 = 1;
 
     void noteDecodeSample(std::chrono::steady_clock::duration d);

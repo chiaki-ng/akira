@@ -1,4 +1,4 @@
-#include "platform/video/deko3d/uam_shader_source.hpp"
+#include "platform/video/uam/shader_source.hpp"
 
 #include <cstdlib>
 #include <format>
@@ -10,7 +10,7 @@
 
 #include "core/settings_manager.hpp"
 
-namespace akira::platform::deko3d
+namespace akira::platform::uam
 {
 
 UamShaderSource::UamShaderSource(std::string directory)
@@ -24,17 +24,17 @@ UamShaderSource::~UamShaderSource()
     uam_deinit();
 }
 
-std::optional<ShaderSource::Code> UamShaderSource::load(StaticShader shader)
+std::optional<deko3d::ShaderSource::Code> UamShaderSource::load(deko3d::StaticShader shader)
 {
     return compile(std::format("{}/{}.glsl", m_directory, stem(shader)), isVertex(shader), {});
 }
 
-std::optional<ShaderSource::Code> UamShaderSource::load(const VideoFragmentVariant& variant)
+std::optional<deko3d::ShaderSource::Code> UamShaderSource::load(const deko3d::VideoFragmentVariant& variant)
 {
     return compile(std::format("{}/video_fsh.glsl", m_directory), false, fragmentDefines(variant));
 }
 
-std::optional<ShaderSource::Code> UamShaderSource::compile(const std::string& path, bool vertex,
+std::optional<deko3d::ShaderSource::Code> UamShaderSource::compile(const std::string& path, bool vertex,
     const std::string& defines) const
 {
     auto source = readFile(path);
@@ -73,7 +73,7 @@ std::string UamShaderSource::injectDefines(std::string source, const std::string
     return source;
 }
 
-std::string UamShaderSource::fragmentDefines(const VideoFragmentVariant& variant)
+std::string UamShaderSource::fragmentDefines(const deko3d::VideoFragmentVariant& variant)
 {
     std::string defines;
     if (variant.fsrEasu)

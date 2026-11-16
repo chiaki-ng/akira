@@ -3,6 +3,8 @@
 #include "platform/feedback/extended/provider.hpp"
 #include "platform/haptics/extended/provider.hpp"
 #include "platform/video/deko3d/provider.hpp"
+#include "platform/video/nvtegra/decoder.hpp"
+#include "platform/video/uam/shader_source.hpp"
 #include "platform/pad_settings/extended/provider.hpp"
 #include "platform/stream/couch/provider.hpp"
 
@@ -23,7 +25,10 @@ PlatformInfo NxPlatformFactory::info() const noexcept
 
 std::unique_ptr<VideoProvider> NxPlatformFactory::createVideo()
 {
-    return std::make_unique<deko3d::Deko3dVideoProvider>();
+    return std::make_unique<deko3d::Deko3dVideoProvider>(
+        deko3d::Deko3dVideoProvider::Labels{ .name = "Deko3d", .decoderName = "FFmpeg nvtegra", .decoderStat = "NVTEGRA" },
+        [] { return std::make_unique<nvtegra::NvtegraDecoder>(); },
+        [] { return std::make_unique<uam::UamShaderSource>("romfs:/shaders"); });
 }
 
 std::unique_ptr<HapticsProvider> NxPlatformFactory::createHaptics()

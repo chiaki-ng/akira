@@ -1,4 +1,4 @@
-#include "platform/video/deko3d/decoder.hpp"
+#include "platform/video/nvtegra/decoder.hpp"
 
 #include <bit>
 #include <chrono>
@@ -16,19 +16,19 @@ extern "C"
 }
 #endif
 
-namespace akira::platform::deko3d
+namespace akira::platform::nvtegra
 {
 
-Deko3dDecoder::Deko3dDecoder()
+NvtegraDecoder::NvtegraDecoder()
 {
 }
 
-Deko3dDecoder::~Deko3dDecoder()
+NvtegraDecoder::~NvtegraDecoder()
 {
     cleanup();
 }
 
-std::optional<VideoFrame> Deko3dDecoder::adoptFrame(AVFrame* frame)
+std::optional<deko3d::VideoFrame> NvtegraDecoder::adoptFrame(AVFrame* frame)
 {
     std::shared_ptr<AVFrame> owned(frame, [](AVFrame* f) { av_frame_free(&f); });
 #ifdef BOREALIS_USE_DEKO3D
@@ -41,7 +41,7 @@ std::optional<VideoFrame> Deko3dDecoder::adoptFrame(AVFrame* frame)
 
     void* storage = av_nvtegra_map_get_addr(map);
     const std::size_t size = av_nvtegra_map_get_size(map);
-    return VideoFrame{
+    return deko3d::VideoFrame{
         .width = frame->width,
         .height = frame->height,
         .storage = storage,
@@ -49,7 +49,7 @@ std::optional<VideoFrame> Deko3dDecoder::adoptFrame(AVFrame* frame)
         .chromaOffset = static_cast<std::size_t>(frame->data[1] - frame->data[0]),
         .lumaPitch = static_cast<std::uint32_t>(frame->linesize[0]),
         .chromaPitch = static_cast<std::uint32_t>(frame->linesize[1]),
-        .layout = PlaneLayout::BlockLinear,
+        .layout = deko3d::PlaneLayout::BlockLinear,
         .blockHeightLog2 = NvdecBlockHeightLog2,
         .cacheKey = av_nvtegra_map_get_handle(map),
         .lifetime = owned,
@@ -60,9 +60,9 @@ std::optional<VideoFrame> Deko3dDecoder::adoptFrame(AVFrame* frame)
 #endif
 }
 
-bool Deko3dDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, int height)
+bool NvtegraDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, int height)
 {
-    brls::Logger::info("Deko3dDecoder: loading AVCodec");
+    brls::Logger::info("NvtegraDecoder: loading AVCodec");
 
     m_is_hevc = hevc;
     if (hevc)
@@ -79,7 +79,7 @@ bool Deko3dDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, i
         throw Exception("Codec not available");
     }
 
-    brls::Logger::info("Deko3dDecoder: got codec {}", m_codec->name);
+    brls::Logger::info("NvtegraDecoder: got codec {}", m_codec->name);
 
     m_codec_context = avcodec_alloc_context3(m_codec);
     if (!m_codec_context)
@@ -97,20 +97,20 @@ bool Deko3dDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, i
         m_codec_context->has_b_frames = 0;
 #ifdef BOREALIS_USE_DEKO3D
         // Create HW device context BEFORE opening codec 
-	brls::Logger::info("Deko3dDecoder: Creating NVTegra hardware device context...");
+	brls::Logger::info("NvtegraDecoder: Creating NVTegra hardware device context...");
         if (av_hwdevice_ctx_create(&m_hw_device_ctx, AV_HWDEVICE_TYPE_NVTEGRA, NULL, NULL, 0) < 0)
         {
             throw Exception("Failed to create NVTegra hardware device context");
         }
         m_codec_context->hw_device_ctx = av_buffer_ref(m_hw_device_ctx);
-        brls::Logger::info("Deko3dDecoder: NVTegra hw device context created: {}", (void*)m_hw_device_ctx);
+        brls::Logger::info("NvtegraDecoder: NVTegra hw device context created: {}", (void*)m_hw_device_ctx);
 
         if (width > 0 && height > 0)
         {
             m_codec_context->width = width;
             m_codec_context->height = height;
             m_codec_context->pix_fmt = AV_PIX_FMT_NVTEGRA;
-            brls::Logger::info("Deko3dDecoder: Setting NVTEGRA format {}x{}", width, height);
+            brls::Logger::info("NvtegraDecoder: Setting NVTEGRA format {}x{}", width, height);
         }
 #endif
     }
@@ -132,9 +132,9 @@ bool Deko3dDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, i
     return true;
 }
 
-bool Deko3dDecoder::initVideo(int video_width, int video_height)
+bool NvtegraDecoder::initVideo(int video_width, int video_height)
 {
-    brls::Logger::info("Deko3dDecoder: initVideo {}x{}", video_width, video_height);
+    brls::Logger::info("NvtegraDecoder: initVideo {}x{}", video_width, video_height);
 
     m_video_width = video_width;
     m_video_height = video_height;
@@ -142,25 +142,25 @@ bool Deko3dDecoder::initVideo(int video_width, int video_height)
     // Wait for IDR frame at session start
     // PS5 may resume with P-frames; returning false triggers CORRUPTFRAME → keyframe request
     m_waiting_for_idr = true;
-    brls::Logger::info("Deko3dDecoder: Waiting for IDR frame to start decoding");
+    brls::Logger::info("NvtegraDecoder: Waiting for IDR frame to start decoding");
 
     m_tmp_frame = av_frame_alloc();
     if (!m_tmp_frame)
     {
-        brls::Logger::error("Deko3dDecoder: Failed to allocate temp frame");
+        brls::Logger::error("NvtegraDecoder: Failed to allocate temp frame");
         return false;
     }
 
     return true;
 }
 
-void Deko3dDecoder::noteDecodeSample(std::chrono::steady_clock::duration d)
+void NvtegraDecoder::noteDecodeSample(std::chrono::steady_clock::duration d)
 {
     m_decode_us_accum += (double)std::chrono::duration_cast<std::chrono::microseconds>(d).count();
     m_decode_sample_count++;
 }
 
-void Deko3dDecoder::notePacketArrival(std::chrono::steady_clock::time_point now)
+void NvtegraDecoder::notePacketArrival(std::chrono::steady_clock::time_point now)
 {
     if (m_last_packet != std::chrono::steady_clock::time_point{})
     {
@@ -179,13 +179,13 @@ void Deko3dDecoder::notePacketArrival(std::chrono::steady_clock::time_point now)
     m_last_packet = now;
 }
 
-Deko3dDecoder::DecoderStats Deko3dDecoder::getStats() const
+NvtegraDecoder::DecoderStats NvtegraDecoder::getStats() const
 {
     std::lock_guard<std::mutex> lock(m_stats_mutex);
     return m_stats;
 }
 
-void Deko3dDecoder::publishStats(std::chrono::steady_clock::time_point now)
+void NvtegraDecoder::publishStats(std::chrono::steady_clock::time_point now)
 {
     if (m_window_start == std::chrono::steady_clock::time_point{})
     {
@@ -222,7 +222,7 @@ void Deko3dDecoder::publishStats(std::chrono::steady_clock::time_point now)
     m_interval_count = 0;
 }
 
-bool Deko3dDecoder::decode(const AVBufferHandle& data, std::size_t size)
+bool NvtegraDecoder::decode(const AVBufferHandle& data, std::size_t size)
 {
     const uint8_t* buf = data.get()->data;
     const size_t buf_size = size;
@@ -241,7 +241,7 @@ bool Deko3dDecoder::decode(const AVBufferHandle& data, std::size_t size)
     {
         if (has_all_params && has_idr)
         {
-            brls::Logger::info("Deko3dDecoder: Got complete keyframe (params + IDR), resuming decode");
+            brls::Logger::info("NvtegraDecoder: Got complete keyframe (params + IDR), resuming decode");
             m_waiting_for_idr = false;
         }
         else
@@ -251,12 +251,12 @@ bool Deko3dDecoder::decode(const AVBufferHandle& data, std::size_t size)
             {
                 if (m_is_hevc)
                 {
-                    brls::Logger::info("Deko3dDecoder: Waiting for keyframe (VPS={}, SPS={}, PPS={}, IDR={}) skip #{}",
+                    brls::Logger::info("NvtegraDecoder: Waiting for keyframe (VPS={}, SPS={}, PPS={}, IDR={}) skip #{}",
                         m_has_vps, m_has_sps, m_has_pps, has_idr, idr_wait_count);
                 }
                 else
                 {
-                    brls::Logger::info("Deko3dDecoder: Waiting for keyframe (SPS={}, PPS={}, IDR={}) skip #{}",
+                    brls::Logger::info("NvtegraDecoder: Waiting for keyframe (SPS={}, PPS={}, IDR={}) skip #{}",
                         m_has_sps, m_has_pps, has_idr, idr_wait_count);
                 }
             }
@@ -276,7 +276,7 @@ bool Deko3dDecoder::decode(const AVBufferHandle& data, std::size_t size)
                 {
                     m_corrupt_in_call = true;
                     if (std::has_single_bit(++m_corrupt_frames))
-                        brls::Logger::warning("Deko3dDecoder: held a frame decoded from a missing reference ({} so far)",
+                        brls::Logger::warning("NvtegraDecoder: held a frame decoded from a missing reference ({} so far)",
                             m_corrupt_frames);
                     av_frame_unref(m_tmp_frame);
                     continue;
@@ -284,7 +284,7 @@ bool Deko3dDecoder::decode(const AVBufferHandle& data, std::size_t size)
                 AVFrame* queued_frame = av_frame_alloc();
                 if (!queued_frame)
                 {
-                    brls::Logger::error("Deko3dDecoder: Failed to allocate queued frame");
+                    brls::Logger::error("NvtegraDecoder: Failed to allocate queued frame");
                     return false;
                 }
 
@@ -310,7 +310,7 @@ bool Deko3dDecoder::decode(const AVBufferHandle& data, std::size_t size)
 
             char errbuf[128];
             av_make_error_string(errbuf, sizeof(errbuf), receive_result);
-            brls::Logger::warning("Deko3dDecoder: avcodec_receive_frame failed: {}", errbuf);
+            brls::Logger::warning("NvtegraDecoder: avcodec_receive_frame failed: {}", errbuf);
             return false;
         }
     };
@@ -341,17 +341,17 @@ bool Deko3dDecoder::decode(const AVBufferHandle& data, std::size_t size)
     }
 }
 
-void Deko3dDecoder::flush()
+void NvtegraDecoder::flush()
 {
     if (m_codec_context)
     {
-        brls::Logger::warning("Deko3dDecoder: Flushing decoder, waiting for IDR");
+        brls::Logger::warning("NvtegraDecoder: Flushing decoder, waiting for IDR");
         avcodec_flush_buffers(m_codec_context);
         m_waiting_for_idr = true;
     }
 }
 
-bool Deko3dDecoder::scanNALUnits(const uint8_t* buf, size_t buf_size)
+bool NvtegraDecoder::scanNALUnits(const uint8_t* buf, size_t buf_size)
 {
     if (buf_size < 5)
         return false;
@@ -405,20 +405,20 @@ bool Deko3dDecoder::scanNALUnits(const uint8_t* buf, size_t buf_size)
 
     if (m_is_hevc)
     {
-        if (!prev_vps && m_has_vps) brls::Logger::info("Deko3dDecoder: Received VPS");
-        if (!prev_sps && m_has_sps) brls::Logger::info("Deko3dDecoder: Received SPS");
-        if (!prev_pps && m_has_pps) brls::Logger::info("Deko3dDecoder: Received PPS");
+        if (!prev_vps && m_has_vps) brls::Logger::info("NvtegraDecoder: Received VPS");
+        if (!prev_sps && m_has_sps) brls::Logger::info("NvtegraDecoder: Received SPS");
+        if (!prev_pps && m_has_pps) brls::Logger::info("NvtegraDecoder: Received PPS");
     }
     else
     {
-        if (!prev_sps && m_has_sps) brls::Logger::info("Deko3dDecoder: Received SPS");
-        if (!prev_pps && m_has_pps) brls::Logger::info("Deko3dDecoder: Received PPS");
+        if (!prev_sps && m_has_sps) brls::Logger::info("NvtegraDecoder: Received SPS");
+        if (!prev_pps && m_has_pps) brls::Logger::info("NvtegraDecoder: Received PPS");
     }
 
     return has_idr;
 }
 
-void Deko3dDecoder::cleanup()
+void NvtegraDecoder::cleanup()
 {
     if (m_tmp_frame)
     {

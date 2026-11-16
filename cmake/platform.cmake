@@ -12,6 +12,8 @@ if (AKIRA_PLATFORM_NX)
     set(AKIRA_PLATFORM_BACKENDS
         factories/nx
         video/deko3d
+        video/nvtegra
+        video/uam
         display/fixed
         updates/github
         stats/nxext

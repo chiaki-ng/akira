@@ -5,7 +5,6 @@
 
 #include "platform/video/renderer.hpp"
 
-#include <deko3d.hpp>
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -149,7 +148,7 @@ private:
     int m_frame_width = 0;
     int m_frame_height = 0;
 
-    brls::SwitchVideoContext* m_vctx = nullptr;
+    brls::SwitchDeko3dVideoContext* m_vctx = nullptr;
     bool m_overlay_to_texture = false;
     bool m_ovl_dirty = true;
 

@@ -115,7 +115,7 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
 
     brls::Logger::info("Deko3dRenderer::initialize: frame={}x{}", frame_width, frame_height);
 
-    m_vctx = (brls::SwitchVideoContext*)brls::Application::getPlatform()->getVideoContext();
+    m_vctx = static_cast<brls::SwitchDeko3dVideoContext*>(brls::Application::getPlatform()->getVideoContext());
     if (!m_vctx)
     {
         brls::Logger::error("Failed to get SwitchVideoContext");
