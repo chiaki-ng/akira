@@ -13,28 +13,28 @@
 #include <mutex>
 #include <optional>
 
-#include "platform/video/vulkan/hardware_decoder.hpp"
+#include "platform/video/viddec/hardware_decoder.hpp"
 #include "util/av_wrappers.hpp"
 #include "platform/video/decoder.hpp"
 
-namespace akira::platform::vulkan
+namespace akira::platform::viddec
 {
 
-class VulkanDecoder final : public akira::platform::VideoDecoder
+class ViddecDecoder final : public akira::platform::VideoDecoder
 {
 public:
-    using Frame = akira::platform::vulkan::HardwareDecoder::Frame;
+    using Frame = akira::platform::viddec::HardwareDecoder::Frame;
     using FrameReadyCallback = std::function<void(Frame)>;
 
-    VulkanDecoder();
-    ~VulkanDecoder() override;
+    ViddecDecoder();
+    ~ViddecDecoder() override;
 
     // Disable copy
-    VulkanDecoder(const VulkanDecoder&) = delete;
-    VulkanDecoder& operator=(const VulkanDecoder&) = delete;
+    ViddecDecoder(const ViddecDecoder&) = delete;
+    ViddecDecoder& operator=(const ViddecDecoder&) = delete;
 
     void setFrameReadyCallback(FrameReadyCallback callback) { m_frame_ready_callback = std::move(callback); }
-    void setOutputDevice(std::optional<akira::platform::vulkan::DecoderOutput::Device> device) { m_output_device = device; }
+    void setOutputMemory(std::shared_ptr<akira::platform::viddec::OutputMemory> memory) { m_output_memory = std::move(memory); }
 
     bool initCodec(bool hevc, bool ps5, int width, int height) override;
 
@@ -115,8 +115,8 @@ private:
     uint64_t m_interval_count = 0;
     double m_interval_mean_us = 0.0;
 
-    std::shared_ptr<akira::platform::vulkan::HardwareDecoder> m_hardware;
-    std::optional<akira::platform::vulkan::DecoderOutput::Device> m_output_device;
+    std::shared_ptr<akira::platform::viddec::HardwareDecoder> m_hardware;
+    std::shared_ptr<akira::platform::viddec::OutputMemory> m_output_memory;
     std::vector<std::uint8_t> m_sps;
     std::vector<std::uint8_t> m_decoder_sps;
     std::vector<std::uint8_t> m_pps;

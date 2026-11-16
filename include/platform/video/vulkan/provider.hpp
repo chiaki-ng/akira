@@ -4,10 +4,16 @@
 
 #include "platform/video/provider.hpp"
 
+namespace akira::platform::viddec
+{
+
+class ViddecDecoder;
+
+}
+
 namespace akira::platform::vulkan
 {
 
-class VulkanDecoder;
 class VulkanRenderer;
 
 class VulkanVideoProvider final : public VideoProvider
@@ -32,7 +38,7 @@ public:
     void release() override;
 
 private:
-    std::unique_ptr<VulkanDecoder> m_decoder;
+    std::unique_ptr<akira::platform::viddec::ViddecDecoder> m_decoder;
     std::unique_ptr<VulkanRenderer> m_renderer;
 };
 

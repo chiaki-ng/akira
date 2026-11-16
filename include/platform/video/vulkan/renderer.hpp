@@ -1,7 +1,8 @@
 #ifndef AKIRA_VULKAN_RENDERER_HPP
 #define AKIRA_VULKAN_RENDERER_HPP
 
-#include "platform/video/vulkan/hardware_decoder.hpp"
+#include "platform/video/viddec/hardware_decoder.hpp"
+#include "platform/video/viddec/output_memory.hpp"
 #include "platform/video/renderer.hpp"
 
 #include <vulkan/vulkan.h>
@@ -40,7 +41,7 @@ public:
 
     bool initialize(int frame_width, int frame_height) override;
     bool isInitialized() const override { return m_initialized.load(std::memory_order_acquire); }
-    using Frame = akira::platform::vulkan::HardwareDecoder::Frame;
+    using Frame = akira::platform::viddec::HardwareDecoder::Frame;
 
     void draw(Frame frame);
     void presentFrame(Frame frame);
@@ -62,7 +63,7 @@ public:
     }
 
     bool captureLastFrame(std::vector<uint8_t>& rgba, int& width, int& height) override;
-    std::optional<akira::platform::vulkan::DecoderOutput::Device> decoderOutputDevice() const;
+    std::shared_ptr<akira::platform::viddec::OutputMemory> decoderOutputMemory() const;
 
     void setTickCallback(TickCallback cb) override { m_tick_callback = std::move(cb); }
 
@@ -132,8 +133,8 @@ private:
         std::size_t backingSize = 0;
         std::uint32_t width = 0;
         std::uint32_t height = 0;
-        akira::platform::vulkan::HardwarePlane luma{};
-        akira::platform::vulkan::HardwarePlane chroma{};
+        akira::platform::viddec::HardwarePlane luma{};
+        akira::platform::viddec::HardwarePlane chroma{};
         VkBuffer decoderBuffer = VK_NULL_HANDLE;
 
         std::uint32_t chromaWidth() const { return (width + 1) / 2; }
@@ -224,8 +225,8 @@ private:
         std::uint64_t m_generation;
         PlanePath m_path;
         DescriptorPool m_pool;
-        std::array<std::unique_ptr<PlaneImport>, akira::platform::vulkan::HardwareDecoder::ImageCount> m_slots;
-        std::array<bool, akira::platform::vulkan::HardwareDecoder::ImageCount> m_failed{};
+        std::array<std::unique_ptr<PlaneImport>, akira::platform::viddec::HardwareDecoder::ImageCount> m_slots;
+        std::array<bool, akira::platform::viddec::HardwareDecoder::ImageCount> m_failed{};
     };
 
     class RenderTarget
@@ -410,7 +411,7 @@ private:
     std::unique_ptr<PlaneImport> importPlanes(const PlaneLayout& layout, const HostRange& range,
         ImportCache& cache) const;
     std::shared_ptr<ImportCache> createImportCache(std::uint64_t generation) const;
-    PlaneLayout planeLayout(const akira::platform::vulkan::HardwareFrame& frame) const;
+    PlaneLayout planeLayout(const akira::platform::viddec::HardwareFrame& frame) const;
     bool decoderSamplingMatches(const PlaneLayout& layout);
     PlaneImport* acquireImport(const Frame& frame);
     VkPipelineLayout layoutFor(const PipelineKey& key) const;

@@ -1,10 +1,10 @@
-#include "platform/video/vulkan/h264_sps.hpp"
+#include "platform/video/viddec/h264_sps.hpp"
 
 #include <algorithm>
 #include <array>
 #include <bit>
 
-namespace akira::platform::vulkan {
+namespace akira::platform::viddec {
 
 class H264Sps::BitReader {
 public:

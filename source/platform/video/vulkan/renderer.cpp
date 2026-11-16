@@ -1,4 +1,5 @@
 #include "platform/video/vulkan/renderer.hpp"
+#include "platform/video/vulkan/decoder_output.hpp"
 
 #include "core/settings_manager.hpp"
 #include "core/wireguard_manager.hpp"
@@ -210,7 +211,7 @@ void VulkanRenderer::setViewport(VkCommandBuffer cmd, VkExtent2D extent)
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 }
 
-VulkanRenderer::PlaneLayout VulkanRenderer::planeLayout(const akira::platform::vulkan::HardwareFrame& frame) const
+VulkanRenderer::PlaneLayout VulkanRenderer::planeLayout(const akira::platform::viddec::HardwareFrame& frame) const
 {
     return PlaneLayout{
         .backing = frame.backing(),
@@ -219,7 +220,9 @@ VulkanRenderer::PlaneLayout VulkanRenderer::planeLayout(const akira::platform::v
         .height = frame.height(),
         .luma = frame.luma(),
         .chroma = frame.chroma(),
-        .decoderBuffer = m_decoder_sampling == DecoderSampling::Broken ? VK_NULL_HANDLE : frame.outputBuffer(),
+        .decoderBuffer = m_decoder_sampling == DecoderSampling::Broken
+            ? VK_NULL_HANDLE
+            : frame.output().transform(&akira::platform::vulkan::DecoderOutput::buffer).value_or(VK_NULL_HANDLE),
     };
 }
 
@@ -353,11 +356,11 @@ bool VulkanRenderer::decoderSamplingMatches(const PlaneLayout& layout)
     return std::memcmp(mapped, decoded, static_cast<std::size_t>(size)) == 0;
 }
 
-std::optional<akira::platform::vulkan::DecoderOutput::Device> VulkanRenderer::decoderOutputDevice() const
+std::shared_ptr<akira::platform::viddec::OutputMemory> VulkanRenderer::decoderOutputMemory() const
 {
     if (!m_vctx || m_path != PlanePath::TexelBuffer)
-        return std::nullopt;
-    return akira::platform::vulkan::DecoderOutput::Device{m_device, m_vctx->physicalDevice()};
+        return nullptr;
+    return std::make_shared<akira::platform::vulkan::DecoderOutput>(m_device, m_vctx->physicalDevice());
 }
 
 VkShaderStageFlags VulkanRenderer::pushStages(Program program)
@@ -866,7 +869,7 @@ std::optional<VulkanRenderer::ImagePlanes> VulkanRenderer::importImagePlanes(con
     }
 
     const auto createPlane = [this](VkFormat format, std::uint32_t width, std::uint32_t height,
-                                 const akira::platform::vulkan::HardwarePlane& plane) -> std::optional<Image>
+                                 const akira::platform::viddec::HardwarePlane& plane) -> std::optional<Image>
     {
         const VkSubresourceLayout subresource{
             .offset = plane.offset,
@@ -1112,7 +1115,7 @@ std::unique_ptr<VulkanRenderer::PlaneImport> VulkanRenderer::importPlanes(const 
 
 std::shared_ptr<VulkanRenderer::ImportCache> VulkanRenderer::createImportCache(std::uint64_t generation) const
 {
-    constexpr std::uint32_t slots = akira::platform::vulkan::HardwareDecoder::ImageCount;
+    constexpr std::uint32_t slots = akira::platform::viddec::HardwareDecoder::ImageCount;
     auto pool = createDescriptorPool(m_path == PlanePath::Image ? VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
                                                                 : VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
         slots, slots * 2);
@@ -1138,7 +1141,7 @@ VulkanRenderer::PlaneImport* VulkanRenderer::acquireImport(const Frame& frame)
         }
     }
     const std::uint32_t slot = frame->slot();
-    if (slot >= akira::platform::vulkan::HardwareDecoder::ImageCount)
+    if (slot >= akira::platform::viddec::HardwareDecoder::ImageCount)
     {
         brls::Logger::error("VulkanRenderer: decoder slot {} is out of range", slot);
         return nullptr;

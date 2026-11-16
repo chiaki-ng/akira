@@ -1,5 +1,5 @@
-#include "platform/video/vulkan/decoder.hpp"
-#include "platform/video/vulkan/h264_sps.hpp"
+#include "platform/video/viddec/decoder.hpp"
+#include "platform/video/viddec/h264_sps.hpp"
 #include "core/settings_manager.hpp"
 
 #include <algorithm>
@@ -11,19 +11,19 @@
 #include <string>
 #include <borealis.hpp>
 
-namespace akira::platform::vulkan
+namespace akira::platform::viddec
 {
 
-VulkanDecoder::VulkanDecoder()
+ViddecDecoder::ViddecDecoder()
 {
 }
 
-VulkanDecoder::~VulkanDecoder()
+ViddecDecoder::~ViddecDecoder()
 {
     cleanup();
 }
 
-bool VulkanDecoder::initCodec(bool hevc, bool ps5, int width, int height)
+bool ViddecDecoder::initCodec(bool hevc, bool ps5, int width, int height)
 {
     m_is_hevc = hevc;
     m_reference_limit = ps5 ? Ps5ReferenceLimit : Ps4ReferenceLimit;
@@ -31,30 +31,30 @@ bool VulkanDecoder::initCodec(bool hevc, bool ps5, int width, int height)
     m_video_height = height;
     if (hevc)
     {
-        brls::Logger::error("VulkanDecoder: the Switch 2 hardware decoder has no HEVC support; request H.264");
+        brls::Logger::error("ViddecDecoder: the Switch 2 hardware decoder has no HEVC support; request H.264");
         return false;
     }
-    brls::Logger::info("VulkanDecoder: H.264 on the Switch 2 hardware decoder, up to {}x{}, {} references for the {}",
+    brls::Logger::info("ViddecDecoder: H.264 on the Switch 2 hardware decoder, up to {}x{}, {} references for the {}",
         width, height, m_reference_limit, ps5 ? "PS5" : "PS4");
     return true;
 }
 
-bool VulkanDecoder::initVideo(int video_width, int video_height)
+bool ViddecDecoder::initVideo(int video_width, int video_height)
 {
-    brls::Logger::info("VulkanDecoder: initVideo {}x{}", video_width, video_height);
+    brls::Logger::info("ViddecDecoder: initVideo {}x{}", video_width, video_height);
     m_video_width = video_width;
     m_video_height = video_height;
     m_waiting_for_idr = true;
     return !m_is_hevc;
 }
 
-void VulkanDecoder::noteDecodeSample(std::chrono::steady_clock::duration d)
+void ViddecDecoder::noteDecodeSample(std::chrono::steady_clock::duration d)
 {
     m_decode_us_accum += (double)std::chrono::duration_cast<std::chrono::microseconds>(d).count();
     m_decode_sample_count++;
 }
 
-void VulkanDecoder::notePacketArrival(std::chrono::steady_clock::time_point now)
+void ViddecDecoder::notePacketArrival(std::chrono::steady_clock::time_point now)
 {
     if (m_last_packet != std::chrono::steady_clock::time_point{})
     {
@@ -73,13 +73,13 @@ void VulkanDecoder::notePacketArrival(std::chrono::steady_clock::time_point now)
     m_last_packet = now;
 }
 
-VulkanDecoder::DecoderStats VulkanDecoder::getStats() const
+ViddecDecoder::DecoderStats ViddecDecoder::getStats() const
 {
     std::lock_guard<std::mutex> lock(m_stats_mutex);
     return m_stats;
 }
 
-void VulkanDecoder::publishStats(std::chrono::steady_clock::time_point now)
+void ViddecDecoder::publishStats(std::chrono::steady_clock::time_point now)
 {
     if (m_window_start == std::chrono::steady_clock::time_point{})
     {
@@ -110,7 +110,7 @@ void VulkanDecoder::publishStats(std::chrono::steady_clock::time_point now)
     const std::uint32_t heldPeak = m_hardware ? m_hardware->takeHeldPeak() : 0;
     const std::uint64_t reused = m_hardware ? m_hardware->reusedWhileHeld() : 0;
     if (SettingsManager::getInstance()->getChiakiLogVerbosity() != ChiakiLogVerbosity::Normal)
-        brls::Logger::info("VulkanDecoder: last {} ms submitted {} failed {} emitted {} held peak {} slots reused while held {}",
+        brls::Logger::info("ViddecDecoder: last {} ms submitted {} failed {} emitted {} held peak {} slots reused while held {}",
         elapsed_ms, m_window_submitted, m_window_failed, m_frames_emitted, heldPeak, reused);
     m_window_submitted = 0;
     m_window_failed = 0;
@@ -124,7 +124,7 @@ void VulkanDecoder::publishStats(std::chrono::steady_clock::time_point now)
     m_interval_count = 0;
 }
 
-std::vector<VulkanDecoder::NalUnit> VulkanDecoder::splitNalUnits(std::span<const std::uint8_t> sample)
+std::vector<ViddecDecoder::NalUnit> ViddecDecoder::splitNalUnits(std::span<const std::uint8_t> sample)
 {
     std::vector<NalUnit> units;
     std::optional<std::size_t> start;
@@ -152,14 +152,14 @@ std::vector<VulkanDecoder::NalUnit> VulkanDecoder::splitNalUnits(std::span<const
     return units;
 }
 
-VulkanDecoder::Keyframe VulkanDecoder::scanNalUnits(std::span<const std::uint8_t> sample)
+ViddecDecoder::Keyframe ViddecDecoder::scanNalUnits(std::span<const std::uint8_t> sample)
 {
     Keyframe keyframe;
     auto remember = [&](std::vector<std::uint8_t>& stored, std::span<const std::uint8_t> bytes, const char* name) {
         if (std::ranges::equal(stored, bytes))
             return;
         if (stored.empty())
-            brls::Logger::info("VulkanDecoder: received {}", name);
+            brls::Logger::info("ViddecDecoder: received {}", name);
         else
             keyframe.parameters_changed = true;
         stored.assign(bytes.begin(), bytes.end());
@@ -188,7 +188,7 @@ VulkanDecoder::Keyframe VulkanDecoder::scanNalUnits(std::span<const std::uint8_t
     return keyframe;
 }
 
-std::vector<std::uint8_t> VulkanDecoder::codecConfig() const
+std::vector<std::uint8_t> ViddecDecoder::codecConfig() const
 {
     std::vector<std::uint8_t> config;
     config.reserve(StartCode.size() * 2 + m_decoder_sps.size() + m_pps.size());
@@ -199,27 +199,27 @@ std::vector<std::uint8_t> VulkanDecoder::codecConfig() const
     return config;
 }
 
-void VulkanDecoder::rememberDecoderSps()
+void ViddecDecoder::rememberDecoderSps()
 {
     std::string hex;
     for (const std::uint8_t byte : m_sps)
         std::format_to(std::back_inserter(hex), "{:02x}", byte);
-    const auto sps = akira::platform::vulkan::H264Sps::parse(m_sps);
+    const auto sps = akira::platform::viddec::H264Sps::parse(m_sps);
     if (!sps)
     {
-        brls::Logger::warning("VulkanDecoder: SPS {} does not parse, giving it to the decoder unchanged", hex);
+        brls::Logger::warning("ViddecDecoder: SPS {} does not parse, giving it to the decoder unchanged", hex);
         m_decoder_sps = m_sps;
         return;
     }
     m_decoder_sps = sps->forDecoder(m_reference_limit);
-    const auto given = akira::platform::vulkan::H264Sps::parse(m_decoder_sps);
-    brls::Logger::info("VulkanDecoder: SPS {} level {} refs {} dpb {}; decoder gets refs {} and no reordering",
+    const auto given = akira::platform::viddec::H264Sps::parse(m_decoder_sps);
+    brls::Logger::info("ViddecDecoder: SPS {} level {} refs {} dpb {}; decoder gets refs {} and no reordering",
         hex, sps->levelIdc(), sps->maxNumRefFrames(),
         sps->maxDecFrameBuffering() ? std::to_string(*sps->maxDecFrameBuffering()) : std::string("unset"),
         given ? given->maxNumRefFrames() : 0);
 }
 
-std::vector<std::uint8_t> VulkanDecoder::decoderSample(std::span<const std::uint8_t> sample) const
+std::vector<std::uint8_t> ViddecDecoder::decoderSample(std::span<const std::uint8_t> sample) const
 {
     std::vector<std::uint8_t> rebuilt;
     rebuilt.reserve(sample.size() + m_decoder_sps.size());
@@ -234,7 +234,7 @@ std::vector<std::uint8_t> VulkanDecoder::decoderSample(std::span<const std::uint
     return rebuilt;
 }
 
-bool VulkanDecoder::ensureHardwareDecoder(const Keyframe& keyframe)
+bool ViddecDecoder::ensureHardwareDecoder(const Keyframe& keyframe)
 {
     if (m_hardware && !keyframe.parameters_changed)
         return true;
@@ -245,23 +245,23 @@ bool VulkanDecoder::ensureHardwareDecoder(const Keyframe& keyframe)
     const auto height = static_cast<std::uint32_t>((std::max(m_video_height, 16) + 15) & ~15);
     m_hardware.reset();
     const auto config = codecConfig();
-    auto created = akira::platform::vulkan::HardwareDecoder::create({ViddecCodec_H264, width, height, config, m_output_device});
+    auto created = akira::platform::viddec::HardwareDecoder::create({ViddecCodec_H264, width, height, config, m_output_memory});
     if (!created)
     {
-        brls::Logger::error("VulkanDecoder: videoDecoderCreate {}x{} failed: 0x{:x}", width, height, created.error());
+        brls::Logger::error("ViddecDecoder: videoDecoderCreate {}x{} failed: 0x{:x}", width, height, created.error());
         return false;
     }
     m_hardware = std::move(created).value();
     m_hardware->setReporter([](const std::string& line) { brls::Logger::warning("HardwareDecoder: {}", line); });
-    brls::Logger::info("VulkanDecoder: hardware decoder ready for {}x{}", width, height);
+    brls::Logger::info("ViddecDecoder: hardware decoder ready for {}x{}", width, height);
     if (m_hardware->zeroCopy())
-        brls::Logger::info("VulkanDecoder: the decoder writes into Vulkan-imported memory, frames are sampled in place");
+        brls::Logger::info("ViddecDecoder: the decoder writes into renderer-imported memory, frames are sampled in place");
     else if (const auto& failure = m_hardware->outputFailure())
-        brls::Logger::warning("VulkanDecoder: zero copy unavailable at {} (0x{:x}), frames are copied", failure->step, failure->code);
+        brls::Logger::warning("ViddecDecoder: zero copy unavailable at {} (0x{:x}), frames are copied", failure->step, failure->code);
     return true;
 }
 
-void VulkanDecoder::emitReadyFrames(std::chrono::steady_clock::time_point decode_entry, std::chrono::nanoseconds first_wait)
+void ViddecDecoder::emitReadyFrames(std::chrono::steady_clock::time_point decode_entry, std::chrono::nanoseconds first_wait)
 {
     auto wait = first_wait;
     while (auto frame = m_hardware->nextFrame(wait))
@@ -277,7 +277,7 @@ void VulkanDecoder::emitReadyFrames(std::chrono::steady_clock::time_point decode
     }
 }
 
-bool VulkanDecoder::decode(const AVBufferHandle& data, std::size_t size)
+bool ViddecDecoder::decode(const AVBufferHandle& data, std::size_t size)
 {
     if (m_is_hevc || !data)
         return false;
@@ -297,7 +297,7 @@ bool VulkanDecoder::decode(const AVBufferHandle& data, std::size_t size)
             m_drops++;
             return false;
         }
-        brls::Logger::info("VulkanDecoder: got a complete keyframe, decoding");
+        brls::Logger::info("ViddecDecoder: got a complete keyframe, decoding");
         m_waiting_for_idr = false;
     }
 
@@ -314,7 +314,7 @@ bool VulkanDecoder::decode(const AVBufferHandle& data, std::size_t size)
     if (auto submitted = m_hardware->submit(submission, timestamp, SubmitTimeout); !submitted)
     {
         m_window_failed++;
-        brls::Logger::warning("VulkanDecoder: videoDecoderSubmit failed: 0x{:x}", submitted.error());
+        brls::Logger::warning("ViddecDecoder: videoDecoderSubmit failed: 0x{:x}", submitted.error());
         m_drops++;
         emitReadyFrames(decode_entry, std::chrono::nanoseconds(0));
         return false;
@@ -324,18 +324,18 @@ bool VulkanDecoder::decode(const AVBufferHandle& data, std::size_t size)
     return true;
 }
 
-void VulkanDecoder::flush()
+void ViddecDecoder::flush()
 {
-    brls::Logger::warning("VulkanDecoder: flushing, waiting for IDR");
+    brls::Logger::warning("ViddecDecoder: flushing, waiting for IDR");
     if (m_hardware)
     {
         if (auto flushed = m_hardware->flush(); !flushed)
-            brls::Logger::warning("VulkanDecoder: videoDecoderFlush failed: 0x{:x}", flushed.error());
+            brls::Logger::warning("ViddecDecoder: videoDecoderFlush failed: 0x{:x}", flushed.error());
     }
     m_waiting_for_idr = true;
 }
 
-void VulkanDecoder::cleanup()
+void ViddecDecoder::cleanup()
 {
     m_hardware.reset();
     m_sps.clear();

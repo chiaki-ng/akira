@@ -1,12 +1,12 @@
 #include "test_util.hpp"
 
-#include "platform/video/vulkan/h264_sps.hpp"
+#include "platform/video/viddec/h264_sps.hpp"
 
 #include <cstdint>
 #include <string_view>
 #include <vector>
 
-using akira::platform::vulkan::H264Sps;
+using akira::platform::viddec::H264Sps;
 
 static std::vector<std::uint8_t> fromHex(std::string_view hex)
 {

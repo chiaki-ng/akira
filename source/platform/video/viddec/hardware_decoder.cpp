@@ -1,4 +1,4 @@
-#include "platform/video/vulkan/hardware_decoder.hpp"
+#include "platform/video/viddec/hardware_decoder.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -7,7 +7,7 @@
 #include <iterator>
 #include <ranges>
 
-namespace akira::platform::vulkan
+namespace akira::platform::viddec
 {
 
 HardwareFrame::HardwareFrame(std::shared_ptr<HardwareDecoder> owner, const VideoFrame& frame)
@@ -56,9 +56,9 @@ HardwarePlane HardwareFrame::chroma() const
     return {static_cast<std::size_t>(m_frame.planes[1] - base), m_frame.pitches[1]};
 }
 
-VkBuffer HardwareFrame::outputBuffer() const
+std::optional<OutputHandle> HardwareFrame::output() const
 {
-    return m_owner->outputBuffer(m_frame.slot);
+    return m_owner->output(m_frame.slot);
 }
 
 HardwareDecoder::HardwareDecoder(std::uint32_t width, std::uint32_t height)
@@ -110,8 +110,7 @@ void HardwareDecoder::closeDecoder()
     m_outputs.clear();
 }
 
-std::expected<void, DecoderOutput::Failure> HardwareDecoder::openWithOutputs(const Config& config,
-    const DecoderOutput::Device& device)
+std::expected<void, OutputFailure> HardwareDecoder::openWithOutputs(const Config& config, OutputMemory& memory)
 {
     ::VideoDecoder& d = m_decoder;
     const std::uint32_t width = (m_width + 1) & ~1u;
@@ -119,7 +118,7 @@ std::expected<void, DecoderOutput::Failure> HardwareDecoder::openWithOutputs(con
     d.tiling = ViddecTilingMode_PitchLinear;
     d.work_size = workSize(width, height);
 
-    const auto failed = [](std::string_view step, Result rc) { return std::unexpected(DecoderOutput::Failure{step, rc}); };
+    const auto failed = [](std::string_view step, Result rc) { return std::unexpected(OutputFailure{step, rc}); };
     if (const Result rc = gsvInitialize(); R_FAILED(rc))
         return failed("gsvInitialize", rc);
     d.gsv_initialized = true;
@@ -138,7 +137,7 @@ std::expected<void, DecoderOutput::Failure> HardwareDecoder::openWithOutputs(con
         return failed("viddecMakeImagePreference", rc);
     for (std::uint32_t slot = 0; slot < ImageCount; ++slot)
     {
-        auto output = DecoderOutput::acquire(device, preference);
+        auto output = OutputImage::acquire(memory, preference);
         if (!output)
             return std::unexpected(output.error());
         d.images[slot] = (*output)->image();
@@ -263,9 +262,11 @@ std::size_t HardwareDecoder::backingSize(std::uint32_t slot) const
     return static_cast<std::size_t>(m_decoder.images[slot].backing_size);
 }
 
-VkBuffer HardwareDecoder::outputBuffer(std::uint32_t slot) const
+std::optional<OutputHandle> HardwareDecoder::output(std::uint32_t slot) const
 {
-    return slot < m_outputs.size() ? m_outputs[slot]->buffer() : VK_NULL_HANDLE;
+    if (slot >= m_outputs.size())
+        return std::nullopt;
+    return m_outputs[slot]->handle();
 }
 
 void HardwareDecoder::returnFrame(const VideoFrame& frame)

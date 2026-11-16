@@ -93,7 +93,7 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/cloud/fetch_progress.cpp \
                 $(CURDIR)/source/core/pair_crypto.cpp \
                 $(CURDIR)/source/util/dns_client.cpp \
-                $(CURDIR)/source/platform/video/vulkan/h264_sps.cpp \
+                $(CURDIR)/source/platform/video/viddec/h264_sps.cpp \
                 $(TEST_PLATFORM_SRC)
 CORE_DIR     := $(or $(call override_path,CORE),$(CURDIR)/library/libchiaki-core$(LIBRARY_SUFFIX))
 CORE_TEST_SRC := $(CORE_DIR)/src/platform/crypto/provider.cpp \

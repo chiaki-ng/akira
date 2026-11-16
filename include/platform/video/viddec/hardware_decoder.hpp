@@ -2,7 +2,6 @@
 #define AKIRA_STREAM_HARDWARE_DECODER_HPP
 
 #include <switch.h>
-#include <vulkan/vulkan.h>
 
 #include <array>
 #include <atomic>
@@ -18,9 +17,10 @@
 #include <span>
 #include <vector>
 
-#include "platform/video/vulkan/decoder_output.hpp"
+#include "platform/video/viddec/output_image.hpp"
+#include "platform/video/viddec/output_memory.hpp"
 
-namespace akira::platform::vulkan
+namespace akira::platform::viddec
 {
 
 class HardwareDecoder;
@@ -48,7 +48,7 @@ public:
     std::size_t backingSize() const;
     HardwarePlane luma() const;
     HardwarePlane chroma() const;
-    VkBuffer outputBuffer() const;
+    std::optional<OutputHandle> output() const;
 
 private:
     std::shared_ptr<HardwareDecoder> m_owner;
@@ -66,7 +66,7 @@ public:
         std::uint32_t width;
         std::uint32_t height;
         std::span<const std::uint8_t> codecConfig;
-        std::optional<DecoderOutput::Device> output = std::nullopt;
+        std::shared_ptr<OutputMemory> output = nullptr;
     };
 
     static std::expected<std::shared_ptr<HardwareDecoder>, Result> create(const Config& config);
@@ -85,9 +85,9 @@ public:
     std::uint32_t height() const { return m_height; }
     const void* backing(std::uint32_t slot) const;
     std::size_t backingSize(std::uint32_t slot) const;
-    VkBuffer outputBuffer(std::uint32_t slot) const;
+    std::optional<OutputHandle> output(std::uint32_t slot) const;
     bool zeroCopy() const { return !m_outputs.empty(); }
-    const std::optional<DecoderOutput::Failure>& outputFailure() const { return m_output_failure; }
+    const std::optional<OutputFailure>& outputFailure() const { return m_output_failure; }
     std::uint32_t takeHeldPeak() { return m_held_peak.exchange(m_held.load(std::memory_order_relaxed)); }
     std::uint64_t reusedWhileHeld() const { return m_reused_while_held.load(std::memory_order_relaxed); }
     void setReporter(std::function<void(const std::string&)> reporter) { m_reporter = std::move(reporter); }
@@ -100,7 +100,7 @@ private:
     HardwareDecoder(std::uint32_t width, std::uint32_t height);
     void returnFrame(const VideoFrame& frame);
     void releaseReturnedFrames();
-    std::expected<void, DecoderOutput::Failure> openWithOutputs(const Config& config, const DecoderOutput::Device& device);
+    std::expected<void, OutputFailure> openWithOutputs(const Config& config, OutputMemory& memory);
     void closeDecoder();
     static std::uint64_t workSize(std::uint32_t width, std::uint32_t height);
 
@@ -130,8 +130,8 @@ private:
     std::uint64_t m_generation;
     std::mutex m_returned_mutex;
     std::vector<VideoFrame> m_returned;
-    std::vector<std::unique_ptr<DecoderOutput>> m_outputs;
-    std::optional<DecoderOutput::Failure> m_output_failure;
+    std::vector<std::unique_ptr<OutputImage>> m_outputs;
+    std::optional<OutputFailure> m_output_failure;
     std::array<std::atomic<std::uint32_t>, ImageCount> m_live{};
     std::atomic<std::uint32_t> m_held{0};
     std::atomic<std::uint32_t> m_held_peak{0};

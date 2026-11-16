@@ -25,6 +25,7 @@ else()
     set(AKIRA_VIDEO_PROVIDER vulkan)
     set(AKIRA_PLATFORM_BACKENDS
         factories/ounce
+        video/viddec
         video/vulkan
         display/per_mode
         updates/none

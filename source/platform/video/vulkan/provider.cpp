@@ -3,7 +3,7 @@
 #include <borealis.hpp>
 
 #include "core/settings_manager.hpp"
-#include "platform/video/vulkan/decoder.hpp"
+#include "platform/video/viddec/decoder.hpp"
 #include "platform/video/vulkan/renderer.hpp"
 
 using namespace brls::literals;
@@ -37,7 +37,7 @@ VideoDecoder* VulkanVideoProvider::decoder()
 VideoDecoder& VulkanVideoProvider::ensureDecoder()
 {
     if (!m_decoder)
-        m_decoder = std::make_unique<VulkanDecoder>();
+        m_decoder = std::make_unique<akira::platform::viddec::ViddecDecoder>();
     return *m_decoder;
 }
 
@@ -54,12 +54,12 @@ bool VulkanVideoProvider::startRenderer(int width, int height, FrameHooks hooks)
         return false;
 
     if (SettingsManager::getInstance()->getZeroCopyVideo())
-        m_decoder->setOutputDevice(renderer->decoderOutputDevice());
+        m_decoder->setOutputMemory(renderer->decoderOutputMemory());
     else
         brls::Logger::info("Zero-copy video is off, decoded frames are copied");
     m_renderer = std::move(renderer);
 
-    m_decoder->setFrameReadyCallback([this, hooks = std::move(hooks)](VulkanDecoder::Frame frame) {
+    m_decoder->setFrameReadyCallback([this, hooks = std::move(hooks)](akira::platform::viddec::ViddecDecoder::Frame frame) {
         if (!frame || !m_renderer)
             return;
         hooks.arriving(FrameInfo{ .width = frame->width(), .height = frame->height() });
