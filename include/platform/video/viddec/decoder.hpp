@@ -46,6 +46,7 @@ public:
 
     // Flush decoder buffers and set waiting-for-keyframe state
     void flush() override;
+    void stalled(std::uint32_t episode) override;
 
     // Cleanup
     void cleanup() override;
@@ -72,6 +73,7 @@ private:
     static constexpr std::uint32_t Ps5ReferenceLimit = 5;
     static constexpr std::chrono::milliseconds SubmitTimeout{50};
     static constexpr std::chrono::milliseconds FirstFrameWait{20};
+    static constexpr std::uint32_t ZeroCopyStalls = 3;
 
     struct NalUnit
     {

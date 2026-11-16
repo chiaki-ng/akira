@@ -26,6 +26,11 @@ public:
     virtual bool initVideo(int width, int height) = 0;
     virtual bool decode(const AVBufferHandle& data, std::size_t size) = 0;
     virtual void flush() = 0;
+    virtual void stalled(std::uint32_t episode)
+    {
+        if (episode == 1)
+            flush();
+    }
     virtual void cleanup() = 0;
     virtual void updateResolution(int width, int height) = 0;
 

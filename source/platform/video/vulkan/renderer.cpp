@@ -1189,6 +1189,13 @@ VulkanRenderer::PlaneImport* VulkanRenderer::acquireImport(const Frame& frame)
     }
 
     auto created = importPlanes(layout, *range, *m_cache);
+    if (!created && layout.decoderBuffer)
+    {
+        brls::Logger::warning("VulkanRenderer: slot {} of generation {} cannot be sampled in place, frames are copied",
+            slot, frame->generation());
+        m_decoder_sampling = DecoderSampling::Broken;
+        return acquireImport(frame);
+    }
     if (!created)
     {
         m_cache->markFailed(slot);

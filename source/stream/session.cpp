@@ -226,7 +226,10 @@ bool Session::InitVideo(int video_width, int video_height)
 
     const akira::platform::VideoProvider::FrameHooks hooks{
         .arriving = [this](const akira::platform::FrameInfo& frame) { frameArriving(frame); },
-        .presented = [this] { m_presented.store(true, std::memory_order_relaxed); },
+        .presented = [this] {
+            m_packets_since_frame.store(0, std::memory_order_relaxed);
+            m_presented.store(true, std::memory_order_relaxed);
+        },
     };
     if (!m_video->startRenderer(video_width, video_height, hooks))
     {
@@ -236,14 +239,29 @@ bool Session::InitVideo(int video_width, int video_height)
 
     m_needs_recover = false;
     m_presented = false;
+    m_packets_since_frame = 0;
     m_video_worker = std::make_unique<akira::stream::VideoWorker>(
         [this](const AVBufferHandle& packet, std::size_t size) {
             akira::platform::VideoDecoder* decoder = m_video->decoder();
             if (!decoder->decode(packet, size) || decoder->lastDecodeCorrupt())
                 m_needs_recover.store(true, std::memory_order_relaxed);
+            checkForStall(*decoder);
         });
 
     return true;
+}
+
+void Session::checkForStall(akira::platform::VideoDecoder& decoder)
+{
+    const std::uint32_t packets = m_packets_since_frame.fetch_add(1, std::memory_order_relaxed) + 1;
+    if (packets < StallPackets)
+        return;
+    m_needs_recover.store(true, std::memory_order_relaxed);
+    if (packets % StallPackets != 0)
+        return;
+    const std::uint32_t episode = packets / StallPackets;
+    brls::Logger::warning("Video stalled: {} packets without a frame, asking for a keyframe (stall {})", packets, episode);
+    decoder.stalled(episode);
 }
 
 bool Session::FreeVideo()

@@ -335,6 +335,21 @@ void ViddecDecoder::flush()
     m_waiting_for_idr = true;
 }
 
+void ViddecDecoder::stalled(std::uint32_t episode)
+{
+    if (episode == 1)
+    {
+        flush();
+        return;
+    }
+    if (episode != ZeroCopyStalls || !m_output_memory)
+        return;
+    brls::Logger::warning("ViddecDecoder: still no frames after {} stalls, rebuilding without zero copy", episode);
+    m_output_memory.reset();
+    m_hardware.reset();
+    m_waiting_for_idr = true;
+}
+
 void ViddecDecoder::cleanup()
 {
     m_hardware.reset();

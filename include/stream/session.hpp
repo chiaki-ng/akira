@@ -47,6 +47,7 @@ private:
     std::atomic<bool> m_first_frame_received = false;
     std::atomic<bool> m_presented{false};
     std::atomic<bool> m_needs_recover{false};
+    std::atomic<std::uint32_t> m_packets_since_frame{0};
     bool m_takion_version_logged = false;
     struct AudioCounts {
         std::atomic<std::uint64_t> units{0};
@@ -69,7 +70,10 @@ private:
     std::weak_ptr<libchiaking::play::Session> m_play;
     std::chrono::steady_clock::time_point m_stream_start_time;
 
+    static constexpr std::uint32_t StallPackets = 60;
+
     void frameArriving(const akira::platform::FrameInfo& frame);
+    void checkForStall(akira::platform::VideoDecoder& decoder);
     bool configureAudio(const libchiaking::media::AudioFormat& format, bool raw_pcm);
     std::shared_ptr<libchiaking::play::Session> attached() const;
 
