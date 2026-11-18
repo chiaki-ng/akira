@@ -672,7 +672,7 @@ name = "PS5"
     toml::table doc = toml::parse(src);
     chiaki_migrations::buildSettingsMigrator().migrate(doc);
 
-    CHECK_EQ(version_of(doc), 11);
+    CHECK_EQ(version_of(doc), 12);
     CHECK(!doc.contains("sign_ins"));
     CHECK(!doc.contains("pairings"));
     CHECK_EQ(arr_size(doc, "paired_consoles"), 1);
@@ -705,7 +705,7 @@ packet_loss_max = 0.05
 )");
     chiaki_migrations::buildSettingsMigrator().migrate(doc);
 
-    CHECK_EQ(version_of(doc), 11);
+    CHECK_EQ(version_of(doc), 12);
     const toml::table* stream = doc["stream"].as_table();
     CHECK(!stream->contains("takion_version"));
     const toml::table* versions = (*stream)["takion_versions"].as_table();
@@ -737,7 +737,7 @@ fsr_enabled = false
 )");
     chiaki_migrations::buildSettingsMigrator().migrate(doc);
 
-    CHECK_EQ(version_of(doc), 11);
+    CHECK_EQ(version_of(doc), 12);
     const toml::table* video = doc["video"].as_table();
     CHECK_EQ(tint((*video)["local"].as_table(), "fsr_target"), int64_t(720));
     CHECK_EQ(tint((*video)["remote"].as_table(), "fsr_target"), int64_t(1080));
@@ -746,4 +746,18 @@ fsr_enabled = false
     toml::table kept = toml::parse("version = 10\n[video.local]\nresolution = \"1080p\"\nfsr_enabled = true\nfsr_target = 2160\n");
     chiaki_migrations::buildSettingsMigrator().migrate(kept);
     CHECK_EQ(tint(kept["video"]["local"].as_table(), "fsr_target"), int64_t(2160));
+}
+
+TEST(m011_makes_drako3d_the_renderer)
+{
+    toml::table doc = toml::parse("version = 11\n[video]\nrenderer = \"vulkan\"\nzero_copy = true\n");
+    chiaki_migrations::buildSettingsMigrator().migrate(doc);
+
+    CHECK_EQ(version_of(doc), 12);
+    CHECK_EQ(doc["video"]["renderer"].value_or(std::string()), std::string("drako3d"));
+    CHECK(doc["video"]["zero_copy"].value_or(false));
+
+    toml::table fresh = toml::parse("version = 11\n");
+    chiaki_migrations::buildSettingsMigrator().migrate(fresh);
+    CHECK(!fresh.contains("video"));
 }

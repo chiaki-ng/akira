@@ -15,4 +15,12 @@ void PerModeDisplayProvider::prepare()
         brls::Logger::warning("switch: per-mode window size refused (0x{:x}), drawing at the default window size", rc);
 }
 
+void PerModeDisplayProvider::streaming(bool active)
+{
+    NWindow* window = nwindowGetDefault();
+    const Result rc = active ? nwindowSetFrameRates(window, 0, 0, true) : nwindowSetSwapInterval(window, 1);
+    if (R_FAILED(rc))
+        brls::Logger::warning("switch: {} refresh rate refused (0x{:x})", active ? "stream" : "menu", rc);
+}
+
 }

@@ -60,8 +60,8 @@ void Deko3dVideoProvider::release()
 {
     if (m_renderer)
         m_renderer->waitIdle();
-    m_decoder.reset();
     m_renderer.reset();
+    m_decoder.reset();
 }
 
 }

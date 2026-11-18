@@ -238,6 +238,9 @@ void Deko3dRenderer::releaseTextures()
 {
     m_queue.waitIdle();
 
+    m_frame_mappings.clear();
+    m_current_mapping_index = -1;
+
     m_current_frame.reset();
     m_frame_bound = false;
 
@@ -253,8 +256,6 @@ void Deko3dRenderer::releaseTextures()
         m_chroma_texture_id = 0;
     }
 
-    m_frame_mappings.clear();
-    m_current_mapping_index = -1;
     m_video_cmdlist = 0;
 
     m_luma_layout = dk::ImageLayout{};
@@ -903,6 +904,9 @@ void Deko3dRenderer::cleanup()
 
     m_queue.waitIdle();
 
+    m_frame_mappings.clear();
+    m_current_mapping_index = -1;
+
     m_current_frame.reset();
 
     {
@@ -924,9 +928,6 @@ void Deko3dRenderer::cleanup()
         m_vctx->freeImageIndex(m_chroma_texture_id);
         m_chroma_texture_id = 0;
     }
-
-    m_frame_mappings.clear();
-    m_current_mapping_index = -1;
 
     m_video_cmdlist = 0;
     m_update_cmdmem.destroy();

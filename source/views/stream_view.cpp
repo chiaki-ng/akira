@@ -386,6 +386,7 @@ void StreamView::stopStream()
     brls::Application::setSuspendedRenderCallback(nullptr);
     brls::Application::setLimitedFPS(0);
     brls::Application::setSwapInterval(1);
+    akira::platform::PlatformFactory::instance().display().streaming(false);
     brls::Application::setExclusiveRender(false);
     videoPipelineActive = false;
 
@@ -568,6 +569,7 @@ void StreamView::prepareVideoPipelineTick()
     });
     brls::Application::setLimitedFPS(60);
     brls::Application::setSwapInterval(0);
+    akira::platform::PlatformFactory::instance().display().streaming(true);
     brls::Application::setExclusiveRender(true);
 }
 
@@ -588,6 +590,7 @@ void StreamView::streamingTick()
     if (menuOpen)
     {
         brls::Application::setSwapInterval(1);
+        akira::platform::PlatformFactory::instance().display().streaming(false);
         brls::Application::setExclusiveRender(false);
         brls::Application::setRenderSuspended(false);
         videoPipelineActive = false;
@@ -600,6 +603,7 @@ void StreamView::streamingTick()
     if (!session->MainLoop())
     {
         brls::Application::setSwapInterval(1);
+        akira::platform::PlatformFactory::instance().display().streaming(false);
         brls::Application::setExclusiveRender(false);
         brls::Application::setRenderSuspended(false);
         brls::Application::setSuspendedRenderCallback(nullptr);

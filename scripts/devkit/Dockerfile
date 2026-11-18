@@ -1,4 +1,29 @@
 ARG BASE=ghcr.io/chiaki-ng/devkita64@sha256:3a978bfec72c624aed88b8197f3f46b7288e091f3c28f0e5697b7c211df9c969
+
+FROM ${BASE} AS uam2
+
+ARG RUST_VERSION=1.91.0
+ARG MESON_VERSION=1.9.1
+ARG UAM2_COMMIT=b794767cd0e4854199271dfd959798b8714edd23
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends bison flex g++ pkg-config git curl ca-certificates python3-venv \
+        libdrm-dev libexpat1-dev zlib1g-dev libzstd-dev spirv-tools libclang-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV PATH=/opt/uam2/venv/bin:/root/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+RUN python3 -m venv /opt/uam2/venv && \
+    pip install --no-cache-dir "meson==${MESON_VERSION}" mako pyyaml packaging ninja && \
+    curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "${RUST_VERSION}" && \
+    cargo install --locked bindgen-cli cbindgen
+
+RUN git clone -q https://github.com/ouncebrew/uam2.git /tmp/uam2 && \
+    git -C /tmp/uam2 checkout -q "${UAM2_COMMIT}" && \
+    meson setup /tmp/uam2/build /tmp/uam2 && \
+    ninja -C /tmp/uam2/build && \
+    install -D /tmp/uam2/build/source/uam2 /opt/uam2/bin/uam2
+
 FROM ${BASE}
 
 ARG OUNCE_DEVKIT_VERSION
@@ -45,6 +70,17 @@ RUN git clone -q https://github.com/ouncebrew/drako3d.git /tmp/drako3d && \
     test -f "${DEVKITPRO}/libounce/lib/libdrako3d.a" && \
     test -f "${DEVKITPRO}/libounce/include/drako3d.hpp" && \
     rm -rf /tmp/drako3d
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libdrm2 libexpat1 zlib1g libzstd1 spirv-tools && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=uam2 /opt/uam2/bin/uam2 /opt/devkitpro/tools/bin/uam2
+
+RUN printf '#version 460\nlayout (location = 0) out vec4 color;\nvoid main() { color = vec4(1.0); }\n' > /tmp/smoke.glsl && \
+    uam2 -s frag -o /tmp/smoke.dksh /tmp/smoke.glsl && \
+    test -s /tmp/smoke.dksh && \
+    rm /tmp/smoke.glsl /tmp/smoke.dksh
 
 LABEL org.opencontainers.image.title="devkita64-ounce"
 CMD ["bash"]

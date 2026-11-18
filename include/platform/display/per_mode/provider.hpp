@@ -9,6 +9,7 @@ class PerModeDisplayProvider final : public DisplayProvider
 {
 public:
     void prepare() override;
+    void streaming(bool active) override;
 };
 
 }

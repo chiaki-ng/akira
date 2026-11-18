@@ -498,9 +498,9 @@ void SettingsManager::parseTomlFile() {
             vpnFsrEnabled = *val;
         zeroCopyVideo = config["video"]["zero_copy"].value_or(false);
         softwareHevc = config["video"]["software_hevc"].value_or(false);
-        videoRenderer = config["video"]["renderer"].value_or(std::string("vulkan")) == "drako3d"
-            ? RendererKind::Drako3d
-            : RendererKind::Vulkan;
+        videoRenderer = config["video"]["renderer"].value_or(std::string("drako3d")) == "vulkan"
+            ? RendererKind::Vulkan
+            : RendererKind::Drako3d;
         localFsrTarget = static_cast<int>(config["video"]["local"]["fsr_target"].value_or(int64_t{0}));
         remoteFsrTarget = static_cast<int>(config["video"]["remote"]["fsr_target"].value_or(int64_t{0}));
         vpnFsrTarget = static_cast<int>(config["video"]["vpn"]["fsr_target"].value_or(int64_t{0}));

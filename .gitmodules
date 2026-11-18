@@ -28,37 +28,7 @@
 	path = library/native-deps
 	url = https://github.com/xlanor/native-deps-ounce.git
 	branch = main
-[submodule "references/wiliwili"]
-	path = references/wiliwili
-	url = https://github.com/xfangfang/wiliwili.git
-[submodule "references/chiaki-docker-switch"]
-	path = references/chiaki-docker-switch
-	url = https://github.com/xlanor/chiaki-docker-switch.git
-[submodule "references/switchfin"]
-	path = references/switchfin
-	url = https://github.com/dragonflylee/switchfin
-[submodule "references/moonlight-switch"]
-	path = references/moonlight-switch
-	url = git@github.com:XITRIX/Moonlight-Switch.git
-[submodule "references/nxmp"]
-	path = references/nxmp
-	url = git@github.com:proconsule/nxmp.git
-[submodule "references/deko3d"]
-	path = references/deko3d
-	url = git@github.com:devkitPro/deko3d.git
-[submodule "references/psn-api"]
-	path = references/psn-api
-	url = git@github.com:achievements-app/psn-api.git
 [submodule "library/uam"]
 	path = library/uam
 	url = https://github.com/RSDuck/uam.git
 	branch = library-target
-[submodule "references/FidelityFX-FSR"]
-	path = references/FidelityFX-FSR
-	url = https://github.com/atyuwen/FidelityFX-FSR
-[submodule "references/sphaira"]
-	path = references/sphaira
-	url = https://github.com/ITotalJustice/sphaira.git
-[submodule "references/pylux"]
-	path = references/pylux
-	url = https://github.com/ForWard-Technologies-LLC/Pylux.git

@@ -580,8 +580,12 @@ void SettingsPictureView::initRendererSection() {
     }
 
     const auto video = platform.createVideo();
-    rendererName->setText(video->name());
-    if (!video->addSettings(*rendererOptions) && !choosable) {
+    const bool hasOptions = video->addSettings(*rendererOptions);
+    if (hasOptions)
+        rendererName->setText(video->name());
+    else
+        rendererName->setVisibility(brls::Visibility::GONE);
+    if (!hasOptions && !choosable) {
         rendererHeader->setVisibility(brls::Visibility::GONE);
         rendererSection->setVisibility(brls::Visibility::GONE);
     }

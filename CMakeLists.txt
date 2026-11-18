@@ -176,6 +176,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 if (AKIRA_VIDEO_PROVIDER STREQUAL "deko3d")
     include(deko3d_shaders)
 endif()
+if (USE_DRAKO3D)
+    include(drako3d_shaders)
+endif()
 
 # SDL2 depends on EGL/OpenGL libraries on Switch
 if (AKIRA_PLATFORM_NX)

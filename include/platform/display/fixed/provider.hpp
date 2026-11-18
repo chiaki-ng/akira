@@ -9,6 +9,7 @@ class FixedDisplayProvider final : public DisplayProvider
 {
 public:
     void prepare() override {}
+    void streaming(bool) override {}
 };
 
 }

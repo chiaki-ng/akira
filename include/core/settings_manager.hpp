@@ -147,7 +147,7 @@ private:
     bool devFakeHosts = false;
     bool zeroCopyVideo = false;
     bool softwareHevc = false;
-    RendererKind videoRenderer = RendererKind::Vulkan;
+    RendererKind videoRenderer = RendererKind::Drako3d;
     bool hideAccountName = false;
     std::string updateChannel = "stable";
     std::string uiTheme = "playstation";

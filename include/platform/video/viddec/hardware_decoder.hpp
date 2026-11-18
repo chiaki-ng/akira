@@ -91,6 +91,8 @@ public:
     static_assert(ImageCount <= akira::platform::Nv12Frame::SlotCount);
 
 private:
+    class ViddecService;
+
     friend class HardwareFrame;
 
     HardwareDecoder(std::uint32_t width, std::uint32_t height);

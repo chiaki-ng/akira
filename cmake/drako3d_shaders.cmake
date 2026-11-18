@@ -1,0 +1,50 @@
+find_program(UAM2_EXE NAMES uam2 HINTS "${DEVKITPRO}/tools/bin")
+if (NOT UAM2_EXE)
+    message(FATAL_ERROR "Could not find uam2: rebuild the devkit image with make devkit-image")
+endif()
+
+set(DRAKO3D_SHADER_SOURCE_DIR "${PROJECT_RESOURCES}/video/deko3d/shaders")
+set(DRAKO3D_SHADER_VARIANT_DIR "${CMAKE_BINARY_DIR}/generated/drako3d")
+set(DRAKO3D_SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/resources/shaders")
+file(MAKE_DIRECTORY "${DRAKO3D_SHADER_VARIANT_DIR}" "${DRAKO3D_SHADER_OUTPUT_DIR}/drako3d")
+
+gen_dksh("${DRAKO3D_SHADER_OUTPUT_DIR}" "${UAM2_EXE}")
+foreach (nanovg_shader fill_vsh fill_fsh fill_aa_fsh)
+    if (NOT EXISTS "${DRAKO3D_SHADER_OUTPUT_DIR}/${nanovg_shader}.dksh")
+        message(FATAL_ERROR "uam2 did not compile the nanovg shader ${nanovg_shader}")
+    endif()
+endforeach()
+
+function(drako3d_shader stage source name)
+    set(input "${DRAKO3D_SHADER_SOURCE_DIR}/${source}")
+    set_property(DIRECTORY "${CMAKE_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${input}")
+    if (ARGN)
+        file(READ "${input}" glsl)
+        list(TRANSFORM ARGN PREPEND "#define ")
+        list(JOIN ARGN "\n" defines)
+        string(REGEX REPLACE "(#version[^\n]*\n)" "\\1${defines}\n" glsl "${glsl}")
+        set(input "${DRAKO3D_SHADER_VARIANT_DIR}/${name}.glsl")
+        file(WRITE "${input}" "${glsl}")
+    endif()
+    execute_process(
+        COMMAND "${UAM2_EXE}" -s ${stage} -o "${DRAKO3D_SHADER_OUTPUT_DIR}/drako3d/${name}.dksh" "${input}"
+        RESULT_VARIABLE result
+        ERROR_VARIABLE log
+        OUTPUT_VARIABLE log
+        TIMEOUT 30)
+    if (NOT result EQUAL 0)
+        message(FATAL_ERROR "uam2 failed on ${name}: ${log}")
+    endif()
+endfunction()
+
+drako3d_shader(vert video_vsh.glsl video_vsh)
+drako3d_shader(vert overlay_vsh.glsl overlay_vsh)
+drako3d_shader(frag overlay_fsh.glsl overlay_fsh)
+drako3d_shader(frag border_fsh.glsl border_fsh)
+drako3d_shader(frag video_fsh.glsl video_fsh)
+drako3d_shader(frag video_fsh.glsl video_fsh_dither DITHER_NOISE)
+drako3d_shader(frag video_fsh.glsl video_fsh_easu FSR_EASU)
+drako3d_shader(frag video_fsh.glsl video_fsh_dither_easu DITHER_NOISE FSR_EASU)
+drako3d_shader(frag video_fsh.glsl video_fsh_rcas FSR_RCAS)
+drako3d_shader(frag video_fsh.glsl video_fsh_pass FSR_PASS)
+message(STATUS "Compiled drako3d shaders to ${DRAKO3D_SHADER_OUTPUT_DIR}")

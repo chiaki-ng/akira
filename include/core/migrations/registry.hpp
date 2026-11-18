@@ -13,6 +13,7 @@
 #include "m008_nest_account_data_in_profiles.hpp"
 #include "m009_split_takion_version_by_target.hpp"
 #include "m010_record_fsr_targets.hpp"
+#include "m011_default_drako3d_renderer.hpp"
 
 namespace chiaki_migrations {
 
@@ -33,6 +34,7 @@ inline tomlmigrate::Migrator buildSettingsMigrator() {
     register_m008_nest_account_data_in_profiles(m);
     register_m009_split_takion_version_by_target(m);
     register_m010_record_fsr_targets(m);
+    register_m011_default_drako3d_renderer(m);
     return m;
 }
 
