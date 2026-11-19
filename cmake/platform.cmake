@@ -23,12 +23,15 @@ if (AKIRA_PLATFORM_NX)
         pad_settings/extended)
 else()
     set(AKIRA_PLATFORM_DIR ounce)
-    set(AKIRA_VIDEO_PROVIDER vulkan)
+    if (AKIRA_VULKAN)
+        set(AKIRA_VIDEO_PROVIDER vulkan)
+    else()
+        set(AKIRA_VIDEO_PROVIDER drako3d)
+    endif()
     set(AKIRA_PLATFORM_BACKENDS
         factories/ounce
         video/viddec
         video/software
-        video/vulkan
         display/per_mode
         updates/none
         stats/none
@@ -36,7 +39,10 @@ else()
         haptics/hid
         feedback/hid
         pad_settings/hid)
-    if (AKIRA_SHELL STREQUAL "borealis")
+    if (AKIRA_VULKAN)
+        list(APPEND AKIRA_PLATFORM_BACKENDS video/vulkan)
+    endif()
+    if (AKIRA_DRAKO3D)
         list(APPEND AKIRA_PLATFORM_BACKENDS video/deko3d video/drako3d)
     endif()
 endif()

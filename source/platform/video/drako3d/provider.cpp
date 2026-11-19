@@ -35,14 +35,17 @@ Drako3dVideoProvider::Drako3dVideoProvider(deko3d::GpuHost& gpu, play::StreamSet
 
 bool Drako3dVideoProvider::shadersPresent()
 {
-    static constexpr auto required = std::to_array<std::string_view>({
-        "romfs:/shaders/fill_vsh.dksh",
-        "romfs:/shaders/fill_fsh.dksh",
+    static constexpr auto video = std::to_array<std::string_view>({
         "romfs:/shaders/drako3d/video_vsh.dksh",
         "romfs:/shaders/drako3d/video_fsh.dksh",
     });
+    static constexpr auto statsOverlay = std::to_array<std::string_view>({
+        "romfs:/shaders/fill_vsh.dksh",
+        "romfs:/shaders/fill_fsh.dksh",
+    });
     std::error_code error;
-    return std::ranges::all_of(required, [&](std::string_view path) { return std::filesystem::exists(path, error); });
+    const auto present = [&](std::string_view path) { return std::filesystem::exists(path, error); };
+    return std::ranges::all_of(video, present) && (!AKIRA_STATS_OVERLAY || std::ranges::all_of(statsOverlay, present));
 }
 
 }

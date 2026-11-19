@@ -3,7 +3,7 @@
 #include <arisa/provider/horizon/console.hpp>
 #include <arisa/provider/surface/provider.hpp>
 
-#if defined(__SWITCH2__)
+#if AKIRA_VULKAN
 #include "app/arisa/vulkan_host.hpp"
 #else
 #include "app/arisa/deko3d_host.hpp"
@@ -14,10 +14,12 @@ namespace akira::app::arisa {
 
 class Gpu final : public platform::video::GpuAccess {
 public:
-#if defined(__SWITCH2__)
+#if AKIRA_VULKAN
     using Host = VulkanHost;
+    static constexpr play::RendererKind Kind = play::RendererKind::Vulkan;
 #else
     using Host = Deko3dHost;
+    static constexpr play::RendererKind Kind = play::RendererKind::Drako3d;
 #endif
 
     Gpu(::arisa::provider::horizon::Console::Gpu& gpu, const ::arisa::provider::SurfaceProvider& surface);

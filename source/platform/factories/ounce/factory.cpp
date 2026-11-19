@@ -10,7 +10,9 @@
 #include "platform/video/drako3d/provider.hpp"
 #endif
 #include "platform/video/gpu_access.hpp"
+#if AKIRA_VULKAN
 #include "platform/video/vulkan/provider.hpp"
+#endif
 #include "platform/pad_settings/hid/provider.hpp"
 
 namespace akira::platform
@@ -46,18 +48,23 @@ std::span<const char* const> OuncePlatformFactory::helpFiles() const
 
 void OuncePlatformFactory::prepareVideo()
 {
-#if AKIRA_DRAKO3D
+#if AKIRA_DRAKO3D && AKIRA_VULKAN
     const bool drako3d = m_services.stream.videoRenderer() == play::RendererKind::Drako3d
         && drako3d::Drako3dVideoProvider::shadersPresent();
-#else
-    const bool drako3d = false;
-#endif
     m_services.gpu.prefer(drako3d ? play::RendererKind::Drako3d : play::RendererKind::Vulkan);
+#elif AKIRA_DRAKO3D
+    m_services.gpu.prefer(play::RendererKind::Drako3d);
+#else
+    m_services.gpu.prefer(play::RendererKind::Vulkan);
+#endif
 }
 
 std::vector<RendererChoice> OuncePlatformFactory::rendererChoices() const
 {
-    std::vector<RendererChoice> choices{ { play::RendererKind::Vulkan, "Vulkan" } };
+    std::vector<RendererChoice> choices;
+#if AKIRA_VULKAN
+    choices.push_back({ play::RendererKind::Vulkan, "Vulkan" });
+#endif
 #if AKIRA_DRAKO3D
     if (drako3d::Drako3dVideoProvider::shadersPresent())
         choices.push_back({ play::RendererKind::Drako3d, "drako3d" });
@@ -67,14 +74,32 @@ std::vector<RendererChoice> OuncePlatformFactory::rendererChoices() const
 
 std::unique_ptr<VideoProvider> OuncePlatformFactory::createVideo()
 {
-#if AKIRA_DRAKO3D
+#if AKIRA_DRAKO3D && AKIRA_VULKAN
     if (const auto deko3d = m_services.gpu.deko3d())
-        return std::make_unique<drako3d::Drako3dVideoProvider>(deko3d->get(), m_services.stream,
-            m_services.streamState, m_services.developer, m_services.wireGuard, m_services.overlayPalette);
+        return drako3dVideo(deko3d->get());
+    return vulkanVideo(m_services.gpu.vulkan().value().get());
+#elif AKIRA_DRAKO3D
+    return drako3dVideo(m_services.gpu.deko3d().value().get());
+#else
+    return vulkanVideo(m_services.gpu.vulkan().value().get());
 #endif
-    return std::make_unique<vulkan::VulkanVideoProvider>(m_services.gpu.vulkan().value().get(), m_services.stream,
-        m_services.streamState, m_services.developer, m_services.wireGuard, m_services.overlayPalette);
 }
+
+#if AKIRA_DRAKO3D
+std::unique_ptr<VideoProvider> OuncePlatformFactory::drako3dVideo(deko3d::GpuHost& gpu)
+{
+    return std::make_unique<drako3d::Drako3dVideoProvider>(gpu, m_services.stream, m_services.streamState,
+        m_services.developer, m_services.wireGuard, m_services.overlayPalette);
+}
+#endif
+
+#if AKIRA_VULKAN
+std::unique_ptr<VideoProvider> OuncePlatformFactory::vulkanVideo(vulkan::GpuHost& gpu)
+{
+    return std::make_unique<vulkan::VulkanVideoProvider>(gpu, m_services.stream, m_services.streamState,
+        m_services.developer, m_services.wireGuard, m_services.overlayPalette);
+}
+#endif
 
 std::unique_ptr<HapticsProvider> OuncePlatformFactory::createHaptics()
 {

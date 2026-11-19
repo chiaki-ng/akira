@@ -5,6 +5,7 @@
 #include "platform/pads/hid/provider.hpp"
 #include "platform/stats/none/provider.hpp"
 #include "platform/updates/none/provider.hpp"
+#include "platform/video/gpu_access.hpp"
 
 namespace akira::platform
 {
@@ -33,6 +34,13 @@ public:
     std::unique_ptr<PadSettingsProvider> createPadSettings(const platform::PadDescription& pad) override;
 
 private:
+#if AKIRA_DRAKO3D
+    std::unique_ptr<VideoProvider> drako3dVideo(deko3d::GpuHost& gpu);
+#endif
+#if AKIRA_VULKAN
+    std::unique_ptr<VideoProvider> vulkanVideo(vulkan::GpuHost& gpu);
+#endif
+
     PlatformServices m_services;
     per_mode::PerModeDisplayProvider m_display;
     none::NoUpdateProvider m_updates;

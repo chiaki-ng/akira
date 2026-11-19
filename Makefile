@@ -52,16 +52,26 @@ endif
 DOCKER_IMAGE ?= akira-builder:$(IMAGE_HASH)
 ARISA_VERSION      := 0.0.1
 ARISA_TAG          := v1.0
-ARISA_TARGET_nx    := switch
-ARISA_TARGET_ounce := switch2
-ARISA_SHA256_nx    := 5c011bb8b2f4829507d2b7405053b19320f175f2dde661df2bcd8c57f1739fb3
-ARISA_SHA256_ounce := a2854c4d59e76fc71f88c83b733ef97fa5502917e78832fd538aad337ff135eb
+ARISA_GPU          ?= drako3d
+ARISA_FLAVOUR_nx_drako3d    := switch
+ARISA_FLAVOUR_nx_vulkan     := switch
+ARISA_FLAVOUR_ounce_drako3d := switch2-drako3d
+ARISA_FLAVOUR_ounce_vulkan  := switch2
+ARISA_SHA256_switch         := 5c011bb8b2f4829507d2b7405053b19320f175f2dde661df2bcd8c57f1739fb3
+ARISA_SHA256_switch2        := a2854c4d59e76fc71f88c83b733ef97fa5502917e78832fd538aad337ff135eb
+ARISA_SHA256_switch2-drako3d := c2e77a81080f14b8633e9d9ff46dc42dd68b1b71b0c55779c589615d18b327d7
+ARISA_RECIPE_switch         := make package TARGET=switch
+ARISA_RECIPE_switch2        := make package TARGET=switch2
+ARISA_RECIPE_switch2-drako3d := the package-switch2 preset with -DARISA_HORIZON_GPU=drako3d -DARISA_PROVIDERS_VULKAN=OFF in its drako image
 ARISA_PACKAGE_DIR  ?= $(abspath $(CURDIR)/../arisa/build/package)
-ARISA_NAME          = arisa-$(ARISA_VERSION)-$(ARISA_TARGET_$(PLATFORM))-aarch64
+ARISA_FLAVOUR       = $(ARISA_FLAVOUR_$(PLATFORM)_$(ARISA_GPU))
+ARISA_SHA256        = $(ARISA_SHA256_$(ARISA_FLAVOUR))
+ARISA_NAME          = arisa-$(ARISA_VERSION)-$(ARISA_FLAVOUR)-aarch64
 ARISA_ARCHIVE       = $(ARISA_PACKAGE_DIR)/$(ARISA_NAME).tar.gz
-ARISA_UNPACK        = $(CURDIR)/build/arisa-package/$(ARISA_SHA256_$(PLATFORM))
+ARISA_UNPACK        = $(CURDIR)/build/arisa-package/$(ARISA_SHA256)
 ARISA_PREFIX        = $(ARISA_UNPACK)/$(ARISA_NAME)
-ARISA_NRO_FILE      = $(CURDIR)/build/arisa-$(PLATFORM)/akira_arisa.nro
+ARISA_BUILD_NAME    = arisa-$(PLATFORM)$(if $(filter switch2,$(ARISA_FLAVOUR)),-vulkan)
+ARISA_NRO_FILE      = $(CURDIR)/build/$(ARISA_BUILD_NAME)/akira_arisa.nro
 ARISA_HOST_NAME    := arisa-$(ARISA_VERSION)-macos-arm64
 ARISA_HOST_SHA256  := 2d6d6d712f447e0edcab524c2d20785e0c58d787db32e0f5e8c4f060b51cf46d
 ARISA_HOST_ARCHIVE  = $(ARISA_PACKAGE_DIR)/$(ARISA_HOST_NAME).tar.gz
@@ -212,7 +222,7 @@ help:
 	@echo "  shell-nx, shell-ounce            Open shell in build container"
 	@echo "  crash-nx, crash-ounce            Symbolicate the latest Switch crash report (SWITCH_IP or LOG)"
 	@echo "  test-nx, test-ounce              Run the host-side unit tests"
-	@echo "  build-arisa-nx, build-arisa-ounce  Build akira_arisa.nro on the pinned arisa package"
+	@echo "  build-arisa-nx, build-arisa-ounce  Build akira_arisa.nro on the pinned arisa package (ARISA_GPU=drako3d|vulkan on ounce)"
 	@echo "  arisa-package-nx, arisa-package-ounce  Check and extract the pinned arisa package"
 	@echo "  test-arisa     Run the arisa shell seam tests on the headless arisa macOS package"
 	@echo "  image-tag-nx, image-tag-ounce    Print the builder image tag for this checkout"
@@ -379,8 +389,9 @@ build: platform docker-image
 	@printf "$(GREEN)[*]$(NC) Build successful: $(NRO_FILE)\n"
 
 arisa-package: platform
-	@test -f "$(ARISA_ARCHIVE)" || { printf "$(RED)[x]$(NC) No arisa package at $(ARISA_ARCHIVE): build arisa $(ARISA_TAG) with make package TARGET=$(ARISA_TARGET_$(PLATFORM)), or pass ARISA_PACKAGE_DIR\n"; exit 1; }
-	@echo "$(ARISA_SHA256_$(PLATFORM))  $(ARISA_ARCHIVE)" | shasum -a 256 -c - > /dev/null || { printf "$(RED)[x]$(NC) $(ARISA_ARCHIVE) does not match the pinned sha256 $(ARISA_SHA256_$(PLATFORM))\n"; exit 1; }
+	@test -n "$(ARISA_FLAVOUR)" || { printf "$(RED)[x]$(NC) ARISA_GPU must be drako3d or vulkan, not $(ARISA_GPU)\n"; exit 1; }
+	@test -f "$(ARISA_ARCHIVE)" || { printf "$(RED)[x]$(NC) No arisa package at $(ARISA_ARCHIVE): build arisa $(ARISA_TAG) with $(ARISA_RECIPE_$(ARISA_FLAVOUR)), or pass ARISA_PACKAGE_DIR\n"; exit 1; }
+	@echo "$(ARISA_SHA256)  $(ARISA_ARCHIVE)" | shasum -a 256 -c - > /dev/null || { printf "$(RED)[x]$(NC) $(ARISA_ARCHIVE) does not match the pinned sha256 $(ARISA_SHA256)\n"; exit 1; }
 	@if [ ! -f "$(ARISA_PREFIX)/lib/libarisa.a" ]; then \
 		printf "$(GREEN)[*]$(NC) Extracting $(ARISA_NAME) ($(ARISA_TAG))...\n"; \
 		mkdir -p "$(ARISA_UNPACK)"; \
@@ -393,6 +404,7 @@ build-arisa: platform docker-image arisa-package
 		-e AKIRA_PLATFORM="$(PLATFORM)" \
 		-e AKIRA_SHELL=arisa \
 		-e AKIRA_ARISA_PREFIX="$(ARISA_PREFIX)" \
+		-e AKIRA_ARISA_GPU="$(ARISA_GPU)" \
 		-e AKIRA_SOURCE="$(CURDIR)" \
 		-e AKIRA_IMAGE="$(DOCKER_IMAGE)" \
 		-e MUTE_CHIAKI="$(MUTE_CHIAKI)" \
