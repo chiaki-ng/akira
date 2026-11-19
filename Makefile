@@ -142,7 +142,7 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/trophies/icon_cache.cpp \
                 $(CURDIR)/source/platform/video/viddec/h264_sps.cpp \
                 $(TEST_PLATFORM_SRC)
-CORE_DIR     := $(or $(call override_path,CORE),$(CURDIR)/library/libchiaki-core$(LIBRARY_SUFFIX))
+CORE_DIR     := $(or $(call override_path,CORE),$(CURDIR)/library/libchiaki-core)
 CORE_TEST_SRC := $(CORE_DIR)/src/platform/crypto/provider.cpp \
                  $(CORE_DIR)/src/platform/crypto/evp/primitives.cpp \
                  $(CORE_DIR)/src/platform/crypto/openssl/provider.cpp \

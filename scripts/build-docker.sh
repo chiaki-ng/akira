@@ -36,7 +36,7 @@ LIBRARY_SUFFIX=""
 if [ "${AKIRA_PLATFORM}" = "ounce" ]; then
     LIBRARY_SUFFIX="-ounce"
 fi
-CORE_DIR="${WITH_CORE:-${SOURCE_DIR}/library/libchiaki-core${LIBRARY_SUFFIX}}"
+CORE_DIR="${WITH_CORE:-${SOURCE_DIR}/library/libchiaki-core}"
 BOREALIS_DIR="${WITH_BOREALIS:-${SOURCE_DIR}/library/borealis${LIBRARY_SUFFIX}}"
 WIREGUARD_DIR="${WITH_WIREGUARD:-${SOURCE_DIR}/library/switch-wireguard${LIBRARY_SUFFIX}}"
 LWIP_DIR="${WITH_LWIP:-${SOURCE_DIR}/library/lwip}"

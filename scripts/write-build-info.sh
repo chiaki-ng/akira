@@ -2,11 +2,7 @@
 set -e
 
 BUILD_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-LIBRARY_SUFFIX=""
-if [ "${AKIRA_PLATFORM:-nx}" = "ounce" ]; then
-    LIBRARY_SUFFIX="-ounce"
-fi
-CORE_SOURCE_DIR="${AKIRA_CORE_DIR:-${BUILD_DIR}/library/libchiaki-core${LIBRARY_SUFFIX}}"
+CORE_SOURCE_DIR="${AKIRA_CORE_DIR:-${BUILD_DIR}/library/libchiaki-core}"
 
 # Generate build info file with all installed packages
 echo "=== Generating build info ==="

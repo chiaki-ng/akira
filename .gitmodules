@@ -21,9 +21,6 @@
 [submodule "library/libchiaki-core"]
 	path = library/libchiaki-core
 	url = git@github.com:chiaki-ng/chiaki-ng-core.git
-[submodule "library/libchiaki-core-ounce"]
-	path = library/libchiaki-core-ounce
-	url = https://github.com/chiaki-ng/chiaki-ng-core.git
 [submodule "library/native-deps"]
 	path = library/native-deps
 	url = https://github.com/xlanor/native-deps-ounce.git
