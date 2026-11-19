@@ -1,4 +1,5 @@
 #include "settings/views/settings_poweruser_view.hpp"
+#include "app/view_services.hpp"
 #include "app/views/benchmark_view.hpp"
 #include "consoles/views/host_list_tab.hpp"
 #include "trophies/trophy_manager.hpp"
@@ -35,7 +36,7 @@ SettingsPowerUserView::SettingsPowerUserView() {
     });
 
     flushTrophyCacheBtn->registerClickAction([](brls::View*) {
-        trophies::TrophyManager::getInstance()->flushCache();
+        app::ViewServices::current().trophies.flushCache();
         brls::Application::notify("akira/settings/trophy_cache_flushed"_i18n);
         return true;
     });

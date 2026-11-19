@@ -1,4 +1,5 @@
 #include "consoles/views/host_list_tab.hpp"
+#include "app/view_services.hpp"
 #include "log/log.hpp"
 #if AKIRA_CLOUD
 #include "cloud/views/library_view.hpp"
@@ -1067,7 +1068,7 @@ HostListTab::HostListTab() {
                 auto* s = settings::SettingsManager::getInstance();
                 s->accounts().setActiveProfileId(ids[sel]);
                 s->store().save();
-                trophies::TrophyManager::getInstance()->onActiveProfileChanged();
+                app::ViewServices::current().trophies.onActiveProfileChanged();
                 brls::sync([] { accounts::views::QrSignInView::openIfSignInExpired(); });
 #if AKIRA_CLOUD
                 cloud::Service::instance().refreshActiveProfile(false,

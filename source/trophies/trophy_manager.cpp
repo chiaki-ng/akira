@@ -1,6 +1,5 @@
 #include "trophies/trophy_manager.hpp"
 #include "play/chiaki_core.hpp"
-#include "settings/settings_manager.hpp"
 #include "util/http.hpp"
 #include "util/http_pool.hpp"
 #include "log/log.hpp"
@@ -28,15 +27,9 @@ namespace trophies = libchiaking::trophies;
 namespace catalog = libchiaking::catalog;
 using libchiaking::users::Unanswered;
 
-TrophyManager* TrophyManager::getInstance()
+TrophyManager::TrophyManager(HttpPool& http)
+    : http(http)
 {
-    static TrophyManager* instance = new TrophyManager();
-    return instance;
-}
-
-TrophyManager::TrophyManager()
-{
-    settings = settings::SettingsManager::getInstance();
     dropLegacyCache();
 }
 
@@ -409,7 +402,7 @@ void TrophyManager::fetchSummary(bool forceRefresh, Callback<Summary> onSuccess,
         return;
     }
 
-    HttpPool::instance().submit([this, request = std::move(*pending), forceRefresh, onSuccess, onError](HttpSession&) {
+    http.submit([this, request = std::move(*pending), forceRefresh, onSuccess, onError](HttpSession&) {
         if (!current(request))
             return;
         if (forceRefresh)
@@ -441,7 +434,7 @@ void TrophyManager::fetchProfile(bool forceRefresh, Callback<Profile> onSuccess,
         return;
     }
 
-    HttpPool::instance().submit([this, request = std::move(*pending), onSuccess, onError](HttpSession&) {
+    http.submit([this, request = std::move(*pending), onSuccess, onError](HttpSession&) {
         if (!current(request))
             return;
 
@@ -471,7 +464,7 @@ void TrophyManager::fetchProfileForAccount(const std::string& accountId,
         return;
     }
 
-    HttpPool::instance().submit([this, request = requestFor(std::move(user)), onSuccess, onError](HttpSession&) {
+    http.submit([this, request = requestFor(std::move(user)), onSuccess, onError](HttpSession&) {
         if (!current(request))
             return;
 
@@ -494,7 +487,7 @@ void TrophyManager::fetchLibrary(bool forceRefresh, Callback<std::vector<Title>>
         return;
     }
 
-    HttpPool::instance().submit([this, request = std::move(*pending), forceRefresh, onSuccess, onError](HttpSession&) {
+    http.submit([this, request = std::move(*pending), forceRefresh, onSuccess, onError](HttpSession&) {
         if (!current(request))
             return;
         if (forceRefresh)
@@ -530,7 +523,7 @@ void TrophyManager::fetchTitleDetail(const Title& title, bool forceRefresh,
         return;
     }
 
-    HttpPool::instance().submit([this, request = std::move(*pending), title, forceRefresh, onSuccess, onError](HttpSession&) {
+    http.submit([this, request = std::move(*pending), title, forceRefresh, onSuccess, onError](HttpSession&) {
         if (!current(request))
             return;
         if (forceRefresh)
@@ -560,7 +553,7 @@ void TrophyManager::resolvePlayedGames(const std::vector<Title>& titles, std::fu
     if (!pending || wanted.empty())
         return;
 
-    HttpPool::instance().submit([this, request = std::move(*pending), wanted = std::move(wanted),
+    http.submit([this, request = std::move(*pending), wanted = std::move(wanted),
                                     onUpdated = std::move(onUpdated)](HttpSession&) mutable {
         if (!current(request))
             return;
@@ -684,7 +677,7 @@ void TrophyManager::fetchIcon(const std::string& url, IconCallback onSuccess)
             return;
     }
 
-    HttpPool::instance().submit([this, url](HttpSession& session) {
+    http.submit([this, url](HttpSession& session) {
         ensureIconCacheDir();
 
         std::string path = iconCachePath(url);

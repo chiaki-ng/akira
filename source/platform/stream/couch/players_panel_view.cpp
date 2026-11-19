@@ -1,4 +1,5 @@
 #include "platform/stream/couch/players_panel_view.hpp"
+#include "app/view_services.hpp"
 #include "log/log.hpp"
 
 #include <algorithm>
@@ -607,7 +608,7 @@ void PlayersPanelView::loadProfileAvatarUrl(int64_t profileId, const std::string
         return;
 
     auto alive = m_callback_alive;
-    trophies::TrophyManager::getInstance()->fetchIcon(avatarUrl,
+    app::ViewServices::current().trophies.fetchIcon(avatarUrl,
         [this, alive, image, profileId](const std::string&, const std::vector<uint8_t>& bytes) {
             if (!alive->load(std::memory_order_acquire) || bytes.empty())
                 return;
@@ -630,7 +631,7 @@ void PlayersPanelView::loadProfileAvatar(int64_t profileId, const std::string& a
         return;
 
     auto alive = m_callback_alive;
-    trophies::TrophyManager::getInstance()->fetchProfileForAccount(accountId,
+    app::ViewServices::current().trophies.fetchProfileForAccount(accountId,
         [this, alive, image, profileId](const trophies::TrophyManager::Profile& profile) {
             if (!alive->load(std::memory_order_acquire))
                 return;

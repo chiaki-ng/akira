@@ -1,4 +1,5 @@
 #include "accounts/views/profile_switcher_view.hpp"
+#include "app/view_services.hpp"
 #include "consoles/views/host_list_tab.hpp"
 #include "consoles/views/pair_view.hpp"
 #include "accounts/views/profile_setup_view.hpp"
@@ -301,7 +302,7 @@ void ProfileSwitcherView::selectProfile(int64_t id) {
 
     settings->accounts().setActiveProfileId(id);
     settings->store().save();
-    trophies::TrophyManager::getInstance()->onActiveProfileChanged();
+    app::ViewServices::current().trophies.onActiveProfileChanged();
     consoles::views::HostListTab::notifyActiveProfileChanged();
 
     if (card)
@@ -333,7 +334,7 @@ void ProfileSwitcherView::confirmRemoveProfile(int64_t id, const std::string& la
                 accounts->forget(account);
         }
         settings->store().save();
-        trophies::TrophyManager::getInstance()->onActiveProfileChanged();
+        app::ViewServices::current().trophies.onActiveProfileChanged();
         consoles::views::HostListTab::notifyActiveProfileChanged();
 
         /*

@@ -1,4 +1,5 @@
 #include "trophies/views/trophy_list_tab.hpp"
+#include "app/view_services.hpp"
 #include "app/views/theme.hpp"
 #include "app/views/motion.hpp"
 #include "trophies/views/trophy_detail_view.hpp"
@@ -257,7 +258,7 @@ void TrophyGameCard::bind(const TrophyManager::Title& title, std::function<void(
         title.earned.total(),
         title.defined.total()));
 
-    std::optional<TrophyManager::PlayedGame> play = TrophyManager::getInstance()->playedGameFor(title.id);
+    std::optional<TrophyManager::PlayedGame> play = app::ViewServices::current().trophies.playedGameFor(title.id);
 
     if (play && play->play_time && play->play_time->count() > 0)
     {
@@ -290,7 +291,7 @@ void TrophyGameCard::bind(const TrophyManager::Title& title, std::function<void(
     if (iconUrl.empty())
         return;
 
-    TrophyManager::getInstance()->fetchIcon(iconUrl,
+    app::ViewServices::current().trophies.fetchIcon(iconUrl,
         [](const std::string& url, const std::vector<uint8_t>& bytes) {
             bool decodeFailed = false;
 
@@ -311,7 +312,7 @@ void TrophyGameCard::bind(const TrophyManager::Title& title, std::function<void(
             log::warning("Trophy cover failed to decode ({} bytes) {}", bytes.size(), url);
 
             if (retriedIcons.insert(url).second)
-                TrophyManager::getInstance()->discardIcon(url);
+                app::ViewServices::current().trophies.discardIcon(url);
         });
 }
 
@@ -571,7 +572,7 @@ TrophyListTab::TrophyListTab()
             if (loading)
                 return accounts::ActionStatus{accounts::ActionState::Busy, 0};
 
-            return TrophyManager::getInstance()->forceRefreshStatus();
+            return app::ViewServices::current().trophies.forceRefreshStatus();
         }
     );
 
@@ -581,7 +582,7 @@ TrophyListTab::TrophyListTab()
 
         log::info("User triggered force refresh");
 
-        TrophyManager* manager = TrophyManager::getInstance();
+        TrophyManager* manager = &app::ViewServices::current().trophies;
         brls::Application::notify("akira/trophies/force_refresh"_i18n);
 
         manager->recordForcedRefresh();
@@ -591,7 +592,7 @@ TrophyListTab::TrophyListTab()
         return true;
     });
 
-    TrophyManager* trophies = TrophyManager::getInstance();
+    TrophyManager* trophies = &app::ViewServices::current().trophies;
 
     trophies->setSummaryObserver([](const TrophyManager::Summary& summary) {
         if (currentInstance)
@@ -662,7 +663,7 @@ void TrophyListTab::applyTitles(const std::vector<TrophyManager::Title>& titles)
     this->titles = titles;
     rebuildGrid();
 
-    TrophyManager::getInstance()->resolvePlayedGames(titles, []() {
+    app::ViewServices::current().trophies.resolvePlayedGames(titles, []() {
         if (currentInstance)
             currentInstance->rebuildGrid();
     });
@@ -743,7 +744,7 @@ void TrophyListTab::refreshControlLabels()
 
 void TrophyListTab::refreshStatusLine()
 {
-    statusLabel->setText(formatRelativeAge(TrophyManager::getInstance()->librarySavedAtSeconds()));
+    statusLabel->setText(formatRelativeAge(app::ViewServices::current().trophies.librarySavedAtSeconds()));
     statusLabel->setTextColor(app::views::active().textDim);
 }
 
@@ -830,7 +831,7 @@ void TrophyListTab::load(bool forceRefresh)
     if (titles.empty())
         grid->showSkeleton(12);
 
-    TrophyManager* trophies = TrophyManager::getInstance();
+    TrophyManager* trophies = &app::ViewServices::current().trophies;
 
     trophies->fetchSummary(forceRefresh,
         [](const TrophyManager::Summary& summary) {

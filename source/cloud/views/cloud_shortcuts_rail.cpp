@@ -1,4 +1,5 @@
 #include "cloud/views/cloud_shortcuts_rail.hpp"
+#include "app/view_services.hpp"
 
 #include "settings/settings_manager.hpp"
 #include "trophies/trophy_manager.hpp"
@@ -96,7 +97,7 @@ void CloudShortcutsRail::refresh()
         if (url.empty())
             return;
         auto inner = guard;
-        trophies::TrophyManager::getInstance()->fetchIcon(url,
+        app::ViewServices::current().trophies.fetchIcon(url,
             [this, inner, cover, myGen](const std::string&, const std::vector<uint8_t>& bytes) {
                 if (!*inner || myGen != refreshGen)
                     return;

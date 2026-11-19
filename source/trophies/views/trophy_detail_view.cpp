@@ -1,4 +1,5 @@
 #include "trophies/views/trophy_detail_view.hpp"
+#include "app/view_services.hpp"
 #include "app/views/theme.hpp"
 #include "app/views/motion.hpp"
 #include "trophies/views/trophy_list_tab.hpp"
@@ -338,7 +339,7 @@ void TrophyRowCell::bindTrophy(const libchiaking::trophies::Trophy& trophy)
     if (iconUrl.empty())
         return;
 
-    TrophyManager::getInstance()->fetchIcon(iconUrl,
+    app::ViewServices::current().trophies.fetchIcon(iconUrl,
         [](const std::string& url, const std::vector<uint8_t>& bytes) {
             bool decodeFailed = false;
 
@@ -359,7 +360,7 @@ void TrophyRowCell::bindTrophy(const libchiaking::trophies::Trophy& trophy)
             log::warning("Trophy icon failed to decode ({} bytes) {}", bytes.size(), url);
 
             if (retriedIcons.insert(url).second)
-                TrophyManager::getInstance()->discardIcon(url);
+                app::ViewServices::current().trophies.discardIcon(url);
         });
 }
 
@@ -628,7 +629,7 @@ TrophyDetailView::TrophyDetailView(const TrophyManager::Title& title)
             if (loading)
                 return accounts::ActionStatus{accounts::ActionState::Busy, 0};
 
-            return TrophyManager::getInstance()->forceRefreshStatus(this->title.id.text());
+            return app::ViewServices::current().trophies.forceRefreshStatus(this->title.id.text());
         }
     );
 
@@ -638,7 +639,7 @@ TrophyDetailView::TrophyDetailView(const TrophyManager::Title& title)
 
         log::info("User triggered force refresh of {}", this->title.id.text());
 
-        TrophyManager* manager = TrophyManager::getInstance();
+        TrophyManager* manager = &app::ViewServices::current().trophies;
         brls::Application::notify("akira/trophies/force_refresh"_i18n);
 
         manager->recordForcedRefresh(this->title.id.text());
@@ -691,7 +692,7 @@ void TrophyDetailView::load(bool forceRefresh)
 
     subtitleLabel->setText("akira/trophies/loading"_i18n);
 
-    TrophyManager::getInstance()->fetchTitleDetail(title, forceRefresh,
+    app::ViewServices::current().trophies.fetchTitleDetail(title, forceRefresh,
         [](const TrophyManager::TitleTrophies& loaded) {
             if (currentInstance && currentInstance->title.id == loaded.title)
             {

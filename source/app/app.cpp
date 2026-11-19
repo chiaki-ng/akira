@@ -250,6 +250,16 @@ void App::runMainLoop()
     }
 }
 
+void App::startServices()
+{
+    CrashReport::stage("services");
+    trophies.emplace(HttpPool::instance());
+    services.emplace(Services{
+        .trophies = *trophies,
+    });
+    viewServices.emplace(*services);
+}
+
 void App::shutDown()
 {
     log::info("Application exiting");
@@ -292,6 +302,8 @@ int App::run()
     CrashReport::stage("theme");
     views::setActiveTheme(settings::SettingsManager::getInstance()->app().uiTheme());
     views::applyToBorealis();
+
+    startServices();
 
     auto& factory = platform::PlatformFactory::instance();
     factory.updates().prepare(argc, argv);

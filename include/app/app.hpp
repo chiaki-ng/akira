@@ -5,7 +5,10 @@
 
 #include <switch.h>
 
+#include "app/services.hpp"
+#include "app/view_services.hpp"
 #include "play/chiaki_core.hpp"
+#include "trophies/trophy_manager.hpp"
 
 namespace akira::app {
 
@@ -26,6 +29,7 @@ private:
     void openLog();
     void readArguments();
     void prepareLocale();
+    void startServices();
     [[nodiscard]] bool startFrameworks();
     void startCore();
     void startAsyncLogging();
@@ -37,6 +41,9 @@ private:
     int argc;
     char** argv;
     Result mainPlaced;
+    std::optional<trophies::TrophyManager> trophies;
+    std::optional<Services> services;
+    std::optional<ViewServices> viewServices;
     std::optional<play::ChiakiCore> core;
 };
 

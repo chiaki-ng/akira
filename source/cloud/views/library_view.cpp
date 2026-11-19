@@ -1,4 +1,5 @@
 #include "cloud/views/library_view.hpp"
+#include "app/view_services.hpp"
 #include "log/log.hpp"
 
 #include "cloud/views/game_detail_view.hpp"
@@ -159,7 +160,7 @@ public:
         if (iconUrl.empty())
             return;
 
-        trophies::TrophyManager::getInstance()->fetchIcon(iconUrl,
+        app::ViewServices::current().trophies.fetchIcon(iconUrl,
             [](const std::string& url, const std::vector<uint8_t>& bytes) {
                 if (bytes.empty())
                     return;

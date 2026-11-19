@@ -23,9 +23,7 @@
 #include "accounts/accounts.hpp"
 #include "accounts/status.hpp"
 
-namespace akira::settings {
-class SettingsManager;
-}
+class HttpPool;
 
 namespace akira::trophies {
 
@@ -42,7 +40,10 @@ public:
     using Profile = libchiaking::users::Profile;
     using PlayedGame = libchiaking::catalog::PlayedGame;
 
-    static TrophyManager* getInstance();
+    explicit TrophyManager(HttpPool& http);
+
+    TrophyManager(const TrophyManager&) = delete;
+    TrophyManager& operator=(const TrophyManager&) = delete;
 
     void fetchSummary(bool forceRefresh, Callback<Summary> onSuccess, ErrorCallback onError);
     void fetchProfile(bool forceRefresh, Callback<Profile> onSuccess, ErrorCallback onError);
@@ -92,8 +93,6 @@ private:
     static constexpr const char* ICON_CACHE_DIR = "sdmc:/switch/akira/cache/trophies/icons";
     static constexpr const char* LEGACY_RATELIMIT_PATH = "sdmc:/switch/akira/cache/ratelimit.json";
 
-    TrophyManager();
-
     static accounts::Error failureOf(const libchiaking::users::Unanswered& cause);
     static const char* reasonName(libchiaking::users::Unanswered::Reason reason);
     static int64_t nowSeconds();
@@ -123,7 +122,7 @@ private:
     void logLibrary(const std::vector<Title>& titles) const;
     void runStaleCheck();
 
-    settings::SettingsManager* settings = nullptr;
+    HttpPool& http;
 
     brls::RepeatingTimer staleTimer;
     bool autoRefreshStarted = false;

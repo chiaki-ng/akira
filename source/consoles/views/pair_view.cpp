@@ -1,4 +1,5 @@
 #include "consoles/views/pair_view.hpp"
+#include "app/view_services.hpp"
 #include "log/log.hpp"
 
 #if AKIRA_CLOUD
@@ -253,7 +254,7 @@ void PairView::adoptSignedInUser(int64_t profileId, const accounts::Accounts::Us
     settings->accounts().refreshLegacyGate();
     settings->store().save();
 
-    trophies::TrophyManager::getInstance()->onActiveProfileChanged();
+    app::ViewServices::current().trophies.onActiveProfileChanged();
     /*
      * A new token can mean a different account behind the same profile, and the
      * cached catalog carries the previous one's owned games.

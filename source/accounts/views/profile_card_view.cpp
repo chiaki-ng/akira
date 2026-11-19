@@ -1,4 +1,5 @@
 #include "accounts/views/profile_card_view.hpp"
+#include "app/view_services.hpp"
 #if AKIRA_CLOUD
 #include "cloud/service.hpp"
 #endif
@@ -128,7 +129,7 @@ void ProfileCardView::refresh() {
 
     auto guard = alive;
 
-    trophies::TrophyManager::getInstance()->fetchProfile(false,
+    app::ViewServices::current().trophies.fetchProfile(false,
         [this, guard](const trophies::TrophyManager::Profile& prof) {
             if (!*guard)
                 return;
@@ -141,7 +142,7 @@ void ProfileCardView::refresh() {
                 return;
 
             auto inner = guard;
-            trophies::TrophyManager::getInstance()->fetchIcon(url,
+            app::ViewServices::current().trophies.fetchIcon(url,
                 [this, inner](const std::string&, const std::vector<uint8_t>& bytes) {
                     if (!*inner)
                         return;
@@ -151,7 +152,7 @@ void ProfileCardView::refresh() {
         },
         [](Status, const std::string&) {});
 
-    trophies::TrophyManager::getInstance()->fetchSummary(false,
+    app::ViewServices::current().trophies.fetchSummary(false,
         [this, guard](const trophies::TrophyManager::Summary& summary) {
             if (!*guard)
                 return;
