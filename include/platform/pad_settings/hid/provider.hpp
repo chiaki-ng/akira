@@ -9,7 +9,7 @@ namespace akira::platform::hid
 class HidPadSettingsProvider final : public PadSettingsProvider
 {
 public:
-    explicit HidPadSettingsProvider(const input::PadDescription& pad);
+    explicit HidPadSettingsProvider(const platform::PadDescription& pad);
 
     static std::string resolveKey(const play::ControllerSettings& settings, bool joycon);
 
@@ -26,7 +26,7 @@ public:
     bool previewDirect(const play::RumbleProfile&) override { return false; }
 
 private:
-    input::PadDescription m_pad;
+    platform::PadDescription m_pad;
 };
 
 }

@@ -15,9 +15,9 @@ public:
 
     void open() override;
     void close() override;
-    input::Pad* acquire(Callbacks& callbacks) override;
-    input::Pad* current() override;
-    std::vector<input::PadDescription> scanPads() const override;
+    platform::Pad* acquire(Callbacks& callbacks) override;
+    platform::Pad* current() override;
+    std::vector<platform::PadDescription> scanPads() const override;
     play::RumbleProfile primaryRumbleProfile() const override;
 
     void readSecondaryPads(play::InputManager&, std::span<libchiaking::controllers::ControllerInput>, uint8_t&) override {}

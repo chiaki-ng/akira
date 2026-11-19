@@ -17,7 +17,7 @@ public:
 private:
     void rebuild();
 
-    static std::string tierSummary(const akira::input::PadDescription& pad);
+    static std::string tierSummary(const akira::platform::PadDescription& pad);
 
     brls::Box* list = nullptr;
 };

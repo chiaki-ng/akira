@@ -19,7 +19,7 @@ namespace akira::settings::views {
 
 class SettingsPadView : public brls::Box {
 public:
-    SettingsPadView(const akira::input::PadDescription& pad);
+    SettingsPadView(const akira::platform::PadDescription& pad);
 
     ~SettingsPadView() override { *m_alive = false; }
 
@@ -43,7 +43,7 @@ private:
     brls::Box* content = nullptr;
 
     app::Services* services = nullptr;
-    akira::input::PadDescription m_pad;
+    akira::platform::PadDescription m_pad;
     play::RumbleProfile  m_profile;
     std::unique_ptr<akira::platform::PadSettingsProvider> m_platform;
 

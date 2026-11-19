@@ -75,7 +75,7 @@ public:
         float nonNativeScale = 1.0f);
     bool menuHeld() const { return m_menu_held.load(std::memory_order_acquire); }
 
-    void applyPadInput(akira::input::Pad& pad, libchiaking::controllers::ControllerState& state);
+    void applyPadInput(akira::platform::Pad& pad, libchiaking::controllers::ControllerState& state);
 
 private:
     static std::uint32_t button(libchiaking::controllers::ControllerButton held) noexcept;

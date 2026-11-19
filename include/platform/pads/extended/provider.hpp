@@ -26,7 +26,7 @@ namespace akira::platform::extended
 struct PadPathInfo {
     bool available = false;
     uint64_t generation = 0;
-    akira::input::PadPathKind kind = akira::input::PadPathKind::JoyCon;
+    akira::platform::PadPathKind kind = akira::platform::PadPathKind::JoyCon;
     HidNpadIdType npad = HidNpadIdType_No1;
     HidNpadStyleTag style = HidNpadStyleTag_NpadFullKey;
     uint16_t vendorId = 0;
@@ -46,9 +46,9 @@ public:
 
     void open() override;
     void close() override;
-    input::Pad* acquire(Callbacks& callbacks) override;
-    input::Pad* current() override;
-    std::vector<input::PadDescription> scanPads() const override;
+    platform::Pad* acquire(Callbacks& callbacks) override;
+    platform::Pad* current() override;
+    std::vector<platform::PadDescription> scanPads() const override;
     play::RumbleProfile primaryRumbleProfile() const override;
 
     void readSecondaryPads(play::InputManager& input, std::span<libchiaking::controllers::ControllerInput> states,
@@ -88,14 +88,14 @@ public:
 
     void selectNpad(HidNpadIdType npad);
 
-    std::vector<input::PadDescription> describePads();
+    std::vector<platform::PadDescription> describePads();
 
     ExtendedInputManager& extendedInput() { return m_extended; }
 
 private:
     void setPathLocked(std::unique_ptr<PadPath> path);
     PadPathInfo pathInfoLocked() const;
-    std::vector<input::PadDescription> describePadsLocked();
+    std::vector<platform::PadDescription> describePadsLocked();
     uint8_t couchJoinLocked(HidNpadIdType npad);
     void couchLeaveLocked(HidNpadIdType npad);
     uint8_t couchPadCountLocked() const;
@@ -122,7 +122,7 @@ private:
     std::map<HidNpadIdType, uint8_t> m_couch_roster;
     std::map<HidNpadIdType, std::unique_ptr<PadPath>> m_secondary_paths;
     std::map<HidNpadIdType, timing::TimePoint> m_secondary_missing_since;
-    std::vector<input::PadDescription> m_couch_pads;
+    std::vector<platform::PadDescription> m_couch_pads;
     timing::TimePoint m_couch_pads_read{};
     bool m_couch_claim_active = false;
     std::map<HidNpadIdType, timing::TimePoint> m_claim_started_at;

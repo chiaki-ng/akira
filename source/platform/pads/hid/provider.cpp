@@ -21,26 +21,26 @@ void HidPadProvider::close()
     m_pad.reset();
 }
 
-input::Pad* HidPadProvider::acquire(Callbacks&)
+platform::Pad* HidPadProvider::acquire(Callbacks&)
 {
     return current();
 }
 
-input::Pad* HidPadProvider::current()
+platform::Pad* HidPadProvider::current()
 {
     return m_pad ? &*m_pad : nullptr;
 }
 
 play::RumbleProfile HidPadProvider::primaryRumbleProfile() const
 {
-    const std::vector<input::PadDescription> pads = scanPads();
+    const std::vector<platform::PadDescription> pads = scanPads();
     if (pads.empty())
         return m_controllers.rumbleProfile(play::kRumbleKeyDefault);
     return m_controllers.rumbleProfile(
-        HidPadSettingsProvider::resolveKey(m_controllers, pads.front().kind == input::PadPathKind::JoyCon));
+        HidPadSettingsProvider::resolveKey(m_controllers, pads.front().kind == platform::PadPathKind::JoyCon));
 }
 
-std::vector<input::PadDescription> HidPadProvider::scanPads() const
+std::vector<platform::PadDescription> HidPadProvider::scanPads() const
 {
     static constexpr HidNpadIdType scanOrder[] = {
         HidNpadIdType_Handheld,
@@ -50,7 +50,7 @@ std::vector<input::PadDescription> HidPadProvider::scanPads() const
         HidNpadIdType_No4,
     };
 
-    std::vector<input::PadDescription> out;
+    std::vector<platform::PadDescription> out;
 
     for (HidNpadIdType npad : scanOrder) {
         PadState probe{};
@@ -62,19 +62,19 @@ std::vector<input::PadDescription> HidPadProvider::scanPads() const
 
         const uint64_t styleSet = padGetStyleSet(&probe);
 
-        input::PadDescription desc;
+        platform::PadDescription desc;
         desc.npad = npad;
 
         if (styleSet & HidNpadStyleTag_NpadHandheld) {
-            desc.kind  = input::PadPathKind::JoyCon;
+            desc.kind  = platform::PadPathKind::JoyCon;
             desc.style = HidNpadStyleTag_NpadHandheld;
             desc.label = "Handheld";
         } else if (styleSet & HidNpadStyleTag_NpadFullKey) {
-            desc.kind  = input::PadPathKind::SwitchPro;
+            desc.kind  = platform::PadPathKind::SwitchPro;
             desc.style = HidNpadStyleTag_NpadFullKey;
             desc.label = "Controller";
         } else if (styleSet & HidNpadStyleTag_NpadJoyDual) {
-            desc.kind  = input::PadPathKind::JoyCon;
+            desc.kind  = platform::PadPathKind::JoyCon;
             desc.style = HidNpadStyleTag_NpadJoyDual;
             desc.label = "Joy-Con (L/R)";
         } else {

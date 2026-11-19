@@ -19,7 +19,7 @@
 namespace akira::platform::couch
 {
 
-using akira::input::PadDescription;
+using akira::platform::PadDescription;
 using play::Connection;
 using play::CouchSeat;
 using play::SeatPhase;

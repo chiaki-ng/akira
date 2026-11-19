@@ -16,8 +16,8 @@ namespace akira::platform::couch
 {
 
 using namespace brls::literals;
-using akira::input::PadDescription;
-using akira::input::PadPathKind;
+using akira::platform::PadDescription;
+using akira::platform::PadPathKind;
 
 namespace {
 

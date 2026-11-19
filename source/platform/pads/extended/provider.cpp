@@ -50,7 +50,7 @@ void ExtendedPadProvider::close()
     }
 }
 
-input::Pad* ExtendedPadProvider::acquire(Callbacks& callbacks)
+platform::Pad* ExtendedPadProvider::acquire(Callbacks& callbacks)
 {
     pollPadArrivals(callbacks);
     pollCouchClaim(callbacks);
@@ -65,30 +65,30 @@ input::Pad* ExtendedPadProvider::acquire(Callbacks& callbacks)
     return m_path.get();
 }
 
-input::Pad* ExtendedPadProvider::current()
+platform::Pad* ExtendedPadProvider::current()
 {
     return m_path.get();
 }
 
-std::vector<input::PadDescription> ExtendedPadProvider::scanPads() const
+std::vector<platform::PadDescription> ExtendedPadProvider::scanPads() const
 {
     return akira::platform::extended::DescribePads();
 }
 
 play::RumbleProfile ExtendedPadProvider::primaryRumbleProfile() const
 {
-    const std::vector<input::PadDescription> pads = scanPads();
+    const std::vector<platform::PadDescription> pads = scanPads();
     if (pads.empty())
         return m_controllers.rumbleProfile(play::kRumbleKeyDefault);
 
-    const input::PadDescription& pad = pads.front();
-    const bool switchNative = pad.kind == input::PadPathKind::JoyCon
-                           || pad.kind == input::PadPathKind::SwitchPro;
+    const platform::PadDescription& pad = pads.front();
+    const bool switchNative = pad.kind == platform::PadPathKind::JoyCon
+                           || pad.kind == platform::PadPathKind::SwitchPro;
 
     return akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(m_controllers, pad.vendor_id, pad.product_id,
                                           pad.has_address ? pad.bt_addr : nullptr,
                                           switchNative,
-                                          pad.kind == input::PadPathKind::JoyCon);
+                                          pad.kind == platform::PadPathKind::JoyCon);
 }
 
 void ExtendedPadProvider::fillStreamStats(play::StreamStats& stats)
@@ -197,13 +197,13 @@ void ExtendedPadProvider::sendLightbar(uint8_t red, uint8_t green, uint8_t blue)
         m_path->sendLightbar(red, green, blue);
 }
 
-std::vector<input::PadDescription> ExtendedPadProvider::describePads()
+std::vector<platform::PadDescription> ExtendedPadProvider::describePads()
 {
     std::lock_guard<std::mutex> lock(mutex());
     return describePadsLocked();
 }
 
-std::vector<input::PadDescription> ExtendedPadProvider::describePadsLocked()
+std::vector<platform::PadDescription> ExtendedPadProvider::describePadsLocked()
 {
     return akira::platform::extended::DescribePads(m_extended);
 }
@@ -264,7 +264,7 @@ void ExtendedPadProvider::retryPathIdentification()
     m_identify_next = now + 1000;
 
     for (const auto& desc : describePadsLocked()) {
-        if (desc.kind != akira::input::PadPathKind::McPsNative)
+        if (desc.kind != akira::platform::PadPathKind::McPsNative)
             continue;
         if (m_couch_roster.find(desc.npad) != m_couch_roster.end())
             continue;
@@ -467,7 +467,7 @@ void ExtendedPadProvider::readSecondaryPads(play::InputManager& input, std::span
         if (slot + 1 > count)
             count = (uint8_t)(slot + 1);
 
-        const akira::input::PadDescription* found = nullptr;
+        const akira::platform::PadDescription* found = nullptr;
         for (const auto& desc : pads)
         {
             if (desc.npad == npad)

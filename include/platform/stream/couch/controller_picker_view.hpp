@@ -20,15 +20,15 @@ class ControllerPickerView : public brls::Box {
 public:
     using OnChosen = std::function<void(HidNpadIdType)>;
 
-    using Describe = std::function<std::vector<akira::input::PadDescription>()>;
+    using Describe = std::function<std::vector<akira::platform::PadDescription>()>;
 
     static constexpr HidNpadIdType kNoChoice  = static_cast<HidNpadIdType>(0xFF);
 
     static constexpr HidNpadIdType kCancelled = static_cast<HidNpadIdType>(0xFE);
 
-    static bool worthAsking(const std::vector<akira::input::PadDescription>& pads);
+    static bool worthAsking(const std::vector<akira::platform::PadDescription>& pads);
 
-    ControllerPickerView(std::vector<akira::input::PadDescription> pads,
+    ControllerPickerView(std::vector<akira::platform::PadDescription> pads,
                          OnChosen onChosen, Describe describe);
 
     void draw(NVGcontext* vg, float x, float y, float width, float height,
@@ -43,18 +43,18 @@ private:
 
     void cancel();
 
-    void rebuild(std::vector<akira::input::PadDescription> fresh);
+    void rebuild(std::vector<akira::platform::PadDescription> fresh);
 
     int carryOverSelection(bool hadSelection, HidNpadIdType selNpad,
-                           akira::input::PadPathKind selKind,
+                           akira::platform::PadPathKind selKind,
                            uint16_t selVid, uint16_t selPid) const;
     void buildCards();
-    static bool SameSet(const std::vector<akira::input::PadDescription>& a,
-                        const std::vector<akira::input::PadDescription>& b);
+    static bool SameSet(const std::vector<akira::platform::PadDescription>& a,
+                        const std::vector<akira::platform::PadDescription>& b);
 
     void accept();
 
-    std::vector<akira::input::PadDescription> m_pads;
+    std::vector<akira::platform::PadDescription> m_pads;
     std::vector<PadState>                     m_states;
     std::vector<brls::Box*>                   m_cards;
     int                                       m_selected = -1;

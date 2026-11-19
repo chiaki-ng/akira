@@ -85,8 +85,8 @@ void CouchStreamControlsProvider::waitForPads(int attempt)
     }
 
     for (const auto& pad : m_pads.describePads()) {
-        if (pad.kind == input::PadPathKind::McPsNative ||
-            pad.kind == input::PadPathKind::McGeneric) {
+        if (pad.kind == platform::PadPathKind::McPsNative ||
+            pad.kind == platform::PadPathKind::McGeneric) {
             log::info("PadChoice: backend named a pad after {}ms",
                                attempt * kIntervalMs);
             finishPadChoice();
@@ -162,7 +162,7 @@ void CouchStreamControlsProvider::finishPadChoice()
     log::info("PadChoice: asking between {} pads", pads.size());
 
     auto weak = m_host;
-    auto describe = [this, weak]() -> std::vector<input::PadDescription> {
+    auto describe = [this, weak]() -> std::vector<platform::PadDescription> {
         if (weak.lock())
             return m_pads.describePads();
         return {};
@@ -334,7 +334,7 @@ void CouchStreamControlsProvider::openPrimaryControllerPicker()
 
     log::info("Couch: opening primary controller picker after Not now");
     auto weak = m_host;
-    auto describe = [this, weak]() -> std::vector<input::PadDescription> {
+    auto describe = [this, weak]() -> std::vector<platform::PadDescription> {
         if (weak.lock())
             return m_pads.describePads();
         return {};

@@ -16,7 +16,7 @@ using namespace brls::literals;
 namespace akira::platform::extended
 {
 
-ExtendedPadSettingsProvider::ExtendedPadSettingsProvider(const input::PadDescription& pad,
+ExtendedPadSettingsProvider::ExtendedPadSettingsProvider(const platform::PadDescription& pad,
                                                          const play::ControllerSettings& controllers)
     : m_pad(pad)
     , m_controllers(controllers)
@@ -61,14 +61,14 @@ play::RumbleProfile ExtendedPadSettingsProvider::resolveProfile(const play::Cont
 
 bool ExtendedPadSettingsProvider::switchNative() const
 {
-    return m_pad.kind == input::PadPathKind::JoyCon || m_pad.kind == input::PadPathKind::SwitchPro;
+    return m_pad.kind == platform::PadPathKind::JoyCon || m_pad.kind == platform::PadPathKind::SwitchPro;
 }
 
 std::string ExtendedPadSettingsProvider::currentKey(const play::ControllerSettings& settings) const
 {
     return resolveKey(settings, m_pad.vendor_id, m_pad.product_id,
                       m_pad.has_address ? m_pad.bt_addr : nullptr,
-                      switchNative(), m_pad.kind == input::PadPathKind::JoyCon);
+                      switchNative(), m_pad.kind == platform::PadPathKind::JoyCon);
 }
 
 std::string ExtendedPadSettingsProvider::rumbleKey(play::ControllerSettings& settings)

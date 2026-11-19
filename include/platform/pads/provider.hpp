@@ -31,9 +31,9 @@ public:
 
     virtual void open() = 0;
     virtual void close() = 0;
-    virtual input::Pad* acquire(Callbacks& callbacks) = 0;
-    virtual input::Pad* current() = 0;
-    virtual std::vector<input::PadDescription> scanPads() const = 0;
+    virtual platform::Pad* acquire(Callbacks& callbacks) = 0;
+    virtual platform::Pad* current() = 0;
+    virtual std::vector<platform::PadDescription> scanPads() const = 0;
     virtual play::RumbleProfile primaryRumbleProfile() const = 0;
 
     virtual void readSecondaryPads(play::InputManager& input, std::span<libchiaking::controllers::ControllerInput> states,

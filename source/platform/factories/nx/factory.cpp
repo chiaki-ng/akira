@@ -71,7 +71,7 @@ std::unique_ptr<StreamControlsProvider> NxPlatformFactory::createStreamControls(
         std::move(host));
 }
 
-std::unique_ptr<PadSettingsProvider> NxPlatformFactory::createPadSettings(const input::PadDescription& pad)
+std::unique_ptr<PadSettingsProvider> NxPlatformFactory::createPadSettings(const platform::PadDescription& pad)
 {
     return std::make_unique<extended::ExtendedPadSettingsProvider>(pad, m_services.controllers);
 }

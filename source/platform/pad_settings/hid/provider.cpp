@@ -5,7 +5,7 @@
 namespace akira::platform::hid
 {
 
-HidPadSettingsProvider::HidPadSettingsProvider(const input::PadDescription& pad)
+HidPadSettingsProvider::HidPadSettingsProvider(const platform::PadDescription& pad)
     : m_pad(pad)
 {
 }
@@ -26,7 +26,7 @@ std::string HidPadSettingsProvider::rumbleKey(play::ControllerSettings& settings
 
 std::string HidPadSettingsProvider::currentKey(const play::ControllerSettings& settings) const
 {
-    return resolveKey(settings, m_pad.kind == input::PadPathKind::JoyCon);
+    return resolveKey(settings, m_pad.kind == platform::PadPathKind::JoyCon);
 }
 
 }

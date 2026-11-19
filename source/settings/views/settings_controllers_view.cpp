@@ -11,7 +11,7 @@ namespace akira::settings::views {
 
 using namespace brls::literals;
 
-std::string SettingsControllersView::tierSummary(const akira::input::PadDescription& pad)
+std::string SettingsControllersView::tierSummary(const akira::platform::PadDescription& pad)
 {
     auto* services = &app::ViewServices::current();
     const auto padSettings = app::ViewServices::current().platform.createPadSettings(pad);
@@ -79,7 +79,7 @@ void SettingsControllersView::rebuild()
     list->clearViews();
 
     auto* services = &app::ViewServices::current();
-    const std::vector<akira::input::PadDescription> pads = app::ViewServices::current().platform.pads().scanPads();
+    const std::vector<akira::platform::PadDescription> pads = app::ViewServices::current().platform.pads().scanPads();
 
     if (pads.empty()) {
         auto* empty = new brls::Label();
@@ -91,7 +91,7 @@ void SettingsControllersView::rebuild()
         return;
     }
 
-    for (const akira::input::PadDescription& pad : pads) {
+    for (const akira::platform::PadDescription& pad : pads) {
         services->controllers.seedRumbleProfile(
             app::ViewServices::current().platform.createPadSettings(pad)->rumbleKey(services->controllers));
 

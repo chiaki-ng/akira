@@ -89,7 +89,7 @@ std::unique_ptr<StreamControlsProvider> OuncePlatformFactory::createStreamContro
     return std::make_unique<single::SingleStreamControlsProvider>(std::move(host));
 }
 
-std::unique_ptr<PadSettingsProvider> OuncePlatformFactory::createPadSettings(const input::PadDescription& pad)
+std::unique_ptr<PadSettingsProvider> OuncePlatformFactory::createPadSettings(const platform::PadDescription& pad)
 {
     return std::make_unique<hid::HidPadSettingsProvider>(pad);
 }

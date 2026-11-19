@@ -39,7 +39,7 @@ void ExtendedHapticsProvider::prepare(play::HapticManager& haptics)
 
     haptics.setProfile(akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(m_controllers, 
         path.vendorId, path.productId, path.hasAddress ? path.address.data() : nullptr,
-        path.switchNative, path.kind == input::PadPathKind::JoyCon));
+        path.switchNative, path.kind == platform::PadPathKind::JoyCon));
 }
 
 bool ExtendedHapticsProvider::play(play::HapticManager& haptics, std::span<const std::int16_t> stereo)

@@ -35,7 +35,7 @@ public:
     std::unique_ptr<HapticsProvider> createHaptics() override;
     std::unique_ptr<FeedbackProvider> createFeedback(play::HapticManager& haptics) override;
     std::unique_ptr<StreamControlsProvider> createStreamControls(std::weak_ptr<StreamControlsHost> host) override;
-    std::unique_ptr<PadSettingsProvider> createPadSettings(const input::PadDescription& pad) override;
+    std::unique_ptr<PadSettingsProvider> createPadSettings(const platform::PadDescription& pad) override;
 
 private:
     static brls::SwitchPlatform& switchPlatform();

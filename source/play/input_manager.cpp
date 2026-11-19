@@ -102,7 +102,7 @@ void InputManager::sendRumble(float left, float right, float freqLow, float freq
     float nonNativeScale)
 {
     std::lock_guard<std::mutex> lock(m_state_mutex);
-    akira::input::Pad* pad = m_pads.current();
+    akira::platform::Pad* pad = m_pads.current();
     if (!pad)
         return;
     if (!pad->nativeRumble()) {
@@ -113,7 +113,7 @@ void InputManager::sendRumble(float left, float right, float freqLow, float freq
 }
 
 
-void InputManager::applyPadInput(akira::input::Pad& pad, libchiaking::controllers::ControllerState& state)
+void InputManager::applyPadInput(akira::platform::Pad& pad, libchiaking::controllers::ControllerState& state)
 {
     state.buttons = 0;
     state.l2 = 0x00;
@@ -223,7 +223,7 @@ void InputManager::update(libchiaking::controllers::ControllerInput& input, std:
     akira::platform::PadProvider::Callbacks callbacks;
     std::unique_lock<std::mutex> lock(m_state_mutex);
 
-    akira::input::Pad* pad = m_pads.acquire(callbacks);
+    akira::platform::Pad* pad = m_pads.acquire(callbacks);
     if (!pad)
     {
         input.set_idle();
@@ -511,7 +511,7 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
 
 bool InputManager::readSixAxis(libchiaking::controllers::ControllerState& state)
 {
-    akira::input::Pad* pad = m_pads.current();
+    akira::platform::Pad* pad = m_pads.current();
     if (!pad)
         return false;
     auto reading = pad->readGyro();
@@ -578,7 +578,7 @@ void InputManager::resetMotionControls()
 {
     std::lock_guard<std::mutex> lock(m_state_mutex);
 
-    akira::input::Pad* pad = m_pads.current();
+    akira::platform::Pad* pad = m_pads.current();
     if (!pad)
         return;
 
@@ -616,7 +616,7 @@ void InputManager::updateSyntheticSwipes(libchiaking::controllers::ControllerInp
 
     const play::ButtonMapping& mapping = m_controllers.buttonMapping();
 
-    akira::input::Pad* pad = m_pads.current();
+    akira::platform::Pad* pad = m_pads.current();
     if (!pad)
         return;
     HidAnalogStickState leftStick = pad->stickPos(0);

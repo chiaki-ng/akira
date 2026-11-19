@@ -5,14 +5,14 @@
 
 namespace akira::platform::couch {
 
-inline const char* PadArtPath(const input::PadDescription& pad)
+inline const char* PadArtPath(const platform::PadDescription& pad)
 {
-    if (pad.kind == input::PadPathKind::JoyCon) {
+    if (pad.kind == platform::PadPathKind::JoyCon) {
         return pad.style == HidNpadStyleTag_NpadHandheld ? "img/pads/switch_handheld.png"
                                                          : "img/pads/switch_joycons.png";
     }
 
-    if (pad.kind == input::PadPathKind::SwitchPro)
+    if (pad.kind == platform::PadPathKind::SwitchPro)
         return "img/pads/switch_pro.png";
 
     if (pad.vendor_id == 0x054c) {
@@ -29,9 +29,9 @@ inline const char* PadArtPath(const input::PadDescription& pad)
     return "img/pads/gamepad.png";
 }
 
-inline bool PadHasTwoBatteries(const input::PadDescription& pad)
+inline bool PadHasTwoBatteries(const platform::PadDescription& pad)
 {
-    return pad.kind == input::PadPathKind::JoyCon;
+    return pad.kind == platform::PadPathKind::JoyCon;
 }
 
 } // namespace akira::platform::couch

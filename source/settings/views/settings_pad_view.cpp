@@ -33,7 +33,7 @@ brls::Label* SettingsPadView::makeHeading(const std::string& text)
     return label;
 }
 
-SettingsPadView::SettingsPadView(const akira::input::PadDescription& pad)
+SettingsPadView::SettingsPadView(const akira::platform::PadDescription& pad)
     : m_pad(pad)
 {
     services = &app::ViewServices::current();
@@ -93,7 +93,7 @@ SettingsPadView::SettingsPadView(const akira::input::PadDescription& pad)
     if (direct)
         m_platform->addLightbarRows(*content, m_profile, [this]() { store(); }, [this]() { reopen(); });
 
-    if (m_pad.kind == akira::input::PadPathKind::JoyCon)
+    if (m_pad.kind == akira::platform::PadPathKind::JoyCon)
         buildGyroRow();
 
     buildActionRows();
@@ -369,7 +369,7 @@ void SettingsPadView::store()
     services->store.save();
 }
 
-static void ReopenWhenSettled(const akira::input::PadDescription& pad, int attempts_left)
+static void ReopenWhenSettled(const akira::platform::PadDescription& pad, int attempts_left)
 {
     if (brls::Application::isInputBlocks() && attempts_left > 0) {
         brls::delay(16, [pad, attempts_left]() { ReopenWhenSettled(pad, attempts_left - 1); });

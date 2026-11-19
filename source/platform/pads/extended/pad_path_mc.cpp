@@ -51,9 +51,9 @@ McGenericPath::McGenericPath(HidNpadIdType npad, ExtendedInputManager& extended,
         input->refreshRumbleHandles((unsigned int)npad);
 }
 
-input::PadCapabilities McGenericPath::capabilities() const
+platform::PadCapabilities McGenericPath::capabilities() const
 {
-    input::PadCapabilities caps;
+    platform::PadCapabilities caps;
     caps.gyro            = true;
     caps.rumble          = true;
     caps.analog_triggers = false;
@@ -126,9 +126,9 @@ McPsNativePath::~McPsNativePath()
     }
 }
 
-input::PadCapabilities McPsNativePath::capabilities() const
+platform::PadCapabilities McPsNativePath::capabilities() const
 {
-    input::PadCapabilities caps = McGenericPath::capabilities();
+    platform::PadCapabilities caps = McGenericPath::capabilities();
     caps.touchpad = m_model->has_touchpad;
 
     caps.analog_triggers = true;

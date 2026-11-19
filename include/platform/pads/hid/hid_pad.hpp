@@ -15,7 +15,7 @@ class ControllerSettings;
 namespace akira::platform::hid
 {
 
-class HidPad final : public input::Pad
+class HidPad final : public platform::Pad
 {
 public:
     explicit HidPad(const play::ControllerSettings& controllers);
