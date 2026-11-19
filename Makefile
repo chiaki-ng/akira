@@ -101,6 +101,8 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/log/log.cpp \
                 $(CURDIR)/source/log/core_log.cpp \
                 $(CURDIR)/source/log/log_tail.cpp \
+                $(CURDIR)/source/play/connect_failure.cpp \
+                $(CURDIR)/source/play/connect_flow.cpp \
                 $(CURDIR)/source/settings/settings_store.cpp \
                 $(CURDIR)/source/settings/developer_settings.cpp \
                 $(CURDIR)/source/play/stream_settings.cpp \
@@ -137,7 +139,8 @@ CORE_TEST_SRC := $(CORE_DIR)/src/platform/crypto/provider.cpp \
                  $(CORE_DIR)/src/core/consoles/model/console/console_name.cpp \
                  $(CORE_DIR)/src/core/consoles/model/console/device_uid.cpp \
                  $(CORE_DIR)/src/core/consoles/model/console/host.cpp \
-                 $(CORE_DIR)/src/core/consoles/model/pairing/pairing.cpp
+                 $(CORE_DIR)/src/core/consoles/model/pairing/pairing.cpp \
+                 $(CORE_DIR)/src/core/play/model/outcome.cpp
 JSONC_PREFIX ?= $(shell pkg-config --variable=prefix json-c 2>/dev/null || echo /opt/homebrew)
 SIMDUTF_PREFIX ?= $(shell pkg-config --variable=prefix simdutf 2>/dev/null || echo /opt/homebrew)
 OPENSSL_PREFIX ?= $(shell pkg-config --variable=prefix openssl 2>/dev/null || echo /opt/homebrew/opt/openssl@3)

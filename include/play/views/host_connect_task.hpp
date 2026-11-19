@@ -8,7 +8,7 @@
 
 #include <libchiaking/platform/platform.hpp>
 
-#include "play/views/connect_task.hpp"
+#include "play/connect_task.hpp"
 
 namespace akira::consoles {
 class Host;

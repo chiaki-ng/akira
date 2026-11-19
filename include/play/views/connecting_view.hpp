@@ -3,6 +3,7 @@
 
 #include "log/log.hpp"
 #include "log/connection_log.hpp"
+#include "log/log_tail.hpp"
 
 #include <optional>
 
@@ -17,7 +18,8 @@
 #include <utility>
 #include <vector>
 
-#include "play/views/connect_task.hpp"
+#include "play/connect_flow.hpp"
+#include "play/connect_task.hpp"
 
 namespace akira::consoles {
 class Host;
@@ -69,21 +71,10 @@ public:
 private:
     std::unique_ptr<ConnectTask> task;
 
-    std::deque<std::string> logLines;
-    mutable std::mutex logMutex;
-    std::vector<std::pair<std::string, std::string>> logMasks;
     static constexpr std::size_t MAX_LOG_LINES = 100;
+    log::LogTail logTail{MAX_LOG_LINES, log::LogTail::Stamp::Clock};
 
-    std::atomic<int> currentStage{0};
-    std::atomic<int> stepIndex{0};
-    std::atomic<int> stepTotal{0};
-    std::atomic<bool> steppedRoute{false};
-    std::string stepLabel;
-    mutable std::mutex stepMutex;
-    std::atomic<bool> settled{false};
-    std::atomic<bool> wasCancelled{false};
-    std::atomic<bool> showFailure{false};
-    std::atomic<bool> dismissed{false};
+    ConnectFlow flow;
     static constexpr int kFailureLingerMs = 4000;
     std::string failureText;
 

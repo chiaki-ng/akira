@@ -9,7 +9,7 @@
 
 #include "cloud/cloud_launch.hpp"
 #include "cloud/models.hpp"
-#include "play/views/connect_task.hpp"
+#include "play/connect_task.hpp"
 
 namespace akira::accounts {
 class AccountSettings;
@@ -23,7 +23,7 @@ namespace akira::cloud {
 
 class Service;
 
-class CloudConnectTask : public play::views::ConnectTask {
+class CloudConnectTask : public play::ConnectTask {
 public:
     CloudConnectTask(Service& service, const accounts::AccountSettings& accounts, const app::AppSettings& app,
                      const Game& game);
@@ -37,13 +37,13 @@ public:
     std::string title() const override;
     const char* logKind() const override { return "cloud"; }
 
-    void start(play::views::ConnectSink& sink) override;
+    void start(play::ConnectSink& sink) override;
     void cancel() override;
 
 private:
     struct CallbackState {
         std::mutex mutex;
-        play::views::ConnectSink* sink = nullptr;
+        play::ConnectSink* sink = nullptr;
         libchiaking::platform::StopSource stop;
     };
 

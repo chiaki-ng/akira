@@ -1,11 +1,8 @@
 #include "play/views/connecting_view.hpp"
 #include "log/log_files.hpp"
+#include "play/views/connection_stage.hpp"
 #include "play/views/stream_nav.hpp"
 #include "log/log.hpp"
-
-#include <chrono>
-#include <ctime>
-#include <format>
 
 #include <borealis/core/i18n.hpp>
 
@@ -23,22 +20,6 @@ using namespace brls::literals;
 }
 
 namespace akira::play::views {
-
-namespace {
-
-void replaceAll(std::string& text, const std::string& needle, const std::string& replacement)
-{
-    if (needle.empty() || needle == replacement)
-        return;
-    size_t position = 0;
-    while ((position = text.find(needle, position)) != std::string::npos)
-    {
-        text.replace(position, needle.size(), replacement);
-        position += replacement.size();
-    }
-}
-
-} // namespace
 
 ConnectingView::ConnectingView(std::unique_ptr<ConnectTask> task)
     : task(std::move(task))
@@ -69,7 +50,7 @@ ConnectingView::ConnectingView(std::unique_ptr<ConnectTask> task)
 
     registerAction("akira/common/cancel"_i18n, brls::ControllerButton::BUTTON_B,
                    [this](brls::View*) {
-                       if (showFailure.load())
+                       if (flow.showingFailure())
                            dismissAfterFailure();
                        else
                            cancelFromUser();
@@ -81,7 +62,7 @@ ConnectingView::~ConnectingView()
 {
     logSubscription.reset();
 
-    if (!settled.load())
+    if (!flow.settled())
         task->cancel();
 
     task.reset();
@@ -108,8 +89,8 @@ void ConnectingView::setupAndStart()
     {
         for (const accounts::Profile& profile : services->accounts.profiles())
         {
-            logMasks.emplace_back(profile.onlineId, services->appSettings.maskAccountName(profile.onlineId));
-            logMasks.emplace_back(profile.accountId, services->appSettings.maskAccountName(profile.accountId));
+            logTail.mask(profile.onlineId, services->appSettings.maskAccountName(profile.onlineId));
+            logTail.mask(profile.accountId, services->appSettings.maskAccountName(profile.accountId));
         }
     }
 
@@ -132,11 +113,10 @@ void ConnectingView::setupAndStart()
 
 void ConnectingView::cancelFromUser()
 {
-    if (settled.exchange(true))
+    if (!flow.cancel())
         return;
 
     log::info("Connection cancelled by user");
-    wasCancelled.store(true);
     task->cancel();
 
     brls::sync([]() { stream_nav::unwindToBase(); });
@@ -144,25 +124,7 @@ void ConnectingView::cancelFromUser()
 
 void ConnectingView::addLogLine(const std::string& line)
 {
-    std::string safeLine = line;
-    for (const auto& [needle, mask] : logMasks)
-        replaceAll(safeLine, needle, mask);
-    {
-        std::lock_guard<std::mutex> lock(logMutex);
-
-        auto now = std::chrono::system_clock::now();
-        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                      now.time_since_epoch()).count() % 1000;
-        std::time_t tt = std::chrono::system_clock::to_time_t(now);
-        std::tm time_tm = *std::localtime(&tt);
-
-        logLines.push_back(std::format("{:02}:{:02}:{:02}.{:03} {}",
-                                       time_tm.tm_hour, time_tm.tm_min, time_tm.tm_sec,
-                                       static_cast<int>(ms), safeLine));
-
-        while (logLines.size() > MAX_LOG_LINES)
-            logLines.pop_front();
-    }
+    logTail.push(line);
 }
 
 void ConnectingView::switchToConnectionLog()
@@ -178,33 +140,22 @@ void ConnectingView::switchToConnectionLog()
 
 void ConnectingView::progress(ConnectionStage stage)
 {
-    int reported = static_cast<int>(stage);
-    int current = currentStage.load();
-    while (reported > current && !currentStage.compare_exchange_weak(current, reported))
-        ;
+    flow.advance(stage);
 }
 
 void ConnectingView::progressStep(int index, int total, const std::string& label)
 {
-    steppedRoute.store(true);
-
-    if (index > 0 && total > 0) {
-        stepIndex.store(index);
-        stepTotal.store(total);
-    }
-
-    std::lock_guard<std::mutex> lock(stepMutex);
-    stepLabel = label;
+    flow.step(index, total, label);
 }
 
 bool ConnectingView::cancelled() const
 {
-    return wasCancelled.load();
+    return flow.cancelled();
 }
 
 void ConnectingView::succeeded(consoles::Host* host, std::shared_ptr<consoles::Host> owner)
 {
-    if (settled.exchange(true))
+    if (!flow.settle())
         return;
 
     log::info("Transitioning to stream view...");
@@ -230,7 +181,7 @@ void ConnectingView::succeeded(consoles::Host* host, std::shared_ptr<consoles::H
 
 void ConnectingView::failed(const std::string& error)
 {
-    if (settled.load())
+    if (flow.settled())
         return;
 
     log::error("{}", error);
@@ -244,10 +195,7 @@ void ConnectingView::failed(const std::string& error)
      * produced - and the ring is already showing which stage that was.
      */
     if (app::ViewServices::current().appSettings.connectionShowStages()) {
-        const auto stage = static_cast<ConnectionStage>(currentStage.load());
-        failureText = brls::getStr(connectionFailureKeyForStage(stage));
-        settled.store(true);
-        showFailure.store(true);
+        failureText = brls::getStr(flow.failOnRing());
 
         auto weak = weak_from_this();
         brls::delay(kFailureLingerMs, [weak]() {
@@ -257,7 +205,7 @@ void ConnectingView::failed(const std::string& error)
         return;
     }
 
-    settled.store(true);
+    flow.failOnDialog();
 
     brls::sync([error]() {
         auto* dialog = new brls::Dialog(brls::getStr("akira/connection/connection_failed", error));
@@ -270,7 +218,7 @@ void ConnectingView::failed(const std::string& error)
 
 void ConnectingView::dismissAfterFailure()
 {
-    if (dismissed.exchange(true))
+    if (!flow.dismiss())
         return;
 
     log::info("Connection failure acknowledged, returning to hosts");
@@ -279,7 +227,7 @@ void ConnectingView::dismissAfterFailure()
 
 void ConnectingView::renderLogs(NVGcontext* vg, float x, float y, float width, float height)
 {
-    std::lock_guard<std::mutex> lock(logMutex);
+    const std::vector<std::string> logLines = logTail.lines();
 
     nvgSave(vg);
     nvgScissor(vg, x, y, width, height);
@@ -330,30 +278,15 @@ void ConnectingView::draw(NVGcontext* vg, float x, float y, float width, float h
     const float centerX = logArea->getX() + logArea->getWidth() / 2.0f;
     const float centerY = logArea->getY() + logArea->getHeight() / 2.0f;
 
-    if (showFailure.load()) {
+    if (flow.showingFailure()) {
         drawConnectionFailure(vg, centerX, centerY, failureText);
         return;
     }
 
     if (app::ViewServices::current().appSettings.connectionShowStages()) {
-        if (steppedRoute.load()) {
-            std::string label;
-            {
-                std::lock_guard<std::mutex> lock(stepMutex);
-                label = stepLabel;
-            }
-            if (label.empty())
-                label = brls::getStr("akira/connection/stage_connecting");
-            drawConnectionRing(vg, centerX, centerY, label,
-                               stepIndex.load(), stepTotal.load());
-            return;
-        }
-
-        const auto stage = static_cast<ConnectionStage>(currentStage.load());
-        const int raw = static_cast<int>(stage);
-        const int idx = raw < 1 ? 1 : (raw > 6 ? 6 : raw);
-        drawConnectionRing(vg, centerX, centerY,
-                           brls::getStr(connectionStageLabelKey(stage)), idx, 6);
+        const ConnectFlow::Ring ring = flow.ring();
+        drawConnectionRing(vg, centerX, centerY, ring.label.empty() ? brls::getStr(ring.labelKey) : ring.label,
+                           ring.index, ring.total);
         return;
     }
 

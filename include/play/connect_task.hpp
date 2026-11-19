@@ -4,13 +4,13 @@
 #include <memory>
 #include <string>
 
-#include "play/views/connection_stage.hpp"
+#include "play/connection_stage.hpp"
 
 namespace akira::consoles {
 class Host;
 }
 
-namespace akira::play::views {
+namespace akira::play {
 
 /*
  * What a route reports while it is connecting.
@@ -76,6 +76,6 @@ public:
     }
 };
 
-} // namespace akira::play::views
+} // namespace akira::play
 
 #endif // AKIRA_CONNECT_TASK_HPP
