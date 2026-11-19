@@ -186,15 +186,7 @@ void TrophyManager::flushCache()
 {
     if (auto request = begin())
         trophies().start_over(*request->user);
-    std::error_code ignored;
-    std::filesystem::remove_all(ICON_CACHE_DIR, ignored);
-    iconCacheDirReady.store(false);
-    {
-        std::lock_guard<std::mutex> lock(iconMutex);
-        iconCache.clear();
-        iconOrder.clear();
-        iconCacheBytes = 0;
-    }
+    icons.clear();
     onActiveProfileChanged();
     log::info("Trophy: cache flushed");
 }
@@ -212,18 +204,6 @@ void TrophyManager::onActiveProfileChanged()
     }
     static_cast<void>(previous->request_stop());
     log::info("Trophy: active profile changed, in-flight requests dropped");
-}
-
-void TrophyManager::ensureIconCacheDir()
-{
-    if (iconCacheDirReady.load())
-        return;
-
-    mkdir(CACHE_DIR, 0755);
-    mkdir(TROPHY_CACHE_DIR, 0755);
-    mkdir(ICON_CACHE_DIR, 0755);
-
-    iconCacheDirReady.store(true);
 }
 
 int64_t TrophyManager::librarySavedAtSeconds() const
@@ -258,112 +238,6 @@ void TrophyManager::recordForcedRefresh(const std::string& scope)
 
     log::info("Trophy: force refresh of '{}' recorded, next available in {} min",
         scope, FORCE_REFRESH_COOLDOWN_MINUTES);
-}
-
-std::string TrophyManager::iconCachePath(const std::string& url) const
-{
-    uint64_t hash = 1469598103934665603ULL;
-    for (unsigned char c : url)
-    {
-        hash ^= c;
-        hash *= 1099511628211ULL;
-    }
-
-    return std::format("{}/{:016x}.img", ICON_CACHE_DIR, hash);
-}
-
-bool TrophyManager::readIconFromDisk(const std::string& path, std::vector<uint8_t>& outBytes) const
-{
-    FILE* file = fopen(path.c_str(), "rb");
-    if (!file)
-        return false;
-
-    fseek(file, 0, SEEK_END);
-    long size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    if (size <= 0 || static_cast<size_t>(size) > ICON_MAX_BYTES)
-    {
-        fclose(file);
-        return false;
-    }
-
-    outBytes.resize(static_cast<size_t>(size));
-    size_t read = fread(outBytes.data(), 1, outBytes.size(), file);
-    fclose(file);
-
-    if (read != outBytes.size())
-    {
-        outBytes.clear();
-        return false;
-    }
-
-    return true;
-}
-
-void TrophyManager::writeIconToDisk(const std::string& path, const std::vector<uint8_t>& bytes)
-{
-    std::string temp = path + ".tmp";
-
-    FILE* file = fopen(temp.c_str(), "wb");
-    if (!file)
-    {
-        stopIconDiskWrites(std::format("could not open {}: {}", temp, strerror(errno)));
-        return;
-    }
-
-    size_t written = fwrite(bytes.data(), 1, bytes.size(), file);
-    fclose(file);
-
-    if (written != bytes.size())
-    {
-        remove(temp.c_str());
-        stopIconDiskWrites(std::format("short write to {} ({}/{} bytes)", temp, written, bytes.size()));
-        return;
-    }
-
-    remove(path.c_str());
-    if (rename(temp.c_str(), path.c_str()) != 0)
-    {
-        remove(temp.c_str());
-        stopIconDiskWrites(std::format("could not replace {}", path));
-    }
-}
-
-void TrophyManager::stopIconDiskWrites(const std::string& reason)
-{
-    if (!iconDiskWritable.exchange(false))
-        return;
-
-    log::error("Trophy: icon disk cache disabled for this session ({}); icons will still load from memory", reason);
-}
-
-void TrophyManager::storeIconInMemory(const std::string& url, const std::vector<uint8_t>& bytes)
-{
-    std::lock_guard<std::mutex> lock(iconMutex);
-
-    if (iconCache.find(url) == iconCache.end())
-    {
-        iconCacheBytes += bytes.size();
-        iconCache[url] = bytes;
-        iconOrder.push_back(url);
-    }
-
-    while (iconCacheBytes > ICON_CACHE_MAX_BYTES && !iconOrder.empty())
-    {
-        const std::string oldest = iconOrder.front();
-        iconOrder.pop_front();
-
-        if (oldest == url)
-            continue;
-
-        auto entry = iconCache.find(oldest);
-        if (entry != iconCache.end())
-        {
-            iconCacheBytes -= entry->second.size();
-            iconCache.erase(entry);
-        }
-    }
 }
 
 void TrophyManager::logLibrary(const std::vector<Title>& titles) const
@@ -654,12 +528,11 @@ void TrophyManager::fetchIcon(const std::string& url, IconCallback onSuccess)
     {
         std::lock_guard<std::mutex> lock(iconMutex);
 
-        auto cached = iconCache.find(url);
-        if (cached != iconCache.end())
+        if (auto cached = icons.remembered(url))
         {
             if (onSuccess)
             {
-                std::vector<uint8_t> bytes = cached->second;
+                std::vector<uint8_t> bytes = std::move(*cached);
                 brls::sync([onSuccess, url, bytes]() { onSuccess(url, bytes); });
             }
             return;
@@ -678,12 +551,12 @@ void TrophyManager::fetchIcon(const std::string& url, IconCallback onSuccess)
     }
 
     http.submit([this, url](HttpSession& session) {
-        ensureIconCacheDir();
-
-        std::string path = iconCachePath(url);
         std::vector<uint8_t> bytes;
-        bool usable = readIconFromDisk(path, bytes);
+        auto stored = icons.load(url);
+        bool usable = stored.has_value();
         bool fromDisk = usable;
+        if (stored)
+            bytes = std::move(*stored);
 
         if (!usable)
         {
@@ -714,7 +587,7 @@ void TrophyManager::fetchIcon(const std::string& url, IconCallback onSuccess)
         }
 
         if (usable)
-            storeIconInMemory(url, bytes);
+            icons.remember(url, bytes);
 
         std::vector<IconCallback> waiters;
         {
@@ -730,8 +603,8 @@ void TrophyManager::fetchIcon(const std::string& url, IconCallback onSuccess)
         if (!usable)
             return;
 
-        if (!fromDisk && iconDiskWritable.load())
-            writeIconToDisk(path, bytes);
+        if (!fromDisk)
+            icons.save(url, bytes);
 
         if (waiters.empty())
             return;
@@ -745,22 +618,7 @@ void TrophyManager::fetchIcon(const std::string& url, IconCallback onSuccess)
 
 void TrophyManager::discardIcon(const std::string& url)
 {
-    {
-        std::lock_guard<std::mutex> lock(iconMutex);
-
-        auto entry = iconCache.find(url);
-        if (entry != iconCache.end())
-        {
-            iconCacheBytes -= entry->second.size();
-            iconCache.erase(entry);
-        }
-
-        auto position = std::find(iconOrder.begin(), iconOrder.end(), url);
-        if (position != iconOrder.end())
-            iconOrder.erase(position);
-    }
-
-    remove(iconCachePath(url).c_str());
+    icons.discard(url);
     log::warning("Trophy: discarded the cached icon for {}", url);
 }
 

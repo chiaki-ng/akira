@@ -109,6 +109,7 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/consoles/pairing_store.cpp \
                 $(CURDIR)/source/app/app_settings.cpp \
                 $(CURDIR)/source/network/dns_client.cpp \
+                $(CURDIR)/source/trophies/icon_cache.cpp \
                 $(CURDIR)/source/platform/video/viddec/h264_sps.cpp \
                 $(TEST_PLATFORM_SRC)
 CORE_DIR     := $(or $(call override_path,CORE),$(CURDIR)/library/libchiaki-core$(LIBRARY_SUFFIX))

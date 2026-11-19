@@ -22,6 +22,7 @@
 
 #include "accounts/accounts.hpp"
 #include "accounts/status.hpp"
+#include "trophies/icon_cache.hpp"
 
 class HttpPool;
 
@@ -87,7 +88,6 @@ private:
     static constexpr long ICON_TIMEOUT_S = 20;
     static constexpr size_t ICON_CACHE_MAX_BYTES = 12 * 1024 * 1024;
     static constexpr size_t ICON_MAX_BYTES = 2 * 1024 * 1024;
-    static constexpr const char* CACHE_DIR = "sdmc:/switch/akira/cache";
     static constexpr const char* TROPHY_CACHE_DIR = "sdmc:/switch/akira/cache/trophies";
     static constexpr const char* ICON_DIR_NAME = "icons";
     static constexpr const char* ICON_CACHE_DIR = "sdmc:/switch/akira/cache/trophies/icons";
@@ -112,12 +112,6 @@ private:
         -> std::map<libchiaking::trophies::NpCommunicationId, PlayedGame>;
 
     void dropLegacyCache();
-    void ensureIconCacheDir();
-    std::string iconCachePath(const std::string& url) const;
-    bool readIconFromDisk(const std::string& path, std::vector<uint8_t>& outBytes) const;
-    void writeIconToDisk(const std::string& path, const std::vector<uint8_t>& bytes);
-    void stopIconDiskWrites(const std::string& reason);
-    void storeIconInMemory(const std::string& url, const std::vector<uint8_t>& bytes);
     void prefetchIcons(const std::vector<Title>& titles);
     void logLibrary(const std::vector<Title>& titles) const;
     void runStaleCheck();
@@ -128,8 +122,6 @@ private:
     bool autoRefreshStarted = false;
     Callback<Summary> summaryObserver;
     Callback<std::vector<Title>> libraryObserver;
-    std::atomic<bool> iconCacheDirReady{false};
-    std::atomic<bool> iconDiskWritable{true};
 
     mutable std::mutex mutex;
     uint64_t generation = 0;
@@ -138,11 +130,9 @@ private:
     std::unordered_map<std::string, int64_t> forcedAt;
     std::map<libchiaking::trophies::NpCommunicationId, PlayedGame> playedGames;
 
+    IconCache icons{ICON_CACHE_DIR, ICON_CACHE_MAX_BYTES, ICON_MAX_BYTES};
     mutable std::mutex iconMutex;
-    std::unordered_map<std::string, std::vector<uint8_t>> iconCache;
-    std::deque<std::string> iconOrder;
     std::unordered_map<std::string, std::vector<IconCallback>> iconWaiters;
-    size_t iconCacheBytes = 0;
 };
 
 }
