@@ -85,6 +85,8 @@ private:
     bool controllerReady = false;
 
     bool menuOpen = false;
+    bool wasMenuOpen = false;
+    int drawCount = 0;
 
     PausedFrame pausedFrame;
     int pausedFrameImage = -1;

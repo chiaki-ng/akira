@@ -369,7 +369,6 @@ bool StreamView::drawPausedFrame(NVGcontext* vg, float x, float y, float width, 
 void StreamView::draw(NVGcontext* vg, float x, float y, float width, float height,
                       brls::Style style, brls::FrameContext* ctx)
 {
-    static int drawCount = 0;
     ++drawCount;
     if (services->developer.renderLog() && drawCount % 60 == 0) {
         log::info("StreamView::draw #{}: streamActive={}, sessionStarted={}, menuOpen={}",
@@ -409,7 +408,6 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
         checkMenuTrigger();
     }
 
-    static bool wasMenuOpen = false;
     if (menuOpen)
     {
         wasMenuOpen = true;
