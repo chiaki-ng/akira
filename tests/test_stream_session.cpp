@@ -157,13 +157,16 @@ TEST(stream_summary_grades_loss_and_formats_meta)
 TEST(paused_frame_blurs_and_drops_pixels)
 {
     std::vector<std::uint8_t> pixels(16 * 16 * 4, 0);
-    pixels[(8 * 16 + 8) * 4] = 255;
+    for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 8; x++)
+            pixels[(y * 16 + x) * 4] = 255;
     PausedFrame frame(pixels, 16, 16);
     REQUIRE(frame.ready());
     CHECK_EQ(frame.width(), 16);
     CHECK_EQ(frame.height(), 16);
-    CHECK(frame.pixels()[(8 * 16 + 8) * 4] < 255);
+    CHECK(frame.pixels()[(8 * 16 + 7) * 4] < 255);
     CHECK(frame.pixels()[(8 * 16 + 9) * 4] > 0);
+    CHECK_EQ(static_cast<int>(frame.pixels()[(8 * 16 + 9) * 4 + 1]), 0);
     frame.dropPixels();
     CHECK(!frame.ready());
     CHECK(!PausedFrame{}.ready());
