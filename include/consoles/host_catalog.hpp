@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "consoles/console_facts.hpp"
 #include "consoles/host.hpp"
 
 namespace akira::accounts {
@@ -36,6 +37,7 @@ public:
     HostCatalog& operator=(const HostCatalog&) = delete;
 
     Hosts& entries() { return hosts; }
+    std::vector<ConsoleFacts> facts() const;
     Host* getOrCreate(const std::string& name);
     Host* findByDuid(const std::string& duid);
     void remove(const std::string& name);

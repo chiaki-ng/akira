@@ -49,6 +49,25 @@ HostRecord Host::record() const
     return saved;
 }
 
+ConsoleFacts Host::facts() const
+{
+    return ConsoleFacts{
+        .catalogName = hostName,
+        .name = hostName,
+        .type = hostType,
+        .cloud = isCloud(),
+        .paired = hasRpKey(),
+        .discovered = discovered,
+        .needsLink = needsLinking,
+        .ps5 = isPS5(),
+        .standby = isStandby(),
+        .ready = isReady(),
+        .canPairOverInternet = canPairOverInternet(),
+        .hasAddress = !getHostAddr().empty(),
+        .presence = getStateString(),
+    };
+}
+
 Host::~Host()
 {
     pairingGeneration->fetch_add(1);

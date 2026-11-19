@@ -15,6 +15,7 @@
 #include <libchiaking/consoles.hpp>
 
 #include "cloud/cloud_launch.hpp"
+#include "consoles/console_facts.hpp"
 #include "consoles/host_record.hpp"
 #include "consoles/host_type.hpp"
 #include "registration.hpp"
@@ -132,6 +133,7 @@ public:
     Host& operator=(const Host&) = delete;
 
     HostRecord record() const;
+    ConsoleFacts facts() const;
 
     // Host info getters
     std::string getHostName() const { return hostName; }

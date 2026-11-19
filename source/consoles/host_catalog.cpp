@@ -37,6 +37,22 @@ std::vector<HostRecord> HostCatalog::persisted()
     return records;
 }
 
+std::vector<ConsoleFacts> HostCatalog::facts() const
+{
+    std::vector<ConsoleFacts> known;
+    known.reserve(hosts.size());
+    for (const auto& [name, host] : hosts) {
+        if (!host) {
+            log::error("Null host in hosts map for key: {}", name);
+            continue;
+        }
+        ConsoleFacts facts = host->facts();
+        facts.catalogName = name;
+        known.push_back(std::move(facts));
+    }
+    return known;
+}
+
 Host* HostCatalog::getOrCreate(const std::string& name)
 {
     auto [entry, created] = hosts.try_emplace(name);
