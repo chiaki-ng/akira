@@ -3,6 +3,7 @@
 #include "platform/feedback/extended/provider.hpp"
 #include "platform/haptics/extended/provider.hpp"
 #include "platform/video/deko3d/provider.hpp"
+#include "platform/video/gpu_access.hpp"
 #include "platform/video/nvtegra/decoder.hpp"
 #include "platform/video/uam/shader_source.hpp"
 #include "platform/pad_settings/extended/provider.hpp"
@@ -24,7 +25,7 @@ NxPlatformFactory::NxPlatformFactory(PlatformServices services)
     : m_services(services)
     , m_updates(services.app)
     , m_stats(services.developer, services.wireGuard)
-    , m_pads(services.controllers, services.threading)
+    , m_pads(services.controllers, services.threading, services.rumble)
 {
 }
 
@@ -45,8 +46,9 @@ std::vector<RendererChoice> NxPlatformFactory::rendererChoices() const
 std::unique_ptr<VideoProvider> NxPlatformFactory::createVideo()
 {
     return std::make_unique<deko3d::Deko3dVideoProvider>("Deko3d",
-        deko3d::Deko3dVideoProvider::Presentation{ .stream = m_services.stream, .streamState = m_services.streamState,
-            .wireGuard = m_services.wireGuard },
+        deko3d::Deko3dVideoProvider::Presentation{ .gpu = m_services.gpu.deko3d().value().get(),
+            .stream = m_services.stream, .streamState = m_services.streamState, .wireGuard = m_services.wireGuard,
+            .palette = m_services.overlayPalette },
         deko3d::Deko3dVideoProvider::DecoderChoice{ .name = "FFmpeg nvtegra", .stat = "NVTEGRA",
             .make = [] { return std::make_unique<nvtegra::NvtegraDecoder>(); } },
         [&stream = m_services.stream] { return std::make_unique<uam::UamShaderSource>("romfs:/shaders", stream); });

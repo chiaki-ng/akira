@@ -22,6 +22,15 @@ namespace akira::settings {
 class DeveloperSettings;
 }
 
+namespace akira::platform {
+class PadRumble;
+}
+
+namespace akira::platform::video {
+class GpuAccess;
+class OverlayPalette;
+}
+
 namespace akira::platform
 {
 
@@ -33,6 +42,9 @@ struct PlatformServices {
     app::AppSettings& app;
     network::WireGuardManager& wireGuard;
     libchiaking::platform::ThreadingProvider& threading;
+    video::GpuAccess& gpu;
+    PadRumble& rumble;
+    const video::OverlayPalette& overlayPalette;
 };
 
 }

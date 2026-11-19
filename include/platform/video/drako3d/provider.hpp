@@ -18,9 +18,9 @@ namespace akira::platform::drako3d
 class Drako3dVideoProvider final : public VideoProvider
 {
 public:
-    Drako3dVideoProvider(play::StreamSettings& stream, const play::StreamState& streamState,
-        const settings::DeveloperSettings& developer,
-        const network::WireGuardManager& wireGuard);
+    Drako3dVideoProvider(deko3d::GpuHost& gpu, play::StreamSettings& stream, const play::StreamState& streamState,
+        const settings::DeveloperSettings& developer, const network::WireGuardManager& wireGuard,
+        const video::OverlayPalette& palette);
     Drako3dVideoProvider(const Drako3dVideoProvider&) = delete;
     Drako3dVideoProvider& operator=(const Drako3dVideoProvider&) = delete;
 

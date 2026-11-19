@@ -48,8 +48,8 @@ VideoRenderer* Deko3dVideoProvider::renderer()
 bool Deko3dVideoProvider::startRenderer(int width, int height, FrameHooks hooks)
 {
     log::info("Creating {} renderer", name());
-    auto renderer = std::make_unique<Deko3dRenderer>(m_make_shaders(), std::string(decoderStat()),
-        m_presentation.stream, m_presentation.streamState, m_presentation.wireGuard);
+    auto renderer = std::make_unique<Deko3dRenderer>(m_presentation.gpu, m_make_shaders(), std::string(decoderStat()),
+        m_presentation.stream, m_presentation.streamState, m_presentation.wireGuard, m_presentation.palette);
     if (!renderer->initialize(width, height))
         return false;
     m_renderer = std::move(renderer);

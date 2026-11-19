@@ -10,8 +10,6 @@
 #include "play/controller_settings.hpp"
 #include "platform/pads/extended/extended_input_manager.hpp"
 
-#include <borealis.hpp>
-
 #include <algorithm>
 
 namespace akira::platform::extended {
@@ -20,8 +18,9 @@ namespace {
 
 class JoyConPath : public HosPadPath {
 public:
-    JoyConPath(HidNpadIdType npad, HidNpadStyleTag style, const play::ControllerSettings& controllers)
-        : HosPadPath(npad, style, controllers)
+    JoyConPath(HidNpadIdType npad, HidNpadStyleTag style, const play::ControllerSettings& controllers,
+               platform::PadRumble& rumble)
+        : HosPadPath(npad, style, controllers, rumble)
     {
     }
 
@@ -43,8 +42,8 @@ public:
 
 class SwitchProPath : public HosPadPath {
 public:
-    SwitchProPath(HidNpadIdType npad, const play::ControllerSettings& controllers)
-        : HosPadPath(npad, HidNpadStyleTag_NpadFullKey, controllers)
+    SwitchProPath(HidNpadIdType npad, const play::ControllerSettings& controllers, platform::PadRumble& rumble)
+        : HosPadPath(npad, HidNpadStyleTag_NpadFullKey, controllers, rumble)
     {
     }
 
@@ -167,8 +166,7 @@ public:
     {
         float amp = std::clamp(std::max(left, right), 0.0f, 1.0f);
 
-        auto* inputMgr = brls::Application::getPlatform()->getInputManager();
-        inputMgr->sendRumbleRaw(0, freqLow, freqHigh, amp, amp);
+        m_extended.rumble().playerOne({ .freqLow = freqLow, .freqHigh = freqHigh, .ampLow = amp, .ampHigh = amp });
     }
 
     uint64_t heldButtons() const override { return m_buttons; }
@@ -451,10 +449,10 @@ std::unique_ptr<PadPath> MakePath(const platform::PadDescription& desc, Extended
             return std::make_unique<McGenericPath>(desc.npad, extended, controllers, desc.vendor_id,
                                                    desc.product_id);
         case platform::PadPathKind::SwitchPro:
-            return std::make_unique<SwitchProPath>(desc.npad, controllers);
+            return std::make_unique<SwitchProPath>(desc.npad, controllers, extended.rumble());
         case platform::PadPathKind::JoyCon:
         default:
-            return std::make_unique<JoyConPath>(desc.npad, desc.style, controllers);
+            return std::make_unique<JoyConPath>(desc.npad, desc.style, controllers, extended.rumble());
     }
 }
 

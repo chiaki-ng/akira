@@ -2,14 +2,12 @@
 
 #include <array>
 
-#include <borealis.hpp>
-#include <borealis/platforms/switch/switch_platform.hpp>
-
 #include "play/stream_settings.hpp"
 
 #include "platform/feedback/hid/provider.hpp"
 #include "platform/haptics/hid/provider.hpp"
 #include "platform/video/drako3d/provider.hpp"
+#include "platform/video/gpu_access.hpp"
 #include "platform/video/vulkan/provider.hpp"
 #include "platform/pad_settings/hid/provider.hpp"
 
@@ -28,7 +26,7 @@ PlatformCapability PlatformFactory::fixedCapabilities() noexcept
 
 OuncePlatformFactory::OuncePlatformFactory(PlatformServices services)
     : m_services(services)
-    , m_pads(services.controllers)
+    , m_pads(services.controllers, services.rumble)
 {
 }
 
@@ -44,16 +42,11 @@ std::span<const char* const> OuncePlatformFactory::helpFiles() const
     return files;
 }
 
-brls::SwitchPlatform& OuncePlatformFactory::switchPlatform()
-{
-    return *static_cast<brls::SwitchPlatform*>(brls::Application::getPlatform());
-}
-
 void OuncePlatformFactory::prepareVideo()
 {
     const bool drako3d = m_services.stream.videoRenderer() == play::RendererKind::Drako3d
         && drako3d::Drako3dVideoProvider::shadersPresent();
-    switchPlatform().setRenderer(drako3d ? brls::SwitchRenderer::Deko3d : brls::SwitchRenderer::Vulkan);
+    m_services.gpu.prefer(drako3d ? play::RendererKind::Drako3d : play::RendererKind::Vulkan);
 }
 
 std::vector<RendererChoice> OuncePlatformFactory::rendererChoices() const
@@ -66,11 +59,11 @@ std::vector<RendererChoice> OuncePlatformFactory::rendererChoices() const
 
 std::unique_ptr<VideoProvider> OuncePlatformFactory::createVideo()
 {
-    if (switchPlatform().getRenderer() == brls::SwitchRenderer::Deko3d)
-        return std::make_unique<drako3d::Drako3dVideoProvider>(m_services.stream, m_services.streamState,
-            m_services.developer, m_services.wireGuard);
-    return std::make_unique<vulkan::VulkanVideoProvider>(m_services.stream, m_services.streamState,
-        m_services.developer, m_services.wireGuard);
+    if (const auto deko3d = m_services.gpu.deko3d())
+        return std::make_unique<drako3d::Drako3dVideoProvider>(deko3d->get(), m_services.stream,
+            m_services.streamState, m_services.developer, m_services.wireGuard, m_services.overlayPalette);
+    return std::make_unique<vulkan::VulkanVideoProvider>(m_services.gpu.vulkan().value().get(), m_services.stream,
+        m_services.streamState, m_services.developer, m_services.wireGuard, m_services.overlayPalette);
 }
 
 std::unique_ptr<HapticsProvider> OuncePlatformFactory::createHaptics()

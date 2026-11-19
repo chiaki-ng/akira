@@ -6,7 +6,9 @@
 #include <string_view>
 
 #include "platform/video/deko3d/frame_decoder.hpp"
+#include "platform/video/deko3d/gpu_host.hpp"
 #include "platform/video/deko3d/shader_source.hpp"
+#include "platform/video/overlay_palette.hpp"
 #include "platform/video/provider.hpp"
 
 namespace akira::network {
@@ -38,9 +40,11 @@ public:
 
     struct Presentation
     {
+        GpuHost& gpu;
         play::StreamSettings& stream;
         const play::StreamState& streamState;
         const network::WireGuardManager& wireGuard;
+        const video::OverlayPalette& palette;
     };
 
     Deko3dVideoProvider(const char* name, Presentation presentation, DecoderChoice decoder, ShaderFactory makeShaders,

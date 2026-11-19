@@ -9,12 +9,15 @@
 namespace akira::platform::vulkan
 {
 
-VulkanVideoProvider::VulkanVideoProvider(play::StreamSettings& stream, const play::StreamState& streamState,
-    const settings::DeveloperSettings& developer, const network::WireGuardManager& wireGuard)
-    : m_stream(stream)
+VulkanVideoProvider::VulkanVideoProvider(GpuHost& gpu, play::StreamSettings& stream,
+    const play::StreamState& streamState, const settings::DeveloperSettings& developer,
+    const network::WireGuardManager& wireGuard, const video::OverlayPalette& palette)
+    : m_gpu(gpu)
+    , m_stream(stream)
     , m_stream_state(streamState)
     , m_developer(developer)
     , m_wire_guard(wireGuard)
+    , m_palette(palette)
 {
 }
 
@@ -67,7 +70,7 @@ VideoRenderer* VulkanVideoProvider::renderer()
 bool VulkanVideoProvider::startRenderer(int width, int height, FrameHooks hooks)
 {
     log::info("Creating {} renderer", name());
-    auto renderer = std::make_unique<VulkanRenderer>(m_stream, m_stream_state, m_wire_guard);
+    auto renderer = std::make_unique<VulkanRenderer>(m_gpu, m_stream, m_stream_state, m_wire_guard, m_palette);
     if (!renderer->initialize(width, height))
         return false;
 

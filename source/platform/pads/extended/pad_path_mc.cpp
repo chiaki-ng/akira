@@ -8,8 +8,6 @@
 #include "platform/pads/extended/ps_output.hpp"
 #include "play/controller_settings.hpp"
 
-#include <borealis.hpp>
-
 namespace akira::platform::extended {
 
 namespace {
@@ -42,13 +40,12 @@ constexpr ButtonMap kButtons[] = {
 
 McGenericPath::McGenericPath(HidNpadIdType npad, ExtendedInputManager& extended,
                              const play::ControllerSettings& controllers, uint16_t vendor_id, uint16_t product_id)
-    : HosPadPath(npad, HidNpadStyleTag_NpadFullKey, controllers)
+    : HosPadPath(npad, HidNpadStyleTag_NpadFullKey, controllers, extended.rumble())
     , m_extended(extended)
     , m_vendor_id(vendor_id)
     , m_product_id(product_id)
 {
-    if (auto* input = brls::Application::getPlatform()->getInputManager())
-        input->refreshRumbleHandles((unsigned int)npad);
+    m_rumble.refresh(static_cast<unsigned>(npad));
 }
 
 platform::PadCapabilities McGenericPath::capabilities() const
@@ -80,8 +77,7 @@ void McGenericPath::sendRumble(float left, float right, float freqLow, float fre
         }
     }
 
-    auto* inputMgr = brls::Application::getPlatform()->getInputManager();
-    inputMgr->sendRumbleToNpad((unsigned int)m_npad, freqLow, freqHigh, lo, hi);
+    m_rumble.npad(static_cast<unsigned>(m_npad), { .freqLow = freqLow, .freqHigh = freqHigh, .ampLow = lo, .ampHigh = hi });
 }
 
 void McGenericPath::readTriggers(libchiaking::controllers::ControllerState& state)

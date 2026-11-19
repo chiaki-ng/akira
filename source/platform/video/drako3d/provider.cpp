@@ -15,9 +15,11 @@
 namespace akira::platform::drako3d
 {
 
-Drako3dVideoProvider::Drako3dVideoProvider(play::StreamSettings& stream, const play::StreamState& streamState,
-    const settings::DeveloperSettings& developer, const network::WireGuardManager& wireGuard)
-    : m_deko3d("drako3d", { .stream = stream, .streamState = streamState, .wireGuard = wireGuard },
+Drako3dVideoProvider::Drako3dVideoProvider(deko3d::GpuHost& gpu, play::StreamSettings& stream,
+    const play::StreamState& streamState, const settings::DeveloperSettings& developer,
+    const network::WireGuardManager& wireGuard, const video::OverlayPalette& palette)
+    : m_deko3d("drako3d",
+          { .gpu = gpu, .stream = stream, .streamState = streamState, .wireGuard = wireGuard, .palette = palette },
           deko3d::Deko3dVideoProvider::DecoderChoice{ .name = "Switch 2 hardware decoder", .stat = "HW",
               .make =
                   [&developer] {

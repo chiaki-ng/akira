@@ -12,6 +12,7 @@
 #include "akira_input/ipc.h"
 #include "platform/pads/extended/pad_output_state.hpp"
 #include "platform/pads/extended/ps_output.hpp"
+#include "platform/pads/rumble.hpp"
 
 namespace akira::play
 {
@@ -33,8 +34,10 @@ public:
     };
 
     ExtendedInputManager(const play::ControllerSettings& controllers,
-                         libchiaking::platform::ThreadingProvider& threading);
+                         libchiaking::platform::ThreadingProvider& threading, platform::PadRumble& rumble);
     ~ExtendedInputManager();
+
+    platform::PadRumble& rumble() { return m_rumble; }
 
     ExtendedInputManager(const ExtendedInputManager&) = delete;
     ExtendedInputManager& operator=(const ExtendedInputManager&) = delete;
@@ -88,6 +91,7 @@ private:
     bool                     m_direct_gate_logged = false;
     const play::ControllerSettings& m_controllers;
     libchiaking::platform::ThreadingProvider& m_threading;
+    platform::PadRumble& m_rumble;
 
 public:
 

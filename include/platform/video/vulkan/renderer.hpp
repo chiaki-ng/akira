@@ -2,8 +2,11 @@
 #define AKIRA_VULKAN_RENDERER_HPP
 
 #include "platform/video/nv12_frame.hpp"
+#include "platform/video/overlay_palette.hpp"
 #include "platform/video/viddec/output_memory.hpp"
 #include "platform/video/renderer.hpp"
+#include "platform/video/vulkan/device_handle.hpp"
+#include "platform/video/vulkan/gpu_host.hpp"
 
 #include <vulkan/vulkan.h>
 
@@ -23,10 +26,9 @@
 #include <variant>
 #include <vector>
 
-#include <borealis.hpp>
-#include <borealis/core/vk_handle.hpp>
-#include <borealis/platforms/switch/switch_video_vk.hpp>
+#if AKIRA_STATS_OVERLAY
 #include <nanovg/vk_renderer.hpp>
+#endif
 
 namespace akira::network
 {
@@ -42,11 +44,11 @@ class StreamState;
 namespace akira::platform::vulkan
 {
 
-class VulkanRenderer final : public VideoRenderer
+class VulkanRenderer final : public VideoRenderer, private FramePass
 {
 public:
-    VulkanRenderer(play::StreamSettings& stream, const play::StreamState& streamState,
-        const network::WireGuardManager& wireGuard);
+    VulkanRenderer(GpuHost& gpu, play::StreamSettings& stream, const play::StreamState& streamState,
+        const network::WireGuardManager& wireGuard, const video::OverlayPalette& palette);
     ~VulkanRenderer() override;
     VulkanRenderer(const VulkanRenderer&) = delete;
     VulkanRenderer& operator=(const VulkanRenderer&) = delete;
@@ -60,42 +62,44 @@ public:
     void cleanup() override;
     void waitIdle() override;
 
+#if AKIRA_STATS_OVERLAY
     void updateOverlayTexture() override;
     void setStatsOverlayMode(play::StatsOverlayMode mode) override;
     bool overlayTouchBegin(float x, float y) override;
     void overlayTouchMove(float x, float y) override;
     void overlayTouchEnd() override;
     bool takeOverlayPositionDirty() override;
+#endif
     float getRenderFPS() const override { return m_render_fps.load(std::memory_order_relaxed); }
     void setPaused(bool paused) override { m_paused.store(paused, std::memory_order_relaxed); }
+#if AKIRA_STATS_OVERLAY
     void setConnectionContext(const std::string& context) override;
     void triggerBorderFlash() override
     {
         m_border_flash_frames.store(BORDER_FLASH_DURATION, std::memory_order_release);
     }
+#endif
 
     bool captureLastFrame(std::vector<uint8_t>& rgba, int& width, int& height) override;
     std::shared_ptr<akira::platform::viddec::OutputMemory> decoderOutputMemory() const;
-
-    void setTickCallback(TickCallback cb) override { m_tick_callback = std::move(cb); }
 
     void setDithering(bool enabled);
 
 private:
 
-    using DeviceMemory = brls::vk::DeviceHandle<VkDeviceMemory, &vkFreeMemory>;
-    using Image = brls::vk::DeviceHandle<VkImage, &vkDestroyImage>;
-    using ImageView = brls::vk::DeviceHandle<VkImageView, &vkDestroyImageView>;
-    using Buffer = brls::vk::DeviceHandle<VkBuffer, &vkDestroyBuffer>;
-    using BufferView = brls::vk::DeviceHandle<VkBufferView, &vkDestroyBufferView>;
-    using Sampler = brls::vk::DeviceHandle<VkSampler, &vkDestroySampler>;
-    using ShaderModule = brls::vk::DeviceHandle<VkShaderModule, &vkDestroyShaderModule>;
-    using DescriptorSetLayout = brls::vk::DeviceHandle<VkDescriptorSetLayout, &vkDestroyDescriptorSetLayout>;
-    using DescriptorPool = brls::vk::DeviceHandle<VkDescriptorPool, &vkDestroyDescriptorPool>;
-    using PipelineLayout = brls::vk::DeviceHandle<VkPipelineLayout, &vkDestroyPipelineLayout>;
-    using Pipeline = brls::vk::DeviceHandle<VkPipeline, &vkDestroyPipeline>;
-    using CommandPool = brls::vk::DeviceHandle<VkCommandPool, &vkDestroyCommandPool>;
-    using Fence = brls::vk::DeviceHandle<VkFence, &vkDestroyFence>;
+    using DeviceMemory = DeviceHandle<VkDeviceMemory, &vkFreeMemory>;
+    using Image = DeviceHandle<VkImage, &vkDestroyImage>;
+    using ImageView = DeviceHandle<VkImageView, &vkDestroyImageView>;
+    using Buffer = DeviceHandle<VkBuffer, &vkDestroyBuffer>;
+    using BufferView = DeviceHandle<VkBufferView, &vkDestroyBufferView>;
+    using Sampler = DeviceHandle<VkSampler, &vkDestroySampler>;
+    using ShaderModule = DeviceHandle<VkShaderModule, &vkDestroyShaderModule>;
+    using DescriptorSetLayout = DeviceHandle<VkDescriptorSetLayout, &vkDestroyDescriptorSetLayout>;
+    using DescriptorPool = DeviceHandle<VkDescriptorPool, &vkDestroyDescriptorPool>;
+    using PipelineLayout = DeviceHandle<VkPipelineLayout, &vkDestroyPipelineLayout>;
+    using Pipeline = DeviceHandle<VkPipeline, &vkDestroyPipeline>;
+    using CommandPool = DeviceHandle<VkCommandPool, &vkDestroyCommandPool>;
+    using Fence = DeviceHandle<VkFence, &vkDestroyFence>;
 
     enum class PlanePath { Image = 0, TexelBuffer = 1 };
     enum class DecoderSampling { Unchecked, Verified, Broken };
@@ -210,7 +214,7 @@ private:
         VkDescriptorSet descriptorSet() const { return m_set; }
         const std::array<std::uint32_t, 4>& bases() const { return m_bases; }
         void appendAcquireBarriers(std::vector<VkImageMemoryBarrier2>& barriers);
-        void copyFrom(const void* backing);
+        bool copyFrom(const void* backing);
 
     private:
         PlaneLayout m_layout;
@@ -319,6 +323,7 @@ private:
         RenderTarget m_stencil;
     };
 
+#if AKIRA_STATS_OVERLAY
     class OverlayContext
     {
     public:
@@ -344,6 +349,7 @@ private:
         NVGcontext* m_vg;
         int m_font;
     };
+#endif
 
     struct SharedObjects
     {
@@ -390,8 +396,22 @@ private:
     static constexpr std::uint64_t SamplingProbeTimeoutNs = 1'000'000'000;
 
     static bool succeeded(VkResult result, std::string_view what);
+#if AKIRA_STATS_OVERLAY
+    struct OverlayColours
+    {
+        NVGcolor accent;
+        NVGcolor warning;
+        NVGcolor danger;
+        NVGcolor success;
+        NVGcolor text;
+        NVGcolor backgroundDeep;
+        NVGcolor media;
+    };
+
     static float ovlSize(float px);
     static NVGcolor ovl(NVGcolor color, unsigned char alpha);
+    OverlayColours colours() const;
+#endif
     static VkImageAspectFlags stencilAspect(VkFormat format);
     static void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageAspectFlags aspect, VkImageLayout oldLayout,
         VkImageLayout newLayout, VkPipelineStageFlags2 srcStage, VkAccessFlags2 srcAccess, VkPipelineStageFlags2 dstStage,
@@ -433,20 +453,18 @@ private:
     void publishFsrSummary(const FsrState* fsr);
     void retire(Retired retired);
 
-    void renderVideo();
-    void recordAcquire(PlaneImport& import);
-    void drawVideoFsr(VkCommandBuffer cmd, const PlaneImport& import, const FsrState& fsr, VideoPush push);
+    void record(FrameRecorder& frame) override;
+    void renderVideo(FrameRecorder& frame);
+    void recordAcquire(FrameRecorder& frame, PlaneImport& import);
+    void drawVideoFsr(FrameRecorder& frame, const PlaneImport& import, const FsrState& fsr, VideoPush push);
     void drawPass(VkCommandBuffer cmd, const PipelineKey& key, VkExtent2D extent, VkDescriptorSet set,
         std::span<const std::byte> push);
     void renderOffscreen(VkCommandBuffer cmd, const RenderTarget& target, const PipelineKey& key, VkDescriptorSet set,
         std::span<const std::byte> push);
-    bool ensureSwapchainRendering();
     void recordPresentedFrame();
-    std::shared_ptr<OverlayTarget> compositeOverlay(VkCommandBuffer cmd);
-    void renderBorderFlash(VkCommandBuffer cmd);
-
-    void registerCallback();
-    void unregisterCallback();
+#if AKIRA_STATS_OVERLAY
+    std::shared_ptr<OverlayTarget> compositeOverlay(FrameRecorder& frame);
+    void renderBorderFlash(FrameRecorder& frame);
 
     bool ensureOverlayContext();
     void destroyOverlayContext();
@@ -477,15 +495,18 @@ private:
     void drawFullOverlay(NVGcontext* vg);
     void overlayOrigin(float w, float h, float& ox, float& oy);
     void updateOverlayPlacement();
+#endif
 
+    GpuHost& m_gpu;
     play::StreamSettings& m_stream;
     const play::StreamState& m_stream_state;
     const network::WireGuardManager& m_wire_guard;
+    const video::OverlayPalette& m_palette;
+    std::unique_ptr<Presentation> m_presentation;
     std::atomic<bool> m_initialized{false};
     std::atomic<bool> m_paused{false};
     std::atomic<bool> m_dithering_enabled{false};
 
-    brls::SwitchVulkanVideoContext* m_vctx = nullptr;
     VkDevice m_device = VK_NULL_HANDLE;
     PFN_vkGetMemoryHostPointerPropertiesEXT m_get_host_pointer_properties = nullptr;
     Capabilities m_caps;
@@ -516,6 +537,9 @@ private:
     std::uint32_t m_drawn_slot = 0;
     bool m_render_fps_init = false;
 
+    std::uint64_t m_copied_frames = 0;
+    std::uint64_t m_imported_frames = 0;
+
     std::atomic<int> m_border_flash_frames{0};
 
     OverlayText m_ov;
@@ -526,7 +550,9 @@ private:
     bool m_overlay_to_texture = false;
     bool m_ovl_dirty = true;
 
+#if AKIRA_STATS_OVERLAY
     std::unique_ptr<OverlayContext> m_ovl_context;
+#endif
     std::mutex m_ovl_mutex;
     std::shared_ptr<OverlayTarget> m_ovl_target;
     int m_ovl_front = -1;
@@ -553,9 +579,6 @@ private:
     std::atomic<bool> m_overlay_pos_dirty{false};
     float m_overlay_grab_dx = 0.0f;
     float m_overlay_grab_dy = 0.0f;
-
-    bool m_callback_registered = false;
-    TickCallback m_tick_callback;
 };
 
 

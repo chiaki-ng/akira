@@ -3,8 +3,6 @@
 
 #include "play/controller_settings.hpp"
 
-#include <borealis.hpp>
-
 #include <algorithm>
 #include <cstring>
 #include <map>
@@ -59,8 +57,10 @@ void StopSixAxisSensorShared(HidSixAxisSensorHandle handle)
     SensorRefs().erase(it);
 }
 
-HosPadPath::HosPadPath(HidNpadIdType npad, HidNpadStyleTag style, const play::ControllerSettings& controllers)
+HosPadPath::HosPadPath(HidNpadIdType npad, HidNpadStyleTag style, const play::ControllerSettings& controllers,
+                       platform::PadRumble& rumble)
     : m_controllers(controllers)
+    , m_rumble(rumble)
     , m_npad(npad)
     , m_style(style)
 {
@@ -181,8 +181,7 @@ void HosPadPath::sendRumble(float left, float right, float freqLow, float freqHi
 {
     const float amp = std::clamp(std::max(left, right), 0.0f, 1.0f);
 
-    auto* inputMgr = brls::Application::getPlatform()->getInputManager();
-    inputMgr->sendRumbleToNpad((unsigned int)m_npad, freqLow, freqHigh, amp, amp);
+    m_rumble.npad(static_cast<unsigned>(m_npad), { .freqLow = freqLow, .freqHigh = freqHigh, .ampLow = amp, .ampHigh = amp });
 }
 
 } // namespace akira::platform::extended

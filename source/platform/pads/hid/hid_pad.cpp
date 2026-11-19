@@ -3,15 +3,14 @@
 
 #include <algorithm>
 
-#include <borealis.hpp>
-
 #include "play/controller_settings.hpp"
 
 namespace akira::platform::hid
 {
 
-HidPad::HidPad(const play::ControllerSettings& controllers)
+HidPad::HidPad(const play::ControllerSettings& controllers, platform::PadRumble& rumble)
     : m_controllers(controllers)
+    , m_rumble(rumble)
 {
     padInitializeDefault(&m_pad);
     padUpdate(&m_pad);
@@ -91,7 +90,7 @@ void HidPad::resetMotion()
 void HidPad::sendRumble(float left, float right, float freqLow, float freqHigh)
 {
     const float amp = std::clamp(std::max(left, right), 0.0f, 1.0f);
-    brls::Application::getPlatform()->getInputManager()->sendRumbleRaw(0, freqLow, freqHigh, amp, amp);
+    m_rumble.playerOne({ .freqLow = freqLow, .freqHigh = freqHigh, .ampLow = amp, .ampHigh = amp });
 }
 
 }

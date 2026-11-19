@@ -309,9 +309,11 @@ const char* ExtendedInputManager::describe(Availability availability)
 }
 
 ExtendedInputManager::ExtendedInputManager(const play::ControllerSettings& controllers,
-                                           libchiaking::platform::ThreadingProvider& threading)
+                                           libchiaking::platform::ThreadingProvider& threading,
+                                           platform::PadRumble& rumble)
     : m_controllers(controllers)
     , m_threading(threading)
+    , m_rumble(rumble)
 {
 }
 

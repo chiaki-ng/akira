@@ -11,7 +11,7 @@ namespace akira::platform::hid
 class HidPadProvider final : public PadProvider
 {
 public:
-    explicit HidPadProvider(const play::ControllerSettings& controllers);
+    HidPadProvider(const play::ControllerSettings& controllers, platform::PadRumble& rumble);
 
     void open() override;
     void close() override;
@@ -26,6 +26,7 @@ public:
 
 private:
     const play::ControllerSettings& m_controllers;
+    platform::PadRumble& m_rumble;
     std::optional<HidPad> m_pad;
 };
 

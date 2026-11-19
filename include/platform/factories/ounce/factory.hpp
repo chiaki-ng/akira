@@ -6,11 +6,6 @@
 #include "platform/stats/none/provider.hpp"
 #include "platform/updates/none/provider.hpp"
 
-namespace brls
-{
-class SwitchPlatform;
-}
-
 namespace akira::platform
 {
 
@@ -38,8 +33,6 @@ public:
     std::unique_ptr<PadSettingsProvider> createPadSettings(const platform::PadDescription& pad) override;
 
 private:
-    static brls::SwitchPlatform& switchPlatform();
-
     PlatformServices m_services;
     per_mode::PerModeDisplayProvider m_display;
     none::NoUpdateProvider m_updates;

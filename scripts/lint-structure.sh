@@ -4,39 +4,13 @@ set -euo pipefail
 REPOSITORY="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPOSITORY}"
 
-RENDERERS_DRAW_ON_THE_BOREALIS_GPU_DEVICE_UNTIL_A1=(
-    include/platform/video/deko3d/renderer.hpp
-    source/platform/video/deko3d/renderer.cpp
-    include/platform/video/vulkan/renderer.hpp
-    source/platform/video/vulkan/renderer.cpp
-)
-OUNCE_FACTORY_PICKS_THE_BOREALIS_RENDERER_BACKEND=(
-    include/platform/factories/ounce/factory.hpp
-    source/platform/factories/ounce/factory.cpp
-)
-PAD_PATHS_RUMBLE_THROUGH_THE_BOREALIS_INPUT_MANAGER=(
-    source/platform/pads/extended/pad_path.cpp
-    source/platform/pads/extended/pad_path_hos.cpp
-    source/platform/pads/extended/pad_path_mc.cpp
-    source/platform/pads/hid/hid_pad.cpp
-)
 UPDATE_MANAGER_PARSES_JSON_WITH_THE_BOREALIS_NLOHMANN=(
     source/platform/updates/github/update_manager.cpp
-)
-RENDERERS_READ_THE_ACTIVE_THEME_UNTIL_A1=(
-    source/platform/video/deko3d/renderer.cpp
-    source/platform/video/vulkan/renderer.cpp
 )
 SINGLETON_SEAMS_STILL_ALLOWED=()
 
 BOREALIS_ALLOWED=(
-    "${RENDERERS_DRAW_ON_THE_BOREALIS_GPU_DEVICE_UNTIL_A1[@]}"
-    "${OUNCE_FACTORY_PICKS_THE_BOREALIS_RENDERER_BACKEND[@]}"
-    "${PAD_PATHS_RUMBLE_THROUGH_THE_BOREALIS_INPUT_MANAGER[@]}"
     "${UPDATE_MANAGER_PARSES_JSON_WITH_THE_BOREALIS_NLOHMANN[@]}"
-)
-VIEW_HEADERS_ALLOWED=(
-    "${RENDERERS_READ_THE_ACTIVE_THEME_UNTIL_A1[@]}"
 )
 
 violations=0
@@ -85,10 +59,8 @@ while IFS= read -r file; do
         fi
         report "ViewServices outside app/ and views/" "${file}" \
             "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*"app/view_services\.hpp"|\bViewServices\b')"
-        if ! is_listed "${file}" "${VIEW_HEADERS_ALLOWED[@]}"; then
-            report "views/ header in a non-view file" "${file}" \
-                "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*"[^"]*views/')"
-        fi
+        report "views/ header in a non-view file" "${file}" \
+            "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*"[^"]*views/')"
     fi
     report "ChiakiCore::current locator" "${file}" \
         "$(code_lines "${file}" '\bChiakiCore::current\b')"

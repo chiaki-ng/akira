@@ -5,9 +5,6 @@
 #include "play/stream_settings.hpp"
 #include "play/stream_state.hpp"
 #include "network/wireguard_manager.hpp"
-#include "app/views/theme.hpp"
-
-#include <borealis/core/assets.hpp>
 
 #include <algorithm>
 #include <cstring>
@@ -48,13 +45,14 @@ VulkanRenderer::PlaneImport::PlaneImport(PlaneLayout layout, std::variant<ImageP
         m_bases = {};
 }
 
-void VulkanRenderer::PlaneImport::copyFrom(const void* backing)
+bool VulkanRenderer::PlaneImport::copyFrom(const void* backing)
 {
-    if (auto* texels = std::get_if<TexelPlanes>(&m_planes); texels && texels->mapped && backing)
-    {
-        armDCacheFlush(const_cast<void*>(backing), texels->size);
-        std::memcpy(texels->mapped, backing, texels->size);
-    }
+    auto* texels = std::get_if<TexelPlanes>(&m_planes);
+    if (!texels || !texels->mapped || !backing)
+        return false;
+    armDCacheFlush(const_cast<void*>(backing), texels->size);
+    std::memcpy(texels->mapped, backing, texels->size);
+    return true;
 }
 
 void VulkanRenderer::PlaneImport::appendAcquireBarriers(std::vector<VkImageMemoryBarrier2>& barriers)
@@ -127,6 +125,7 @@ VulkanRenderer::OverlayTarget::OverlayTarget(DescriptorPool pool, std::array<Ren
 {
 }
 
+#if AKIRA_STATS_OVERLAY
 VulkanRenderer::OverlayContext::OverlayContext(CommandPool pool, std::array<VkCommandBuffer, 2> commands,
     Fence fence, std::unique_ptr<nvg::VkRenderer> renderer, NVGcontext* vg, int font)
     : m_pool(std::move(pool)), m_commands(commands), m_fence(std::move(fence)), m_renderer(std::move(renderer)),
@@ -139,12 +138,15 @@ VulkanRenderer::OverlayContext::~OverlayContext()
     if (m_vg)
         nvg::VkRenderer::deleteContext(m_vg);
 }
+#endif
 
-VulkanRenderer::VulkanRenderer(play::StreamSettings& stream, const play::StreamState& streamState,
-    const network::WireGuardManager& wireGuard)
-    : m_stream(stream)
+VulkanRenderer::VulkanRenderer(GpuHost& gpu, play::StreamSettings& stream, const play::StreamState& streamState,
+    const network::WireGuardManager& wireGuard, const video::OverlayPalette& palette)
+    : m_gpu(gpu)
+    , m_stream(stream)
     , m_stream_state(streamState)
     , m_wire_guard(wireGuard)
+    , m_palette(palette)
 {
 }
 
@@ -161,6 +163,7 @@ bool VulkanRenderer::succeeded(VkResult result, std::string_view what)
     return false;
 }
 
+#if AKIRA_STATS_OVERLAY
 float VulkanRenderer::ovlSize(float px)
 {
     if (px > 1.0f && px < 200.0f)
@@ -170,8 +173,27 @@ float VulkanRenderer::ovlSize(float px)
 
 NVGcolor VulkanRenderer::ovl(NVGcolor color, unsigned char alpha)
 {
-    return app::views::withAlpha(color, alpha);
+    return nvgRGBA(static_cast<unsigned char>(color.r * 255.0f), static_cast<unsigned char>(color.g * 255.0f),
+        static_cast<unsigned char>(color.b * 255.0f), alpha);
 }
+
+VulkanRenderer::OverlayColours VulkanRenderer::colours() const
+{
+    const video::OverlayPalette::Colours source = m_palette.colours();
+    const auto convert = [](video::OverlayPalette::Colour colour) {
+        return nvgRGBAf(colour.r, colour.g, colour.b, colour.a);
+    };
+    return OverlayColours{
+        .accent = convert(source.accent),
+        .warning = convert(source.warning),
+        .danger = convert(source.danger),
+        .success = convert(source.success),
+        .text = convert(source.text),
+        .backgroundDeep = convert(source.backgroundDeep),
+        .media = convert(source.media),
+    };
+}
+#endif
 
 VkImageAspectFlags VulkanRenderer::stencilAspect(VkFormat format)
 {
@@ -254,7 +276,7 @@ bool VulkanRenderer::decoderSamplingMatches(const PlaneLayout& layout)
     Buffer buffer(m_device, bufferHandle);
     VkMemoryRequirements requirements{};
     vkGetBufferMemoryRequirements(m_device, buffer.get(), &requirements);
-    const auto type = m_vctx->findMemoryType(requirements.memoryTypeBits,
+    const auto type = m_gpu.findMemoryType(requirements.memoryTypeBits,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     if (!type)
         return false;
@@ -275,7 +297,7 @@ bool VulkanRenderer::decoderSamplingMatches(const PlaneLayout& layout)
     const VkCommandPoolCreateInfo poolInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
-        .queueFamilyIndex = m_vctx->queueFamilyIndex(),
+        .queueFamilyIndex = m_gpu.queueFamilyIndex(),
     };
     VkCommandPool poolHandle = VK_NULL_HANDLE;
     if (!succeeded(vkCreateCommandPool(m_device, &poolInfo, nullptr, &poolHandle), "vkCreateCommandPool (sampling probe)"))
@@ -309,7 +331,7 @@ bool VulkanRenderer::decoderSamplingMatches(const PlaneLayout& layout)
         .dstStageMask = VK_PIPELINE_STAGE_2_COPY_BIT,
         .dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT,
-        .dstQueueFamilyIndex = m_vctx->queueFamilyIndex(),
+        .dstQueueFamilyIndex = m_gpu.queueFamilyIndex(),
         .buffer = layout.decoderBuffer,
         .offset = 0,
         .size = VK_WHOLE_SIZE,
@@ -347,15 +369,11 @@ bool VulkanRenderer::decoderSamplingMatches(const PlaneLayout& layout)
         .commandBufferInfoCount = 1,
         .pCommandBufferInfos = &commandSubmit,
     };
-    {
-        std::lock_guard lock(m_vctx->queueMutex());
-        if (!succeeded(vkQueueSubmit2(m_vctx->queue(), 1, &submit, fence.get()), "vkQueueSubmit2 (sampling probe)"))
-            return false;
-    }
+    if (!succeeded(m_gpu.submit(submit, fence.get()), "vkQueueSubmit2 (sampling probe)"))
+        return false;
     if (!succeeded(vkWaitForFences(m_device, 1, &fenceHandle, VK_TRUE, SamplingProbeTimeoutNs), "vkWaitForFences (sampling probe)"))
     {
-        std::lock_guard lock(m_vctx->queueMutex());
-        vkQueueWaitIdle(m_vctx->queue());
+        m_gpu.waitIdle();
         return false;
     }
 
@@ -366,9 +384,9 @@ bool VulkanRenderer::decoderSamplingMatches(const PlaneLayout& layout)
 
 std::shared_ptr<akira::platform::viddec::OutputMemory> VulkanRenderer::decoderOutputMemory() const
 {
-    if (!m_vctx || m_path != PlanePath::TexelBuffer)
+    if (m_device == VK_NULL_HANDLE || m_path != PlanePath::TexelBuffer)
         return nullptr;
-    return std::make_shared<akira::platform::vulkan::DecoderOutput>(m_device, m_vctx->physicalDevice());
+    return std::make_shared<akira::platform::vulkan::DecoderOutput>(m_device, m_gpu.physicalDevice());
 }
 
 VkShaderStageFlags VulkanRenderer::pushStages(Program program)
@@ -432,13 +450,7 @@ bool VulkanRenderer::initialize(int frame_width, int frame_height)
 
     log::info("VulkanRenderer::initialize: frame={}x{}", frame_width, frame_height);
 
-    m_vctx = static_cast<brls::SwitchVulkanVideoContext*>(brls::Application::getPlatform()->getVideoContext());
-    if (!m_vctx)
-    {
-        log::error("VulkanRenderer: no SwitchVulkanVideoContext");
-        return false;
-    }
-    m_device = m_vctx->device();
+    m_device = m_gpu.device();
 
     if (!queryCapabilities() || !createSharedObjects())
         return false;
@@ -452,6 +464,7 @@ bool VulkanRenderer::initialize(int frame_width, int frame_height)
     }
 
     m_dithering_enabled.store(m_stream.ditheringEnabled(), std::memory_order_relaxed);
+    m_presentation = m_gpu.present(*this);
     m_initialized.store(true, std::memory_order_release);
     log::info("VulkanRenderer: initialized (dithering={})", m_dithering_enabled.load());
     return true;
@@ -459,7 +472,7 @@ bool VulkanRenderer::initialize(int frame_width, int frame_height)
 
 bool VulkanRenderer::queryCapabilities()
 {
-    if (!m_vctx->hasDeviceExtension(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME))
+    if (!m_gpu.hasDeviceExtension(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME))
     {
         log::error("VulkanRenderer: {} is not enabled, decoded frames cannot be sampled in place",
             VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
@@ -481,12 +494,12 @@ bool VulkanRenderer::queryCapabilities()
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,
         .pNext = &host,
     };
-    vkGetPhysicalDeviceProperties2(m_vctx->physicalDevice(), &properties);
+    vkGetPhysicalDeviceProperties2(m_gpu.physicalDevice(), &properties);
 
     m_caps.hostPointerAlignment = std::max<VkDeviceSize>(host.minImportedHostPointerAlignment, 1);
     m_caps.maxTexelBufferElements = properties.properties.limits.maxTexelBufferElements;
     m_caps.texelOffsetAlignment = std::max<VkDeviceSize>(properties.properties.limits.minTexelBufferOffsetAlignment, 1);
-    const auto imageExtent = m_vctx->hasDeviceExtension(VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_EXTENSION_NAME)
+    const auto imageExtent = m_gpu.hasDeviceExtension(VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_EXTENSION_NAME)
         ? queryImagePlanes()
         : std::nullopt;
     m_caps.imagePlanes = imageExtent.has_value();
@@ -523,10 +536,10 @@ std::optional<VkExtent3D> VulkanRenderer::queryImagePlanes() const
             .sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2,
             .pNext = &list,
         };
-        vkGetPhysicalDeviceFormatProperties2(m_vctx->physicalDevice(), format, &formatProperties);
+        vkGetPhysicalDeviceFormatProperties2(m_gpu.physicalDevice(), format, &formatProperties);
         std::vector<VkDrmFormatModifierPropertiesEXT> modifiers(list.drmFormatModifierCount);
         list.pDrmFormatModifierProperties = modifiers.data();
-        vkGetPhysicalDeviceFormatProperties2(m_vctx->physicalDevice(), format, &formatProperties);
+        vkGetPhysicalDeviceFormatProperties2(m_gpu.physicalDevice(), format, &formatProperties);
 
         constexpr VkFormatFeatureFlags required =
             VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
@@ -566,7 +579,7 @@ std::optional<VkExtent3D> VulkanRenderer::queryImagePlanes() const
             .pNext = &external,
         };
         const VkResult result =
-            vkGetPhysicalDeviceImageFormatProperties2(m_vctx->physicalDevice(), &info, &imageProperties);
+            vkGetPhysicalDeviceImageFormatProperties2(m_gpu.physicalDevice(), &info, &imageProperties);
         if (result != VK_SUCCESS)
         {
             log::info("VulkanRenderer: linear host-memory images of format {} are unsupported ({})",
@@ -592,7 +605,7 @@ bool VulkanRenderer::queryTexelPlanes() const
     for (VkFormat format : { VK_FORMAT_R8_UNORM, VK_FORMAT_R8G8_UNORM })
     {
         VkFormatProperties properties{};
-        vkGetPhysicalDeviceFormatProperties(m_vctx->physicalDevice(), format, &properties);
+        vkGetPhysicalDeviceFormatProperties(m_gpu.physicalDevice(), format, &properties);
         if ((properties.bufferFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT) == 0)
         {
             log::info("VulkanRenderer: format {} cannot back a uniform texel buffer", static_cast<int>(format));
@@ -765,9 +778,9 @@ std::optional<VulkanRenderer::RenderTarget> VulkanRenderer::createRenderTarget(V
 
     VkMemoryRequirements requirements{};
     vkGetImageMemoryRequirements(m_device, image.get(), &requirements);
-    auto type = m_vctx->findMemoryType(requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    auto type = m_gpu.findMemoryType(requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     if (!type)
-        type = m_vctx->findMemoryType(requirements.memoryTypeBits, 0);
+        type = m_gpu.findMemoryType(requirements.memoryTypeBits, 0);
     if (!type)
     {
         log::error("VulkanRenderer: no memory type for a {}x{} render target", extent.width, extent.height);
@@ -840,7 +853,7 @@ std::optional<VulkanRenderer::HostRange> VulkanRenderer::hostRange(const PlaneLa
 std::optional<VulkanRenderer::DeviceMemory> VulkanRenderer::importHostMemory(const PlaneLayout& layout,
     std::uint32_t typeBits, VkDeviceSize size) const
 {
-    const auto type = m_vctx->findMemoryType(typeBits, 0);
+    const auto type = m_gpu.findMemoryType(typeBits, 0);
     if (!type)
     {
         log::error("VulkanRenderer: the planes and the decoder backing share no memory type (bits {:#x})",
@@ -985,7 +998,7 @@ std::optional<VulkanRenderer::TexelPlanes> VulkanRenderer::stagingTexelPlanes(co
 
     VkMemoryRequirements requirements{};
     vkGetBufferMemoryRequirements(m_device, buffer.get(), &requirements);
-    const auto type = m_vctx->findMemoryType(requirements.memoryTypeBits,
+    const auto type = m_gpu.findMemoryType(requirements.memoryTypeBits,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     if (!type)
     {
@@ -1182,7 +1195,8 @@ VulkanRenderer::PlaneImport* VulkanRenderer::acquireImport(const Frame& frame)
 
     if (PlaneImport* existing = m_cache->find(slot))
     {
-        existing->copyFrom(layout.backing);
+        if (existing->copyFrom(layout.backing))
+            ++m_copied_frames;
         return existing;
     }
     if (m_cache->failed(slot))
@@ -1218,7 +1232,9 @@ VulkanRenderer::PlaneImport* VulkanRenderer::acquireImport(const Frame& frame)
         return nullptr;
     }
     PlaneImport& stored = m_cache->store(slot, std::move(created));
-    stored.copyFrom(layout.backing);
+    ++m_imported_frames;
+    if (stored.copyFrom(layout.backing))
+        ++m_copied_frames;
     return &stored;
 }
 
@@ -1340,13 +1356,13 @@ std::optional<VulkanRenderer::Pipeline> VulkanRenderer::createPipeline(const Pip
     };
 
     const bool swapchain = key.target == Target::Swapchain;
-    const VkFormat colorFormat = swapchain ? m_vctx->colorFormat() : OffscreenFormat;
+    const VkFormat colorFormat = swapchain ? m_gpu.colorFormat() : OffscreenFormat;
     const VkPipelineRenderingCreateInfo rendering{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
         .colorAttachmentCount = 1,
         .pColorAttachmentFormats = &colorFormat,
         .depthAttachmentFormat = VK_FORMAT_UNDEFINED,
-        .stencilAttachmentFormat = swapchain ? m_vctx->stencilFormat() : VK_FORMAT_UNDEFINED,
+        .stencilAttachmentFormat = swapchain ? m_gpu.stencilFormat() : VK_FORMAT_UNDEFINED,
     };
 
     const VkGraphicsPipelineCreateInfo info{
@@ -1428,14 +1444,16 @@ void VulkanRenderer::publishFsrSummary(const FsrState* fsr)
 
 void VulkanRenderer::retire(Retired retired)
 {
-    m_vctx->deferUntilFrameRetired([retired = std::move(retired)] {});
+    m_gpu.retireAfterFrame([retired = std::move(retired)] {});
 }
 
+#if AKIRA_STATS_OVERLAY
 void VulkanRenderer::setConnectionContext(const std::string& context)
 {
     m_connection_context = context;
     m_ovl_dirty = true;
 }
+#endif
 
 void VulkanRenderer::setDithering(bool enabled)
 {
@@ -1443,6 +1461,7 @@ void VulkanRenderer::setDithering(bool enabled)
         log::info("VulkanRenderer: switching dithering to {}", enabled);
 }
 
+#if AKIRA_STATS_OVERLAY
 void VulkanRenderer::setStatsOverlayMode(play::StatsOverlayMode mode)
 {
     const play::StatsOverlayMode previous = m_stats_mode.exchange(mode, std::memory_order_relaxed);
@@ -1454,6 +1473,7 @@ void VulkanRenderer::setStatsOverlayMode(play::StatsOverlayMode mode)
     else if (previous != mode)
         m_ovl_dirty = true;
 }
+#endif
 
 void VulkanRenderer::draw(Frame frame)
 {
@@ -1475,12 +1495,12 @@ void VulkanRenderer::presentFrame(Frame frame)
     if (!m_frame_bound.load(std::memory_order_acquire) || m_paused.load(std::memory_order_relaxed))
         return;
 
-    VideoContext* videoContext = brls::Application::getPlatform()->getVideoContext();
-    videoContext->beginFrame();
-    renderVideo();
-    videoContext->endFrame();
+    m_presentation->frameReady();
+}
 
-    recordPresentedFrame();
+void VulkanRenderer::record(FrameRecorder& frame)
+{
+    renderVideo(frame);
 }
 
 void VulkanRenderer::recordPresentedFrame()
@@ -1499,19 +1519,16 @@ void VulkanRenderer::recordPresentedFrame()
     {
         m_render_fps.store(static_cast<float>(m_render_frame_count * 1000) / static_cast<float>(elapsed),
             std::memory_order_relaxed);
+        log::info("VulkanRenderer: {} frames presented, {} copied on the CPU, {} planes imported in {} ms",
+            m_render_frame_count, m_copied_frames, m_imported_frames, elapsed);
         m_render_frame_count = 0;
+        m_copied_frames = 0;
+        m_imported_frames = 0;
         m_render_fps_start = now;
     }
 }
 
-bool VulkanRenderer::ensureSwapchainRendering()
-{
-    if (!m_vctx->isRendering())
-        m_vctx->beginRendering(VK_ATTACHMENT_LOAD_OP_LOAD);
-    return m_vctx->isRendering();
-}
-
-void VulkanRenderer::renderVideo()
+void VulkanRenderer::renderVideo(FrameRecorder& frameRecorder)
 {
     std::lock_guard renderLock(m_render_mutex);
     if (!m_initialized.load(std::memory_order_acquire) || !m_frame_bound.load(std::memory_order_acquire))
@@ -1521,9 +1538,12 @@ void VulkanRenderer::renderVideo()
     {
         std::lock_guard lock(m_frame_mutex);
         frame = std::move(m_current_frame);
+        if (!frame)
+            frame = m_last_frame;
     }
     if (!frame)
         return;
+    const bool arriving = frame != m_last_frame;
 
     const int width = static_cast<int>(frame->width());
     const int height = static_cast<int>(frame->height());
@@ -1542,7 +1562,7 @@ void VulkanRenderer::renderVideo()
         publishFsrSummary(nullptr);
     }
 
-    const VkExtent2D extent = m_vctx->frameExtent();
+    const VkExtent2D extent = frameRecorder.extent();
     if (m_fsr && (m_fsr->config().display.width != extent.width || m_fsr->config().display.height != extent.height))
     {
         retire(Retired{ .fsr = std::move(m_fsr) });
@@ -1555,6 +1575,7 @@ void VulkanRenderer::renderVideo()
         publishFsrSummary(m_fsr.get());
     }
 
+    if (arriving)
     {
         const std::int64_t timestamp = frame->timestampNs();
         if (timestamp < m_drawn_timestamp)
@@ -1565,10 +1586,11 @@ void VulkanRenderer::renderVideo()
         m_drawn_timestamp = timestamp;
         m_drawn_slot = frame->slot();
     }
-    PlaneImport* import = acquireImport(frame);
+    PlaneImport* import = arriving ? acquireImport(frame) : (m_cache ? m_cache->find(frame->slot()) : nullptr);
     if (!import)
         return;
-    recordAcquire(*import);
+    if (arriving)
+        recordAcquire(frameRecorder, *import);
 
     Retired retired{ .frame = frame, .cache = m_cache, .fsr = m_fsr };
     const PlaneLayout& layout = import->layout();
@@ -1577,29 +1599,32 @@ void VulkanRenderer::renderVideo()
         .size = { layout.width, layout.height, layout.chromaWidth(), layout.chromaHeight() },
     };
 
-    VkCommandBuffer cmd = m_vctx->frameCommandBuffer();
+    VkCommandBuffer cmd = frameRecorder.commands();
     if (m_fsr)
-        drawVideoFsr(cmd, *import, *m_fsr, push);
-    else if (ensureSwapchainRendering())
+        drawVideoFsr(frameRecorder, *import, *m_fsr, push);
+    else if (frameRecorder.beginRendering())
         drawPass(cmd,
             PipelineKey{ .program = Program::Video, .target = Target::Swapchain, .path = m_cache->path(),
                 .dithering = m_dithering_enabled.load(std::memory_order_relaxed) },
             extent, import->descriptorSet(), std::as_bytes(std::span(&push, 1)));
 
-    retired.overlay = compositeOverlay(cmd);
+#if AKIRA_STATS_OVERLAY
+    retired.overlay = compositeOverlay(frameRecorder);
 
     if (m_border_flash_frames.load(std::memory_order_acquire) > 0)
-        renderBorderFlash(cmd);
+        renderBorderFlash(frameRecorder);
+#endif
 
     retire(std::move(retired));
+    recordPresentedFrame();
 }
 
-void VulkanRenderer::recordAcquire(PlaneImport& import)
+void VulkanRenderer::recordAcquire(FrameRecorder& frame, PlaneImport& import)
 {
     std::vector<VkImageMemoryBarrier2> images;
     import.appendAcquireBarriers(images);
 
-    const VkCommandBuffer upload = m_vctx->uploadCommandBuffer();
+    const VkCommandBuffer upload = frame.uploads();
     const bool fromDecoder = import.layout().decoderBuffer != VK_NULL_HANDLE;
     const VkMemoryBarrier2 memory{
         .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
@@ -1615,7 +1640,7 @@ void VulkanRenderer::recordAcquire(PlaneImport& import)
         .dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
         .dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_FOREIGN_EXT,
-        .dstQueueFamilyIndex = m_vctx->queueFamilyIndex(),
+        .dstQueueFamilyIndex = m_gpu.queueFamilyIndex(),
         .buffer = import.layout().decoderBuffer,
         .offset = 0,
         .size = VK_WHOLE_SIZE,
@@ -1681,15 +1706,16 @@ void VulkanRenderer::renderOffscreen(VkCommandBuffer cmd, const RenderTarget& ta
         VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
 }
 
-void VulkanRenderer::drawVideoFsr(VkCommandBuffer cmd, const PlaneImport& import, const FsrState& fsr,
+void VulkanRenderer::drawVideoFsr(FrameRecorder& frame, const PlaneImport& import, const FsrState& fsr,
     VideoPush push)
 {
+    const VkCommandBuffer cmd = frame.commands();
     const FsrConfig& config = fsr.config();
-    const VkExtent2D extent = m_vctx->frameExtent();
+    const VkExtent2D extent = frame.extent();
     const PlanePath path = m_cache->path();
     push.easu = config.easuConstants;
 
-    m_vctx->endRendering();
+    frame.endRendering();
 
     const RenderTarget& easu = fsr.easuTarget();
     const PipelineKey first = config.easu
@@ -1704,14 +1730,14 @@ void VulkanRenderer::drawVideoFsr(VkCommandBuffer cmd, const PlaneImport& import
     {
         renderOffscreen(cmd, *rcas, PipelineKey{ .program = Program::Rcas, .target = Target::Offscreen },
             easu.descriptorSet(), rcasPush);
-        if (!ensureSwapchainRendering())
+        if (!frame.beginRendering())
             return;
         drawPass(cmd, PipelineKey{ .program = Program::Pass, .target = Target::Swapchain }, extent,
             rcas->descriptorSet(), {});
         return;
     }
 
-    if (!ensureSwapchainRendering())
+    if (!frame.beginRendering())
         return;
     if (config.rcas)
         drawPass(cmd, PipelineKey{ .program = Program::Rcas, .target = Target::Swapchain }, extent,
@@ -1721,8 +1747,10 @@ void VulkanRenderer::drawVideoFsr(VkCommandBuffer cmd, const PlaneImport& import
             easu.descriptorSet(), {});
 }
 
-std::shared_ptr<VulkanRenderer::OverlayTarget> VulkanRenderer::compositeOverlay(VkCommandBuffer cmd)
+#if AKIRA_STATS_OVERLAY
+std::shared_ptr<VulkanRenderer::OverlayTarget> VulkanRenderer::compositeOverlay(FrameRecorder& frame)
 {
+    const VkCommandBuffer cmd = frame.commands();
     std::shared_ptr<OverlayTarget> target;
     int front = -1;
     float panelW = 0.0f;
@@ -1737,8 +1765,8 @@ std::shared_ptr<VulkanRenderer::OverlayTarget> VulkanRenderer::compositeOverlay(
     if (!target || front < 0)
         return nullptr;
 
-    const float sw = static_cast<float>(brls::Application::windowWidth);
-    const float sh = static_cast<float>(brls::Application::windowHeight);
+    const float sw = static_cast<float>(m_gpu.displaySize().width);
+    const float sh = static_cast<float>(m_gpu.displaySize().height);
     if (sw <= 0.0f || sh <= 0.0f || panelW <= 0.0f || panelH <= 0.0f)
         return nullptr;
 
@@ -1755,15 +1783,16 @@ std::shared_ptr<VulkanRenderer::OverlayTarget> VulkanRenderer::compositeOverlay(
         .second = { panelW / static_cast<float>(rt.width), panelH / static_cast<float>(rt.height), 0.0f, 0.0f },
     };
 
-    if (!ensureSwapchainRendering())
+    if (!frame.beginRendering())
         return nullptr;
-    drawPass(cmd, PipelineKey{ .program = Program::Overlay, .target = Target::Swapchain }, m_vctx->frameExtent(),
+    drawPass(cmd, PipelineKey{ .program = Program::Overlay, .target = Target::Swapchain }, frame.extent(),
         target->color(front).descriptorSet(), std::as_bytes(std::span(&push, 1)));
     return target;
 }
 
-void VulkanRenderer::renderBorderFlash(VkCommandBuffer cmd)
+void VulkanRenderer::renderBorderFlash(FrameRecorder& frame)
 {
+    const VkCommandBuffer cmd = frame.commands();
     int before = m_border_flash_frames.load(std::memory_order_acquire);
     while (before > 0
            && !m_border_flash_frames.compare_exchange_weak(
@@ -1773,8 +1802,8 @@ void VulkanRenderer::renderBorderFlash(VkCommandBuffer cmd)
         return;
     const int remaining = before - 1;
 
-    const float sw = static_cast<float>(brls::Application::windowWidth);
-    const float sh = static_cast<float>(brls::Application::windowHeight);
+    const float sw = static_cast<float>(m_gpu.displaySize().width);
+    const float sh = static_cast<float>(m_gpu.displaySize().height);
     if (sw <= 0.0f || sh <= 0.0f)
         return;
 
@@ -1783,47 +1812,18 @@ void VulkanRenderer::renderBorderFlash(VkCommandBuffer cmd)
     if (alpha <= 0.002f)
         return;
 
-    const NVGcolor accent = ovl(app::views::active().accent, 255);
+    const NVGcolor accent = ovl(colours().accent, 255);
     const QuadPush push{
         .first = { accent.r, accent.g, accent.b, alpha },
         .second = { sw, sh, 64.0f, 0.0f },
     };
 
-    if (!ensureSwapchainRendering())
+    if (!frame.beginRendering())
         return;
-    drawPass(cmd, PipelineKey{ .program = Program::Border, .target = Target::Swapchain }, m_vctx->frameExtent(),
+    drawPass(cmd, PipelineKey{ .program = Program::Border, .target = Target::Swapchain }, frame.extent(),
         VK_NULL_HANDLE, std::as_bytes(std::span(&push, 1)));
 }
-
-void VulkanRenderer::registerCallback()
-{
-    if (m_callback_registered)
-        return;
-
-    brls::Application::setPostRenderCallback([this]() {
-        if (m_tick_callback)
-            m_tick_callback();
-
-        if (m_frame_bound.load(std::memory_order_acquire) && !m_paused.load(std::memory_order_relaxed))
-        {
-            renderVideo();
-        }
-    });
-
-    m_callback_registered = true;
-    log::info("VulkanRenderer: post-render callback registered");
-}
-
-void VulkanRenderer::unregisterCallback()
-{
-    if (!m_callback_registered)
-        return;
-
-    brls::Application::setExclusiveRender(false);
-    brls::Application::setPostRenderCallback(nullptr);
-    m_callback_registered = false;
-    log::info("VulkanRenderer: post-render callback unregistered");
-}
+#endif
 
 void VulkanRenderer::cleanup()
 {
@@ -1832,15 +1832,17 @@ void VulkanRenderer::cleanup()
 
     log::info("VulkanRenderer::cleanup");
 
-    unregisterCallback();
+    m_presentation.reset();
 
     std::lock_guard renderLock(m_render_mutex);
     Retired retired{ .fsr = std::move(m_fsr) };
+#if AKIRA_STATS_OVERLAY
     {
         std::lock_guard lock(m_ovl_mutex);
         retired.overlay = std::move(m_ovl_target);
         m_ovl_front = -1;
     }
+#endif
     {
         std::lock_guard lock(m_frame_mutex);
         m_current_frame.reset();
@@ -1852,21 +1854,24 @@ void VulkanRenderer::cleanup()
     m_configured_width = 0;
     m_configured_height = 0;
     publishFsrSummary(nullptr);
+#if AKIRA_STATS_OVERLAY
     destroyOverlayContext();
+#endif
 
     retire(std::move(retired));
-    m_vctx->deferUntilFrameRetired([shared = std::make_shared<SharedObjects>(std::move(m_shared))] {});
+    m_gpu.retireAfterFrame([shared = std::make_shared<SharedObjects>(std::move(m_shared))] {});
     m_shared = SharedObjects{};
 }
 
 void VulkanRenderer::waitIdle()
 {
-    if (!m_vctx)
+    if (m_device == VK_NULL_HANDLE)
         return;
 
-    std::lock_guard lock(m_vctx->queueMutex());
-    succeeded(vkQueueWaitIdle(m_vctx->queue()), "vkQueueWaitIdle");
+    succeeded(m_gpu.waitIdle(), "vkQueueWaitIdle");
 }
+
+#if AKIRA_STATS_OVERLAY
 
 void VulkanRenderer::warmFontAtlas(NVGcontext* vg)
 {
@@ -2029,9 +2034,9 @@ NVGcolor VulkanRenderer::toneColor(Tone tone) const
 {
     switch (tone)
     {
-        case Tone::Warn: return app::views::active().warning;
-        case Tone::Bad:  return app::views::active().danger;
-        default:         return ovl(app::views::active().text, 242);
+        case Tone::Warn: return colours().warning;
+        case Tone::Bad:  return colours().danger;
+        default:         return ovl(colours().text, 242);
     }
 }
 
@@ -2040,17 +2045,17 @@ void VulkanRenderer::drawOverlayPanel(NVGcontext* vg, float x, float y, float w,
     float s = m_overlay_scale;
     nvgBeginPath(vg);
     nvgRoundedRect(vg, x, y, w, h, 10.0f * s);
-    nvgFillColor(vg, ovl(app::views::active().backgroundDeep, 148));
+    nvgFillColor(vg, ovl(colours().backgroundDeep, 148));
     nvgFill(vg);
     nvgStrokeWidth(vg, 1.0f);
-    nvgStrokeColor(vg, ovl(app::views::active().text, 38));
+    nvgStrokeColor(vg, ovl(colours().text, 38));
     nvgStroke(vg);
 }
 
 void VulkanRenderer::drawLatencyStrip(NVGcontext* vg, float x, float y, float w, float h)
 {
     float s = m_overlay_scale;
-    const app::views::Palette& p = app::views::active();
+    const OverlayColours p = colours();
     (void)h;
 
     nvgFontSize(vg, ovlSize(9.5f * s));
@@ -2148,7 +2153,7 @@ void VulkanRenderer::drawStatRow(NVGcontext* vg, float x, float y, float w,
 
     nvgFontSize(vg, ovlSize(11.5f * s));
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-    nvgFillColor(vg, ovl(app::views::active().text, 117));
+    nvgFillColor(vg, ovl(colours().text, 117));
     nvgText(vg, x, y, label, nullptr);
 
     float right = x + w;
@@ -2156,7 +2161,7 @@ void VulkanRenderer::drawStatRow(NVGcontext* vg, float x, float y, float w,
     {
         nvgFontSize(vg, ovlSize(10.0f * s));
         nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
-        nvgFillColor(vg, ovl(app::views::active().text, 117));
+        nvgFillColor(vg, ovl(colours().text, 117));
         nvgText(vg, right, y, unit, nullptr);
         right -= nvgTextBounds(vg, 0, 0, unit, nullptr, nullptr) + 3.0f * s;
     }
@@ -2170,7 +2175,7 @@ void VulkanRenderer::drawStatRow(NVGcontext* vg, float x, float y, float w,
 void VulkanRenderer::drawFsrRow(NVGcontext* vg, float x, float y, float w)
 {
     float s = m_overlay_scale;
-    const auto& p = app::views::active();
+    const OverlayColours p = colours();
 
     nvgFontSize(vg, ovlSize(11.5f * s));
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
@@ -2206,7 +2211,7 @@ void VulkanRenderer::drawCompactCell(NVGcontext* vg, float& cursorX, float cente
         nvgMoveTo(vg, cursorX, centerY - 10.0f * s);
         nvgLineTo(vg, cursorX, centerY + 10.0f * s);
         nvgStrokeWidth(vg, 1.0f);
-        nvgStrokeColor(vg, ovl(app::views::active().text, 26));
+        nvgStrokeColor(vg, ovl(colours().text, 26));
         nvgStroke(vg);
         cursorX += pad;
     }
@@ -2214,7 +2219,7 @@ void VulkanRenderer::drawCompactCell(NVGcontext* vg, float& cursorX, float cente
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
 
     nvgFontSize(vg, ovlSize(10.0f * s));
-    nvgFillColor(vg, ovl(app::views::active().text, 117));
+    nvgFillColor(vg, ovl(colours().text, 117));
     nvgText(vg, cursorX, centerY, label, nullptr);
     cursorX += nvgTextBounds(vg, 0, 0, label, nullptr, nullptr) + 7.0f * s;
 
@@ -2227,7 +2232,7 @@ void VulkanRenderer::drawCompactCell(NVGcontext* vg, float& cursorX, float cente
     {
         cursorX += 3.0f * s;
         nvgFontSize(vg, ovlSize(10.5f * s));
-        nvgFillColor(vg, ovl(app::views::active().text, 117));
+        nvgFillColor(vg, ovl(colours().text, 117));
         nvgText(vg, cursorX, centerY, unit, nullptr);
         cursorX += nvgTextBounds(vg, 0, 0, unit, nullptr, nullptr);
     }
@@ -2238,7 +2243,7 @@ void VulkanRenderer::drawCompactCell(NVGcontext* vg, float& cursorX, float cente
 void VulkanRenderer::drawCompactFsrLine(NVGcontext* vg, float x, float centerY)
 {
     float s = m_overlay_scale;
-    const auto& p = app::views::active();
+    const OverlayColours p = colours();
 
     nvgBeginPath(vg);
     nvgCircle(vg, x + 2.5f * s, centerY, 2.5f * s);
@@ -2274,8 +2279,8 @@ void VulkanRenderer::updateOverlayPlacement()
     if (w <= 0.0f || h <= 0.0f)
         return;
 
-    const float sw = (float)brls::Application::windowWidth;
-    const float sh = (float)brls::Application::windowHeight;
+    const float sw = (float)m_gpu.displaySize().width;
+    const float sh = (float)m_gpu.displaySize().height;
     const float margin = 24.0f * m_overlay_scale;
 
     const float nx = m_overlay_norm_x.load(std::memory_order_relaxed);
@@ -2322,8 +2327,8 @@ void VulkanRenderer::overlayTouchMove(float x, float y)
     if (!m_overlay_drag)
         return;
 
-    float sw = (float)brls::Application::windowWidth;
-    float sh = (float)brls::Application::windowHeight;
+    float sw = (float)m_gpu.displaySize().width;
+    float sh = (float)m_gpu.displaySize().height;
     if (sw <= 0.0f || sh <= 0.0f)
         return;
 
@@ -2338,8 +2343,8 @@ void VulkanRenderer::overlayTouchEnd()
         return;
     m_overlay_drag = false;
 
-    float sw = (float)brls::Application::windowWidth;
-    float sh = (float)brls::Application::windowHeight;
+    float sw = (float)m_gpu.displaySize().width;
+    float sh = (float)m_gpu.displaySize().height;
     if (sw <= 0.0f || sh <= 0.0f)
         return;
 
@@ -2383,7 +2388,7 @@ void VulkanRenderer::drawCompactOverlay(NVGcontext* vg)
     float dotX = ox + 14.0f * s + 3.5f * s;
     nvgBeginPath(vg);
     nvgCircle(vg, dotX, centerY, 3.5f * s);
-    nvgFillColor(vg, overall == Tone::Good ? app::views::active().success : toneColor(overall));
+    nvgFillColor(vg, overall == Tone::Good ? colours().success : toneColor(overall));
     nvgFill(vg);
 
     float cursorX = ox + 14.0f * s + 20.0f * s;
@@ -2400,7 +2405,7 @@ void VulkanRenderer::drawCompactOverlay(NVGcontext* vg)
         nvgMoveTo(vg, ox + 14.0f * s, dividerY);
         nvgLineTo(vg, ox + width - 14.0f * s, dividerY);
         nvgStrokeWidth(vg, 1.0f);
-        nvgStrokeColor(vg, ovl(app::views::active().text, 26));
+        nvgStrokeColor(vg, ovl(colours().text, 26));
         nvgStroke(vg);
         drawCompactFsrLine(vg, ox + 14.0f * s, oy + 47.0f * s);
     }
@@ -2426,24 +2431,24 @@ void VulkanRenderer::drawFullOverlay(NVGcontext* vg)
 
     nvgFontSize(vg, ovlSize(12.5f * s));
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-    nvgFillColor(vg, app::views::active().accent);
+    nvgFillColor(vg, colours().accent);
     nvgText(vg, ox + padX, oy + headH * 0.5f, "AKIRA", nullptr);
     float bx = ox + padX + nvgTextBounds(vg, 0, 0, "AKIRA", nullptr, nullptr) + 9.0f * s;
-    nvgFillColor(vg, ovl(app::views::active().text, 56));
+    nvgFillColor(vg, ovl(colours().text, 56));
     nvgText(vg, bx, oy + headH * 0.5f, "/", nullptr);
-    nvgFillColor(vg, ovl(app::views::active().text, 184));
+    nvgFillColor(vg, ovl(colours().text, 184));
     nvgText(vg, bx + 12.0f * s, oy + headH * 0.5f, m_ov.context.c_str(), nullptr);
 
     nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
     nvgFontSize(vg, ovlSize(12.0f * s));
-    nvgFillColor(vg, ovl(app::views::active().text, 117));
+    nvgFillColor(vg, ovl(colours().text, 117));
     nvgText(vg, ox + width - padX, oy + headH * 0.5f, m_ov.uptime.c_str(), nullptr);
 
     nvgBeginPath(vg);
     nvgMoveTo(vg, ox, oy + headH);
     nvgLineTo(vg, ox + width, oy + headH);
     nvgStrokeWidth(vg, 1.0f);
-    nvgStrokeColor(vg, ovl(app::views::active().text, 26));
+    nvgStrokeColor(vg, ovl(colours().text, 26));
     nvgStroke(vg);
 
     float colW = (width - padX * 2.0f - 28.0f * s) / 3.0f;
@@ -2459,13 +2464,13 @@ void VulkanRenderer::drawFullOverlay(NVGcontext* vg)
             nvgMoveTo(vg, cx - 7.0f * s, colTop - 14.0f * s);
             nvgLineTo(vg, cx - 7.0f * s, colTop + rowH * rowCount - 4.0f * s);
             nvgStrokeWidth(vg, 1.0f);
-            nvgStrokeColor(vg, ovl(app::views::active().text, 26));
+            nvgStrokeColor(vg, ovl(colours().text, 26));
             nvgStroke(vg);
         }
 
         nvgFontSize(vg, ovlSize(9.5f * s));
         nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-        nvgFillColor(vg, ovl(app::views::active().text, 87));
+        nvgFillColor(vg, ovl(colours().text, 87));
         nvgText(vg, cx, colTop - 14.0f * s, headers[c], nullptr);
 
         for (int r = 0; r < rowCount; r++)
@@ -2502,7 +2507,7 @@ void VulkanRenderer::drawFullOverlay(NVGcontext* vg)
     nvgMoveTo(vg, ox, latY);
     nvgLineTo(vg, ox + width, latY);
     nvgStrokeWidth(vg, 1.0f);
-    nvgStrokeColor(vg, ovl(app::views::active().text, 26));
+    nvgStrokeColor(vg, ovl(colours().text, 26));
     nvgStroke(vg);
 
     drawLatencyStrip(vg, ox + padX, latY + 6.0f * s, width - padX * 2.0f, latH);
@@ -2512,7 +2517,7 @@ void VulkanRenderer::drawFullOverlay(NVGcontext* vg)
     nvgMoveTo(vg, ox, footY);
     nvgLineTo(vg, ox + width, footY);
     nvgStrokeWidth(vg, 1.0f);
-    nvgStrokeColor(vg, ovl(app::views::active().text, 26));
+    nvgStrokeColor(vg, ovl(colours().text, 26));
     nvgStroke(vg);
 
     nvgFontSize(vg, ovlSize(10.5f * s));
@@ -2529,10 +2534,10 @@ void VulkanRenderer::drawFullOverlay(NVGcontext* vg)
 
     for (const auto& f : foot)
     {
-        nvgFillColor(vg, ovl(app::views::active().text, 117));
+        nvgFillColor(vg, ovl(colours().text, 117));
         nvgText(vg, fx, fy, f.k, nullptr);
         fx += nvgTextBounds(vg, 0, 0, f.k, nullptr, nullptr) + 6.0f * s;
-        nvgFillColor(vg, ovl(app::views::active().text, 189));
+        nvgFillColor(vg, ovl(colours().text, 189));
         nvgText(vg, fx, fy, f.v.c_str(), nullptr);
         fx += nvgTextBounds(vg, 0, 0, f.v.c_str(), nullptr, nullptr) + 18.0f * s;
     }
@@ -2548,7 +2553,7 @@ void VulkanRenderer::updateOverlayTexture()
     if (!settleOverlay(false))
         return;
 
-    unsigned screenH = brls::Application::windowHeight;
+    unsigned screenH = static_cast<unsigned>(m_gpu.displaySize().height);
     if (screenH == 0)
         return;
 
@@ -2634,7 +2639,7 @@ bool VulkanRenderer::renderOverlay(const OverlayTarget& target, int back)
     const RenderTarget& color = target.color(back);
     const RenderTarget& stencil = target.stencil();
     const VkExtent2D extent = target.extent();
-    const VkFormat stencilFormat = m_vctx->stencilFormat();
+    const VkFormat stencilFormat = m_gpu.stencilFormat();
 
     if (!succeeded(vkResetCommandPool(m_device, context.pool(), 0), "vkResetCommandPool (overlay)"))
         return false;
@@ -2725,8 +2730,7 @@ bool VulkanRenderer::renderOverlay(const OverlayTarget& target, int back)
     const VkFence fence = context.fence();
     VkResult result = VK_SUCCESS;
     {
-        std::lock_guard lock(m_vctx->queueMutex());
-        result = vkQueueSubmit2(m_vctx->queue(), 1, &submit, fence);
+        result = m_gpu.submit(submit, fence);
     }
     return succeeded(result, "vkQueueSubmit2 (overlay)");
 }
@@ -2738,7 +2742,7 @@ bool VulkanRenderer::ensureOverlayContext()
 
     const VkCommandPoolCreateInfo poolInfo{
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .queueFamilyIndex = m_vctx->queueFamilyIndex(),
+        .queueFamilyIndex = m_gpu.queueFamilyIndex(),
     };
     VkCommandPool poolHandle = VK_NULL_HANDLE;
     if (!succeeded(vkCreateCommandPool(m_device, &poolInfo, nullptr, &poolHandle), "vkCreateCommandPool (overlay)"))
@@ -2763,8 +2767,8 @@ bool VulkanRenderer::ensureOverlayContext()
     Fence fence(m_device, fenceHandle);
 
     auto renderer = std::make_unique<nvg::VkRenderer>(
-        nvg::VkRenderer::Device{ m_vctx->physicalDevice(), m_device, m_vctx->memoryProperties(), 1 },
-        nvg::VkRenderer::Target{ OffscreenFormat, m_vctx->stencilFormat() });
+        nvg::VkRenderer::Device{ m_gpu.physicalDevice(), m_device, m_gpu.memoryProperties(), 1 },
+        nvg::VkRenderer::Target{ OffscreenFormat, m_gpu.stencilFormat() });
     NVGcontext* vg = renderer->createContext(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
     if (!vg)
     {
@@ -2772,7 +2776,7 @@ bool VulkanRenderer::ensureOverlayContext()
         return false;
     }
 
-    const int font = nvgCreateFont(vg, "mono", BRLS_ASSET("font/Cousine-Regular.ttf"));
+    const int font = nvgCreateFont(vg, "mono", "romfs:/font/Cousine-Regular.ttf");
     auto context = std::make_unique<OverlayContext>(std::move(pool), commands, std::move(fence), std::move(renderer),
         vg, font);
     if (font < 0)
@@ -2817,8 +2821,8 @@ bool VulkanRenderer::ensureOverlayTarget()
     constexpr VkImageUsageFlags colorUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     auto first = createRenderTarget(want, OffscreenFormat, colorUsage, VK_IMAGE_ASPECT_COLOR_BIT, pool->get());
     auto second = createRenderTarget(want, OffscreenFormat, colorUsage, VK_IMAGE_ASPECT_COLOR_BIT, pool->get());
-    auto stencil = createRenderTarget(want, m_vctx->stencilFormat(), VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        stencilAspect(m_vctx->stencilFormat()), VK_NULL_HANDLE);
+    auto stencil = createRenderTarget(want, m_gpu.stencilFormat(), VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        stencilAspect(m_gpu.stencilFormat()), VK_NULL_HANDLE);
     if (!first || !second || !stencil)
     {
         log::error("overlay: could not allocate {}x{} render targets", want.width, want.height);
@@ -2837,6 +2841,8 @@ bool VulkanRenderer::ensureOverlayTarget()
     log::info("overlay: render targets {}x{} ready", want.width, want.height);
     return true;
 }
+
+#endif
 
 bool VulkanRenderer::captureLastFrame(std::vector<uint8_t>& rgba, int& width, int& height)
 {

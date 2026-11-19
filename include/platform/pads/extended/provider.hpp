@@ -42,7 +42,7 @@ class ExtendedPadProvider final : public PadProvider, public play::CouchSeats
 {
 public:
     ExtendedPadProvider(const play::ControllerSettings& controllers,
-                        libchiaking::platform::ThreadingProvider& threading);
+                        libchiaking::platform::ThreadingProvider& threading, platform::PadRumble& rumble);
 
     void open() override;
     void close() override;

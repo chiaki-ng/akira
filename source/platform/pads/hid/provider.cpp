@@ -6,14 +6,15 @@
 namespace akira::platform::hid
 {
 
-HidPadProvider::HidPadProvider(const play::ControllerSettings& controllers)
+HidPadProvider::HidPadProvider(const play::ControllerSettings& controllers, platform::PadRumble& rumble)
     : m_controllers(controllers)
+    , m_rumble(rumble)
 {
 }
 
 void HidPadProvider::open()
 {
-    m_pad.emplace(m_controllers);
+    m_pad.emplace(m_controllers, m_rumble);
 }
 
 void HidPadProvider::close()

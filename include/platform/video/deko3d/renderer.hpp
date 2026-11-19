@@ -1,8 +1,7 @@
 #ifndef AKIRA_DEKO3D_RENDERER_HPP
 #define AKIRA_DEKO3D_RENDERER_HPP
 
-#ifdef BOREALIS_USE_DEKO3D
-
+#include "platform/video/overlay_palette.hpp"
 #include "platform/video/renderer.hpp"
 
 #include <array>
@@ -15,15 +14,16 @@
 #include <string>
 #include <vector>
 
-#include <borealis.hpp>
-#include <borealis/platforms/switch/switch_video.hpp>
+#if AKIRA_STATS_OVERLAY
 #include <nanovg/dk_renderer.hpp>
+#endif
 #include <nanovg/framework/CShader.h>
 #include <nanovg/framework/CMemPool.h>
 #include <nanovg/framework/CCmdMemRing.h>
 #include <nanovg/framework/CDescriptorSet.h>
 
 #include "platform/video/deko3d/frame.hpp"
+#include "platform/video/deko3d/gpu_host.hpp"
 #include "platform/video/deko3d/shader_source.hpp"
 
 namespace akira::network {
@@ -38,11 +38,12 @@ class StreamState;
 namespace akira::platform::deko3d
 {
 
-class Deko3dRenderer : public VideoRenderer
+class Deko3dRenderer : public VideoRenderer, private FramePass
 {
 public:
-    Deko3dRenderer(std::unique_ptr<ShaderSource> shaders, std::string decoderLabel, play::StreamSettings& stream,
-        const play::StreamState& streamState, const network::WireGuardManager& wireGuard);
+    Deko3dRenderer(GpuHost& gpu, std::unique_ptr<ShaderSource> shaders, std::string decoderLabel,
+        play::StreamSettings& stream, const play::StreamState& streamState, const network::WireGuardManager& wireGuard,
+        const video::OverlayPalette& palette);
     ~Deko3dRenderer() override;
     Deko3dRenderer(const Deko3dRenderer&) = delete;
     Deko3dRenderer& operator=(const Deko3dRenderer&) = delete;
@@ -54,6 +55,7 @@ public:
     void cleanup() override;
     void waitIdle() override;
 
+#if AKIRA_STATS_OVERLAY
     void setStatsOverlayMode(play::StatsOverlayMode mode) override
     {
         m_stats_mode.store(mode, std::memory_order_relaxed);
@@ -66,23 +68,24 @@ public:
     void overlayTouchMove(float x, float y) override;
     void overlayTouchEnd() override;
     bool takeOverlayPositionDirty() override;
-    void setStreamStats(const play::StreamStats& stats) override { m_stats = stats; }
-    float getRenderFPS() const override { return m_render_fps; }
-    void setPaused(bool paused) { m_paused.store(paused, std::memory_order_relaxed); }
     void setConnectionContext(const std::string& context) override;
-    void updateResolution(int width, int height) { m_frame_width = width; m_frame_height = height; }
-
     void triggerBorderFlash() {
         m_border_flash_frames.store(BORDER_FLASH_DURATION, std::memory_order_release);
     }
+#endif
+    void setStreamStats(const play::StreamStats& stats) override { m_stats = stats; }
+    float getRenderFPS() const override { return m_render_fps; }
+    void setPaused(bool paused) { m_paused.store(paused, std::memory_order_relaxed); }
+    void updateResolution(int width, int height) { m_frame_width = width; m_frame_height = height; }
 
     bool captureLastFrame(std::vector<uint8_t>& rgba, int& width, int& height) override;
-
-    void setTickCallback(TickCallback cb) override { m_tick_callback = std::move(cb); }
 
     void setDithering(bool enabled);
 
 private:
+    GpuHost& m_gpu;
+    const video::OverlayPalette& m_palette;
+    std::unique_ptr<Presentation> m_presentation;
     std::unique_ptr<ShaderSource> m_shaders;
     std::string m_decoder_label;
     play::StreamSettings& m_stream;
@@ -92,7 +95,6 @@ private:
     std::optional<CMemPool> m_pool_code;
     std::optional<CMemPool> m_pool_data;
 
-    void renderBorderFlash();
 
     enum class Tone { Good = 0, Warn = 1, Bad = 2 };
 
@@ -117,6 +119,19 @@ private:
     float m_overlay_scale = 1.0f;
     bool m_font_atlas_warm = false;
 
+#if AKIRA_STATS_OVERLAY
+    struct OverlayColours
+    {
+        NVGcolor accent;
+        NVGcolor warning;
+        NVGcolor danger;
+        NVGcolor success;
+        NVGcolor text;
+        NVGcolor backgroundDeep;
+        NVGcolor media;
+    };
+
+    OverlayColours colours() const;
     void warmFontAtlas(NVGcontext* vg);
     void rebuildOverlayText();
     bool ensureOverlayShaders();
@@ -124,7 +139,8 @@ private:
     void destroyOverlayContext();
     bool ensureOverlayTarget();
     void destroyOverlayTarget();
-    void compositeOverlay();
+    void compositeOverlay(FrameRecorder& frame);
+    void renderBorderFlash(FrameRecorder& frame);
 
 public:
     void updateOverlayTexture() override;
@@ -149,6 +165,7 @@ private:
     void drawLatencyStrip(NVGcontext* vg, float x, float y, float w, float h);
     void drawCompactOverlay(NVGcontext* vg);
     void drawFullOverlay(NVGcontext* vg);
+#endif
 
     std::atomic<int> m_border_flash_frames{0};
     static constexpr int BORDER_FLASH_DURATION = 20;
@@ -161,7 +178,6 @@ private:
     int m_frame_width = 0;
     int m_frame_height = 0;
 
-    brls::SwitchDeko3dVideoContext* m_vctx = nullptr;
     bool m_overlay_to_texture = false;
     bool m_ovl_dirty = true;
 
@@ -169,8 +185,10 @@ private:
     std::optional<CMemPool> m_ovl_images_pool;
     std::optional<CMemPool> m_ovl_code_pool;
     std::optional<CMemPool> m_ovl_data_pool;
+#if AKIRA_STATS_OVERLAY
     std::optional<nvg::DkRenderer> m_ovl_renderer;
     NVGcontext* m_ovl_vg = nullptr;
+#endif
     bool m_ovl_ctx_ready = false;
 
     dk::UniqueCmdBuf m_ovl_rt_cmdbuf;
@@ -235,8 +253,10 @@ private:
     std::atomic<bool> m_overlay_pos_dirty{false};
     float m_overlay_grab_dx = 0.0f;
     float m_overlay_grab_dy = 0.0f;
+#if AKIRA_STATS_OVERLAY
     void overlayOrigin(float w, float h, float& ox, float& oy);
     void updateOverlayPlacement();
+#endif
 
     CShader m_vertex_shader;
 
@@ -288,7 +308,7 @@ private:
     bool setupTextures(const VideoFrame& frame);
     void initializePlaneLayout(dk::ImageLayout& layout, DkImageFormat format, int width, int height, uint32_t pitch) const;
     void releaseTextures();
-    void updateFrameBindings(const VideoFrame& frame);
+    void updateFrameBindings(const VideoFrame& frame, FrameRecorder& recorder);
     void recordStaticVideoCommands();
 
     bool loadShader(CShader& shader, std::optional<ShaderSource::Code> code);
@@ -301,6 +321,7 @@ private:
     static constexpr uint32_t DitherUniformBinding = 1;
     CMemPool::Handle m_dither_uniform;
     bool m_dithering_enabled = false;
+    std::atomic<bool> m_dithering_wanted{false};
     bool m_fsr_enabled = false;
     bool m_fsr_pending = false;
     bool m_easu_enabled = false;
@@ -335,6 +356,7 @@ private:
 
     dk::UniqueCmdBuf m_fsr_rcas_cmdbuf;
     CMemPool::Handle m_fsr_rcas_cmdmem;
+    uint32_t m_fsr_rcas_cmdmem_slice = 0;
     static constexpr unsigned FsrRcasCmdSize = 0x4000;
 
     CMemPool::Handle m_fsr_uniform_buffer;
@@ -344,7 +366,7 @@ private:
     void recordFsrCommands();
     void computeFsrConstants();
 
-    bool m_frame_bound = false;
+    std::atomic<bool> m_frame_bound{false};
 
     static constexpr int CAPTURE_WIDTH = 640;
     static constexpr int FRAME_RING_SIZE = 3;
@@ -357,23 +379,19 @@ private:
                           uint32_t rowBytes, int rows, std::span<uint8_t> dst);
     static size_t blockLinearOffset(uint32_t x, uint32_t y, uint32_t pitch, uint32_t blockHeightLog2);
 
-    void renderVideo();
+    void record(FrameRecorder& frame) override;
+    void renderVideo(FrameRecorder& frame);
     void recordPresentedFrame();
+    std::uint64_t m_bound_mappings = 0;
 
     uint64_t m_render_frame_count = 0;
     std::chrono::steady_clock::time_point m_render_fps_start;
     float m_render_fps = 0.0f;
     bool m_render_fps_init = false;
 
-    void registerCallback();
-    void unregisterCallback();
-    bool m_callback_registered = false;
-    TickCallback m_tick_callback;
 };
 
 
 }
-
-#endif // BOREALIS_USE_DEKO3D
 
 #endif // AKIRA_DEKO3D_RENDERER_HPP
