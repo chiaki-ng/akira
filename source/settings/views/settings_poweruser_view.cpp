@@ -33,7 +33,7 @@ SettingsPowerUserView::SettingsPowerUserView() {
     });
 
     flushTrophyCacheBtn->registerClickAction([](brls::View*) {
-        TrophyManager::getInstance()->flushCache();
+        akira::trophies::TrophyManager::getInstance()->flushCache();
         brls::Application::notify("akira/settings/trophy_cache_flushed"_i18n);
         return true;
     });

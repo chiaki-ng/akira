@@ -13,7 +13,9 @@
 #include "accounts/views/psn_gated_box.hpp"
 #include "app/views/vendored/switchfin/recycling_grid.hpp"
 
-class TrophyRowCell : public akira::app::views::RecyclingGridItem {
+namespace akira::trophies::views {
+
+class TrophyRowCell : public app::views::RecyclingGridItem {
 public:
     TrophyRowCell();
     ~TrophyRowCell() override;
@@ -22,7 +24,7 @@ public:
     void prepareForReuse() override;
     void cacheForReuse() override;
 
-    static akira::app::views::RecyclingGridItem* create();
+    static app::views::RecyclingGridItem* create();
 
 private:
     brls::Image* icon = nullptr;
@@ -39,16 +41,16 @@ private:
     static std::unordered_set<std::string> retriedIcons;
 };
 
-class SummaryCell : public akira::app::views::RecyclingGridItem {
+class SummaryCell : public app::views::RecyclingGridItem {
 public:
     SummaryCell();
 
     void bindSummary(int earned, int available, int progress, const libchiaking::trophies::TrophyCounts& counts);
 
-    static akira::app::views::RecyclingGridItem* create();
+    static app::views::RecyclingGridItem* create();
 
 private:
-    akira::play::views::ProgressRing* ring = nullptr;
+    play::views::ProgressRing* ring = nullptr;
     brls::Label* ringLabel = nullptr;
     brls::Label* earnedValue = nullptr;
     brls::Label* availableValue = nullptr;
@@ -65,13 +67,13 @@ private:
     int prevTier[4] = {-1, -1, -1, -1};
 };
 
-class TrophyDetailSource : public akira::app::views::RecyclingGridDataSource {
+class TrophyDetailSource : public app::views::RecyclingGridDataSource {
 public:
     TrophyDetailSource(int earned, int available, int progress,
         libchiaking::trophies::TrophyCounts counts, std::vector<libchiaking::trophies::Trophy> trophies);
 
     size_t getItemCount() override;
-    akira::app::views::RecyclingGridItem* cellForRow(akira::app::views::RecyclingView* recycler, size_t index) override;
+    app::views::RecyclingGridItem* cellForRow(app::views::RecyclingView* recycler, size_t index) override;
     float heightForRow(brls::View* recycler, size_t index) override;
     void clearData() override;
 
@@ -121,8 +123,8 @@ private:
     BRLS_BIND(brls::Button, sortBtn, "detail/sortBtn");
     BRLS_BIND(brls::Button, filterBtn, "detail/filterBtn");
     BRLS_BIND(brls::Button, refreshBtn, "detail/refreshBtn");
-    BRLS_BIND(akira::app::views::RecyclingGrid, list, "detail/list");
-    BRLS_BIND(akira::accounts::views::PsnGatedBox, gate, "detail/gate");
+    BRLS_BIND(app::views::RecyclingGrid, list, "detail/list");
+    BRLS_BIND(accounts::views::PsnGatedBox, gate, "detail/gate");
 
     void load(bool forceRefresh);
     void applyDetail(const TrophyManager::TitleTrophies& detail);
@@ -135,7 +137,7 @@ private:
     TrophyManager::Title title;
     std::vector<libchiaking::trophies::TrophyGroup> groups;
     std::vector<libchiaking::trophies::Trophy> trophies;
-    akira::accounts::views::PsnActionButton refreshGate;
+    accounts::views::PsnActionButton refreshGate;
 
     size_t selectedGroup = 0;
     static TrophySort sortMode;
@@ -145,5 +147,7 @@ private:
 };
 
 std::string formatTrophyRarity(const libchiaking::trophies::Trophy& trophy);
+
+}
 
 #endif // AKIRA_TROPHY_DETAIL_VIEW_HPP

@@ -253,7 +253,7 @@ void PairView::adoptSignedInUser(int64_t profileId, const accounts::Accounts::Us
     settings->refreshLegacyGate();
     settings->writeFile();
 
-    TrophyManager::getInstance()->onActiveProfileChanged();
+    trophies::TrophyManager::getInstance()->onActiveProfileChanged();
     /*
      * A new token can mean a different account behind the same profile, and the
      * cached catalog carries the previous one's owned games.

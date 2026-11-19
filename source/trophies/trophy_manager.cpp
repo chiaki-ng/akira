@@ -21,6 +21,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+namespace akira::trophies {
+
 namespace platform = libchiaking::platform;
 namespace trophies = libchiaking::trophies;
 namespace catalog = libchiaking::catalog;
@@ -64,7 +66,7 @@ void TrophyManager::dropLegacyCache()
             removed++;
     }
     if (removed > 0)
-        akira::log::info("Trophy: removed {} legacy JSON cache entr(ies)", removed);
+        log::info("Trophy: removed {} legacy JSON cache entr(ies)", removed);
 }
 
 const char* TrophyManager::reasonName(Unanswered::Reason reason)
@@ -85,7 +87,7 @@ const char* TrophyManager::reasonName(Unanswered::Reason reason)
     return "unknown";
 }
 
-akira::accounts::Error TrophyManager::failureOf(const Unanswered& cause)
+accounts::Error TrophyManager::failureOf(const Unanswered& cause)
 {
     std::string message = cause.http_status != 0
         ? std::format("{} (HTTP {})", reasonName(cause.reason), cause.http_status)
@@ -94,43 +96,43 @@ akira::accounts::Error TrophyManager::failureOf(const Unanswered& cause)
     switch (cause.reason)
     {
         case Unanswered::Reason::signed_out:
-            return {akira::accounts::Status::NotLinked, message};
+            return {accounts::Status::NotLinked, message};
         case Unanswered::Reason::sign_in_expired:
         case Unanswered::Reason::store_access_lapsed:
         case Unanswered::Reason::remote_play_access_missing:
-            return {akira::accounts::Status::SessionExpired, message};
+            return {accounts::Status::SessionExpired, message};
         case Unanswered::Reason::rate_limited:
-            return {akira::accounts::Status::RateLimited, message};
+            return {accounts::Status::RateLimited, message};
         case Unanswered::Reason::unavailable:
-            return {cause.http_status == 0 ? akira::accounts::Status::Offline : akira::accounts::Status::ServerError, message};
+            return {cause.http_status == 0 ? accounts::Status::Offline : accounts::Status::ServerError, message};
         case Unanswered::Reason::cancelled:
         case Unanswered::Reason::rejected:
         case Unanswered::Reason::malformed:
         case Unanswered::Reason::old_service_refused:
             break;
     }
-    return {akira::accounts::Status::ServerError, message};
+    return {accounts::Status::ServerError, message};
 }
 
 void TrophyManager::deliverNotLinked(const ErrorCallback& onError)
 {
     brls::sync([onError]() {
         if (onError)
-            onError(akira::accounts::Status::NotLinked, "PSN account not linked");
+            onError(accounts::Status::NotLinked, "PSN account not linked");
     });
 }
 
 auto TrophyManager::trophies() -> trophies::Trophies&
 {
-    return akira::play::ChiakiCore::current().chiaki().trophies();
+    return play::ChiakiCore::current().chiaki().trophies();
 }
 
 auto TrophyManager::catalog() -> catalog::Catalog&
 {
-    return akira::play::ChiakiCore::current().chiaki().catalog();
+    return play::ChiakiCore::current().chiaki().catalog();
 }
 
-auto TrophyManager::requestFor(akira::accounts::Accounts::User user) -> Request
+auto TrophyManager::requestFor(accounts::Accounts::User user) -> Request
 {
     std::lock_guard<std::mutex> lock(mutex);
     return Request{std::move(user), generation, stopSource->token()};
@@ -138,8 +140,8 @@ auto TrophyManager::requestFor(akira::accounts::Accounts::User user) -> Request
 
 auto TrophyManager::begin() -> std::optional<Request>
 {
-    akira::accounts::Accounts* accounts = akira::play::ChiakiCore::current().accounts();
-    akira::accounts::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
+    accounts::Accounts* accounts = play::ChiakiCore::current().accounts();
+    accounts::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
     if (!user || !user->has_psn_account())
         return std::nullopt;
     return requestFor(std::move(user));
@@ -172,8 +174,8 @@ void TrophyManager::deliverFailure(const Request& request, const Unanswered& cau
     if (cause.is_cancelled() || !current(request))
         return;
 
-    const akira::accounts::Error error = failureOf(cause);
-    akira::log::error("Trophy: {} failed with {} ({})", what, akira::accounts::statusName(error.status), error.message);
+    const accounts::Error error = failureOf(cause);
+    log::error("Trophy: {} failed with {} ({})", what, accounts::statusName(error.status), error.message);
 
     const uint64_t asked = request.generation;
     brls::sync([this, asked, error, onError = std::move(onError)]() {
@@ -201,7 +203,7 @@ void TrophyManager::flushCache()
         iconCacheBytes = 0;
     }
     onActiveProfileChanged();
-    akira::log::info("Trophy: cache flushed");
+    log::info("Trophy: cache flushed");
 }
 
 void TrophyManager::onActiveProfileChanged()
@@ -216,7 +218,7 @@ void TrophyManager::onActiveProfileChanged()
         previous = std::exchange(stopSource, std::make_shared<platform::StopSource>());
     }
     static_cast<void>(previous->request_stop());
-    akira::log::info("Trophy: active profile changed, in-flight requests dropped");
+    log::info("Trophy: active profile changed, in-flight requests dropped");
 }
 
 void TrophyManager::ensureIconCacheDir()
@@ -237,13 +239,13 @@ int64_t TrophyManager::librarySavedAtSeconds() const
     return librarySavedAt;
 }
 
-akira::accounts::ActionStatus TrophyManager::forceRefreshStatus(const std::string& scope)
+accounts::ActionStatus TrophyManager::forceRefreshStatus(const std::string& scope)
 {
     std::lock_guard<std::mutex> lock(mutex);
 
     auto entry = forcedAt.find(scope);
     if (entry == forcedAt.end() || entry->second <= 0)
-        return {akira::accounts::ActionState::Ready, 0};
+        return {accounts::ActionState::Ready, 0};
 
     const int64_t now = nowSeconds();
     if (entry->second > now)
@@ -251,9 +253,9 @@ akira::accounts::ActionStatus TrophyManager::forceRefreshStatus(const std::strin
 
     const int64_t readyAt = entry->second + static_cast<int64_t>(FORCE_REFRESH_COOLDOWN_MINUTES) * 60;
     if (readyAt <= now)
-        return {akira::accounts::ActionState::Ready, 0};
+        return {accounts::ActionState::Ready, 0};
 
-    return {akira::accounts::ActionState::CoolingDown, static_cast<int>(readyAt - now)};
+    return {accounts::ActionState::CoolingDown, static_cast<int>(readyAt - now)};
 }
 
 void TrophyManager::recordForcedRefresh(const std::string& scope)
@@ -261,7 +263,7 @@ void TrophyManager::recordForcedRefresh(const std::string& scope)
     std::lock_guard<std::mutex> lock(mutex);
     forcedAt[scope] = nowSeconds();
 
-    akira::log::info("Trophy: force refresh of '{}' recorded, next available in {} min",
+    log::info("Trophy: force refresh of '{}' recorded, next available in {} min",
         scope, FORCE_REFRESH_COOLDOWN_MINUTES);
 }
 
@@ -340,7 +342,7 @@ void TrophyManager::stopIconDiskWrites(const std::string& reason)
     if (!iconDiskWritable.exchange(false))
         return;
 
-    akira::log::error("Trophy: icon disk cache disabled for this session ({}); icons will still load from memory", reason);
+    log::error("Trophy: icon disk cache disabled for this session ({}); icons will still load from memory", reason);
 }
 
 void TrophyManager::storeIconInMemory(const std::string& url, const std::vector<uint8_t>& bytes)
@@ -379,12 +381,12 @@ void TrophyManager::logLibrary(const std::vector<Title>& titles) const
     {
         if (logged >= LIBRARY_LOG_CAP)
         {
-            akira::log::info("Trophy library: {} further title(s) not logged",
+            log::info("Trophy library: {} further title(s) not logged",
                 titles.size() - static_cast<size_t>(logged));
             break;
         }
 
-        akira::log::info("  [{}] {} '{}' {}% {}/{} (P{}/{} G{}/{} S{}/{} B{}/{}) groups={}({}) hidden={} v{}",
+        log::info("  [{}] {} '{}' {}% {}/{} (P{}/{} G{}/{} S{}/{} B{}/{}) groups={}({}) hidden={} v{}",
             logged, title.id.text(), title.name, title.progress,
             title.earned.total(), title.defined.total(),
             title.earned.platinum, title.defined.platinum,
@@ -420,7 +422,7 @@ void TrophyManager::fetchSummary(bool forceRefresh, Callback<Summary> onSuccess,
             return;
         }
 
-        akira::log::info("Trophy summary: level {} tier {} progress {}% earned {} (P{} G{} S{} B{})",
+        log::info("Trophy summary: level {} tier {} progress {}% earned {} (P{} G{} S{} B{})",
             summary->level, summary->tier, summary->progress, summary->earned.total(),
             summary->earned.platinum, summary->earned.gold, summary->earned.silver, summary->earned.bronze);
 
@@ -450,7 +452,7 @@ void TrophyManager::fetchProfile(bool forceRefresh, Callback<Profile> onSuccess,
             return;
         }
 
-        akira::log::info("PSN profile: {} plus={} avatar={}", profile->online_id,
+        log::info("PSN profile: {} plus={} avatar={}", profile->online_id,
             profile->membership.is_ps_plus_member().value_or(false), profile->avatar_url.has_value());
 
         deliver(request, std::move(profile).value(), onSuccess);
@@ -460,9 +462,9 @@ void TrophyManager::fetchProfile(bool forceRefresh, Callback<Profile> onSuccess,
 void TrophyManager::fetchProfileForAccount(const std::string& accountId,
     Callback<Profile> onSuccess, ErrorCallback onError)
 {
-    akira::play::ChiakiCore& core = akira::play::ChiakiCore::current();
+    play::ChiakiCore& core = play::ChiakiCore::current();
     const auto account = libchiaking::AccountId::from_base64(accountId);
-    akira::accounts::Accounts::User user = core.opened() && account ? core.chiaki().users().find(*account) : nullptr;
+    accounts::Accounts::User user = core.opened() && account ? core.chiaki().users().find(*account) : nullptr;
     if (!user || !user->has_psn_account())
     {
         deliverNotLinked(onError);
@@ -541,7 +543,7 @@ void TrophyManager::fetchTitleDetail(const Title& title, bool forceRefresh,
             return;
         }
 
-        akira::log::info("Trophy detail {}: {} trophies across {} group(s)",
+        log::info("Trophy detail {}: {} trophies across {} group(s)",
             title.id.text(), detail->trophies.size(), detail->groups.size());
 
         deliver(request, std::move(detail).value(), onSuccess);
@@ -569,7 +571,7 @@ void TrophyManager::resolvePlayedGames(const std::vector<Title>& titles, std::fu
             const catalog::PlayedGamesFailure& cause = games.error();
             if (!cause.is_cancelled() && current(request))
             {
-                akira::log::warning("Trophy: play history unavailable ({}, HTTP {})",
+                log::warning("Trophy: play history unavailable ({}, HTTP {})",
                     cause.cause() ? reasonName(cause.cause()->reason) : "catalog refused",
                     cause.http_status());
             }
@@ -587,7 +589,7 @@ void TrophyManager::resolvePlayedGames(const std::vector<Title>& titles, std::fu
             playedGames = std::move(joined);
         }
 
-        akira::log::info("Trophy: joined {} played game(s) to {} of {} trophy title(s)",
+        log::info("Trophy: joined {} played game(s) to {} of {} trophy title(s)",
             games->size(), resolved, asked);
 
         const uint64_t generationAsked = request.generation;
@@ -621,7 +623,7 @@ auto TrophyManager::joinPlayedGames(const Request& request, const std::vector<Pl
         if (!sets)
         {
             if (!sets.error().is_cancelled())
-                akira::log::warning("Trophy: title mapping failed ({})", reasonName(sets.error().reason));
+                log::warning("Trophy: title mapping failed ({})", reasonName(sets.error().reason));
             break;
         }
 
@@ -696,20 +698,20 @@ void TrophyManager::fetchIcon(const std::string& url, IconCallback onSuccess)
 
             if (response.transportFailed())
             {
-                akira::log::warning("Trophy icon fetch failed ({}): {}", url, response.error);
+                log::warning("Trophy icon fetch failed ({}): {}", url, response.error);
             }
             else if (response.status != 200)
             {
-                akira::log::warning("Trophy icon fetch returned HTTP {} for {}", response.status, url);
+                log::warning("Trophy icon fetch returned HTTP {} for {}", response.status, url);
             }
             else if (response.body.size() > ICON_MAX_BYTES)
             {
-                akira::log::warning("Trophy icon {} is {} bytes, over the {} byte cap, dropping",
+                log::warning("Trophy icon {} is {} bytes, over the {} byte cap, dropping",
                     url, response.body.size(), ICON_MAX_BYTES);
             }
             else if (response.body.empty())
             {
-                akira::log::warning("Trophy icon {} came back empty", url);
+                log::warning("Trophy icon {} came back empty", url);
             }
             else
             {
@@ -766,7 +768,7 @@ void TrophyManager::discardIcon(const std::string& url)
     }
 
     remove(iconCachePath(url).c_str());
-    akira::log::warning("Trophy: discarded the cached icon for {}", url);
+    log::warning("Trophy: discarded the cached icon for {}", url);
 }
 
 void TrophyManager::setSummaryObserver(Callback<Summary> observer)
@@ -789,7 +791,7 @@ void TrophyManager::startAutoRefresh()
     staleTimer.setCallback([this]() { runStaleCheck(); });
     staleTimer.start(STALE_CHECK_MINUTES * 60 * 1000);
 
-    akira::log::info("Trophy: auto refresh checking every {} min", STALE_CHECK_MINUTES);
+    log::info("Trophy: auto refresh checking every {} min", STALE_CHECK_MINUTES);
 }
 
 void TrophyManager::runStaleCheck()
@@ -801,16 +803,16 @@ void TrophyManager::runStaleCheck()
             return;
     }
 
-    akira::log::info("Trophy: titles passed the core's cache lifetime, refreshing in the background");
+    log::info("Trophy: titles passed the core's cache lifetime, refreshing in the background");
 
     fetchSummary(false,
         [this](const Summary& summary) {
             if (summaryObserver)
                 summaryObserver(summary);
         },
-        [](akira::accounts::Status status, const std::string& message) {
-            akira::log::warning("Trophy: background summary refresh failed [{}] {}",
-                akira::accounts::statusName(status), message);
+        [](accounts::Status status, const std::string& message) {
+            log::warning("Trophy: background summary refresh failed [{}] {}",
+                accounts::statusName(status), message);
         });
 
     fetchLibrary(false,
@@ -818,9 +820,9 @@ void TrophyManager::runStaleCheck()
             if (libraryObserver)
                 libraryObserver(titles);
         },
-        [](akira::accounts::Status status, const std::string& message) {
-            akira::log::warning("Trophy: background library refresh failed [{}] {}",
-                akira::accounts::statusName(status), message);
+        [](accounts::Status status, const std::string& message) {
+            log::warning("Trophy: background library refresh failed [{}] {}",
+                accounts::statusName(status), message);
         });
 }
 
@@ -846,11 +848,13 @@ void TrophyManager::prefetchIcons(const std::vector<Title>& titles)
 
     if (skipped > 0)
     {
-        akira::log::info("Trophy: prefetching {} icon(s), {} beyond the cap left to load on scroll",
+        log::info("Trophy: prefetching {} icon(s), {} beyond the cap left to load on scroll",
             queued, skipped);
     }
     else if (queued > 0)
     {
-        akira::log::info("Trophy: prefetching {} icon(s) into the disk cache", queued);
+        log::info("Trophy: prefetching {} icon(s) into the disk cache", queued);
     }
+}
+
 }

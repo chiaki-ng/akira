@@ -607,7 +607,7 @@ void PlayersPanelView::loadProfileAvatarUrl(int64_t profileId, const std::string
         return;
 
     auto alive = m_callback_alive;
-    TrophyManager::getInstance()->fetchIcon(avatarUrl,
+    trophies::TrophyManager::getInstance()->fetchIcon(avatarUrl,
         [this, alive, image, profileId](const std::string&, const std::vector<uint8_t>& bytes) {
             if (!alive->load(std::memory_order_acquire) || bytes.empty())
                 return;
@@ -630,8 +630,8 @@ void PlayersPanelView::loadProfileAvatar(int64_t profileId, const std::string& a
         return;
 
     auto alive = m_callback_alive;
-    TrophyManager::getInstance()->fetchProfileForAccount(accountId,
-        [this, alive, image, profileId](const TrophyManager::Profile& profile) {
+    trophies::TrophyManager::getInstance()->fetchProfileForAccount(accountId,
+        [this, alive, image, profileId](const trophies::TrophyManager::Profile& profile) {
             if (!alive->load(std::memory_order_acquire))
                 return;
             const std::string url = profile.avatar_url.value_or("");

@@ -96,7 +96,7 @@ void CloudShortcutsRail::refresh()
         if (url.empty())
             return;
         auto inner = guard;
-        TrophyManager::getInstance()->fetchIcon(url,
+        trophies::TrophyManager::getInstance()->fetchIcon(url,
             [this, inner, cover, myGen](const std::string&, const std::vector<uint8_t>& bytes) {
                 if (!*inner || myGen != refreshGen)
                     return;

@@ -366,7 +366,7 @@ void akiraOpenTrophies()
         brls::Application::notify("akira/trophies/disabled_for_profile"_i18n);
         return;
     }
-    auto* view = TrophyListTab::create();
+    auto* view = akira::trophies::views::TrophyListTab::create();
     view->registerAction("akira/common/back"_i18n, brls::ControllerButton::BUTTON_B, [](brls::View*) {
         brls::Application::popActivity();
         return true;
@@ -638,7 +638,7 @@ int main(int argc, char* argv[])
     brls::Application::registerXMLView("HostListTab", akira::consoles::views::HostListTab::create);
     brls::Application::registerXMLView("PsnGatedBox", akira::accounts::views::PsnGatedBox::create);
     brls::Application::registerXMLView("RecyclingGrid", akira::app::views::RecyclingGrid::create);
-    brls::Application::registerXMLView("TrophyListTab", TrophyListTab::create);
+    brls::Application::registerXMLView("TrophyListTab", akira::trophies::views::TrophyListTab::create);
     brls::Application::registerXMLView("AddHostTab", akira::consoles::views::AddHostTab::create);
     brls::Application::registerXMLView("BuildInfoTab", akira::app::views::BuildInfoTab::create);
     brls::Application::registerXMLView("ConfigViewTab", ConfigViewTab::create);

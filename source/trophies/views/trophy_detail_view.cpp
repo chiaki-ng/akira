@@ -9,6 +9,8 @@
 #include <cmath>
 #include <format>
 
+namespace akira::trophies::views {
+
 using namespace brls::literals;
 
 static const brls::ButtonStyle BUTTONSTYLE_BLUE = {
@@ -245,7 +247,7 @@ TrophyRowCell::TrophyRowCell()
 
     detailLabel = new brls::Label();
     detailLabel->setFontSize(13);
-    detailLabel->setTextColor(akira::app::views::active().textDim);
+    detailLabel->setTextColor(app::views::active().textDim);
     detailLabel->setSingleLine(true);
     detailLabel->setMarginTop(2);
     text->addView(detailLabel);
@@ -260,7 +262,7 @@ TrophyRowCell::TrophyRowCell()
     progressFill = new brls::Rectangle();
     progressFill->setHeight(4);
     progressFill->setCornerRadius(2);
-    progressFill->setColor(akira::app::views::active().accent);
+    progressFill->setColor(app::views::active().accent);
     progressTrack->addView(progressFill);
 
     text->addView(progressTrack);
@@ -277,7 +279,7 @@ TrophyRowCell::TrophyRowCell()
 
     rarityLabel = new brls::Label();
     rarityLabel->setFontSize(12);
-    rarityLabel->setTextColor(akira::app::views::active().textDim);
+    rarityLabel->setTextColor(app::views::active().textDim);
     rarityLabel->setSingleLine(true);
     rarityLabel->setMarginTop(4);
     badges->addView(rarityLabel);
@@ -305,12 +307,12 @@ void TrophyRowCell::bindTrophy(const libchiaking::trophies::Trophy& trophy)
         stateLabel->setText(date.empty()
             ? std::format("{}  {}", trophyTypeLabel(trophy.grade), "akira/trophies/earned"_i18n)
             : std::format("{}  {}", trophyTypeLabel(trophy.grade), date));
-        stateLabel->setTextColor(akira::app::views::active().success);
+        stateLabel->setTextColor(app::views::active().success);
     }
     else
     {
         stateLabel->setText(trophyTypeLabel(trophy.grade));
-        stateLabel->setTextColor(akira::app::views::active().textDim);
+        stateLabel->setTextColor(app::views::active().textDim);
     }
 
     rarityLabel->setText(formatTrophyRarity(trophy));
@@ -354,7 +356,7 @@ void TrophyRowCell::bindTrophy(const libchiaking::trophies::Trophy& trophy)
             if (!decodeFailed)
                 return;
 
-            akira::log::warning("Trophy icon failed to decode ({} bytes) {}", bytes.size(), url);
+            log::warning("Trophy icon failed to decode ({} bytes) {}", bytes.size(), url);
 
             if (retriedIcons.insert(url).second)
                 TrophyManager::getInstance()->discardIcon(url);
@@ -373,7 +375,7 @@ void TrophyRowCell::cacheForReuse()
     icon->clear();
 }
 
-akira::app::views::RecyclingGridItem* TrophyRowCell::create()
+app::views::RecyclingGridItem* TrophyRowCell::create()
 {
     return new TrophyRowCell();
 }
@@ -404,7 +406,7 @@ SummaryCell::SummaryCell()
 
         auto* cap = new brls::Label();
         cap->setFontSize(14);
-        cap->setTextColor(akira::app::views::active().textDim);
+        cap->setTextColor(app::views::active().textDim);
         cap->setText(caption);
         cap->setMarginTop(6);
         col->addView(cap);
@@ -415,7 +417,7 @@ SummaryCell::SummaryCell()
 
     topRow->addView(makeStat(&earnedValue, "akira/trophies/summary_earned"_i18n));
 
-    ring = new akira::play::views::ProgressRing();
+    ring = new play::views::ProgressRing();
     ring->setWidth(96);
     ring->setHeight(96);
 
@@ -432,7 +434,7 @@ SummaryCell::SummaryCell()
 
     auto* separator = new brls::Rectangle();
     separator->setHeight(1);
-    separator->setColor(akira::app::views::withAlpha(akira::app::views::active().text, 0x14));
+    separator->setColor(app::views::withAlpha(app::views::active().text, 0x14));
     separator->setMarginTop(14);
     this->addView(separator);
 
@@ -480,21 +482,21 @@ void SummaryCell::bindSummary(int earned, int available, int progress, const lib
 {
     if (earned != prevEarned)
     {
-        akira::app::views::motion::countTo(earnedValue, earnedAnim,
+        app::views::motion::countTo(earnedValue, earnedAnim,
             prevEarned < 0 ? 0 : static_cast<int>(std::lround(earnedAnim.getValue())),
             earned, 520, [](int n) { return std::to_string(n); });
         prevEarned = earned;
     }
     if (available != prevAvail)
     {
-        akira::app::views::motion::countTo(availableValue, availAnim,
+        app::views::motion::countTo(availableValue, availAnim,
             prevAvail < 0 ? 0 : static_cast<int>(std::lround(availAnim.getValue())),
             available, 520, [](int n) { return std::to_string(n); });
         prevAvail = available;
     }
     if (progress != prevRingPct)
     {
-        akira::app::views::motion::countTo(ringLabel, ringLabelAnim,
+        app::views::motion::countTo(ringLabel, ringLabelAnim,
             prevRingPct < 0 ? 0 : static_cast<int>(std::lround(ringLabelAnim.getValue())),
             progress, 520, [](int n) { return std::format("{}%", n); });
         prevRingPct = progress;
@@ -512,7 +514,7 @@ void SummaryCell::bindSummary(int earned, int available, int progress, const lib
     {
         if (values[i] != prevTier[i])
         {
-            akira::app::views::motion::countTo(tierCounts[i], tierAnim[i],
+            app::views::motion::countTo(tierCounts[i], tierAnim[i],
                 prevTier[i] < 0 ? 0 : static_cast<int>(std::lround(tierAnim[i].getValue())),
                 values[i], 520, [](int n) { return std::to_string(n); });
             prevTier[i] = values[i];
@@ -521,7 +523,7 @@ void SummaryCell::bindSummary(int earned, int available, int progress, const lib
     }
 }
 
-akira::app::views::RecyclingGridItem* SummaryCell::create()
+app::views::RecyclingGridItem* SummaryCell::create()
 {
     return new SummaryCell();
 }
@@ -546,7 +548,7 @@ float TrophyDetailSource::heightForRow(brls::View* recycler, size_t index)
     return index == 0 ? SUMMARY_CELL_HEIGHT : ROW_HEIGHT;
 }
 
-akira::app::views::RecyclingGridItem* TrophyDetailSource::cellForRow(akira::app::views::RecyclingView* recycler, size_t index)
+app::views::RecyclingGridItem* TrophyDetailSource::cellForRow(app::views::RecyclingView* recycler, size_t index)
 {
     if (index == 0)
     {
@@ -593,7 +595,7 @@ TrophyDetailView::TrophyDetailView(const TrophyManager::Title& title)
     for (brls::Button* button : {groupBtn.getView(), sortBtn.getView(), filterBtn.getView()})
     {
         button->setStyle(&BUTTONSTYLE_BLUE);
-        button->setBackgroundColor(akira::app::views::active().surfaceElevated);
+        button->setBackgroundColor(app::views::active().surfaceElevated);
     }
 
     groupBtn->setVisibility(brls::Visibility::GONE);
@@ -618,13 +620,13 @@ TrophyDetailView::TrophyDetailView(const TrophyManager::Title& title)
 
     refreshGate.attach(
         refreshBtn,
-        akira::app::views::active().accent,
+        app::views::active().accent,
         "akira/trophies/force_refresh_btn"_i18n,
         "akira/trophies/force_refresh_busy"_i18n,
         "akira/trophies/force_refresh_wait",
         [this]() {
             if (loading)
-                return akira::accounts::ActionStatus{akira::accounts::ActionState::Busy, 0};
+                return accounts::ActionStatus{accounts::ActionState::Busy, 0};
 
             return TrophyManager::getInstance()->forceRefreshStatus(this->title.id.text());
         }
@@ -634,7 +636,7 @@ TrophyDetailView::TrophyDetailView(const TrophyManager::Title& title)
         if (!refreshGate.isReady())
             return true;
 
-        akira::log::info("User triggered force refresh of {}", this->title.id.text());
+        log::info("User triggered force refresh of {}", this->title.id.text());
 
         TrophyManager* manager = TrophyManager::getInstance();
         brls::Application::notify("akira/trophies/force_refresh"_i18n);
@@ -697,7 +699,7 @@ void TrophyDetailView::load(bool forceRefresh)
                 currentInstance->applyDetail(loaded);
             }
         },
-        [](akira::accounts::Status status, const std::string& message) {
+        [](accounts::Status status, const std::string& message) {
             if (!currentInstance)
                 return;
 
@@ -706,17 +708,17 @@ void TrophyDetailView::load(bool forceRefresh)
             const char* key = "akira/trophies/error_generic";
             switch (status)
             {
-                case akira::accounts::Status::NotLinked: key = "akira/trophies/error_not_linked"; break;
-                case akira::accounts::Status::SessionExpired: key = "akira/trophies/error_session_expired"; break;
-                case akira::accounts::Status::Offline: key = "akira/trophies/error_offline"; break;
-                case akira::accounts::Status::RateLimited: key = "akira/trophies/error_rate_limited"; break;
+                case accounts::Status::NotLinked: key = "akira/trophies/error_not_linked"; break;
+                case accounts::Status::SessionExpired: key = "akira/trophies/error_session_expired"; break;
+                case accounts::Status::Offline: key = "akira/trophies/error_offline"; break;
+                case accounts::Status::RateLimited: key = "akira/trophies/error_rate_limited"; break;
                 default: break;
             }
 
             currentInstance->subtitleLabel->setText(brls::getStr(key));
             currentInstance->list->setError(brls::getStr(key));
 
-            akira::log::error("Trophy detail: load failed [{}] {}", akira::accounts::statusName(status), message);
+            log::error("Trophy detail: load failed [{}] {}", accounts::statusName(status), message);
         });
 }
 
@@ -871,4 +873,6 @@ void TrophyDetailView::showGroupPicker()
         static_cast<int>(selectedGroup));
 
     brls::Application::pushActivity(new brls::Activity(dropdown));
+}
+
 }

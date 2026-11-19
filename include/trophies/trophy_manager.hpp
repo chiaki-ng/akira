@@ -25,11 +25,13 @@
 
 class SettingsManager;
 
+namespace akira::trophies {
+
 class TrophyManager {
 public:
     template <typename T>
     using Callback = std::function<void(const T&)>;
-    using ErrorCallback = std::function<void(akira::accounts::Status, const std::string&)>;
+    using ErrorCallback = std::function<void(accounts::Status, const std::string&)>;
     using IconCallback = std::function<void(const std::string& url, const std::vector<uint8_t>&)>;
 
     using Summary = libchiaking::trophies::TrophySummary;
@@ -65,12 +67,12 @@ public:
 
     static constexpr const char* SCOPE_LIBRARY = "library";
 
-    akira::accounts::ActionStatus forceRefreshStatus(const std::string& scope = SCOPE_LIBRARY);
+    accounts::ActionStatus forceRefreshStatus(const std::string& scope = SCOPE_LIBRARY);
     void recordForcedRefresh(const std::string& scope = SCOPE_LIBRARY);
 
 private:
     struct Request {
-        akira::accounts::Accounts::User user;
+        accounts::Accounts::User user;
         uint64_t generation = 0;
         libchiaking::platform::StopToken stop;
     };
@@ -90,13 +92,13 @@ private:
 
     TrophyManager();
 
-    static akira::accounts::Error failureOf(const libchiaking::users::Unanswered& cause);
+    static accounts::Error failureOf(const libchiaking::users::Unanswered& cause);
     static const char* reasonName(libchiaking::users::Unanswered::Reason reason);
     static int64_t nowSeconds();
     static void deliverNotLinked(const ErrorCallback& onError);
 
     auto begin() -> std::optional<Request>;
-    auto requestFor(akira::accounts::Accounts::User user) -> Request;
+    auto requestFor(accounts::Accounts::User user) -> Request;
     auto current(const Request& request) const -> bool;
     template <typename Value>
     void deliver(const Request& request, Value value, Callback<Value> onSuccess) const;
@@ -141,5 +143,7 @@ private:
     std::unordered_map<std::string, std::vector<IconCallback>> iconWaiters;
     size_t iconCacheBytes = 0;
 };
+
+}
 
 #endif // AKIRA_TROPHY_MANAGER_HPP

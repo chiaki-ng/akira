@@ -159,7 +159,7 @@ public:
         if (iconUrl.empty())
             return;
 
-        TrophyManager::getInstance()->fetchIcon(iconUrl,
+        trophies::TrophyManager::getInstance()->fetchIcon(iconUrl,
             [](const std::string& url, const std::vector<uint8_t>& bytes) {
                 if (bytes.empty())
                     return;

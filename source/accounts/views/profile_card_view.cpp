@@ -128,8 +128,8 @@ void ProfileCardView::refresh() {
 
     auto guard = alive;
 
-    TrophyManager::getInstance()->fetchProfile(false,
-        [this, guard](const TrophyManager::Profile& prof) {
+    trophies::TrophyManager::getInstance()->fetchProfile(false,
+        [this, guard](const trophies::TrophyManager::Profile& prof) {
             if (!*guard)
                 return;
             if (!prof.online_id.empty())
@@ -141,7 +141,7 @@ void ProfileCardView::refresh() {
                 return;
 
             auto inner = guard;
-            TrophyManager::getInstance()->fetchIcon(url,
+            trophies::TrophyManager::getInstance()->fetchIcon(url,
                 [this, inner](const std::string&, const std::vector<uint8_t>& bytes) {
                     if (!*inner)
                         return;
@@ -151,8 +151,8 @@ void ProfileCardView::refresh() {
         },
         [](Status, const std::string&) {});
 
-    TrophyManager::getInstance()->fetchSummary(false,
-        [this, guard](const TrophyManager::Summary& summary) {
+    trophies::TrophyManager::getInstance()->fetchSummary(false,
+        [this, guard](const trophies::TrophyManager::Summary& summary) {
             if (!*guard)
                 return;
             trophyCol->setVisibility(brls::Visibility::VISIBLE);

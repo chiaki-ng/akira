@@ -1067,7 +1067,7 @@ HostListTab::HostListTab() {
                 auto* s = SettingsManager::getInstance();
                 s->setActiveProfileId(ids[sel]);
                 s->writeFile();
-                TrophyManager::getInstance()->onActiveProfileChanged();
+                trophies::TrophyManager::getInstance()->onActiveProfileChanged();
                 brls::sync([] { accounts::views::QrSignInView::openIfSignInExpired(); });
 #if AKIRA_CLOUD
                 cloud::Service::instance().refreshActiveProfile(false,

@@ -301,7 +301,7 @@ void ProfileSwitcherView::selectProfile(int64_t id) {
 
     settings->setActiveProfileId(id);
     settings->writeFile();
-    TrophyManager::getInstance()->onActiveProfileChanged();
+    trophies::TrophyManager::getInstance()->onActiveProfileChanged();
     consoles::views::HostListTab::notifyActiveProfileChanged();
 
     if (card)
@@ -332,7 +332,7 @@ void ProfileSwitcherView::confirmRemoveProfile(int64_t id, const std::string& la
                 accounts->forget(account);
         }
         settings->writeFile();
-        TrophyManager::getInstance()->onActiveProfileChanged();
+        trophies::TrophyManager::getInstance()->onActiveProfileChanged();
         consoles::views::HostListTab::notifyActiveProfileChanged();
 
         /*

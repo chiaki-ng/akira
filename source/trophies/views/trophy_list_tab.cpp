@@ -9,6 +9,8 @@
 #include <cmath>
 #include <format>
 
+namespace akira::trophies::views {
+
 using namespace brls::literals;
 
 static const brls::ButtonStyle BUTTONSTYLE_BLUE = {
@@ -198,7 +200,7 @@ TrophyGameCard::TrophyGameCard()
 
     playLabel = new brls::Label();
     playLabel->setFontSize(17);
-    playLabel->setTextColor(akira::app::views::active().accent);
+    playLabel->setTextColor(app::views::active().accent);
     playLabel->setSingleLine(true);
     playLabel->setMarginTop(5);
     playLabel->setVisibility(brls::Visibility::GONE);
@@ -206,7 +208,7 @@ TrophyGameCard::TrophyGameCard()
 
     detailLabel = new brls::Label();
     detailLabel->setFontSize(17);
-    detailLabel->setTextColor(akira::app::views::active().textDim);
+    detailLabel->setTextColor(app::views::active().textDim);
     detailLabel->setSingleLine(true);
     detailLabel->setMarginTop(3);
     this->addView(detailLabel);
@@ -220,12 +222,12 @@ TrophyGameCard::TrophyGameCard()
     progressFill = new brls::Rectangle();
     progressFill->setHeight(4);
     progressFill->setCornerRadius(2);
-    progressFill->setColor(akira::app::views::active().accent);
+    progressFill->setColor(app::views::active().accent);
     progressTrack->addView(progressFill);
 
     this->addView(progressTrack);
 
-    akira::app::views::motion::liftOnFocus(this, focusAnim);
+    app::views::motion::liftOnFocus(this, focusAnim);
 
     this->registerClickAction([this](brls::View*) {
         if (selectCallback)
@@ -306,7 +308,7 @@ void TrophyGameCard::bind(const TrophyManager::Title& title, std::function<void(
             if (!decodeFailed)
                 return;
 
-            akira::log::warning("Trophy cover failed to decode ({} bytes) {}", bytes.size(), url);
+            log::warning("Trophy cover failed to decode ({} bytes) {}", bytes.size(), url);
 
             if (retriedIcons.insert(url).second)
                 TrophyManager::getInstance()->discardIcon(url);
@@ -364,7 +366,7 @@ void TrophyGameRowCell::prepareForReuse()
             cards[i]->reset();
 }
 
-akira::app::views::RecyclingGridItem* TrophyGameRowCell::create()
+app::views::RecyclingGridItem* TrophyGameRowCell::create()
 {
     return new TrophyGameRowCell();
 }
@@ -379,7 +381,7 @@ TrophyProfileCell::TrophyProfileCell()
     this->setPadding(18, 20, 18, 20);
     this->setFocusable(true);
 
-    levelRing = new akira::play::views::ProgressRing();
+    levelRing = new play::views::ProgressRing();
     levelRing->setWidth(104);
     levelRing->setHeight(104);
     levelRing->setThickness(8);
@@ -417,7 +419,7 @@ TrophyProfileCell::TrophyProfileCell()
             tile->setMarginLeft(12);
         tile->setAlignItems(brls::AlignItems::CENTER);
         tile->setCornerRadius(10);
-        tile->setBackgroundColor(akira::app::views::active().surfaceElevated);
+        tile->setBackgroundColor(app::views::active().surfaceElevated);
         tile->setPadding(12, 12, 12, 12);
 
         auto* img = new brls::Image();
@@ -438,7 +440,7 @@ TrophyProfileCell::TrophyProfileCell()
         auto* label = new brls::Label();
         label->setText(brls::getStr(tierLabel[i]));
         label->setFontSize(13);
-        label->setTextColor(akira::app::views::active().textDim);
+        label->setTextColor(app::views::active().textDim);
         label->setMarginTop(2);
         textCol->addView(label);
 
@@ -473,7 +475,7 @@ void TrophyProfileCell::bindSummary(const TrophyManager::Summary& summary)
     }
 }
 
-akira::app::views::RecyclingGridItem* TrophyProfileCell::create()
+app::views::RecyclingGridItem* TrophyProfileCell::create()
 {
     return new TrophyProfileCell();
 }
@@ -493,7 +495,7 @@ float TrophyGridDataSource::heightForRow(brls::View* recycler, size_t index)
     return index == 0 ? PROFILE_HEADER_HEIGHT : CARD_ROW_HEIGHT;
 }
 
-akira::app::views::RecyclingGridItem* TrophyGridDataSource::cellForRow(akira::app::views::RecyclingView* recycler, size_t index)
+app::views::RecyclingGridItem* TrophyGridDataSource::cellForRow(app::views::RecyclingView* recycler, size_t index)
 {
     if (index == 0)
     {
@@ -539,11 +541,11 @@ TrophyListTab::TrophyListTab()
     for (brls::Button* button : {sortBtn.getView(), filterBtn.getView()})
         button->setStyle(&BUTTONSTYLE_BLUE);
 
-    sortBtn->setBackgroundColor(akira::app::views::active().surfaceElevated);
-    filterBtn->setBackgroundColor(akira::app::views::active().surfaceElevated);
+    sortBtn->setBackgroundColor(app::views::active().surfaceElevated);
+    filterBtn->setBackgroundColor(app::views::active().surfaceElevated);
 
     forceRefreshBtn->setStyle(&BUTTONSTYLE_BLUE);
-    forceRefreshBtn->setBackgroundColor(akira::app::views::active().surfaceElevated);
+    forceRefreshBtn->setBackgroundColor(app::views::active().surfaceElevated);
     forceRefreshBtn->setShrink(0.0f);
     forceRefreshBtn->setCornerRadius(8);
 
@@ -561,13 +563,13 @@ TrophyListTab::TrophyListTab()
 
     forceRefreshGate.attach(
         forceRefreshBtn,
-        akira::app::views::active().surfaceElevated,
+        app::views::active().surfaceElevated,
         "akira/trophies/refresh"_i18n,
         "akira/trophies/force_refresh_busy"_i18n,
         "akira/trophies/force_refresh_wait",
         [this]() {
             if (loading)
-                return akira::accounts::ActionStatus{akira::accounts::ActionState::Busy, 0};
+                return accounts::ActionStatus{accounts::ActionState::Busy, 0};
 
             return TrophyManager::getInstance()->forceRefreshStatus();
         }
@@ -577,7 +579,7 @@ TrophyListTab::TrophyListTab()
         if (!forceRefreshGate.isReady())
             return true;
 
-        akira::log::info("User triggered force refresh");
+        log::info("User triggered force refresh");
 
         TrophyManager* manager = TrophyManager::getInstance();
         brls::Application::notify("akira/trophies/force_refresh"_i18n);
@@ -742,7 +744,7 @@ void TrophyListTab::refreshControlLabels()
 void TrophyListTab::refreshStatusLine()
 {
     statusLabel->setText(formatRelativeAge(TrophyManager::getInstance()->librarySavedAtSeconds()));
-    statusLabel->setTextColor(akira::app::views::active().textDim);
+    statusLabel->setTextColor(app::views::active().textDim);
 }
 
 void TrophyListTab::showSortPicker()
@@ -818,7 +820,7 @@ void TrophyListTab::load(bool forceRefresh)
 {
     if (loading)
     {
-        akira::log::info("Trophy grid: load already in progress, ignoring request");
+        log::info("Trophy grid: load already in progress, ignoring request");
         return;
     }
 
@@ -835,9 +837,9 @@ void TrophyListTab::load(bool forceRefresh)
             if (currentInstance)
                 currentInstance->applySummary(summary);
         },
-        [](akira::accounts::Status status, const std::string& message) {
-            akira::log::warning("Trophy grid: summary unavailable [{}] {}",
-                akira::accounts::statusName(status), message);
+        [](accounts::Status status, const std::string& message) {
+            log::warning("Trophy grid: summary unavailable [{}] {}",
+                accounts::statusName(status), message);
             if (currentInstance)
                 currentInstance->statusLabel->setText("akira/trophies/summary_unavailable"_i18n);
         });
@@ -850,7 +852,7 @@ void TrophyListTab::load(bool forceRefresh)
             currentInstance->loading = false;
             currentInstance->applyTitles(titles);
         },
-        [](akira::accounts::Status status, const std::string& message) {
+        [](accounts::Status status, const std::string& message) {
             if (!currentInstance)
                 return;
 
@@ -859,18 +861,20 @@ void TrophyListTab::load(bool forceRefresh)
             const char* key = "akira/trophies/error_generic";
             switch (status)
             {
-                case akira::accounts::Status::NotLinked: key = "akira/trophies/error_not_linked"; break;
-                case akira::accounts::Status::SessionExpired: key = "akira/trophies/error_session_expired"; break;
-                case akira::accounts::Status::Offline: key = "akira/trophies/error_offline"; break;
-                case akira::accounts::Status::RateLimited: key = "akira/trophies/error_rate_limited"; break;
+                case accounts::Status::NotLinked: key = "akira/trophies/error_not_linked"; break;
+                case accounts::Status::SessionExpired: key = "akira/trophies/error_session_expired"; break;
+                case accounts::Status::Offline: key = "akira/trophies/error_offline"; break;
+                case accounts::Status::RateLimited: key = "akira/trophies/error_rate_limited"; break;
                 default: break;
             }
 
-            akira::log::error("Trophy grid: load failed [{}] {}", akira::accounts::statusName(status), message);
+            log::error("Trophy grid: load failed [{}] {}", accounts::statusName(status), message);
 
             if (currentInstance->titles.empty())
                 currentInstance->grid->setError(brls::getStr(key));
             else
                 brls::Application::notify(brls::getStr(key));
         });
+}
+
 }

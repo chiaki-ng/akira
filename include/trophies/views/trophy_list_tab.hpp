@@ -15,6 +15,8 @@
 
 #include <functional>
 
+namespace akira::trophies::views {
+
 class TrophyGameCard : public brls::Box {
 public:
     TrophyGameCard();
@@ -40,35 +42,35 @@ private:
     std::function<void()> selectCallback;
 };
 
-class TrophyGameRowCell : public akira::app::views::RecyclingGridItem {
+class TrophyGameRowCell : public app::views::RecyclingGridItem {
 public:
     TrophyGameRowCell();
 
     void bindRow(const std::vector<TrophyManager::Title>& titles, size_t startIndex);
     void prepareForReuse() override;
 
-    static akira::app::views::RecyclingGridItem* create();
+    static app::views::RecyclingGridItem* create();
 
 private:
     TrophyGameCard* cards[3] = {};
 };
 
-class TrophyProfileCell : public akira::app::views::RecyclingGridItem {
+class TrophyProfileCell : public app::views::RecyclingGridItem {
 public:
     TrophyProfileCell();
 
     void bindSummary(const TrophyManager::Summary& summary);
 
-    static akira::app::views::RecyclingGridItem* create();
+    static app::views::RecyclingGridItem* create();
 
 private:
     brls::Label* levelValue = nullptr;
-    akira::play::views::ProgressRing* levelRing = nullptr;
+    play::views::ProgressRing* levelRing = nullptr;
     brls::Image* tierImages[4] = {};
     brls::Label* tierCounts[4] = {};
 };
 
-class TrophyGridDataSource : public akira::app::views::RecyclingGridDataSource {
+class TrophyGridDataSource : public app::views::RecyclingGridDataSource {
 public:
     TrophyGridDataSource(std::vector<TrophyManager::Title> titles, TrophyManager::Summary summary, bool haveSummary);
 
@@ -78,7 +80,7 @@ public:
 
     size_t getItemCount() override;
     float heightForRow(brls::View* recycler, size_t index) override;
-    akira::app::views::RecyclingGridItem* cellForRow(akira::app::views::RecyclingView* recycler, size_t index) override;
+    app::views::RecyclingGridItem* cellForRow(app::views::RecyclingView* recycler, size_t index) override;
     void onItemSelected(brls::Box* recycler, size_t index) override;
     void clearData() override;
 };
@@ -115,8 +117,8 @@ public:
     static TrophyListTab* currentInstance;
 
 private:
-    BRLS_BIND(akira::app::views::RecyclingGrid, grid, "trophies/grid");
-    BRLS_BIND(akira::accounts::views::PsnGatedBox, gate, "trophies/gate");
+    BRLS_BIND(app::views::RecyclingGrid, grid, "trophies/grid");
+    BRLS_BIND(accounts::views::PsnGatedBox, gate, "trophies/gate");
     BRLS_BIND(brls::Button, sortBtn, "trophies/sortBtn");
     BRLS_BIND(brls::Button, filterBtn, "trophies/filterBtn");
     BRLS_BIND(brls::Button, forceRefreshBtn, "trophies/forceRefreshBtn");
@@ -135,7 +137,7 @@ private:
     bool haveSummary = false;
     TrophyGridDataSource* currentDataSource = nullptr;
 
-    akira::accounts::views::PsnActionButton forceRefreshGate;
+    accounts::views::PsnActionButton forceRefreshGate;
 
     std::vector<TrophyManager::Title> titles;
     brls::RepeatingTimer statusTimer;
@@ -147,5 +149,7 @@ private:
 
 std::string formatTrophyPlatforms(const std::vector<libchiaking::trophies::TrophyPlatform>& platforms);
 std::string formatTrophyCounts(const libchiaking::trophies::TrophyCounts& counts);
+
+}
 
 #endif // AKIRA_TROPHY_LIST_TAB_HPP
