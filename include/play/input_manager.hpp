@@ -27,6 +27,9 @@
 
 namespace akira::play {
 
+class ControllerSettings;
+class Session;
+
 struct SyntheticSwipe {
     enum class Phase { IDLE, ACTIVE };
     Phase phase = Phase::IDLE;
@@ -56,7 +59,7 @@ struct TouchpadButtonPulse {
 class InputManager
 {
 public:
-    InputManager();
+    InputManager(Session& session, akira::platform::PadProvider& pads, const ControllerSettings& controllers);
     ~InputManager();
 
     InputManager(const InputManager&) = delete;
@@ -90,7 +93,9 @@ private:
     bool m_is_ps5 = false;
     SDL_Joystick* m_sdl_joystick_ptr[SDL_JOYSTICK_COUNT] = {nullptr};
 
+    Session& m_session;
     akira::platform::PadProvider& m_pads;
+    const ControllerSettings& m_controllers;
     std::mutex& m_state_mutex;
     std::atomic<bool> m_menu_held{false};
 

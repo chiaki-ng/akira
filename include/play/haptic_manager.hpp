@@ -12,6 +12,10 @@
 
 #include "platform/haptics/provider.hpp"
 
+namespace akira::settings {
+class DeveloperSettings;
+}
+
 namespace akira::play {
 
 class InputManager;
@@ -19,7 +23,7 @@ class InputManager;
 class HapticManager
 {
 public:
-    explicit HapticManager(std::unique_ptr<akira::platform::HapticsProvider> pad);
+    HapticManager(std::unique_ptr<akira::platform::HapticsProvider> pad, const settings::DeveloperSettings& developer);
     ~HapticManager();
 
     // Disable copy
@@ -69,6 +73,7 @@ private:
 
     InputManager* m_input = nullptr;
     std::unique_ptr<akira::platform::HapticsProvider> m_pad;
+    const settings::DeveloperSettings& m_developer;
     float m_rumble_strength = 1.0f;
 
     std::atomic<uint8_t> m_console_vibration{

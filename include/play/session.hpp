@@ -21,18 +21,27 @@
 #include "play/video_worker.hpp"
 #include "platform/video/provider.hpp"
 
+namespace akira::platform {
+class PlatformFactory;
+}
+
+namespace akira::settings {
+class DeveloperSettings;
+}
+
 namespace akira::play {
 
 class AudioManager;
+class ControllerSettings;
 class HapticManager;
 class InputManager;
+class StreamState;
 
 class Session
 {
-protected:
-    Session();
-
 private:
+    akira::platform::PlatformFactory& m_platform;
+    StreamState& m_stream_state;
     std::atomic<bool> quit = false;
 
     std::unique_ptr<AudioManager> m_audio_manager;
@@ -80,9 +89,10 @@ private:
     std::shared_ptr<libchiaking::play::Session> attached() const;
 
 public:
+    Session(akira::platform::PlatformFactory& platform, StreamState& streamState, const ControllerSettings& controllers,
+            const settings::DeveloperSettings& developer);
     Session(const Session&) = delete;
     void operator=(const Session&) = delete;
-    static Session* GetInstance();
 
     int getHapticBase() const;
     void setHapticBase(int base);

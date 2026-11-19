@@ -11,8 +11,7 @@
 #include "cloud/cloud_launch.hpp"
 #include "play/chiaki_core.hpp"
 #include "consoles/host.hpp"
-#include "settings/settings_manager.hpp"
-#include "network/wireguard_manager.hpp"
+#include "accounts/account_settings.hpp"
 #include "play/sample_cadence.hpp"
 #include "play/input_manager.hpp"
 #include "play/session.hpp"
@@ -24,10 +23,13 @@ namespace akira::play {
 namespace play = libchiaking::play;
 namespace platform = libchiaking::platform;
 
-Connection::Connection(Session& media, std::weak_ptr<ConnectionListener> listener, bool ps5)
+Connection::Connection(Session& media, std::weak_ptr<ConnectionListener> listener, bool ps5,
+                       akira::platform::PlatformFactory& platform, const accounts::AccountSettings& accounts)
     : media(media)
     , listener(std::move(listener))
     , ps5(ps5)
+    , platform(platform)
+    , accounts(accounts)
 {
 }
 
@@ -50,97 +52,6 @@ Connection::~Connection()
     }
     media.detach();
     ending.reset();
-}
-
-auto Connection::preferencesFor(consoles::Host& host, settings::SettingsManager& settings) -> std::optional<play::Preferences>
-{
-    const bool vpn = !host.isRemote() && network::WireGuardManager::instance().isConnected();
-    const auto& stream = settings.stream();
-    const auto profile = vpn ? StreamProfile::Vpn : host.isRemote() ? StreamProfile::Remote : StreamProfile::Local;
-    uint32_t height = static_cast<uint32_t>(akira::play::toInt(stream.videoResolution(profile)));
-    const auto fps = static_cast<uint32_t>(akira::play::toInt(stream.videoFps(profile)));
-    const auto bitrate = static_cast<uint32_t>(std::clamp(stream.videoBitrate(profile),
-        static_cast<int>(play::PictureRequest::minimum_bitrate_kbps),
-        static_cast<int>(play::PictureRequest::maximum_bitrate_kbps)));
-    const auto codec = host.isPS5() && akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::hevc)
-        ? libchiaking::media::VideoCodec::h265 : libchiaking::media::VideoCodec::h264;
-    if (codec == libchiaking::media::VideoCodec::h264)
-        height = std::min(height, play::PictureRequest::maximum_h264_height);
-
-    const auto picture = play::PictureRequest::create(height, fps, bitrate, codec);
-    if (!picture)
-    {
-        log::error("Stream preferences refused: {}p {} fps {} kbps", height, fps, bitrate);
-        return std::nullopt;
-    }
-
-    const auto target = host.isPS5() ? settings::TakionTarget::PS5 : settings::TakionTarget::PS4;
-    const auto takionVersion = host.getPinnedTakionVersion().value_or(
-        static_cast<uint32_t>(std::max(settings.developer().takionVersion(target), 0)));
-    if (host.getPinnedTakionVersion())
-        log::info("{} is pinned to Takion v{}", host.getHostName(), takionVersion);
-    auto preferences = tuned(*picture, takionVersion, settings);
-    if (preferences && vpn)
-    {
-        if (auto network = host.homeNetwork(); network.network())
-            preferences->home = std::move(network);
-        else
-            log::error("Stream over WireGuard has no tunnel network; using the local network");
-    }
-    return preferences;
-}
-
-auto Connection::cloudPreferencesFor(const cloud::CloudLaunch& launch, settings::SettingsManager& settings)
-    -> std::optional<play::Preferences>
-{
-    const bool ps5Cloud = launch.ps5();
-    const auto codec = ps5Cloud && akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::hevc)
-        ? libchiaking::media::VideoCodec::h265 : libchiaking::media::VideoCodec::h264;
-    auto height = static_cast<uint32_t>(settings.cloud().videoResolution(ps5Cloud));
-    if (codec == libchiaking::media::VideoCodec::h264)
-        height = std::min(height, play::PictureRequest::maximum_h264_height);
-    const auto bitrate = static_cast<uint32_t>(std::clamp(settings.cloud().videoBitrate(ps5Cloud),
-        static_cast<int>(play::PictureRequest::minimum_bitrate_kbps),
-        static_cast<int>(play::PictureRequest::maximum_bitrate_kbps)));
-    const auto picture = play::PictureRequest::create(height, 60, bitrate, codec);
-    if (!picture)
-    {
-        log::error("Cloud stream preferences refused: {}p {} kbps", height, bitrate);
-        return std::nullopt;
-    }
-    return tuned(*picture,
-        static_cast<uint32_t>(std::max(settings.developer().takionVersion(ps5Cloud ? settings::TakionTarget::PS5Cloud : settings::TakionTarget::PSNow), 0)),
-        settings);
-}
-
-auto Connection::tuned(play::PictureRequest picture, std::uint32_t takionVersion, settings::SettingsManager& settings)
-    -> std::optional<play::Preferences>
-{
-    play::DeveloperTuning::Facts facts;
-    if (takionVersion > 0)
-        facts.protocol_version = takionVersion;
-    facts.packet_loss_max = settings.stream().packetLossMax();
-    facts.keyframe_on_lost_frame = settings.stream().requestIdrOnFecFailure();
-    facts.nat_probe_sockets = static_cast<std::size_t>(std::clamp(settings.network().portGuessingSocks(), 0,
-        static_cast<int>(play::DeveloperTuning::maximum_nat_probe_sockets)));
-    const auto developer = play::DeveloperTuning::create(facts);
-    const auto internet = play::InternetOptions::create(settings.network().portGuessing(),
-        static_cast<std::size_t>(std::max(settings.network().portGuessingCount(), 0)));
-    if (!developer || !internet)
-    {
-        log::error("Stream tuning refused: packet loss {} sockets {}", facts.packet_loss_max, facts.nat_probe_sockets);
-        return std::nullopt;
-    }
-
-    play::Preferences preferences;
-    preferences.picture = picture;
-    preferences.sound = play::SoundRequest::create(play::SoundRequest::stereo)
-                            .and_then([](const play::SoundRequest& sound) { return sound.capped_at(play::SoundRequest::stereo); })
-                            .transform([](const play::SoundRequest& sound) { return sound.with_audio_profiles(false); })
-                            .value_or(play::SoundRequest{});
-    preferences.developer = *developer;
-    preferences.internet = *internet;
-    return preferences;
 }
 
 auto Connection::consoleStarter(std::shared_ptr<libchiaking::consoles::Console> console,
@@ -294,7 +205,7 @@ void Connection::setInputSuppressed(bool suppressed)
 
 bool Connection::addPlayer(uint8_t slot, std::optional<int64_t> profileId)
 {
-    if (!akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::couch_seats))
+    if (!this->platform.supplies(akira::platform::PlatformCapability::couch_seats))
         return false;
 
     const auto seat = libchiaking::controllers::SeatNumber::create(slot);
@@ -302,12 +213,11 @@ bool Connection::addPlayer(uint8_t slot, std::optional<int64_t> profileId)
     if (!seat || seat->is_first() || !running)
         return false;
 
-    auto* settings = settings::SettingsManager::getInstance();
     std::optional<libchiaking::AccountId> account;
     std::string label;
     if (ps5)
     {
-        const accounts::Profile* profile = profileId ? settings->accounts().findProfile(*profileId) : nullptr;
+        const accounts::Profile* profile = profileId ? this->accounts.findProfile(*profileId) : nullptr;
         if (!profile)
             return false;
         account = libchiaking::AccountId::from_base64(profile->accountId);
@@ -369,7 +279,7 @@ auto Connection::couchSeat(uint8_t slot) const -> const CouchSeat&
 
 bool Connection::couchSlotAvailable() const
 {
-    if (!akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::couch_seats) || !session())
+    if (!this->platform.supplies(akira::platform::PlatformCapability::couch_seats) || !session())
         return false;
     for (uint8_t slot = 1; slot < seatCount; slot++)
     {
@@ -389,12 +299,11 @@ bool Connection::seatPlaying(uint8_t slot) const
 auto Connection::couchProfileChoices(uint8_t slot) const -> std::vector<CouchProfileChoice>
 {
     std::vector<CouchProfileChoice> choices;
-    auto* settings = settings::SettingsManager::getInstance();
-    if (!ps5 || !settings || slot == 0 || slot >= seatCount)
+    if (!ps5 || slot == 0 || slot >= seatCount)
         return choices;
 
-    const int64_t activeProfileId = settings->accounts().activeProfileId();
-    for (const accounts::Profile& profile : settings->accounts().profiles())
+    const int64_t activeProfileId = this->accounts.activeProfileId();
+    for (const accounts::Profile& profile : this->accounts.profiles())
     {
         if (profile.id == activeProfileId || profile.accountId.empty())
             continue;
@@ -463,7 +372,7 @@ void Connection::routeCouchFeedback(const libchiaking::controllers::ControllerFe
     const uint8_t slot = feedback.seat.index();
     if (!seatPlaying(slot))
         return;
-    akira::platform::PlatformFactory::instance().pads().routeSeatFeedback(slot, feedback);
+    this->platform.pads().routeSeatFeedback(slot, feedback);
 }
 
 void Connection::on_state(play::SessionState state)

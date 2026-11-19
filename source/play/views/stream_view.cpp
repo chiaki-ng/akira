@@ -1,5 +1,7 @@
 #include "play/views/stream_view.hpp"
+#include "play/lazy_session.hpp"
 #include "app/view_services.hpp"
+#include "play/stream_preferences.hpp"
 #include "play/views/stream_nav.hpp"
 #include "platform/pads/pad.hpp"
 #include "platform/factory.hpp"
@@ -110,7 +112,7 @@ StreamView::StreamView(consoles::Host* host, std::shared_ptr<consoles::Host> hos
     : host(host)
     , hostOwner(std::move(hostOwner))
 {
-    this->session = Session::GetInstance();
+    this->session = &app::ViewServices::current().session.get();
     this->settings = settings::SettingsManager::getInstance();
 #if AKIRA_CLOUD
     if (const auto* launch = host->cloudLaunch())
@@ -298,7 +300,7 @@ void StreamView::openConnection()
     int bitrate = 0;
     bool hevc = false;
     if (const auto* launch = host->cloudLaunch()) {
-        auto preferences = Connection::cloudPreferencesFor(*launch, *settings);
+        auto preferences = app::ViewServices::current().preferences.forCloud(*launch);
         if (!preferences)
             throw app::Exception("akira/connection/fail_generic"_i18n);
         const auto picture = preferences->picture.on_cloud(launch->service());
@@ -315,7 +317,7 @@ void StreamView::openConnection()
     } else {
         if (!player || !console)
             throw app::Exception("akira/connection/fail_regist"_i18n);
-        auto preferences = Connection::preferencesFor(*host, *settings);
+        auto preferences = app::ViewServices::current().preferences.forConsole(*host);
         if (!preferences)
             throw app::Exception("akira/connection/fail_generic"_i18n);
         preferences->handover = handover;
@@ -363,7 +365,8 @@ void StreamView::openConnection()
     }
 
     std::shared_ptr<ConnectionListener> self = shared_from_this();
-    connection = std::make_shared<Connection>(*session, self, host->isPS5());
+    connection = std::make_shared<Connection>(*session, self, host->isPS5(),
+        akira::platform::PlatformFactory::instance(), settings->accounts());
     if (!connection->open(std::move(starter))) {
         connection.reset();
         throw app::Exception("akira/connection/failed_create_thread"_i18n);

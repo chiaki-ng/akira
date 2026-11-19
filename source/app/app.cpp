@@ -269,8 +269,14 @@ void App::startServices()
     auto* settings = settings::SettingsManager::getInstance();
     discovery.emplace(settings->hosts(), settings->store(), settings->network(), settings->developer(),
         settings->accounts(), network::WireGuardManager::instance());
+    preferences.emplace(settings->stream(), settings->cloud(), settings->network(), settings->developer(),
+        platform::PlatformFactory::instance(), network::WireGuardManager::instance());
+    session.emplace(platform::PlatformFactory::instance(), settings->streamState(), settings->controllers(),
+        settings->developer());
     services.emplace(Services{
         .discovery = *discovery,
+        .preferences = *preferences,
+        .session = *session,
         .trophies = *trophies,
 #if AKIRA_CLOUD
         .cloud = *cloud,
@@ -298,6 +304,8 @@ void App::shutDown()
     network::WireGuardManager::instance().disconnect();
 
     core.reset();
+
+    session->abandon();
 
     SDL_Quit();
     curl_global_cleanup();

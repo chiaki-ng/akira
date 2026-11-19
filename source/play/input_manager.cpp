@@ -2,11 +2,10 @@
 #include "play/sample_cadence.hpp"
 #include "play/session.hpp"
 #include "platform/video/renderer.hpp"
-#include "settings/settings_manager.hpp"
+#include "play/controller_settings.hpp"
 #include "play/swipe_direction.hpp"
 #include "play/remap_target.hpp"
 #include "play/switch_button.hpp"
-#include "platform/factory.hpp"
 #include <borealis.hpp>
 #include <cmath>
 #include <cstring>
@@ -22,8 +21,10 @@ static_assert(bits(SwitchButton::Left) == HidNpadButton_Left && bits(SwitchButto
 static_assert(bits(SwitchButton::StickLLeft) == HidNpadButton_StickLLeft && bits(SwitchButton::StickRDown) == HidNpadButton_StickRDown);
 static_assert(bits(SwitchButton::LeftSL) == HidNpadButton_LeftSL && bits(SwitchButton::RightSR) == HidNpadButton_RightSR);
 
-InputManager::InputManager()
-    : m_pads(akira::platform::PlatformFactory::instance().pads())
+InputManager::InputManager(Session& session, akira::platform::PadProvider& pads, const ControllerSettings& controllers)
+    : m_session(session)
+    , m_pads(pads)
+    , m_controllers(controllers)
     , m_state_mutex(m_pads.mutex())
 {
 }
@@ -127,10 +128,10 @@ void InputManager::applyPadInput(akira::input::Pad& pad, libchiaking::controller
         pad.readButtons(state);
         pad.readTriggers(state);
     } else {
-    const play::ButtonMapping& mapping = settings::SettingsManager::getInstance()->controllers().buttonMapping();
+    const play::ButtonMapping& mapping = m_controllers.buttonMapping();
     for (const auto& [chiakiBtn, combo] : mapping) {
         if (combo.size() <= 1) continue;
-        if (!settings::SettingsManager::getInstance()->controllers().isButtonEnabled(chiakiBtn))
+        if (!m_controllers.isButtonEnabled(chiakiBtn))
             continue;
         bool allHeld = true;
         for (uint64_t hidBtn : combo) {
@@ -146,7 +147,7 @@ void InputManager::applyPadInput(akira::input::Pad& pad, libchiaking::controller
         SWIPE_TOUCHPAD_LEFT, SWIPE_TOUCHPAD_RIGHT
     };
     for (int i = 0; i < 4; i++) {
-        if (!settings::SettingsManager::getInstance()->controllers().isButtonEnabled(swipeConstants[i]))
+        if (!m_controllers.isButtonEnabled(swipeConstants[i]))
             continue;
         if (m_swipes[i].phase == SyntheticSwipe::Phase::ACTIVE) {
             auto it = mapping.find(swipeConstants[i]);
@@ -166,7 +167,7 @@ void InputManager::applyPadInput(akira::input::Pad& pad, libchiaking::controller
     for (const auto& [chiakiBtn, combo] : mapping) {
         if (combo.empty()) continue;
         if (chiakiBtn & 0xFF000000) continue;
-        if (!settings::SettingsManager::getInstance()->controllers().isButtonEnabled(chiakiBtn))
+        if (!m_controllers.isButtonEnabled(chiakiBtn))
             continue;
 
         if (combo.size() == 1 && (consumedButtons & combo[0]))
@@ -389,7 +390,7 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
     const float trackpadMaxX = m_is_ps5 ? 1919.0f : 1920.0f;
     const float trackpadMaxY = m_is_ps5 ? 1079.0f : 942.0f;
 
-    akira::platform::VideoRenderer* renderer = Session::GetInstance()->getVideoRenderer();
+    akira::platform::VideoRenderer* renderer = m_session.getVideoRenderer();
     if (m_overlay_drag_finger >= 0)
     {
         bool still_down = false;
@@ -489,7 +490,7 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
                 m_touchpad_button_pulse.releaseAt = m_touchpad_button_pulse.pressAt
                     + gesture::TouchpadButtonHold;
                 m_active_click_touch_id = touch_id;
-                Session::GetInstance()->triggerBorderFlash();
+                m_session.triggerBorderFlash();
                 log::info("Touch: border tap committed (touch first, button in 67 ms, pos frozen) finger_id={} -> touch_id={} at mapped=({},{})",
                     sw_state.touches[i].finger_id, touch_id, x, y);
                 m_pending_border_taps.erase(pt);
@@ -613,7 +614,7 @@ void InputManager::updateSyntheticSwipes(libchiaking::controllers::ControllerInp
         {0, (int16_t)(padMaxY / 2), padMaxX, (int16_t)(padMaxY / 2)},
     };
 
-    const play::ButtonMapping& mapping = settings::SettingsManager::getInstance()->controllers().buttonMapping();
+    const play::ButtonMapping& mapping = m_controllers.buttonMapping();
 
     akira::input::Pad* pad = m_pads.current();
     if (!pad)
@@ -626,7 +627,7 @@ void InputManager::updateSyntheticSwipes(libchiaking::controllers::ControllerInp
     for (int i = 0; i < 4; i++) {
         SyntheticSwipe& swipe = m_swipes[i];
 
-        if (!settings::SettingsManager::getInstance()->controllers().isButtonEnabled(swipeConstants[i])) {
+        if (!m_controllers.isButtonEnabled(swipeConstants[i])) {
             swipe.buttonWasPressed = false;
             if (swipe.phase == SyntheticSwipe::Phase::ACTIVE) {
                 log::info("Swipe {}: disabled mid-swipe, stopping touch_id={}", swipeNames[i], swipe.touchId);

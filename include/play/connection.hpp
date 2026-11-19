@@ -28,11 +28,12 @@ namespace akira::play {
 class Session;
 
 }
-namespace akira::settings {
-class SettingsManager;
+namespace akira::accounts {
+class AccountSettings;
 }
-namespace akira::settings {
-enum class TakionTarget : uint8_t;
+
+namespace akira::platform {
+class PlatformFactory;
 }
 
 namespace akira::play {
@@ -83,15 +84,13 @@ public:
 
     static constexpr uint8_t seatCount = libchiaking::controllers::SeatNumber::count;
 
-    Connection(Session& media, std::weak_ptr<ConnectionListener> listener, bool ps5);
+    Connection(Session& media, std::weak_ptr<ConnectionListener> listener, bool ps5,
+               akira::platform::PlatformFactory& platform, const accounts::AccountSettings& accounts);
     ~Connection();
 
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;
 
-    static auto preferencesFor(consoles::Host& host, settings::SettingsManager& settings) -> std::optional<libchiaking::play::Preferences>;
-    static auto cloudPreferencesFor(const cloud::CloudLaunch& launch, settings::SettingsManager& settings)
-        -> std::optional<libchiaking::play::Preferences>;
     static auto consoleStarter(std::shared_ptr<libchiaking::consoles::Console> console,
                                std::shared_ptr<libchiaking::users::PsUser> player,
                                libchiaking::play::Preferences preferences,
@@ -121,8 +120,6 @@ private:
     auto session() const -> std::shared_ptr<libchiaking::play::Session>;
     void post(std::function<void(Connection&, ConnectionListener&)> work);
     void routeCouchFeedback(const libchiaking::controllers::ControllerFeedback& feedback);
-    static auto tuned(libchiaking::play::PictureRequest picture, std::uint32_t takionVersion, settings::SettingsManager& settings)
-        -> std::optional<libchiaking::play::Preferences>;
 
     void on_stream_description(const libchiaking::media::StreamDescription& description) override;
     auto on_video(const libchiaking::media::VideoUnit& unit) -> libchiaking::media::VideoResult override;
@@ -146,6 +143,8 @@ private:
     std::shared_ptr<const bool> alive = std::make_shared<const bool>(true);
     const std::weak_ptr<const bool> aliveToken = alive;
     const bool ps5;
+    akira::platform::PlatformFactory& platform;
+    const accounts::AccountSettings& accounts;
 
     mutable std::mutex sessionMutex;
     std::shared_ptr<libchiaking::play::Session> active;

@@ -1,5 +1,5 @@
 #include "play/session.hpp"
-#include "settings/settings_manager.hpp"
+#include "play/stream_state.hpp"
 #include <borealis.hpp>
 #include "log/log.hpp"
 
@@ -13,12 +13,6 @@
 #include <cstring>
 
 namespace akira::play {
-
-Session* Session::GetInstance()
-{
-    static Session* instance = new Session();
-    return instance;
-}
 
 int Session::getHapticBase() const
 {
@@ -76,15 +70,16 @@ void Session::setHapticIntensity(HapticIntensity intensity)
         m_haptic_manager->setHapticIntensity(intensity);
 }
 
-Session::Session()
+Session::Session(akira::platform::PlatformFactory& platform, StreamState& streamState,
+                 const ControllerSettings& controllers, const settings::DeveloperSettings& developer)
+    : m_platform(platform), m_stream_state(streamState)
 {
     m_audio_manager = std::make_unique<AudioManager>();
-    m_input_manager = std::make_unique<InputManager>();
-    auto& platform = akira::platform::PlatformFactory::instance();
-    m_haptic_manager = std::make_unique<HapticManager>(platform.createHaptics());
+    m_input_manager = std::make_unique<InputManager>(*this, platform.pads(), controllers);
+    m_haptic_manager = std::make_unique<HapticManager>(platform.createHaptics(), developer);
     m_haptic_manager->setInputManager(m_input_manager.get());
     m_pad_feedback = platform.createFeedback(*m_haptic_manager);
-    m_video = akira::platform::PlatformFactory::instance().createVideo();
+    m_video = platform.createVideo();
     m_video->ensureDecoder();
 }
 
@@ -276,10 +271,10 @@ bool Session::FreeVideo()
 
     m_video->detachFrames();
 
-    akira::platform::PlatformFactory::instance().stats().streamStopped();
+    m_platform.stats().streamStopped();
 
     m_first_frame_received = false;
-    settings::SettingsManager::getInstance()->streamState().setActive(false);
+    m_stream_state.setActive(false);
 
     {
         std::lock_guard lock(m_media_mutex);
@@ -369,7 +364,7 @@ void Session::UpdateSecondaryPads(std::span<libchiaking::controllers::Controller
 {
     if (m_input_manager)
     {
-        akira::platform::PlatformFactory::instance().pads().readSecondaryPads(*m_input_manager, states, count);
+        m_platform.pads().readSecondaryPads(*m_input_manager, states, count);
     }
 }
 
@@ -396,9 +391,9 @@ void Session::frameArriving(const akira::platform::FrameInfo& frame)
         m_first_frame_received = true;
         brls::Application::setRenderSuspended(true);
         updateActualResolution(static_cast<int>(frame.width), static_cast<int>(frame.height));
-        settings::SettingsManager::getInstance()->streamState().setActive(true);
+        m_stream_state.setActive(true);
         log::info("First video frame received!");
-        akira::platform::PlatformFactory::instance().stats().streamStarted(*this);
+        m_platform.stats().streamStarted(*this);
     }
 
     if (akira::platform::VideoDecoder* decoder = m_video->decoder())
@@ -429,7 +424,7 @@ StreamStats Session::getStreamStats()
     stats.requested_fps = m_requested_fps;
     stats.requested_bitrate = m_requested_bitrate;
     stats.requested_hevc = m_requested_hevc;
-    akira::platform::PlatformFactory::instance().pads().fillStreamStats(stats);
+    m_platform.pads().fillStreamStats(stats);
 
     if (akira::platform::VideoRenderer* renderer = m_video->renderer())
         stats.fps = renderer->getRenderFPS();

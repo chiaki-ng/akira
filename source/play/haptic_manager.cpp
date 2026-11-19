@@ -3,7 +3,7 @@
 
 #include <cstdio>
 #include "play/input_manager.hpp"
-#include "settings/settings_manager.hpp"
+#include "settings/developer_settings.hpp"
 #include "play/ds5_intensity.hpp"
 #include "play/rumble_profile.hpp"
 #include <algorithm>
@@ -11,8 +11,9 @@
 
 namespace akira::play {
 
-HapticManager::HapticManager(std::unique_ptr<akira::platform::HapticsProvider> pad)
-    : m_pad(std::move(pad))
+HapticManager::HapticManager(std::unique_ptr<akira::platform::HapticsProvider> pad,
+                             const settings::DeveloperSettings& developer)
+    : m_pad(std::move(pad)), m_developer(developer)
 {
 }
 
@@ -56,7 +57,7 @@ void HapticManager::emit(float left, float right)
 
 void HapticManager::setRumble(uint8_t left, uint8_t right)
 {
-    if (settings::SettingsManager::getInstance()->developer().chiakiDebugLogging() && (left > 0 || right > 0))
+    if (m_developer.chiakiDebugLogging() && (left > 0 || right > 0))
         log::info("setRumble: left={}, right={}, strength={:.2f}", left, right, m_rumble_strength);
 
     m_rumble_events++;

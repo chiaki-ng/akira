@@ -13,6 +13,8 @@
 #endif
 #include "consoles/discovery_manager.hpp"
 #include "play/chiaki_core.hpp"
+#include "play/lazy_session.hpp"
+#include "play/stream_preferences.hpp"
 #include "trophies/trophy_manager.hpp"
 
 namespace akira::app {
@@ -52,6 +54,8 @@ private:
     std::optional<cloud::Service> cloud;
 #endif
     std::optional<consoles::DiscoveryManager> discovery;
+    std::optional<play::StreamPreferences> preferences;
+    std::optional<play::LazySession> session;
     std::optional<Services> services;
     std::optional<ViewServices> viewServices;
     std::optional<play::ChiakiCore> core;

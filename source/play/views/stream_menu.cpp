@@ -1,4 +1,6 @@
 #include "play/views/stream_menu.hpp"
+#include "play/lazy_session.hpp"
+#include "app/view_services.hpp"
 #include "play/views/stream_cards.hpp"
 #include "play/session.hpp"
 #include "app/views/glass.hpp"
@@ -537,7 +539,7 @@ void StreamMenu::drawIdentity(NVGcontext* vg, float x, float y, float e, const a
         }
     }
 
-    Session* session = Session::GetInstance();
+    Session* session = &app::ViewServices::current().session.get();
     StreamStats st = session ? session->getStreamStats() : StreamStats{};
 
     float tx = x + box + 13.0f * s;
