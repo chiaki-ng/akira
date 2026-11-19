@@ -7,6 +7,9 @@
 #include <vector>
 
 #include <borealis/core/i18n.hpp>
+
+namespace akira::app::views {
+
 using namespace brls::literals;
 
 namespace platform = libchiaking::platform;
@@ -43,7 +46,7 @@ void BenchmarkView::startBenchmark()
     benchmarkFinished = false;
     statusShown = false;
 
-    akira::ChiakiCore& core = akira::ChiakiCore::current();
+    ChiakiCore& core = ChiakiCore::current();
     auto started = platform::Thread::start(core.threading(), "benchmark", platform::ThreadRole::crypto,
         [this, &crypto = core.crypto(), &clock = core.clock()](platform::StopToken stop) {
             run(crypto, clock, stop);
@@ -81,7 +84,7 @@ void BenchmarkView::updateLogDisplay()
     if (logContainer->getChildren().empty()) {
         auto* label = new brls::Label();
         label->setFontSize(18);
-        label->setTextColor(akira::ui::active().textMuted);
+        label->setTextColor(views::active().textMuted);
         logContainer->addView(label);
     }
 
@@ -174,4 +177,6 @@ void BenchmarkView::draw(NVGcontext* vg, float x, float y, float width, float he
         }
         needsScrollToBottom = false;
     }
+}
+
 }

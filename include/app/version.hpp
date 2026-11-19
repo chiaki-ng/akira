@@ -3,7 +3,7 @@
 
 #include <akira_version.h>
 
-namespace akira::version {
+namespace akira::app::version {
 
 inline const char* string() { return AKIRA_VERSION_STRING; }
 inline const char* semver() { return AKIRA_VERSION_SEMVER; }

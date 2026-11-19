@@ -3,7 +3,7 @@
 
 #include <switch.h>
 
-namespace akira {
+namespace akira::app {
 
 class WorkerCores {
 public:

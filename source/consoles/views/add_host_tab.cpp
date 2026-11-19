@@ -53,26 +53,26 @@ void AddHostTab::onSaveClicked() {
 
     if (name.empty()) {
         statusLabel->setText("akira/add_host/error_no_name"_i18n);
-        statusLabel->setTextColor(akira::ui::active().danger);
+        statusLabel->setTextColor(akira::app::views::active().danger);
         return;
     }
 
     if (addr.empty()) {
         statusLabel->setText("akira/add_host/error_no_ip"_i18n);
-        statusLabel->setTextColor(akira::ui::active().danger);
+        statusLabel->setTextColor(akira::app::views::active().danger);
         return;
     }
 
     if (!SettingsManager::isValidHostAddress(addr)) {
         statusLabel->setText("akira/add_host/error_invalid_ip"_i18n);
-        statusLabel->setTextColor(akira::ui::active().danger);
+        statusLabel->setTextColor(akira::app::views::active().danger);
         return;
     }
 
     auto* hostsMap = settings->getHostsMap();
     if (hostsMap->find(name) != hostsMap->end()) {
         statusLabel->setText("akira/add_host/error_duplicate_name"_i18n);
-        statusLabel->setTextColor(akira::ui::active().danger);
+        statusLabel->setTextColor(akira::app::views::active().danger);
         return;
     }
 
@@ -87,7 +87,7 @@ void AddHostTab::onSaveClicked() {
     settings->writeFile();
 
     statusLabel->setText("akira/add_host/success"_i18n);
-    statusLabel->setTextColor(akira::ui::active().success);
+    statusLabel->setTextColor(akira::app::views::active().success);
 
     akira::log::info("Added host: {} at {}", name, addr);
 

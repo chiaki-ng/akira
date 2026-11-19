@@ -180,13 +180,13 @@ public:
         this->registerAction("akira/hosts/options"_i18n, brls::ControllerButton::BUTTON_Y,
             [this](brls::View*) { openContextMenu(); return true; }, false);
 
-        akira::ui::motion::liftOnFocus(this, focusAnim);
+        akira::app::views::motion::liftOnFocus(this, focusAnim);
 
         updateState();
     }
 
     void playEntrance(int delayMs) {
-        akira::ui::motion::fadeIn(this, entranceAnim, delayMs, 300);
+        akira::app::views::motion::fadeIn(this, entranceAnim, delayMs, 300);
     }
 
     void updateState() {
@@ -199,46 +199,46 @@ public:
         NVGcolor typeColor;
         if (host->isRemote()) {
             typeText = "akira/hosts/remote"_i18n;
-            typeColor = akira::ui::active().accentStrong;
+            typeColor = akira::app::views::active().accentStrong;
         } else if (host->isManual()) {
             typeText = "akira/hosts/manual"_i18n;
-            typeColor = akira::ui::active().media;
+            typeColor = akira::app::views::active().media;
         } else if (host->isAuto()) {
             typeText = "akira/hosts/auto"_i18n;
-            typeColor = akira::ui::active().accent;
+            typeColor = akira::app::views::active().accent;
         } else {
             typeText = "akira/hosts/local"_i18n;
-            typeColor = akira::ui::active().textMuted;
+            typeColor = akira::app::views::active().textMuted;
         }
         typeLabel->setText(typeText);
         typeLabel->setTextColor(typeColor);
-        typePill->setBackgroundColor(akira::ui::withAlpha(typeColor, 0x2e));
+        typePill->setBackgroundColor(akira::app::views::withAlpha(typeColor, 0x2e));
 
         std::string pillText;
-        NVGcolor fg = akira::ui::active().textMuted;
+        NVGcolor fg = akira::app::views::active().textMuted;
         bool dim = true;
         if (offersLink()) {
             pillText = "akira/hosts/link"_i18n;
-            fg = akira::ui::active().accent;
+            fg = akira::app::views::active().accent;
         } else if (host->usesInternetPairing()) {
             pillText = "akira/hosts/ready"_i18n;
-            fg = akira::ui::active().success;
+            fg = akira::app::views::active().success;
             dim = false;
         } else if (!host->hasRpKey() && (host->isDiscovered() || host->canPairOverInternet())) {
             pillText = "akira/hosts/register"_i18n;
-            fg = akira::ui::active().accent;
+            fg = akira::app::views::active().accent;
         } else if (host->isStandby() && host->hasRpKey()) {
             pillText = "akira/hosts/standby"_i18n;
         } else if ((host->hasRpKey() && host->isReady()) || (host->isRemote() && host->hasRpKey())) {
             pillText = "akira/hosts/ready"_i18n;
-            fg = akira::ui::active().success;
+            fg = akira::app::views::active().success;
             dim = false;
         } else {
             pillText = host->getStateString();
         }
         statusLabel->setText(pillText);
         statusLabel->setTextColor(fg);
-        statusPill->setBackgroundColor(akira::ui::withAlpha(fg, 0x2e));
+        statusPill->setBackgroundColor(akira::app::views::withAlpha(fg, 0x2e));
 
         int wantDim = dim ? 1 : 0;
         if (wantDim != lastDim) {
@@ -247,7 +247,7 @@ public:
                 consoleImg->setAlpha(target);
                 dimAnim.reset(target);
             } else {
-                akira::ui::motion::animate(dimAnim, dimAnim.getValue(), target, 260,
+                akira::app::views::motion::animate(dimAnim, dimAnim.getValue(), target, 260,
                     brls::EasingFunction::quadraticOut,
                     [this](float v) { consoleImg->setAlpha(v); });
             }
@@ -750,14 +750,14 @@ public:
         this->setMarginBottom(14);
         this->setBackgroundColor(brls::Application::getTheme().getColor("color/card"));
         this->setCornerRadius(14);
-        this->setBorderColor(akira::ui::withAlpha(akira::ui::active().accent, 0x66));
+        this->setBorderColor(akira::app::views::withAlpha(akira::app::views::active().accent, 0x66));
         this->setBorderThickness(2);
         this->setFocusable(true);
 
         auto* plus = new brls::Label();
         plus->setText("+");
         plus->setFontSize(64);
-        plus->setTextColor(akira::ui::active().accent);
+        plus->setTextColor(akira::app::views::active().accent);
         plus->setMarginBottom(6);
         this->addView(plus);
 
@@ -765,14 +765,14 @@ public:
         label->setText("akira/add_host/add_console"_i18n);
         label->setFontSize(22);
         label->setHorizontalAlign(brls::HorizontalAlign::CENTER);
-        label->setTextColor(akira::ui::active().textMuted);
+        label->setTextColor(akira::app::views::active().textMuted);
         this->addView(label);
 
         this->registerClickAction([](brls::View*) {
             openAddHostFlow();
             return true;
         });
-        akira::ui::motion::liftOnFocus(this, focusAnim);
+        akira::app::views::motion::liftOnFocus(this, focusAnim);
     }
 
 private:
@@ -790,14 +790,14 @@ public:
         this->setPadding(20);
         this->setBackgroundColor(brls::Application::getTheme().getColor("color/card"));
         this->setCornerRadius(14);
-        this->setBorderColor(akira::ui::withAlpha(akira::ui::active().accent, 0x66));
+        this->setBorderColor(akira::app::views::withAlpha(akira::app::views::active().accent, 0x66));
         this->setBorderThickness(2);
         this->setFocusable(true);
 
         auto* glyph = new brls::Label();
         glyph->setText("\xEE\xA1\x93");
         glyph->setFontSize(64);
-        glyph->setTextColor(akira::ui::active().accent);
+        glyph->setTextColor(akira::app::views::active().accent);
         glyph->setMarginBottom(10);
         this->addView(glyph);
 
@@ -805,14 +805,14 @@ public:
         label->setText("akira/hosts/setup_account"_i18n);
         label->setFontSize(22);
         label->setHorizontalAlign(brls::HorizontalAlign::CENTER);
-        label->setTextColor(akira::ui::active().text);
+        label->setTextColor(akira::app::views::active().text);
         this->addView(label);
 
         auto* hint = new brls::Label();
         hint->setText("akira/hosts/setup_account_hint"_i18n);
         hint->setFontSize(15);
         hint->setHorizontalAlign(brls::HorizontalAlign::CENTER);
-        hint->setTextColor(akira::ui::active().textMuted);
+        hint->setTextColor(akira::app::views::active().textMuted);
         hint->setMarginTop(6);
         this->addView(hint);
 
@@ -820,7 +820,7 @@ public:
             brls::Application::pushActivity(new brls::Activity(new ProfileSetupView()));
             return true;
         });
-        akira::ui::motion::liftOnFocus(this, focusAnim);
+        akira::app::views::motion::liftOnFocus(this, focusAnim);
     }
 
 private:
@@ -833,7 +833,7 @@ public:
     CloudCard()
     {
         cloud::Snapshot snapshot = cloud::Service::instance().snapshotForActiveProfile();
-        const auto& pal = akira::ui::active();
+        const auto& pal = akira::app::views::active();
 
         this->setAxis(brls::Axis::COLUMN);
         this->setAlignItems(brls::AlignItems::CENTER);
@@ -901,11 +901,11 @@ public:
         }
 
         this->setBackgroundColor(active
-            ? akira::ui::withAlpha(pal.accentStrong, 0x24)
+            ? akira::app::views::withAlpha(pal.accentStrong, 0x24)
             : pal.surface);
         if (active)
         {
-            this->setBorderColor(akira::ui::withAlpha(pal.accent, 0x55));
+            this->setBorderColor(akira::app::views::withAlpha(pal.accent, 0x55));
             this->setBorderThickness(1);
         }
 
@@ -935,7 +935,7 @@ public:
         pill->setPaddingRight(11);
         pill->setPaddingTop(2);
         pill->setPaddingBottom(3);
-        pill->setBackgroundColor(akira::ui::withAlpha(pillColor, 0x2e));
+        pill->setBackgroundColor(akira::app::views::withAlpha(pillColor, 0x2e));
         pill->setShrink(0);
         auto* pillLabel = new brls::Label();
         pillLabel->setText(pillText);
@@ -970,13 +970,13 @@ public:
             }
 
             auto* frame = new brls::AppletFrame(new cloud::LibraryView());
-            decorateAkiraHeader(frame);
-            registerAkiraTabActions(frame);
+            akira::app::views::decorateAkiraHeader(frame);
+            akira::app::views::registerAkiraTabActions(frame);
             brls::Application::pushActivity(new brls::Activity(frame));
             return true;
         });
 
-        akira::ui::motion::liftOnFocus(this, focusAnim);
+        akira::app::views::motion::liftOnFocus(this, focusAnim);
     }
 
 private:
@@ -1212,7 +1212,7 @@ void HostListTab::initFindRemoteButton() {
 
     findRemoteGate.attach(
         findRemoteBtn,
-        akira::ui::active().accent,
+        akira::app::views::active().accent,
         "akira/hosts/find_remote"_i18n,
         "akira/hosts/find_remote_busy"_i18n,
         "akira/hosts/find_remote_wait",

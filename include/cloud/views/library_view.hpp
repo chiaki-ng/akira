@@ -69,9 +69,9 @@ private:
     brls::Label* countLabel = nullptr;
     bool canPairState = false;
     bool checkingState = false;
-    RecyclingGrid* grid = nullptr;
+    akira::app::views::RecyclingGrid* grid = nullptr;
     brls::Box* stateBox = nullptr;
-    RecyclingGridDataSource* dataSource = nullptr;
+    akira::app::views::RecyclingGridDataSource* dataSource = nullptr;
 
     struct LoadingLines {
         brls::Box* box = nullptr;

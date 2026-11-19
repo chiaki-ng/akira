@@ -2,7 +2,7 @@
 
 #include <borealis.hpp>
 
-namespace akira::ui
+namespace akira::app::views
 {
 static const Palette kPlayStation = {
     .id              = "playstation",

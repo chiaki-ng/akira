@@ -10,7 +10,7 @@ namespace akira::platform::per_mode
 
 void PerModeDisplayProvider::prepare()
 {
-    CrashReport::stage("window size");
+    app::CrashReport::stage("window size");
     if (const Result rc = nwindowSetModeDimensions(nwindowGetDefault(), 0, 0, 0, 0); R_FAILED(rc))
         akira::log::warning("switch: per-mode window size refused (0x{:x}), drawing at the default window size", rc);
 }

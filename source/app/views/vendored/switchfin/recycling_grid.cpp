@@ -29,6 +29,8 @@
 
 /// RecyclingGridItem
 
+namespace akira::app::views {
+
 RecyclingGridItem::RecyclingGridItem() {
     this->setFocusable(true);
     this->registerClickAction([this](View*) {
@@ -97,7 +99,7 @@ void RecyclingView::registerCell(std::string identifier, std::function<Recycling
 }
 
 RecyclingGridItem* RecyclingView::dequeueReusableCell(std::string identifier) {
-    akira::log::verbose("RecyclingView::dequeueReusableCell: {}", identifier);
+    log::verbose("RecyclingView::dequeueReusableCell: {}", identifier);
     RecyclingGridItem* cell = nullptr;
     auto it = queueMap.find(identifier);
 
@@ -152,7 +154,7 @@ void RecyclingView::showSkeleton(unsigned int num) { this->setDataSource(new Dat
 /// RecyclingGrid
 
 RecyclingGrid::RecyclingGrid() {
-    akira::log::debug("View RecyclingGrid: create");
+    log::debug("View RecyclingGrid: create");
 
     // Create hint views
     // akira does not ship switchfin's hint art; the hint is text-only and
@@ -204,7 +206,7 @@ RecyclingGrid::RecyclingGrid() {
 }
 
 RecyclingGrid::~RecyclingGrid() {
-    akira::log::debug("View RecyclingGrid: delete");
+    log::debug("View RecyclingGrid: delete");
     if (this->hintImage) this->hintImage->freeView();
     this->hintImage = nullptr;
     if (this->hintLabel) this->hintLabel->freeView();
@@ -285,7 +287,7 @@ void RecyclingGrid::addCellAt(size_t index, bool downSide) {
             cellHeight = cellHeightCache[index];
         }
 
-        akira::log::verbose("Add cell at: y {} height {}", getHeightByCellIndex(index) + paddingTop, cellHeight);
+        log::verbose("Add cell at: y {} height {}", getHeightByCellIndex(index) + paddingTop, cellHeight);
     } else {
         cell->setWidth(cellWidth - estimatedRowSpace);
         cellX += (renderedFrame.getWidth() - paddingLeft - paddingRight) / spanCount * (index % spanCount);
@@ -323,7 +325,7 @@ void RecyclingGrid::addCellAt(size_t index, bool downSide) {
     if (isFlowMode)
         contentBox->setHeight(getHeightByCellIndex(this->dataSource->getItemCount()) + paddingTop + paddingBottom);
 
-    akira::log::verbose("RecyclingGrid Cell #{} - added", index);
+    log::verbose("RecyclingGrid Cell #{} - added", index);
 }
 
 void RecyclingGrid::setDataSource(RecyclingGridDataSource* source) {
@@ -489,7 +491,7 @@ void RecyclingGrid::itemsRecyclingLoop() {
         queueReusableCell(minCell);
         this->removeCell(minCell);
 
-        akira::log::verbose("Cell #{} - destroyed", visibleMin);
+        log::verbose("Cell #{} - destroyed", visibleMin);
 
         visibleMin++;
     }
@@ -517,7 +519,7 @@ void RecyclingGrid::itemsRecyclingLoop() {
         queueReusableCell(maxCell);
         this->removeCell(maxCell);
 
-        akira::log::verbose("Cell #{} - destroyed", visibleMax);
+        log::verbose("Cell #{} - destroyed", visibleMax);
 
         visibleMax--;
     }
@@ -552,7 +554,7 @@ void RecyclingGrid::itemsRecyclingLoop() {
         if (!requestNextPage && nextPageCallback) {
             // 有数据、不是骨架屏数据、数据不为空
             if (dataSource && !dynamic_cast<DataSourceSkeleton*>(dataSource) && dataSource->getItemCount() > 0) {
-                akira::log::debug("RecyclingGrid request next page");
+                log::debug("RecyclingGrid request next page");
                 requestNextPage = true;
                 this->nextPageCallback();
             }
@@ -577,7 +579,7 @@ float RecyclingGrid::getHeightByCellIndex(size_t index, size_t start) {
     if (!isFlowMode) return (estimatedRowHeight + estimatedRowSpace) * (size_t)((index - start) / spanCount);
 
     if (cellHeightCache.size() == 0) {
-        akira::log::error("cellHeightCache.size() cannot be zero in flow mode {} {}", start, index);
+        log::error("cellHeightCache.size() cannot be zero in flow mode {} {}", start, index);
         return 0;
     }
 
@@ -685,7 +687,7 @@ void RecyclingGrid::onLayout() {
     if (!this->contentBox) return;
     this->contentBox->setWidth(width);
     if (checkWidth()) {
-        akira::log::debug("RecyclingGrid::onLayout reloadData()");
+        log::debug("RecyclingGrid::onLayout reloadData()");
         layouted = true;
         reloadData();
     }
@@ -697,7 +699,7 @@ bool RecyclingGrid::checkWidth() {
         oldWidth = width;
     }
     if ((int)oldWidth != (int)width && width != 0) {
-        akira::log::debug("RecyclingGrid::checkWidth from {} to {}", oldWidth, width);
+        log::debug("RecyclingGrid::checkWidth from {} to {}", oldWidth, width);
         oldWidth = width;
         return true;
     }
@@ -749,4 +751,6 @@ RecyclingGridContentBox::RecyclingGridContentBox(RecyclingView* recycler) : Box(
 
 brls::View* RecyclingGridContentBox::getNextFocus(brls::FocusDirection direction, brls::View* currentView) {
     return this->recycler->getNextCellFocus(direction, currentView);
+}
+
 }

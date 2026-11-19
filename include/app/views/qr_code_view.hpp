@@ -9,7 +9,7 @@
 
 #include <qrcodegen.hpp>
 
-namespace akira::ui {
+namespace akira::app::views {
 
 class QrCodeView : public brls::View {
 public:
@@ -29,6 +29,6 @@ private:
     qrcodegen::QrCode code;
 };
 
-} // namespace akira::ui
+} // namespace akira::app::views
 
 #endif // AKIRA_UI_QR_CODE_VIEW_HPP

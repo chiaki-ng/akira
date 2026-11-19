@@ -8,7 +8,7 @@
 extern "C" char __start__[];
 extern "C" char __rodata_start[];
 
-namespace akira {
+namespace akira::app {
 
 CrashReport::Writer CrashReport::s_writer;
 

@@ -127,12 +127,12 @@ void SettingsGeneralView::initLanguageSelector() {
 }
 
 void SettingsGeneralView::initThemeSelector() {
-    int count = akira::ui::themeCount();
+    int count = akira::app::views::themeCount();
 
     std::vector<std::string> options;
     std::vector<std::string> ids;
     for (int i = 0; i < count; i++) {
-        const akira::ui::Palette& p = akira::ui::themeAt(i);
+        const akira::app::views::Palette& p = akira::app::views::themeAt(i);
         options.emplace_back(p.name);
         ids.emplace_back(p.id);
     }
@@ -221,13 +221,13 @@ void SettingsGeneralView::rebuildSubnetsUI() {
         auto* label = new brls::Label();
         label->setText(localCidr);
         label->setFontSize(18);
-        label->setTextColor(akira::ui::active().text);
+        label->setTextColor(akira::app::views::active().text);
         defaultRow->addView(label);
 
         auto* tag = new brls::Label();
         tag->setText("akira/settings/this_network"_i18n);
         tag->setFontSize(14);
-        tag->setTextColor(akira::ui::active().textDim);
+        tag->setTextColor(akira::app::views::active().textDim);
         defaultRow->addView(tag);
 
         subnetsBox->addView(defaultRow);
@@ -255,13 +255,13 @@ void SettingsGeneralView::rebuildSubnetsUI() {
         auto* label = new brls::Label();
         label->setText(subnet);
         label->setFontSize(18);
-        label->setTextColor(akira::ui::active().text);
+        label->setTextColor(akira::app::views::active().text);
         row->addView(label);
 
         auto* remove = new brls::Label();
         remove->setText("akira/settings/remove"_i18n);
         remove->setFontSize(16);
-        remove->setTextColor(akira::ui::active().danger);
+        remove->setTextColor(akira::app::views::active().danger);
         row->addView(remove);
 
         subnetsBox->addView(row);
@@ -283,7 +283,7 @@ void SettingsGeneralView::rebuildSubnetsUI() {
     auto* addLabel = new brls::Label();
     addLabel->setText("akira/settings/add_subnet"_i18n);
     addLabel->setFontSize(18);
-    addLabel->setTextColor(akira::ui::active().accent);
+    addLabel->setTextColor(akira::app::views::active().accent);
     addRow->addView(addLabel);
     subnetsBox->addView(addRow);
     addSubnetRow = addRow;
@@ -353,7 +353,7 @@ void SettingsGeneralView::removeSubnet(const std::string& value) {
 void SettingsGeneralView::initVersionUnlock() {
     lastPowerUserClick = std::chrono::steady_clock::now();
 
-    versionLabel->setText(std::string("Akira ") + akira::version::string());
+    versionLabel->setText(std::string("Akira ") + akira::app::version::string());
 
     versionLabel->registerClickAction([this](brls::View*) {
         auto now = std::chrono::steady_clock::now();

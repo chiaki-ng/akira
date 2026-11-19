@@ -56,7 +56,7 @@ void LogPane::render(NVGcontext* vg, float x, float y, float width, float height
     nvgScissor(vg, x, y, width, height);
 
     nvgFontSize(vg, 16);
-    nvgFillColor(vg, akira::ui::active().textMuted);
+    nvgFillColor(vg, app::views::active().textMuted);
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 
     float padding = 20;

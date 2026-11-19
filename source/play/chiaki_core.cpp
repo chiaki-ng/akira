@@ -28,10 +28,10 @@ auto ChiakiCore::threadPlacement() noexcept -> platform::horizon::ThreadPlacemen
 
 ChiakiCore::ChiakiCore(SettingsManager& settings)
     : settings(settings),
-      threadingProvider((CrashReport::stage("core threading"), threadPlacement())),
-      httpProvider((CrashReport::stage("core http"), transportSettings()), threadingProvider, steadyClock, &coreLog),
-      webSocketProvider((CrashReport::stage("core websocket"), threadingProvider), steadyClock),
-      factory((CrashReport::stage("core factory"), platform::PlatformProviders{
+      threadingProvider((app::CrashReport::stage("core threading"), threadPlacement())),
+      httpProvider((app::CrashReport::stage("core http"), transportSettings()), threadingProvider, steadyClock, &coreLog),
+      webSocketProvider((app::CrashReport::stage("core websocket"), threadingProvider), steadyClock),
+      factory((app::CrashReport::stage("core factory"), platform::PlatformProviders{
           .threading = &threadingProvider,
           .clock = &steadyClock,
           .wall_clock = &systemClock,
@@ -41,20 +41,20 @@ ChiakiCore::ChiakiCore(SettingsManager& settings)
           .websocket = &webSocketProvider,
           .diagnostics = &coreLog,
       })),
-      recordStore((CrashReport::stage("core records"), recordRoot)),
-      datacenters((CrashReport::stage("core datacenters"), settings)),
-      chiakiNg((CrashReport::stage("core open"), libchiaking::ChiakiNg::open(
+      recordStore((app::CrashReport::stage("core records"), recordRoot)),
+      datacenters((app::CrashReport::stage("core datacenters"), settings)),
+      chiakiNg((app::CrashReport::stage("core open"), libchiaking::ChiakiNg::open(
           factory, libchiaking::ChiakiNg::Stores{settings.signIns(), settings.pairings(), datacenters, nullptr,
                                                  recordStore})))
 {
-    CrashReport::stage("core ready");
+    app::CrashReport::stage("core ready");
     if (instance != nullptr)
         std::terminate();
     instance = this;
     settings.setCoreLog(&coreLog);
-    CrashReport::stage("core duid");
+    app::CrashReport::stage("core duid");
     settings.ensureCloudDuid(random());
-    CrashReport::stage("core remember saved");
+    app::CrashReport::stage("core remember saved");
     rememberSaved();
 }
 

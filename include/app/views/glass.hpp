@@ -2,7 +2,7 @@
 
 #include "app/views/theme.hpp"
 
-namespace akira::ui
+namespace akira::app::views
 {
 inline float clampGlassAlpha(float value)
 {

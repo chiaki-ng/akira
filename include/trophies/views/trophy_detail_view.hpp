@@ -13,7 +13,7 @@
 #include "accounts/views/psn_gated_box.hpp"
 #include "app/views/vendored/switchfin/recycling_grid.hpp"
 
-class TrophyRowCell : public RecyclingGridItem {
+class TrophyRowCell : public akira::app::views::RecyclingGridItem {
 public:
     TrophyRowCell();
     ~TrophyRowCell() override;
@@ -22,7 +22,7 @@ public:
     void prepareForReuse() override;
     void cacheForReuse() override;
 
-    static RecyclingGridItem* create();
+    static akira::app::views::RecyclingGridItem* create();
 
 private:
     brls::Image* icon = nullptr;
@@ -39,13 +39,13 @@ private:
     static std::unordered_set<std::string> retriedIcons;
 };
 
-class SummaryCell : public RecyclingGridItem {
+class SummaryCell : public akira::app::views::RecyclingGridItem {
 public:
     SummaryCell();
 
     void bindSummary(int earned, int available, int progress, const libchiaking::trophies::TrophyCounts& counts);
 
-    static RecyclingGridItem* create();
+    static akira::app::views::RecyclingGridItem* create();
 
 private:
     ProgressRing* ring = nullptr;
@@ -65,13 +65,13 @@ private:
     int prevTier[4] = {-1, -1, -1, -1};
 };
 
-class TrophyDetailSource : public RecyclingGridDataSource {
+class TrophyDetailSource : public akira::app::views::RecyclingGridDataSource {
 public:
     TrophyDetailSource(int earned, int available, int progress,
         libchiaking::trophies::TrophyCounts counts, std::vector<libchiaking::trophies::Trophy> trophies);
 
     size_t getItemCount() override;
-    RecyclingGridItem* cellForRow(RecyclingView* recycler, size_t index) override;
+    akira::app::views::RecyclingGridItem* cellForRow(akira::app::views::RecyclingView* recycler, size_t index) override;
     float heightForRow(brls::View* recycler, size_t index) override;
     void clearData() override;
 
@@ -121,7 +121,7 @@ private:
     BRLS_BIND(brls::Button, sortBtn, "detail/sortBtn");
     BRLS_BIND(brls::Button, filterBtn, "detail/filterBtn");
     BRLS_BIND(brls::Button, refreshBtn, "detail/refreshBtn");
-    BRLS_BIND(RecyclingGrid, list, "detail/list");
+    BRLS_BIND(akira::app::views::RecyclingGrid, list, "detail/list");
     BRLS_BIND(PsnGatedBox, gate, "detail/gate");
 
     void load(bool forceRefresh);

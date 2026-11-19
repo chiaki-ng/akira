@@ -68,7 +68,7 @@ SettingsFrameView::SettingsFrameView() {
 
     descBody = new brls::Label();
     descBody->setFontSize(15.0f);
-    descBody->setTextColor(akira::ui::active().textMuted);
+    descBody->setTextColor(akira::app::views::active().textMuted);
     descBody->setWidthPercentage(100.0f);
     descPanel->addView(descBody);
 
@@ -136,7 +136,7 @@ void SettingsFrameView::buildMenus() {
     menus.push_back({"akira/settings/menu_quality"_i18n, {{"", []() -> brls::Box* { return new SettingsPictureView(); }}}});
     menus.push_back({"akira/settings/menu_controls"_i18n, {{"", []() -> brls::Box* { return new SettingsControllerView(); }}}});
     menus.push_back({"akira/settings/menu_debug"_i18n, {{"", []() -> brls::Box* { return new SettingsDebugView(); }}}});
-    menus.push_back({"akira/settings/menu_build_info"_i18n, {{"", []() -> brls::Box* { return new BuildInfoTab(); }}}});
+    menus.push_back({"akira/settings/menu_build_info"_i18n, {{"", []() -> brls::Box* { return new akira::app::views::BuildInfoTab(); }}}});
     menus.push_back({"akira/settings/menu_config"_i18n, {{"", []() -> brls::Box* { return new ConfigViewTab(); }}}});
     menus.push_back({"akira/settings/menu_network"_i18n, {{"", []() -> brls::Box* { return new NetworkUtilitiesTab(); }}}});
 
@@ -148,13 +148,13 @@ void SettingsFrameView::buildMenus() {
 
 void SettingsFrameView::renderMenuBar() {
     menuBar->clearViews();
-    NVGcolor accent = akira::ui::active().accent;
+    NVGcolor accent = akira::app::views::active().accent;
     for (size_t i = 0; i < menus.size(); i++) {
         auto* lbl = new brls::Label();
         lbl->setText(menus[i].label);
         lbl->setFontSize(18.0f);
         lbl->setMarginRight(28.0f);
-        lbl->setTextColor(static_cast<int>(i) == activeMenu ? accent : akira::ui::active().textDim);
+        lbl->setTextColor(static_cast<int>(i) == activeMenu ? accent : akira::app::views::active().textDim);
         menuBar->addView(lbl);
     }
 }
@@ -167,13 +167,13 @@ void SettingsFrameView::renderSubBar() {
     if (!hasNamed)
         return;
 
-    NVGcolor accent = akira::ui::active().accent;
+    NVGcolor accent = akira::app::views::active().accent;
     for (size_t i = 0; i < subs.size(); i++) {
         auto* lbl = new brls::Label();
         lbl->setText(subs[i].name);
         lbl->setFontSize(15.0f);
         lbl->setMarginRight(22.0f);
-        lbl->setTextColor(static_cast<int>(i) == activeSub ? accent : akira::ui::active().textDim);
+        lbl->setTextColor(static_cast<int>(i) == activeSub ? accent : akira::app::views::active().textDim);
         subBar->addView(lbl);
     }
 }
@@ -195,7 +195,7 @@ void SettingsFrameView::switchMenu(int delta) {
     activeSub = 0;
     renderMenuBar();
     renderSubBar();
-    akira::ui::motion::crossfade(contentHolder, contentFade, [this]() { loadContent(true); });
+    akira::app::views::motion::crossfade(contentHolder, contentFade, [this]() { loadContent(true); });
 }
 
 void SettingsFrameView::switchSub(int delta) {
@@ -204,7 +204,7 @@ void SettingsFrameView::switchSub(int delta) {
         return;
     activeSub = ((activeSub + delta) % s + s) % s;
     renderSubBar();
-    akira::ui::motion::crossfade(contentHolder, contentFade, [this]() { loadContent(true); });
+    akira::app::views::motion::crossfade(contentHolder, contentFade, [this]() { loadContent(true); });
 }
 
 void SettingsFrameView::updateDescriptionFromFocus() {

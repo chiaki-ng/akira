@@ -163,7 +163,7 @@ float VulkanRenderer::ovlSize(float px)
 
 NVGcolor VulkanRenderer::ovl(NVGcolor color, unsigned char alpha)
 {
-    return akira::ui::withAlpha(color, alpha);
+    return app::views::withAlpha(color, alpha);
 }
 
 VkImageAspectFlags VulkanRenderer::stencilAspect(VkFormat format)
@@ -1778,7 +1778,7 @@ void VulkanRenderer::renderBorderFlash(VkCommandBuffer cmd)
     if (alpha <= 0.002f)
         return;
 
-    const NVGcolor accent = ovl(akira::ui::active().accent, 255);
+    const NVGcolor accent = ovl(app::views::active().accent, 255);
     const QuadPush push{
         .first = { accent.r, accent.g, accent.b, alpha },
         .second = { sw, sh, 64.0f, 0.0f },
@@ -2024,9 +2024,9 @@ NVGcolor VulkanRenderer::toneColor(Tone tone) const
 {
     switch (tone)
     {
-        case Tone::Warn: return akira::ui::active().warning;
-        case Tone::Bad:  return akira::ui::active().danger;
-        default:         return ovl(akira::ui::active().text, 242);
+        case Tone::Warn: return app::views::active().warning;
+        case Tone::Bad:  return app::views::active().danger;
+        default:         return ovl(app::views::active().text, 242);
     }
 }
 
@@ -2035,17 +2035,17 @@ void VulkanRenderer::drawOverlayPanel(NVGcontext* vg, float x, float y, float w,
     float s = m_overlay_scale;
     nvgBeginPath(vg);
     nvgRoundedRect(vg, x, y, w, h, 10.0f * s);
-    nvgFillColor(vg, ovl(akira::ui::active().backgroundDeep, 148));
+    nvgFillColor(vg, ovl(app::views::active().backgroundDeep, 148));
     nvgFill(vg);
     nvgStrokeWidth(vg, 1.0f);
-    nvgStrokeColor(vg, ovl(akira::ui::active().text, 38));
+    nvgStrokeColor(vg, ovl(app::views::active().text, 38));
     nvgStroke(vg);
 }
 
 void VulkanRenderer::drawLatencyStrip(NVGcontext* vg, float x, float y, float w, float h)
 {
     float s = m_overlay_scale;
-    const akira::ui::Palette& p = akira::ui::active();
+    const app::views::Palette& p = app::views::active();
     (void)h;
 
     nvgFontSize(vg, ovlSize(9.5f * s));
@@ -2143,7 +2143,7 @@ void VulkanRenderer::drawStatRow(NVGcontext* vg, float x, float y, float w,
 
     nvgFontSize(vg, ovlSize(11.5f * s));
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-    nvgFillColor(vg, ovl(akira::ui::active().text, 117));
+    nvgFillColor(vg, ovl(app::views::active().text, 117));
     nvgText(vg, x, y, label, nullptr);
 
     float right = x + w;
@@ -2151,7 +2151,7 @@ void VulkanRenderer::drawStatRow(NVGcontext* vg, float x, float y, float w,
     {
         nvgFontSize(vg, ovlSize(10.0f * s));
         nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
-        nvgFillColor(vg, ovl(akira::ui::active().text, 117));
+        nvgFillColor(vg, ovl(app::views::active().text, 117));
         nvgText(vg, right, y, unit, nullptr);
         right -= nvgTextBounds(vg, 0, 0, unit, nullptr, nullptr) + 3.0f * s;
     }
@@ -2165,7 +2165,7 @@ void VulkanRenderer::drawStatRow(NVGcontext* vg, float x, float y, float w,
 void VulkanRenderer::drawFsrRow(NVGcontext* vg, float x, float y, float w)
 {
     float s = m_overlay_scale;
-    const auto& p = akira::ui::active();
+    const auto& p = app::views::active();
 
     nvgFontSize(vg, ovlSize(11.5f * s));
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
@@ -2201,7 +2201,7 @@ void VulkanRenderer::drawCompactCell(NVGcontext* vg, float& cursorX, float cente
         nvgMoveTo(vg, cursorX, centerY - 10.0f * s);
         nvgLineTo(vg, cursorX, centerY + 10.0f * s);
         nvgStrokeWidth(vg, 1.0f);
-        nvgStrokeColor(vg, ovl(akira::ui::active().text, 26));
+        nvgStrokeColor(vg, ovl(app::views::active().text, 26));
         nvgStroke(vg);
         cursorX += pad;
     }
@@ -2209,7 +2209,7 @@ void VulkanRenderer::drawCompactCell(NVGcontext* vg, float& cursorX, float cente
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
 
     nvgFontSize(vg, ovlSize(10.0f * s));
-    nvgFillColor(vg, ovl(akira::ui::active().text, 117));
+    nvgFillColor(vg, ovl(app::views::active().text, 117));
     nvgText(vg, cursorX, centerY, label, nullptr);
     cursorX += nvgTextBounds(vg, 0, 0, label, nullptr, nullptr) + 7.0f * s;
 
@@ -2222,7 +2222,7 @@ void VulkanRenderer::drawCompactCell(NVGcontext* vg, float& cursorX, float cente
     {
         cursorX += 3.0f * s;
         nvgFontSize(vg, ovlSize(10.5f * s));
-        nvgFillColor(vg, ovl(akira::ui::active().text, 117));
+        nvgFillColor(vg, ovl(app::views::active().text, 117));
         nvgText(vg, cursorX, centerY, unit, nullptr);
         cursorX += nvgTextBounds(vg, 0, 0, unit, nullptr, nullptr);
     }
@@ -2233,7 +2233,7 @@ void VulkanRenderer::drawCompactCell(NVGcontext* vg, float& cursorX, float cente
 void VulkanRenderer::drawCompactFsrLine(NVGcontext* vg, float x, float centerY)
 {
     float s = m_overlay_scale;
-    const auto& p = akira::ui::active();
+    const auto& p = app::views::active();
 
     nvgBeginPath(vg);
     nvgCircle(vg, x + 2.5f * s, centerY, 2.5f * s);
@@ -2378,7 +2378,7 @@ void VulkanRenderer::drawCompactOverlay(NVGcontext* vg)
     float dotX = ox + 14.0f * s + 3.5f * s;
     nvgBeginPath(vg);
     nvgCircle(vg, dotX, centerY, 3.5f * s);
-    nvgFillColor(vg, overall == Tone::Good ? akira::ui::active().success : toneColor(overall));
+    nvgFillColor(vg, overall == Tone::Good ? app::views::active().success : toneColor(overall));
     nvgFill(vg);
 
     float cursorX = ox + 14.0f * s + 20.0f * s;
@@ -2395,7 +2395,7 @@ void VulkanRenderer::drawCompactOverlay(NVGcontext* vg)
         nvgMoveTo(vg, ox + 14.0f * s, dividerY);
         nvgLineTo(vg, ox + width - 14.0f * s, dividerY);
         nvgStrokeWidth(vg, 1.0f);
-        nvgStrokeColor(vg, ovl(akira::ui::active().text, 26));
+        nvgStrokeColor(vg, ovl(app::views::active().text, 26));
         nvgStroke(vg);
         drawCompactFsrLine(vg, ox + 14.0f * s, oy + 47.0f * s);
     }
@@ -2421,24 +2421,24 @@ void VulkanRenderer::drawFullOverlay(NVGcontext* vg)
 
     nvgFontSize(vg, ovlSize(12.5f * s));
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-    nvgFillColor(vg, akira::ui::active().accent);
+    nvgFillColor(vg, app::views::active().accent);
     nvgText(vg, ox + padX, oy + headH * 0.5f, "AKIRA", nullptr);
     float bx = ox + padX + nvgTextBounds(vg, 0, 0, "AKIRA", nullptr, nullptr) + 9.0f * s;
-    nvgFillColor(vg, ovl(akira::ui::active().text, 56));
+    nvgFillColor(vg, ovl(app::views::active().text, 56));
     nvgText(vg, bx, oy + headH * 0.5f, "/", nullptr);
-    nvgFillColor(vg, ovl(akira::ui::active().text, 184));
+    nvgFillColor(vg, ovl(app::views::active().text, 184));
     nvgText(vg, bx + 12.0f * s, oy + headH * 0.5f, m_ov.context.c_str(), nullptr);
 
     nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
     nvgFontSize(vg, ovlSize(12.0f * s));
-    nvgFillColor(vg, ovl(akira::ui::active().text, 117));
+    nvgFillColor(vg, ovl(app::views::active().text, 117));
     nvgText(vg, ox + width - padX, oy + headH * 0.5f, m_ov.uptime.c_str(), nullptr);
 
     nvgBeginPath(vg);
     nvgMoveTo(vg, ox, oy + headH);
     nvgLineTo(vg, ox + width, oy + headH);
     nvgStrokeWidth(vg, 1.0f);
-    nvgStrokeColor(vg, ovl(akira::ui::active().text, 26));
+    nvgStrokeColor(vg, ovl(app::views::active().text, 26));
     nvgStroke(vg);
 
     float colW = (width - padX * 2.0f - 28.0f * s) / 3.0f;
@@ -2454,13 +2454,13 @@ void VulkanRenderer::drawFullOverlay(NVGcontext* vg)
             nvgMoveTo(vg, cx - 7.0f * s, colTop - 14.0f * s);
             nvgLineTo(vg, cx - 7.0f * s, colTop + rowH * rowCount - 4.0f * s);
             nvgStrokeWidth(vg, 1.0f);
-            nvgStrokeColor(vg, ovl(akira::ui::active().text, 26));
+            nvgStrokeColor(vg, ovl(app::views::active().text, 26));
             nvgStroke(vg);
         }
 
         nvgFontSize(vg, ovlSize(9.5f * s));
         nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-        nvgFillColor(vg, ovl(akira::ui::active().text, 87));
+        nvgFillColor(vg, ovl(app::views::active().text, 87));
         nvgText(vg, cx, colTop - 14.0f * s, headers[c], nullptr);
 
         for (int r = 0; r < rowCount; r++)
@@ -2497,7 +2497,7 @@ void VulkanRenderer::drawFullOverlay(NVGcontext* vg)
     nvgMoveTo(vg, ox, latY);
     nvgLineTo(vg, ox + width, latY);
     nvgStrokeWidth(vg, 1.0f);
-    nvgStrokeColor(vg, ovl(akira::ui::active().text, 26));
+    nvgStrokeColor(vg, ovl(app::views::active().text, 26));
     nvgStroke(vg);
 
     drawLatencyStrip(vg, ox + padX, latY + 6.0f * s, width - padX * 2.0f, latH);
@@ -2507,7 +2507,7 @@ void VulkanRenderer::drawFullOverlay(NVGcontext* vg)
     nvgMoveTo(vg, ox, footY);
     nvgLineTo(vg, ox + width, footY);
     nvgStrokeWidth(vg, 1.0f);
-    nvgStrokeColor(vg, ovl(akira::ui::active().text, 26));
+    nvgStrokeColor(vg, ovl(app::views::active().text, 26));
     nvgStroke(vg);
 
     nvgFontSize(vg, ovlSize(10.5f * s));
@@ -2524,10 +2524,10 @@ void VulkanRenderer::drawFullOverlay(NVGcontext* vg)
 
     for (const auto& f : foot)
     {
-        nvgFillColor(vg, ovl(akira::ui::active().text, 117));
+        nvgFillColor(vg, ovl(app::views::active().text, 117));
         nvgText(vg, fx, fy, f.k, nullptr);
         fx += nvgTextBounds(vg, 0, 0, f.k, nullptr, nullptr) + 6.0f * s;
-        nvgFillColor(vg, ovl(akira::ui::active().text, 189));
+        nvgFillColor(vg, ovl(app::views::active().text, 189));
         nvgText(vg, fx, fy, f.v.c_str(), nullptr);
         fx += nvgTextBounds(vg, 0, 0, f.v.c_str(), nullptr, nullptr) + 18.0f * s;
     }

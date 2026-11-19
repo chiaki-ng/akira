@@ -3,7 +3,7 @@
 #include <borealis/extern/nanovg/nanovg.h>
 #include <string_view>
 
-namespace akira::ui
+namespace akira::app::views
 {
 struct Palette
 {

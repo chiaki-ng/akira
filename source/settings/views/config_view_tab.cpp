@@ -17,7 +17,7 @@ namespace {
 enum class TomlToken { Header, Key, Punct, String, Number, Boolean, Comment, Plain };
 
 NVGcolor tokenColor(TomlToken token) {
-    const akira::ui::Palette& palette = akira::ui::active();
+    const akira::app::views::Palette& palette = akira::app::views::active();
     switch (token) {
         case TomlToken::Header:  return palette.accent;
         case TomlToken::Key:     return palette.text;

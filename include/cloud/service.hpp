@@ -169,7 +169,7 @@ private:
     std::map<int64_t, Entry> entries;
     bool paused = false;
     Held held;
-    akira::BackgroundWork::Subscription backgroundSubscription;
+    akira::app::BackgroundWork::Subscription backgroundSubscription;
 };
 
 } // namespace cloud

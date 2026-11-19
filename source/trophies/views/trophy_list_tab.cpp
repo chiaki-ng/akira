@@ -198,7 +198,7 @@ TrophyGameCard::TrophyGameCard()
 
     playLabel = new brls::Label();
     playLabel->setFontSize(17);
-    playLabel->setTextColor(akira::ui::active().accent);
+    playLabel->setTextColor(akira::app::views::active().accent);
     playLabel->setSingleLine(true);
     playLabel->setMarginTop(5);
     playLabel->setVisibility(brls::Visibility::GONE);
@@ -206,7 +206,7 @@ TrophyGameCard::TrophyGameCard()
 
     detailLabel = new brls::Label();
     detailLabel->setFontSize(17);
-    detailLabel->setTextColor(akira::ui::active().textDim);
+    detailLabel->setTextColor(akira::app::views::active().textDim);
     detailLabel->setSingleLine(true);
     detailLabel->setMarginTop(3);
     this->addView(detailLabel);
@@ -220,12 +220,12 @@ TrophyGameCard::TrophyGameCard()
     progressFill = new brls::Rectangle();
     progressFill->setHeight(4);
     progressFill->setCornerRadius(2);
-    progressFill->setColor(akira::ui::active().accent);
+    progressFill->setColor(akira::app::views::active().accent);
     progressTrack->addView(progressFill);
 
     this->addView(progressTrack);
 
-    akira::ui::motion::liftOnFocus(this, focusAnim);
+    akira::app::views::motion::liftOnFocus(this, focusAnim);
 
     this->registerClickAction([this](brls::View*) {
         if (selectCallback)
@@ -364,7 +364,7 @@ void TrophyGameRowCell::prepareForReuse()
             cards[i]->reset();
 }
 
-RecyclingGridItem* TrophyGameRowCell::create()
+akira::app::views::RecyclingGridItem* TrophyGameRowCell::create()
 {
     return new TrophyGameRowCell();
 }
@@ -417,7 +417,7 @@ TrophyProfileCell::TrophyProfileCell()
             tile->setMarginLeft(12);
         tile->setAlignItems(brls::AlignItems::CENTER);
         tile->setCornerRadius(10);
-        tile->setBackgroundColor(akira::ui::active().surfaceElevated);
+        tile->setBackgroundColor(akira::app::views::active().surfaceElevated);
         tile->setPadding(12, 12, 12, 12);
 
         auto* img = new brls::Image();
@@ -438,7 +438,7 @@ TrophyProfileCell::TrophyProfileCell()
         auto* label = new brls::Label();
         label->setText(brls::getStr(tierLabel[i]));
         label->setFontSize(13);
-        label->setTextColor(akira::ui::active().textDim);
+        label->setTextColor(akira::app::views::active().textDim);
         label->setMarginTop(2);
         textCol->addView(label);
 
@@ -473,7 +473,7 @@ void TrophyProfileCell::bindSummary(const TrophyManager::Summary& summary)
     }
 }
 
-RecyclingGridItem* TrophyProfileCell::create()
+akira::app::views::RecyclingGridItem* TrophyProfileCell::create()
 {
     return new TrophyProfileCell();
 }
@@ -493,7 +493,7 @@ float TrophyGridDataSource::heightForRow(brls::View* recycler, size_t index)
     return index == 0 ? PROFILE_HEADER_HEIGHT : CARD_ROW_HEIGHT;
 }
 
-RecyclingGridItem* TrophyGridDataSource::cellForRow(RecyclingView* recycler, size_t index)
+akira::app::views::RecyclingGridItem* TrophyGridDataSource::cellForRow(akira::app::views::RecyclingView* recycler, size_t index)
 {
     if (index == 0)
     {
@@ -539,11 +539,11 @@ TrophyListTab::TrophyListTab()
     for (brls::Button* button : {sortBtn.getView(), filterBtn.getView()})
         button->setStyle(&BUTTONSTYLE_BLUE);
 
-    sortBtn->setBackgroundColor(akira::ui::active().surfaceElevated);
-    filterBtn->setBackgroundColor(akira::ui::active().surfaceElevated);
+    sortBtn->setBackgroundColor(akira::app::views::active().surfaceElevated);
+    filterBtn->setBackgroundColor(akira::app::views::active().surfaceElevated);
 
     forceRefreshBtn->setStyle(&BUTTONSTYLE_BLUE);
-    forceRefreshBtn->setBackgroundColor(akira::ui::active().surfaceElevated);
+    forceRefreshBtn->setBackgroundColor(akira::app::views::active().surfaceElevated);
     forceRefreshBtn->setShrink(0.0f);
     forceRefreshBtn->setCornerRadius(8);
 
@@ -561,7 +561,7 @@ TrophyListTab::TrophyListTab()
 
     forceRefreshGate.attach(
         forceRefreshBtn,
-        akira::ui::active().surfaceElevated,
+        akira::app::views::active().surfaceElevated,
         "akira/trophies/refresh"_i18n,
         "akira/trophies/force_refresh_busy"_i18n,
         "akira/trophies/force_refresh_wait",
@@ -742,7 +742,7 @@ void TrophyListTab::refreshControlLabels()
 void TrophyListTab::refreshStatusLine()
 {
     statusLabel->setText(formatRelativeAge(TrophyManager::getInstance()->librarySavedAtSeconds()));
-    statusLabel->setTextColor(akira::ui::active().textDim);
+    statusLabel->setTextColor(akira::app::views::active().textDim);
 }
 
 void TrophyListTab::showSortPicker()

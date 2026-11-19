@@ -4,6 +4,8 @@
 #include <exception>
 #include <string>
 
+namespace akira::app {
+
 class Exception : public std::exception
 {
 private:
@@ -14,5 +16,7 @@ public:
     explicit Exception(std::string msg) : msg(std::move(msg)) {}
     const char *what() const noexcept override { return msg.c_str(); }
 };
+
+}
 
 #endif // AKIRA_EXCEPTION_HPP

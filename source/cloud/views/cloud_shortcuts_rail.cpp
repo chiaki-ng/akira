@@ -108,14 +108,14 @@ void CloudShortcutsRail::refresh()
     {
         const cloud::Game& game = games[i];
 
-        auto* card = new akira::ui::motion::LiftBox();
+        auto* card = new akira::app::views::motion::LiftBox();
         card->setAxis(brls::Axis::COLUMN);
         card->setWidth(174.0f);
         card->setHeight(238.0f);
         if (i + 1 < count)
             card->setMarginRight(16);
         card->setCornerRadius(14);
-        card->setBackgroundColor(akira::ui::active().surface);
+        card->setBackgroundColor(akira::app::views::active().surface);
         card->setPadding(12.0f, 12.0f, 12.0f, 12.0f);
         card->setFocusable(true);
         card->setCustomNavigationRoute(brls::FocusDirection::UP, "host/container");
@@ -140,7 +140,7 @@ void CloudShortcutsRail::refresh()
         cover->setHeight(172.0f);
         cover->setCornerRadius(10);
         cover->setScalingType(brls::ImageScalingType::FILL);
-        cover->setBackgroundColor(akira::ui::active().surfaceElevated);
+        cover->setBackgroundColor(akira::app::views::active().surfaceElevated);
         card->addView(cover);
 
         auto* name = new brls::Label();
@@ -150,7 +150,7 @@ void CloudShortcutsRail::refresh()
         name->setWidthPercentage(100.0f);
         name->setSingleLine(true);
         name->setAutoAnimate(true);
-        name->setTextColor(akira::ui::active().text);
+        name->setTextColor(akira::app::views::active().text);
         card->addView(name);
 
         railRow->addView(card);

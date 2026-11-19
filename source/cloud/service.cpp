@@ -37,7 +37,7 @@ Service::Service()
     std::error_code ignored;
     if (std::filesystem::remove_all(LEGACY_CACHE_DIR, ignored) > 0)
         akira::log::info("Cloud: removed the old catalog cache");
-    backgroundSubscription = akira::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
+    backgroundSubscription = akira::app::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
 }
 
 void Service::followBackgroundWork(bool nowPaused)

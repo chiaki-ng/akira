@@ -111,7 +111,7 @@ private:
     brls::Event<bool>::Subscription focusSubscription;
     bool focusSubscribed = false;
     bool resumeAfterPause = false;
-    akira::BackgroundWork::Subscription backgroundSubscription;
+    akira::app::BackgroundWork::Subscription backgroundSubscription;
 
     HostDiscoveredCallback onHostDiscovered;
     HostsChangedCallback onHostsChanged;

@@ -26,7 +26,7 @@ void UpdateFlow::checkOnLaunch() {
     SettingsManager* settings = SettingsManager::getInstance();
     if (!settings->getAutoCheckUpdates())
         return;
-    if (akira::version::isDev())
+    if (app::version::isDev())
         return;
 
     int64_t now = static_cast<int64_t>(std::time(nullptr));
@@ -87,7 +87,7 @@ static void showUpdateError(const std::string& message) {
 }
 
 void UpdateFlow::promptUpdate(const UpdateInfo& info) {
-    std::string self = akira::version::semver();
+    std::string self = app::version::semver();
     auto* dialog = new brls::Dialog(brls::getStr("akira/update/prompt_body", info.version, self));
 
     dialog->addButton("akira/update/update_now"_i18n, [dialog, info]() {

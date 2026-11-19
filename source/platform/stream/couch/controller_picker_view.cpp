@@ -46,7 +46,7 @@ std::vector<std::string> CapabilityLabels(const PadDescription& d)
 
 brls::Box* MakeCapabilityChip(const std::string& text)
 {
-    const auto& p = akira::ui::active();
+    const auto& p = app::views::active();
     auto* chip = new brls::Box();
     chip->setAxis(brls::Axis::ROW);
     chip->setJustifyContent(brls::JustifyContent::CENTER);
@@ -57,9 +57,9 @@ brls::Box* MakeCapabilityChip(const std::string& text)
     chip->setMarginLeft(4);
     chip->setMarginRight(4);
     chip->setCornerRadius(13.5f);
-    chip->setBackgroundColor(akira::ui::withAlpha(p.surface, 0x50));
+    chip->setBackgroundColor(app::views::withAlpha(p.surface, 0x50));
     chip->setBorderThickness(1.0f);
-    chip->setBorderColor(akira::ui::withAlpha(p.focusB, 0x28));
+    chip->setBorderColor(app::views::withAlpha(p.focusB, 0x28));
 
     auto* label = new brls::Label();
     label->setText(text);
@@ -96,7 +96,7 @@ ControllerPickerView::ControllerPickerView(std::vector<PadDescription> pads,
     , m_onChosen(std::move(onChosen))
     , m_describe(std::move(describe))
 {
-    const auto& p = akira::ui::active();
+    const auto& p = app::views::active();
 
     setAxis(brls::Axis::COLUMN);
     setJustifyContent(brls::JustifyContent::CENTER);
@@ -245,7 +245,7 @@ void ControllerPickerView::cancel()
 
 void ControllerPickerView::buildCards()
 {
-    const auto& p = akira::ui::active();
+    const auto& p = app::views::active();
 
     m_states.resize(m_pads.size());
     m_seen_clear.assign(m_pads.size(), false);
@@ -392,25 +392,25 @@ void ControllerPickerView::choose(std::size_t index)
 void ControllerPickerView::draw(NVGcontext* vg, float x, float y, float width, float height,
                                 brls::Style style, brls::FrameContext* ctx)
 {
-    const auto& p = akira::ui::active();
+    const auto& p = app::views::active();
 
     NVGpaint scrim = nvgLinearGradient(vg, x, y, x, y + height,
-        akira::ui::withAlpha(p.backgroundDeep, 0x8c),
-        akira::ui::withAlpha(p.gradientBottom, 0xd4));
+        app::views::withAlpha(p.backgroundDeep, 0x8c),
+        app::views::withAlpha(p.gradientBottom, 0xd4));
     nvgBeginPath(vg);
     nvgRect(vg, x, y, width, height);
     nvgFillPaint(vg, scrim);
     nvgFill(vg);
 
     if (m_panel && m_panel->getWidth() > 0.0f && m_panel->getHeight() > 0.0f)
-        akira::ui::drawGlassSurface(vg, m_panel->getX(), m_panel->getY(),
+        app::views::drawGlassSurface(vg, m_panel->getX(), m_panel->getY(),
             m_panel->getWidth(), m_panel->getHeight(), 20.0f, 1.0f, false, p);
 
     for (std::size_t i = 0; i < m_cards.size(); i++) {
         auto* card = m_cards[i];
         if (!card || card->getWidth() <= 0.0f || card->getHeight() <= 0.0f)
             continue;
-        akira::ui::drawGlassSurface(vg, card->getX(), card->getY(),
+        app::views::drawGlassSurface(vg, card->getX(), card->getY(),
             card->getWidth(), card->getHeight(), 18.0f, 0.92f,
             (int)i == m_selected, p);
     }
@@ -427,7 +427,7 @@ void ControllerPickerView::draw(NVGcontext* vg, float x, float y, float width, f
             const int   alpha = pass == 0 ? 230 : 58 - pass * 10;
             nvgBeginPath(vg);
             nvgRoundedRect(vg, cx - grow, cy - grow, cw + grow * 2, ch + grow * 2, 18.0f + grow);
-            nvgStrokeColor(vg, akira::ui::withAlpha(
+            nvgStrokeColor(vg, app::views::withAlpha(
                 pass == 0 ? p.accent : p.focusA, (unsigned char)alpha));
             nvgStrokeWidth(vg, pass == 0 ? 2.5f : 5.0f);
             nvgStroke(vg);

@@ -40,26 +40,26 @@ private:
     std::function<void()> selectCallback;
 };
 
-class TrophyGameRowCell : public RecyclingGridItem {
+class TrophyGameRowCell : public akira::app::views::RecyclingGridItem {
 public:
     TrophyGameRowCell();
 
     void bindRow(const std::vector<TrophyManager::Title>& titles, size_t startIndex);
     void prepareForReuse() override;
 
-    static RecyclingGridItem* create();
+    static akira::app::views::RecyclingGridItem* create();
 
 private:
     TrophyGameCard* cards[3] = {};
 };
 
-class TrophyProfileCell : public RecyclingGridItem {
+class TrophyProfileCell : public akira::app::views::RecyclingGridItem {
 public:
     TrophyProfileCell();
 
     void bindSummary(const TrophyManager::Summary& summary);
 
-    static RecyclingGridItem* create();
+    static akira::app::views::RecyclingGridItem* create();
 
 private:
     brls::Label* levelValue = nullptr;
@@ -68,7 +68,7 @@ private:
     brls::Label* tierCounts[4] = {};
 };
 
-class TrophyGridDataSource : public RecyclingGridDataSource {
+class TrophyGridDataSource : public akira::app::views::RecyclingGridDataSource {
 public:
     TrophyGridDataSource(std::vector<TrophyManager::Title> titles, TrophyManager::Summary summary, bool haveSummary);
 
@@ -78,7 +78,7 @@ public:
 
     size_t getItemCount() override;
     float heightForRow(brls::View* recycler, size_t index) override;
-    RecyclingGridItem* cellForRow(RecyclingView* recycler, size_t index) override;
+    akira::app::views::RecyclingGridItem* cellForRow(akira::app::views::RecyclingView* recycler, size_t index) override;
     void onItemSelected(brls::Box* recycler, size_t index) override;
     void clearData() override;
 };
@@ -115,7 +115,7 @@ public:
     static TrophyListTab* currentInstance;
 
 private:
-    BRLS_BIND(RecyclingGrid, grid, "trophies/grid");
+    BRLS_BIND(akira::app::views::RecyclingGrid, grid, "trophies/grid");
     BRLS_BIND(PsnGatedBox, gate, "trophies/gate");
     BRLS_BIND(brls::Button, sortBtn, "trophies/sortBtn");
     BRLS_BIND(brls::Button, filterBtn, "trophies/filterBtn");

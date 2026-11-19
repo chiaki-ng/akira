@@ -4,6 +4,9 @@
 #include <sstream>
 
 #include <borealis/core/i18n.hpp>
+
+namespace akira::app::views {
+
 using namespace brls::literals;
 
 BuildInfoTab::BuildInfoTab() {
@@ -45,13 +48,15 @@ void BuildInfoTab::addInfoRow(const std::string& text, bool isHeader) {
 
     if (isHeader) {
         label->setFontSize(22);
-        label->setTextColor(akira::ui::active().accent);
+        label->setTextColor(views::active().accent);
         label->setMarginTop(20);
         label->setMarginBottom(10);
     } else {
         label->setFontSize(22);
-        label->setTextColor(akira::ui::active().textMuted);
+        label->setTextColor(views::active().textMuted);
     }
 
     infoContainer->addView(label);
+}
+
 }

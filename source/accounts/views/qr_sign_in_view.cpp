@@ -19,7 +19,7 @@ using libchiaking::users::SignInErrorKind;
 QrSignInView::QrSignInView(bool createProfile) : createProfile(createProfile) {
     this->inflateFromXMLRes("xml/views/qr_sign_in.xml");
 
-    const auto& palette = akira::ui::active();
+    const auto& palette = akira::app::views::active();
 
     if (auto* card = dynamic_cast<brls::Box*>(this->getView("qr_sign_in/card"))) {
         card->setBackgroundColor(palette.surface);
@@ -89,14 +89,14 @@ void QrSignInView::start() {
         showFailure("akira/qr_sign_in/status_failed"_i18n);
         return;
     }
-    showStatus("akira/qr_sign_in/status_preparing"_i18n, akira::ui::active().textMuted);
+    showStatus("akira/qr_sign_in/status_preparing"_i18n, akira::app::views::active().textMuted);
     accounts->signInWithQr(
         [this](const QrSignInState& state) { onProgress(state); },
         [this](psn::SignInOutcome outcome, const psn::Accounts::User& user) { onSignedIn(outcome, user); });
 }
 
 void QrSignInView::onProgress(const QrSignInState& state) {
-    const auto& palette = akira::ui::active();
+    const auto& palette = akira::app::views::active();
     switch (state.step()) {
         case QrSignInStep::preparing:
             clearCode();
@@ -157,7 +157,7 @@ void QrSignInView::showCode(std::string_view approvalUrl) {
     if (tile) {
         if (qrView)
             tile->removeView(qrView);
-        qrView = akira::ui::QrCodeView::make(approvalUrl, qrSide);
+        qrView = akira::app::views::QrCodeView::make(approvalUrl, qrSide);
         if (qrView) {
             tile->setBackgroundColor(nvgRGB(255, 255, 255));
             if (placeholder)
@@ -168,7 +168,7 @@ void QrSignInView::showCode(std::string_view approvalUrl) {
 }
 
 void QrSignInView::clearCode() {
-    const auto& palette = akira::ui::active();
+    const auto& palette = akira::app::views::active();
     deadline.reset();
     if (tile) {
         if (qrView)
@@ -191,7 +191,7 @@ void QrSignInView::showStatus(const std::string& text, NVGcolor color) {
 
 void QrSignInView::showFailure(const std::string& text) {
     failureShown = true;
-    showStatus(text, akira::ui::active().danger);
+    showStatus(text, akira::app::views::active().danger);
     if (placeholder)
         placeholder->setText("akira/qr_sign_in/placeholder_failed"_i18n);
     if (retryButton) {

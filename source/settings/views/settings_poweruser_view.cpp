@@ -139,7 +139,7 @@ void SettingsPowerUserView::initPortGuessingSocksSlider() {
 }
 
 void SettingsPowerUserView::runGhashBenchmark() {
-    auto* benchmarkView = new BenchmarkView();
+    auto* benchmarkView = new akira::app::views::BenchmarkView();
     brls::Application::pushActivity(new brls::Activity(benchmarkView));
     benchmarkView->startBenchmark();
 }

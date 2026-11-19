@@ -38,7 +38,7 @@ void LegacyProfileView::buildFields() {
     if (!fields)
         return;
 
-    const auto& palette = akira::ui::active();
+    const auto& palette = akira::app::views::active();
 
     m_account_value = addField("akira/profile_setup/account_id"_i18n,
                                "akira/profile_setup/account_id_placeholder"_i18n,
@@ -54,7 +54,7 @@ void LegacyProfileView::buildFields() {
 brls::Label* LegacyProfileView::addField(const std::string& title, const std::string& placeholder,
                                          const std::string& hint, NVGcolor hintColor,
                                          std::function<void()> onSelect) {
-    const auto& palette = akira::ui::active();
+    const auto& palette = akira::app::views::active();
 
     auto* card = new brls::Box(brls::Axis::COLUMN);
     card->setWidth(brls::View::AUTO);
@@ -116,7 +116,7 @@ void LegacyProfileView::askAccountId() {
             }
             m_account_id = text;
             if (m_account_value) {
-                const auto& palette = akira::ui::active();
+                const auto& palette = akira::app::views::active();
                 m_account_value->setText(
                     text.empty() ? "akira/profile_setup/account_id_placeholder"_i18n : text);
                 m_account_value->setTextColor(text.empty() ? palette.textDim : palette.accent);
@@ -131,7 +131,7 @@ void LegacyProfileView::askName() {
         [this](std::string text) {
             m_name = text;
             if (m_name_value) {
-                const auto& palette = akira::ui::active();
+                const auto& palette = akira::app::views::active();
                 m_name_value->setText(
                     text.empty() ? "akira/profile_setup/name_optional"_i18n : text);
                 m_name_value->setTextColor(text.empty() ? palette.textDim : palette.accent);

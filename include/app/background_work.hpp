@@ -5,7 +5,7 @@
 #include <map>
 #include <mutex>
 
-namespace akira {
+namespace akira::app {
 
 class BackgroundWork {
 public:

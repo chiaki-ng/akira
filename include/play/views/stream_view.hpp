@@ -65,7 +65,7 @@ private:
     std::unique_ptr<akira::platform::StreamControlsProvider> controls;
     Host* host = nullptr;
     std::shared_ptr<Host> hostOwner;
-    akira::BackgroundWork::Pause backgroundPause;
+    akira::app::BackgroundWork::Pause backgroundPause;
     Session* session = nullptr;
     std::shared_ptr<akira::stream::Connection> connection;
     std::optional<akira::ConnectionLog> connectionLog;

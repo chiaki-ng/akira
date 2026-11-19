@@ -33,7 +33,7 @@ namespace
             nvgFontFaceId(vg, t.font_ui);
             nvgFontSize(vg, 10.5f * t.s);
             nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-            nvgFillColor(vg, fade(akira::ui::active().textMuted, t.alpha));
+            nvgFillColor(vg, fade(akira::app::views::active().textMuted, t.alpha));
             nvgText(vg, cursor, y, it.key.c_str(), nullptr);
             float keyW = nvgTextBounds(vg, 0, 0, it.key.c_str(), nullptr, nullptr);
 
@@ -49,7 +49,7 @@ namespace
             {
                 nvgFontFaceId(vg, t.font_ui);
                 nvgFontSize(vg, 11.5f * t.s);
-                nvgFillColor(vg, fade(akira::ui::active().textDim, t.alpha));
+                nvgFillColor(vg, fade(akira::app::views::active().textDim, t.alpha));
                 nvgText(vg, cursor + valW + 3.0f * t.s, vy + 8.0f * t.s, it.unit.c_str(), nullptr);
                 unitW = nvgTextBounds(vg, 0, 0, it.unit.c_str(), nullptr, nullptr) + 3.0f * t.s;
             }
@@ -119,7 +119,7 @@ void StatsCard::drawPanel(NVGcontext* vg, const CardTheme& t, float x, float y, 
 
     StreamStats st = session->getStreamStats();
 
-    const akira::ui::Palette& p = akira::ui::active();
+    const akira::app::views::Palette& p = akira::app::views::active();
     NVGcolor kVal = p.text;
     NVGcolor kGood = p.success;
     NVGcolor kWarn = p.warning;

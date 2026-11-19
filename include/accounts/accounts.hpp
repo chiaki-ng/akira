@@ -102,7 +102,7 @@ private:
     std::shared_ptr<Shared> shared;
     libchiaking::platform::Thread signInThread;
     libchiaking::platform::Thread keepAliveThread;
-    akira::BackgroundWork::Subscription backgroundSubscription;
+    akira::app::BackgroundWork::Subscription backgroundSubscription;
 };
 
 }

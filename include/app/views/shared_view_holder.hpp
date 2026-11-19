@@ -33,6 +33,9 @@
  *        SharedViewHolder::release(this);
  *    }
  */
+
+namespace akira::app::views {
+
 class SharedViewHolder {
 public:
     /**
@@ -74,5 +77,7 @@ private:
     inline static std::mutex mutex_;
     inline static std::unordered_map<void*, std::shared_ptr<void>> held_views_;
 };
+
+}
 
 #endif // AKIRA_SHARED_VIEW_HOLDER_HPP

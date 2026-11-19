@@ -108,7 +108,7 @@ UpdateInfo UpdateManager::checkForUpdate(const std::string& channel) {
         return result;
     }
 
-    const std::string self = akira::version::semver();
+    const std::string self = app::version::semver();
     bool wantRc = (channel == "rc");
 
     std::string bestVersion;

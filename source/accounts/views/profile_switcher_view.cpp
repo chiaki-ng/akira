@@ -47,7 +47,7 @@ void popToHome() {
 ProfileSwitcherView::ProfileSwitcherView() {
     settings = SettingsManager::getInstance();
 
-    const auto& palette = akira::ui::active();
+    const auto& palette = akira::app::views::active();
 
     this->setAxis(brls::Axis::COLUMN);
     this->setBackgroundColor(palette.surface);
@@ -115,13 +115,13 @@ void ProfileSwitcherView::setExpanded(bool value) {
         chevron->setText(ICON_EXPAND_LESS);
         rebuildRows();
         float target = measurePanel();
-        akira::ui::motion::animate(heightAnim, panel->getHeight(false), target, 220,
+        akira::app::views::motion::animate(heightAnim, panel->getHeight(false), target, 220,
             brls::EasingFunction::quadraticOut,
             [this](float v) { panel->setHeight(v); });
     } else {
         chevron->setText(ICON_EXPAND_MORE);
         brls::Application::giveFocus(header);
-        akira::ui::motion::animate(heightAnim, panel->getHeight(false), 0.0f, 200,
+        akira::app::views::motion::animate(heightAnim, panel->getHeight(false), 0.0f, 200,
             brls::EasingFunction::quadraticOut,
             [this](float v) { panel->setHeight(v); },
             [this]() { panel->clearViews(); });
@@ -140,7 +140,7 @@ void ProfileSwitcherView::rebuildRows() {
     if (!profiles.empty()) {
         auto* sep = new brls::Rectangle();
         sep->setHeight(SEP_H);
-        sep->setColor(akira::ui::active().surfaceLine);
+        sep->setColor(akira::app::views::active().surfaceLine);
         panel->addView(sep);
     }
 
@@ -148,7 +148,7 @@ void ProfileSwitcherView::rebuildRows() {
 }
 
 brls::Box* ProfileSwitcherView::makeAvatar(const std::string& label) {
-    const auto& palette = akira::ui::active();
+    const auto& palette = akira::app::views::active();
 
     auto* av = new brls::Box(brls::Axis::ROW);
     av->setWidth(AVATAR);
@@ -173,7 +173,7 @@ brls::Box* ProfileSwitcherView::makeAvatar(const std::string& label) {
 }
 
 brls::Box* ProfileSwitcherView::makeProfileRow(const Profile& profile, bool isActive) {
-    const auto& palette = akira::ui::active();
+    const auto& palette = akira::app::views::active();
 
     int64_t id = profile.id;
     std::string label = profile.label();
@@ -251,7 +251,7 @@ brls::Box* ProfileSwitcherView::makeProfileRow(const Profile& profile, bool isAc
 }
 
 brls::Box* ProfileSwitcherView::makeAddRow() {
-    const auto& palette = akira::ui::active();
+    const auto& palette = akira::app::views::active();
 
     auto* row = new brls::Box(brls::Axis::ROW);
     row->setHeight(ROW_H);
@@ -356,7 +356,7 @@ void ProfileSwitcherView::confirmRemoveProfile(int64_t id, const std::string& la
 
         if (expanded) {
             rebuildRows();
-            akira::ui::motion::animate(heightAnim, panel->getHeight(false), measurePanel(), 200,
+            akira::app::views::motion::animate(heightAnim, panel->getHeight(false), measurePanel(), 200,
                 brls::EasingFunction::quadraticOut,
                 [this](float v) { panel->setHeight(v); });
         }

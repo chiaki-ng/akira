@@ -4,12 +4,12 @@ extern "C" Result __real_svcSetThreadCoreMask(Handle handle, s32 preferred_core,
 
 extern "C" Result __wrap_svcSetThreadCoreMask(Handle handle, s32 preferred_core, u32 affinity_mask)
 {
-    if (preferred_core < 0 || akira::WorkerCores::contains(preferred_core))
-        affinity_mask = akira::WorkerCores::restrict(affinity_mask);
+    if (preferred_core < 0 || akira::app::WorkerCores::contains(preferred_core))
+        affinity_mask = akira::app::WorkerCores::restrict(affinity_mask);
     return __real_svcSetThreadCoreMask(handle, preferred_core, affinity_mask);
 }
 
-namespace akira {
+namespace akira::app {
 
 bool WorkerCores::contains(s32 core)
 {

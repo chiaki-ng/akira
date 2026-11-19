@@ -132,16 +132,16 @@ void EnterPinView::draw(NVGcontext* vg, float x, float y, float width, float hei
 {
     nvgBeginPath(vg);
     nvgRect(vg, x, y, width, height);
-    nvgFillColor(vg, akira::ui::withAlpha(akira::ui::active().background, 240));
+    nvgFillColor(vg, akira::app::views::withAlpha(akira::app::views::active().background, 240));
     nvgFill(vg);
 
     nvgFontSize(vg, 24);
-    nvgFillColor(vg, akira::ui::active().text);
+    nvgFillColor(vg, akira::app::views::active().text);
     nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
     nvgText(vg, x + width / 2, y + height / 2 - 20, getTitle().c_str(), nullptr);
 
     nvgFontSize(vg, 16);
-    nvgFillColor(vg, akira::ui::active().textMuted);
+    nvgFillColor(vg, akira::app::views::active().textMuted);
     std::string instruction = "akira/pin/press_a"_i18n;
     nvgText(vg, x + width / 2, y + height / 2 + 20, instruction.c_str(), nullptr);
 

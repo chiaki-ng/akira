@@ -3,6 +3,8 @@
 
 #include <borealis.hpp>
 
+namespace akira::app::views {
+
 class BuildInfoTab : public brls::Box {
 public:
     BuildInfoTab();
@@ -16,5 +18,7 @@ private:
     void loadBuildInfo();
     void addInfoRow(const std::string& text, bool isHeader = false);
 };
+
+}
 
 #endif // AKIRA_BUILD_INFO_TAB_HPP

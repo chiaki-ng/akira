@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-namespace akira::ui {
+namespace akira::app::views {
 
 QrCodeView::QrCodeView(qrcodegen::QrCode code, float side)
     : code(std::move(code))
@@ -97,4 +97,4 @@ void QrCodeView::draw(NVGcontext* vg, float x, float y, float width, float heigh
     nvgFill(vg);
 }
 
-} // namespace akira::ui
+} // namespace akira::app::views

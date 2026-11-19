@@ -180,7 +180,7 @@ void SettingsAccountView::initAuthSection() {
 
     refreshTokenGate.attach(
         refreshTokenBtn,
-        akira::ui::active().success,
+        akira::app::views::active().success,
         "akira/settings/refresh_token_btn"_i18n,
         "akira/settings/refresh_token_busy"_i18n,
         "akira/settings/refresh_token_wait",
@@ -216,7 +216,7 @@ void SettingsAccountView::initAuthSection() {
     });
 
     clearPsnBtn->setStyle(&BUTTONSTYLE_BLUE);
-    clearPsnBtn->setBackgroundColor(akira::ui::active().accent);
+    clearPsnBtn->setBackgroundColor(akira::app::views::active().accent);
 
     clearPsnBtn->registerClickAction([this](brls::View* view) {
         auto* dialog = new brls::Dialog("akira/settings/clear_psn_confirm"_i18n);

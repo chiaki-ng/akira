@@ -181,7 +181,7 @@ StreamView::~StreamView()
         session->FreeController();
 
     // Release shared_ptr held by SharedViewHolder
-    SharedViewHolder::release(this);
+    akira::app::views::SharedViewHolder::release(this);
 }
 
 brls::View* StreamView::create()
@@ -240,7 +240,7 @@ void StreamView::startStream()
             if (!session->InitController())
             {
                 akira::log::error("Failed to initialize controller");
-                throw Exception("akira/stream/failed_init_controller"_i18n);
+                throw akira::app::Exception("akira/stream/failed_init_controller"_i18n);
             }
             controllerReady = true;
         }
@@ -255,7 +255,7 @@ void StreamView::startStream()
 
         akira::log::info("Stream started successfully");
     }
-    catch (const Exception& e)
+    catch (const akira::app::Exception& e)
     {
         akira::log::error("Failed to start stream: {}", e.what());
 
@@ -297,7 +297,7 @@ void StreamView::openConnection()
     if (const auto* launch = host->cloudLaunch()) {
         auto preferences = Connection::cloudPreferencesFor(*launch, *settings);
         if (!preferences)
-            throw Exception("akira/connection/fail_generic"_i18n);
+            throw akira::app::Exception("akira/connection/fail_generic"_i18n);
         const auto picture = preferences->picture.on_cloud(launch->service());
         width = static_cast<int>(picture.width());
         height = static_cast<int>(picture.height());
@@ -311,10 +311,10 @@ void StreamView::openConnection()
         };
     } else {
         if (!player || !console)
-            throw Exception("akira/connection/fail_regist"_i18n);
+            throw akira::app::Exception("akira/connection/fail_regist"_i18n);
         auto preferences = Connection::preferencesFor(*host, *settings);
         if (!preferences)
-            throw Exception("akira/connection/fail_generic"_i18n);
+            throw akira::app::Exception("akira/connection/fail_generic"_i18n);
         preferences->handover = handover;
         const auto picture = preferences->picture.on_console(console->generation());
         width = static_cast<int>(picture.width());
@@ -344,9 +344,9 @@ void StreamView::openConnection()
     session->setRumbleCeiling(padProfile.ceiling);
 
     if (!session->InitAVCodec(hevc, host->isPS5(), width, height))
-        throw Exception("Failed to initiate libav codec");
+        throw akira::app::Exception("Failed to initiate libav codec");
     if (!session->InitVideo(width, height))
-        throw Exception("Failed to initiate video");
+        throw akira::app::Exception("Failed to initiate video");
 
     const char* platformLabel = host->isPS5() ? "PS5" : "PS4";
     if (const auto* cloud = host->cloudLaunch()) {
@@ -363,7 +363,7 @@ void StreamView::openConnection()
     connection = std::make_shared<Connection>(*session, self, host->isPS5());
     if (!connection->open(std::move(starter))) {
         connection.reset();
-        throw Exception("akira/connection/failed_create_thread"_i18n);
+        throw akira::app::Exception("akira/connection/failed_create_thread"_i18n);
     }
 }
 
@@ -720,7 +720,7 @@ void StreamView::onRefused(const libchiaking::play::StartRefusal& refusal)
         text = cloud::CloudLaunch::refusalText(*refusal.launch(), host->cloudLaunch()->name());
 
     stopStream();
-    SharedViewHolder::release(this);
+    akira::app::views::SharedViewHolder::release(this);
 
 #if AKIRA_CLOUD
     if (cloudScreen)
@@ -775,7 +775,7 @@ void StreamView::onEnded(const libchiaking::play::Outcome& outcome)
 
     stopStream();
 
-    SharedViewHolder::release(this);
+    akira::app::views::SharedViewHolder::release(this);
 
     if (unpairedConsole) {
         auto* dialog = new brls::Dialog("akira/stream/ps4_console_unregistered"_i18n);
@@ -1081,7 +1081,7 @@ void StreamView::abandonStart()
 
     brls::Application::forceUnblockInputs();
 
-    SharedViewHolder::release(this);
+    akira::app::views::SharedViewHolder::release(this);
 
     akira::views::stream_nav::unwindToBase();
 }
@@ -1112,7 +1112,7 @@ void StreamView::disconnectWithSleep(bool sleep)
     // Release early to invalidate weak_ptrs BEFORE activities are popped
     // This ensures any pending brls::sync tasks from chiaki callbacks
     // will fail weak.lock() and not access this object
-    SharedViewHolder::release(this);
+    akira::app::views::SharedViewHolder::release(this);
 
     brls::sync([]() { akira::views::stream_nav::unwindToBase(); });
 }
@@ -1165,7 +1165,7 @@ void StreamView::onFocusChanged(bool focused)
         auto* dialog = new brls::Dialog("akira/stream/disconnected_reconnect"_i18n);
         dialog->addButton("akira/stream/no"_i18n, [weak]() {
             if (auto self = weak.lock()) {
-                SharedViewHolder::release(self.get());
+                akira::app::views::SharedViewHolder::release(self.get());
             }
             akira::views::stream_nav::unwindToBase();
         });

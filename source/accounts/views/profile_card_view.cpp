@@ -48,23 +48,23 @@ ProfileCardView::ProfileCardView() {
     settings = SettingsManager::getInstance();
 
     this->setAlignItems(brls::AlignItems::CENTER);
-    this->setBackgroundColor(akira::ui::active().surface);
+    this->setBackgroundColor(akira::app::views::active().surface);
 
     avatar->setScalingType(brls::ImageScalingType::FILL);
-    avatar->setBackgroundColor(akira::ui::active().surfaceElevated);
+    avatar->setBackgroundColor(akira::app::views::active().surfaceElevated);
     avatar->setCornerRadius(50);
 
-    track->setBackgroundColor(akira::ui::active().surfaceLine);
-    progress->setColor(akira::ui::active().accentStrong);
+    track->setBackgroundColor(akira::app::views::active().surfaceLine);
+    progress->setColor(akira::app::views::active().accentStrong);
     progress->setCornerRadius(3);
 
-    plusLabel->setTextColor(akira::ui::active().warning);
-    statusLabel->setTextColor(akira::ui::active().textMuted);
-    levelLabel->setTextColor(akira::ui::active().textMuted);
-    platLabel->setTextColor(akira::ui::active().text);
-    goldLabel->setTextColor(akira::ui::active().text);
-    silverLabel->setTextColor(akira::ui::active().text);
-    bronzeLabel->setTextColor(akira::ui::active().text);
+    plusLabel->setTextColor(akira::app::views::active().warning);
+    statusLabel->setTextColor(akira::app::views::active().textMuted);
+    levelLabel->setTextColor(akira::app::views::active().textMuted);
+    platLabel->setTextColor(akira::app::views::active().text);
+    goldLabel->setTextColor(akira::app::views::active().text);
+    silverLabel->setTextColor(akira::app::views::active().text);
+    bronzeLabel->setTextColor(akira::app::views::active().text);
 
     platImg->setImageFromRes("img/trophy/platinum.png");
     goldImg->setImageFromRes("img/trophy/gold.png");

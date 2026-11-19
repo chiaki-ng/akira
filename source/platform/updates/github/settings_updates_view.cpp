@@ -19,8 +19,8 @@ SettingsUpdatesView::SettingsUpdatesView() {
 
     settings = SettingsManager::getInstance();
 
-    versionLabel->setText(std::string("Akira ") + akira::version::string() +
-                          " (" + akira::version::channel() + ")");
+    versionLabel->setText(std::string("Akira ") + app::version::string() +
+                          " (" + app::version::channel() + ")");
 
     initChannelSelector();
     initAutoCheckToggle();

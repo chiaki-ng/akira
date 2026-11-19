@@ -44,7 +44,7 @@ ProfileChipView::ProfileChipView() {
     this->inflateFromXMLRes("xml/profile_chip.xml");
     settings = SettingsManager::getInstance();
 
-    const auto& pal = akira::ui::active();
+    const auto& pal = akira::app::views::active();
 
     this->setAlignItems(brls::AlignItems::CENTER);
     this->setBackgroundColor(brls::Application::getTheme()["color/card"]);
@@ -54,7 +54,7 @@ ProfileChipView::ProfileChipView() {
     avatar->setCornerRadius(20);
 
     nameLabel->setTextColor(pal.text);
-    plusBadge->setBackgroundColor(akira::ui::withAlpha(pal.gold, 0x33));
+    plusBadge->setBackgroundColor(akira::app::views::withAlpha(pal.gold, 0x33));
     plusLabel->setTextColor(pal.gold);
     tagBox->setBorderColor(pal.surfaceLine);
     tagLabel->setTextColor(pal.textMuted);
@@ -69,7 +69,7 @@ ProfileChipView::~ProfileChipView() {
 
 void ProfileChipView::refresh() {
 #if AKIRA_CLOUD
-    const auto& pal = akira::ui::active();
+    const auto& pal = akira::app::views::active();
 #endif
     const Profile* p = settings->getActiveProfile();
 

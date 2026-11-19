@@ -6,7 +6,11 @@ class AppletFrame;
 class View;
 }
 
+namespace akira::app::views {
+
 void decorateAkiraHeader(brls::AppletFrame* appletFrame);
 void registerAkiraTabActions(brls::View* view);
+
+}
 
 #endif // AKIRA_UI_HEADER_HPP

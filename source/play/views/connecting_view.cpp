@@ -82,7 +82,7 @@ ConnectingView::~ConnectingView()
     task.reset();
 
     connectionLog.reset();
-    SharedViewHolder::release(this);
+    app::views::SharedViewHolder::release(this);
 }
 
 void ConnectingView::setupAndStart()
@@ -204,7 +204,7 @@ void ConnectingView::succeeded(Host* host, std::shared_ptr<Host> owner)
 
     akira::log::info("Transitioning to stream view...");
 
-    auto streamView = SharedViewHolder::holdNew<StreamView>(host, owner);
+    auto streamView = app::views::SharedViewHolder::holdNew<StreamView>(host, owner);
     streamView->setupCallbacks();
     if (connectionLog)
         streamView->adoptConnectionLog(std::move(*connectionLog));
@@ -280,7 +280,7 @@ void ConnectingView::renderLogs(NVGcontext* vg, float x, float y, float width, f
     nvgScissor(vg, x, y, width, height);
 
     nvgFontSize(vg, 16);
-    nvgFillColor(vg, akira::ui::active().textMuted);
+    nvgFillColor(vg, app::views::active().textMuted);
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 
     const float padding = 20;
@@ -358,7 +358,7 @@ void ConnectingView::draw(NVGcontext* vg, float x, float y, float width, float h
 
 void ConnectingView::open(std::unique_ptr<ConnectTask> task)
 {
-    auto view = SharedViewHolder::holdNew<ConnectingView>(std::move(task));
+    auto view = app::views::SharedViewHolder::holdNew<ConnectingView>(std::move(task));
     stream_nav::markBase();
     brls::Application::pushActivity(new brls::Activity(view.get()));
     view->setupAndStart();

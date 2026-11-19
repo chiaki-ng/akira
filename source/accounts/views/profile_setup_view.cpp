@@ -14,7 +14,7 @@ ProfileSetupView::ProfileSetupView(bool createProfile, bool firstRun)
     : m_create_profile(createProfile), m_first_run(firstRun) {
     this->inflateFromXMLRes("xml/views/profile_setup.xml");
 
-    const auto& palette = akira::ui::active();
+    const auto& palette = akira::app::views::active();
 
     if (glyph) {
         glyph->setText("\xEE\xA1\x93");
@@ -41,7 +41,7 @@ ProfileSetupView::ProfileSetupView(bool createProfile, bool firstRun)
 }
 
 void ProfileSetupView::buildOptions() {
-    const auto& palette = akira::ui::active();
+    const auto& palette = akira::app::views::active();
     const bool createProfile = m_create_profile;
 
     addOption("\xEE\x8C\xAC",
@@ -82,7 +82,7 @@ void ProfileSetupView::addOption(const std::string& glyphText, const std::string
     if (!options)
         return;
 
-    const auto& palette = akira::ui::active();
+    const auto& palette = akira::app::views::active();
 
     auto* card = new brls::Box(brls::Axis::COLUMN);
     card->setWidth(brls::View::AUTO);

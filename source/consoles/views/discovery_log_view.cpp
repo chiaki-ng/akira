@@ -90,7 +90,7 @@ void DiscoveryLogView::refreshLog()
     if (logContainer->getChildren().empty()) {
         auto* label = new brls::Label();
         label->setFontSize(16);
-        label->setTextColor(akira::ui::active().textMuted);
+        label->setTextColor(akira::app::views::active().textMuted);
         logContainer->addView(label);
     }
 

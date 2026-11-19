@@ -78,7 +78,7 @@ PairView::PairView(bool createProfile) : createProfile(createProfile) {
     setFocusable(true);
 
     listenPort = SettingsManager::getInstance()->getCompanionPort();
-    const auto& palette = akira::ui::active();
+    const auto& palette = akira::app::views::active();
     std::string ip = PairListener::localIpv4();
     if (addrIpLabel) {
         addrIpLabel->setText(ip.empty() ? "-" : ip);

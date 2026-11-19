@@ -14,7 +14,7 @@ PsnGatedBox::PsnGatedBox()
 
     placeholder = new brls::Label();
     placeholder->setFontSize(18);
-    placeholder->setTextColor(akira::ui::active().textDim);
+    placeholder->setTextColor(akira::app::views::active().textDim);
     placeholder->setHorizontalAlign(brls::HorizontalAlign::CENTER);
     placeholder->setVerticalAlign(brls::VerticalAlign::CENTER);
     placeholder->setVisibility(brls::Visibility::GONE);

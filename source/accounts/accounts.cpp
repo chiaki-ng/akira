@@ -54,7 +54,7 @@ Accounts::Accounts(libchiaking::ChiakiNg& chiaki, SettingsManager& settings,
         keepAliveThread = std::move(started).value();
     else
         akira::log::error("PSN keep-alive thread could not start");
-    backgroundSubscription = akira::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
+    backgroundSubscription = akira::app::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
 }
 
 void Accounts::followBackgroundWork(bool paused)

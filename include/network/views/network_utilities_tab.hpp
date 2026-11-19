@@ -32,7 +32,7 @@ private:
     void displayResult(const StunResult& result);
     void clearResults();
     void addResultRow(const std::string& label, const std::string& value,
-                      NVGcolor valueColor = akira::ui::active().textMuted);
+                      NVGcolor valueColor = akira::app::views::active().textMuted);
     void addCompatibilityTable();
 
     void initWireGuardUI();

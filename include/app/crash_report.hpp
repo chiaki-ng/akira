@@ -11,7 +11,7 @@
 #include <format>
 #include <string_view>
 
-namespace akira {
+namespace akira::app {
 
 class CrashReport {
 public:

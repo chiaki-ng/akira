@@ -4,7 +4,7 @@
 #include <utility>
 #include <vector>
 
-namespace akira {
+namespace akira::app {
 
 BackgroundWork::Pause::Pause()
 {
@@ -61,7 +61,7 @@ void BackgroundWork::hold()
     }
     if (first)
     {
-        akira::log::info("Background work: paused for the stream");
+        log::info("Background work: paused for the stream");
         announce(true);
     }
 }
@@ -75,7 +75,7 @@ void BackgroundWork::release()
     }
     if (last)
     {
-        akira::log::info("Background work: resumed after the stream");
+        log::info("Background work: resumed after the stream");
         announce(false);
     }
 }

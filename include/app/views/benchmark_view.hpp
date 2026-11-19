@@ -12,6 +12,8 @@ class ClockProvider;
 class CryptoProvider;
 }
 
+namespace akira::app::views {
+
 class BenchmarkView : public brls::Box {
 public:
     BenchmarkView();
@@ -49,5 +51,7 @@ private:
     void run(libchiaking::platform::CryptoProvider& crypto, const libchiaking::platform::ClockProvider& clock,
              const libchiaking::platform::StopToken& stop);
 };
+
+}
 
 #endif // AKIRA_BENCHMARK_VIEW_HPP

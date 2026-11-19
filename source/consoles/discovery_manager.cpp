@@ -64,7 +64,7 @@ DiscoveryManager* DiscoveryManager::getInstance()
 DiscoveryManager::DiscoveryManager()
 {
     settings = SettingsManager::getInstance();
-    backgroundSubscription = akira::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
+    backgroundSubscription = akira::app::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
 }
 
 void DiscoveryManager::followBackgroundWork(bool paused)
@@ -113,7 +113,7 @@ void DiscoveryManager::setServiceEnabled(bool enable)
         return;
     }
 
-    if (enable && akira::BackgroundWork::paused())
+    if (enable && akira::app::BackgroundWork::paused())
     {
         akira::log::info("Discovery: held until the stream ends");
         resumeAfterPause = true;

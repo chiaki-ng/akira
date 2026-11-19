@@ -41,7 +41,7 @@ NVGcolor SlotLed(int player)
 
 brls::Box* MakeRowShell(bool empty)
 {
-    const auto& p = akira::ui::active();
+    const auto& p = app::views::active();
     auto* row = new brls::Box();
     row->setAxis(brls::Axis::ROW);
     row->setAlignItems(brls::AlignItems::CENTER);
@@ -51,16 +51,16 @@ brls::Box* MakeRowShell(bool empty)
     row->setPaddingRight(14);
     row->setCornerRadius(14);
     row->setMarginBottom(9);
-    row->setBackgroundColor(akira::ui::withAlpha(
+    row->setBackgroundColor(app::views::withAlpha(
         empty ? p.backgroundDeep : p.surface, empty ? 0x78 : 0x68));
     row->setBorderThickness(1.0f);
-    row->setBorderColor(empty ? akira::ui::withAlpha(p.textDim, 0x32) : p.surfaceLine);
+    row->setBorderColor(empty ? app::views::withAlpha(p.textDim, 0x32) : p.surfaceLine);
     return row;
 }
 
 brls::Box* MakeLed(int player, bool empty)
 {
-    const auto& p = akira::ui::active();
+    const auto& p = app::views::active();
     auto* led = new brls::Box();
     led->setAxis(brls::Axis::COLUMN);
     led->setJustifyContent(brls::JustifyContent::CENTER);
@@ -70,7 +70,7 @@ brls::Box* MakeLed(int player, bool empty)
     led->setCornerRadius(11);
     led->setMarginRight(13);
     if (empty) {
-        led->setBackgroundColor(akira::ui::withAlpha(p.surface, 0x54));
+        led->setBackgroundColor(app::views::withAlpha(p.surface, 0x54));
         led->setBorderThickness(1.0f);
         led->setBorderColor(p.surfaceLine);
     } else {
@@ -87,7 +87,7 @@ brls::Box* MakeLed(int player, bool empty)
 
 brls::Box* MakeBody(const std::string& dev, const std::string& meta, bool dim, brls::Label** outMeta = nullptr)
 {
-    const auto& p = akira::ui::active();
+    const auto& p = app::views::active();
     auto* body = new brls::Box();
     body->setAxis(brls::Axis::COLUMN);
     body->setJustifyContent(brls::JustifyContent::CENTER);
@@ -114,7 +114,7 @@ brls::Box* MakeBody(const std::string& dev, const std::string& meta, bool dim, b
 
 NVGcolor ProfileAccent(std::size_t index)
 {
-    const auto& p = akira::ui::active();
+    const auto& p = app::views::active();
     switch (index % 4) {
         case 1: return p.media;
         case 2: return p.success;
@@ -133,14 +133,14 @@ public:
     {
         (void)style;
         (void)ctx;
-        const auto& p = akira::ui::active();
+        const auto& p = app::views::active();
         const float r = std::min(width, height) * 0.5f;
         const float cx = x + width * 0.5f;
         const float cy = y + height * 0.5f;
 
         NVGpaint fill = nvgLinearGradient(vg, x, y, x + width, y + height,
-            akira::ui::withAlpha(m_accent, 0xd8),
-            akira::ui::withAlpha(p.backgroundDeep, 0xf0));
+            app::views::withAlpha(m_accent, 0xd8),
+            app::views::withAlpha(p.backgroundDeep, 0xf0));
         nvgBeginPath(vg);
         nvgCircle(vg, cx, cy, r);
         nvgFillPaint(vg, fill);
@@ -148,18 +148,18 @@ public:
 
         nvgBeginPath(vg);
         nvgCircle(vg, cx, y + height * 0.36f, height * 0.13f);
-        nvgFillColor(vg, akira::ui::withAlpha(p.text, 0xe8));
+        nvgFillColor(vg, app::views::withAlpha(p.text, 0xe8));
         nvgFill(vg);
 
         nvgBeginPath(vg);
         nvgRoundedRect(vg, x + width * 0.27f, y + height * 0.55f,
             width * 0.46f, height * 0.23f, height * 0.115f);
-        nvgFillColor(vg, akira::ui::withAlpha(p.text, 0xe8));
+        nvgFillColor(vg, app::views::withAlpha(p.text, 0xe8));
         nvgFill(vg);
 
         nvgBeginPath(vg);
         nvgCircle(vg, cx, cy, r - 0.5f);
-        nvgStrokeColor(vg, akira::ui::withAlpha(p.focusB, 0x70));
+        nvgStrokeColor(vg, app::views::withAlpha(p.focusB, 0x70));
         nvgStrokeWidth(vg, 1.0f);
         nvgStroke(vg);
     }
@@ -286,25 +286,25 @@ PlayersPanelView::PlayersPanelView(Host* host, std::weak_ptr<Connection> connect
     m_title = new brls::Label();
     m_title->setText("Players");
     m_title->setFontSize(26);
-    m_title->setTextColor(akira::ui::active().text);
+    m_title->setTextColor(app::views::active().text);
     m_title->setMarginRight(10);
     header->addView(m_title);
 
     m_count = new brls::Label();
     m_count->setFontSize(15);
-    m_count->setTextColor(akira::ui::active().accent);
+    m_count->setTextColor(app::views::active().accent);
     header->addView(m_count);
 
     m_sub = new brls::Label();
     m_sub->setFontSize(14);
-    m_sub->setTextColor(akira::ui::active().textMuted);
+    m_sub->setTextColor(app::views::active().textMuted);
     m_sub->setMarginBottom(14);
     m_panel->addView(m_sub);
 
     auto* rule = new brls::Box();
     rule->setWidthPercentage(100.0f);
     rule->setHeight(1);
-    rule->setBackgroundColor(akira::ui::active().surfaceLine);
+    rule->setBackgroundColor(app::views::active().surfaceLine);
     rule->setMarginBottom(14);
     m_panel->addView(rule);
 
@@ -320,7 +320,7 @@ PlayersPanelView::PlayersPanelView(Host* host, std::weak_ptr<Connection> connect
     footer->setMarginTop(8);
     m_foot = new brls::Label();
     m_foot->setFontSize(13);
-    m_foot->setTextColor(akira::ui::active().textDim);
+    m_foot->setTextColor(app::views::active().textDim);
     m_foot->setGrow(1.0f);
     footer->addView(m_foot);
 
@@ -590,7 +590,7 @@ void PlayersPanelView::populateProfilePicker()
         auto* name = new brls::Label();
         name->setText(SettingsManager::getInstance()->maskAccountName(choice.label));
         name->setFontSize(cardWidth < 170.0f ? 16 : 18);
-        name->setTextColor(akira::ui::active().text);
+        name->setTextColor(app::views::active().text);
         name->setMarginBottom(0);
         tile->addView(name);
         if (!m_first)
@@ -984,17 +984,17 @@ void PlayersPanelView::draw(NVGcontext* vg, float x, float y, float width, float
 
     refreshStates();
 
-    const auto& p = akira::ui::active();
+    const auto& p = app::views::active();
     NVGpaint scrim = nvgLinearGradient(vg, x, y, x, y + height,
-        akira::ui::withAlpha(p.backgroundDeep, 0x70),
-        akira::ui::withAlpha(p.gradientBottom, 0xc8));
+        app::views::withAlpha(p.backgroundDeep, 0x70),
+        app::views::withAlpha(p.gradientBottom, 0xc8));
     nvgBeginPath(vg);
     nvgRect(vg, x, y, width, height);
     nvgFillPaint(vg, scrim);
     nvgFill(vg);
 
     if (m_panel && m_panel->getWidth() > 0.0f && m_panel->getHeight() > 0.0f)
-        akira::ui::drawGlassSurface(vg, m_panel->getX(), m_panel->getY(),
+        app::views::drawGlassSurface(vg, m_panel->getX(), m_panel->getY(),
             m_panel->getWidth(), m_panel->getHeight(), 20.0f, 1.0f, false, p);
 
     for (auto* tile : m_profileTiles) {
@@ -1008,7 +1008,7 @@ void PlayersPanelView::draw(NVGcontext* vg, float x, float y, float width, float
                 break;
             }
         }
-        akira::ui::drawGlassSurface(vg, tile->getX(), tile->getY(),
+        app::views::drawGlassSurface(vg, tile->getX(), tile->getY(),
             tile->getWidth(), tile->getHeight(), 18.0f, 0.94f, focused, p);
     }
 

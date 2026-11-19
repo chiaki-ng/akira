@@ -38,7 +38,7 @@ void ProgressRing::draw(NVGcontext* vg, float x, float y, float width, float hei
 
     nvgBeginPath(vg);
     nvgCircle(vg, cx, cy, radius);
-    nvgStrokeColor(vg, a(akira::ui::withAlpha(akira::ui::active().text, 0x1f)));
+    nvgStrokeColor(vg, a(akira::app::views::withAlpha(akira::app::views::active().text, 0x1f)));
     nvgStroke(vg);
 
     float shown = displayProgress.getValue();
@@ -49,7 +49,7 @@ void ProgressRing::draw(NVGcontext* vg, float x, float y, float width, float hei
 
         nvgBeginPath(vg);
         nvgArc(vg, cx, cy, radius, start, end, NVG_CW);
-        nvgStrokeColor(vg, a(akira::ui::active().accent));
+        nvgStrokeColor(vg, a(akira::app::views::active().accent));
         nvgStroke(vg);
     }
 

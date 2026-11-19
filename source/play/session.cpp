@@ -214,7 +214,7 @@ libchiaking::media::AudioResult Session::submitAudio(const libchiaking::media::A
 bool Session::InitVideo(int video_width, int video_height)
 {
     akira::log::info("load InitVideo");
-    akira::CrashReport::stage("stream video");
+    akira::app::CrashReport::stage("stream video");
     std::lock_guard lock(m_media_mutex);
     this->quit = false;
 
@@ -268,7 +268,7 @@ void Session::checkForStall(akira::platform::VideoDecoder& decoder)
 bool Session::FreeVideo()
 {
     this->quit = true;
-    akira::CrashReport::stage("stream teardown");
+    akira::app::CrashReport::stage("stream teardown");
 
     m_video_worker.reset();
 

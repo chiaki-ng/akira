@@ -5,7 +5,7 @@
 #include <cmath>
 #include <memory>
 
-namespace akira::ui::motion {
+namespace akira::app::views::motion {
 
 void animate(brls::Animatable& track, float from, float to, int durationMs,
     brls::EasingFunction easing, std::function<void(float)> onValue,

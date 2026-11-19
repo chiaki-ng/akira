@@ -76,7 +76,7 @@ bool NvtegraDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, 
 
     if (!m_codec)
     {
-        throw Exception("Codec not available");
+        throw app::Exception("Codec not available");
     }
 
     akira::log::info("NvtegraDecoder: got codec {}", m_codec->name);
@@ -84,7 +84,7 @@ bool NvtegraDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, 
     m_codec_context = avcodec_alloc_context3(m_codec);
     if (!m_codec_context)
     {
-        throw Exception("Failed to alloc codec context");
+        throw app::Exception("Failed to alloc codec context");
     }
 
     if (m_hw_accel_enabled)
@@ -100,7 +100,7 @@ bool NvtegraDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, 
 	akira::log::info("NvtegraDecoder: Creating NVTegra hardware device context...");
         if (av_hwdevice_ctx_create(&m_hw_device_ctx, AV_HWDEVICE_TYPE_NVTEGRA, NULL, NULL, 0) < 0)
         {
-            throw Exception("Failed to create NVTegra hardware device context");
+            throw app::Exception("Failed to create NVTegra hardware device context");
         }
         m_codec_context->hw_device_ctx = av_buffer_ref(m_hw_device_ctx);
         akira::log::info("NvtegraDecoder: NVTegra hw device context created: {}", (void*)m_hw_device_ctx);
@@ -126,7 +126,7 @@ bool NvtegraDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, 
     if (avcodec_open2(m_codec_context, m_codec, nullptr) < 0)
     {
         avcodec_free_context(&m_codec_context);
-        throw Exception("Failed to open codec context");
+        throw app::Exception("Failed to open codec context");
     }
 
     return true;

@@ -201,8 +201,8 @@ static void startSonyDnsStartupCheck() {
 
 void initCustomTheme()
 {
-    akira::ui::setActiveTheme(SettingsManager::getInstance()->getUiTheme());
-    akira::ui::applyToBorealis();
+    akira::app::views::setActiveTheme(SettingsManager::getInstance()->getUiTheme());
+    akira::app::views::applyToBorealis();
 }
 
 static const char* appletTypeToString(AppletType type)
@@ -265,7 +265,7 @@ private:
     std::string lastTime;
 };
 
-void decorateAkiraHeader(brls::AppletFrame* appletFrame)
+void akira::app::views::decorateAkiraHeader(brls::AppletFrame* appletFrame)
 {
     if (!appletFrame)
         return;
@@ -282,7 +282,7 @@ void decorateAkiraHeader(brls::AppletFrame* appletFrame)
                 auto* versionLabel = new brls::Label();
                 versionLabel->setText(version);
                 versionLabel->setFontSize(19);
-                versionLabel->setTextColor(akira::ui::active().textDim);
+                versionLabel->setTextColor(akira::app::views::active().textDim);
                 versionLabel->setMarginLeft(8);
 
                 const auto& kids = titleBox->getChildren();
@@ -314,7 +314,7 @@ void decorateAkiraHeader(brls::AppletFrame* appletFrame)
         auto* attribution = new brls::Label();
         attribution->setText("akira/app/about"_i18n);
         attribution->setFontSize(14);
-        attribution->setTextColor(akira::ui::active().textDim);
+        attribution->setTextColor(akira::app::views::active().textDim);
         attribution->setHorizontalAlign(brls::HorizontalAlign::RIGHT);
         headerRight->addView(attribution);
 
@@ -372,7 +372,7 @@ void akiraOpenTrophies()
         return true;
     }, false);
     auto* frame = new brls::AppletFrame(view);
-    decorateAkiraHeader(frame);
+    akira::app::views::decorateAkiraHeader(frame);
     brls::Application::pushActivity(new brls::Activity(frame));
 }
 
@@ -380,16 +380,16 @@ void akiraOpenSettings()
 {
     if (SettingsManager::getInstance()->getProfiles().empty()) {
         auto* setupFrame = new brls::AppletFrame(new ProfileSetupView(false, true));
-        decorateAkiraHeader(setupFrame);
+        akira::app::views::decorateAkiraHeader(setupFrame);
         brls::Application::pushActivity(new brls::Activity(setupFrame));
         return;
     }
     auto* frame = new brls::AppletFrame(new SettingsFrameView());
-    decorateAkiraHeader(frame);
+    akira::app::views::decorateAkiraHeader(frame);
     brls::Application::pushActivity(new brls::Activity(frame));
 }
 
-void registerAkiraTabActions(brls::View* view)
+void akira::app::views::registerAkiraTabActions(brls::View* view)
 {
     /*
      * Trophies need a PSN token, so in legacy the action is not registered at all rather
@@ -428,7 +428,7 @@ public:
 
         auto* appletFrame = dynamic_cast<brls::AppletFrame*>(this->getContentView());
         if (appletFrame) {
-            decorateAkiraHeader(appletFrame);
+            akira::app::views::decorateAkiraHeader(appletFrame);
 
             auto* footer = appletFrame->getFooter();
             if (footer) {
@@ -456,13 +456,13 @@ public:
                             auto* ipLabel = new brls::Label();
                             ipLabel->setText("akira/app/ip_prefix"_i18n + getLocalIpAddress());
                             ipLabel->setFontSize(18);
-                            ipLabel->setTextColor(akira::ui::active().textDim);
+                            ipLabel->setTextColor(akira::app::views::active().textDim);
                             ipLabel->setHorizontalAlign(brls::HorizontalAlign::LEFT);
                             footerCol->addView(ipLabel);
 
                             discoveryStatusLabel = new brls::Label();
                             discoveryStatusLabel->setFontSize(13);
-                            discoveryStatusLabel->setTextColor(akira::ui::active().textDim);
+                            discoveryStatusLabel->setTextColor(akira::app::views::active().textDim);
                             discoveryStatusLabel->setHorizontalAlign(brls::HorizontalAlign::LEFT);
                             footerCol->addView(discoveryStatusLabel);
 
@@ -519,17 +519,17 @@ public:
 
 int main(int argc, char* argv[])
 {
-    akira::CrashReport::install("akira", AKIRA_VERSION_STRING, "/switch/akira/logs");
+    akira::app::CrashReport::install("akira", AKIRA_VERSION_STRING, "/switch/akira/logs");
     if (std::freopen("sdmc:/switch/akira/logs/akira-stderr.txt", "w", stderr))
         std::setvbuf(stderr, nullptr, _IONBF, 0);
     akira::log::Log::process().setLevel(akira::log::Level::info);
-    const Result mainPlaced = akira::WorkerCores::placeMainThread();
-    akira::CrashReport::stage("settings");
+    const Result mainPlaced = akira::app::WorkerCores::placeMainThread();
+    akira::app::CrashReport::stage("settings");
     auto* settings = SettingsManager::getInstance();
     settings->applyChiakiLogVerbosity();
     if (settings->getEnableFileLogging())
         akira::AppLog::open(SettingsManager::getLogFilePath());
-    akira::CrashReport::stage("log open");
+    akira::app::CrashReport::stage("log open");
     akira::log::info("akira {} starting", AKIRA_VERSION_STRING);
     akira::log::info("main thread core {} placement {:#x}", svcGetCurrentProcessorNumber(), mainPlaced);
 
@@ -554,14 +554,14 @@ int main(int argc, char* argv[])
         brls::Platform::APP_LOCALE_DEFAULT = brls::LOCALE_AUTO;
     }
 
-    akira::CrashReport::stage("theme");
+    akira::app::CrashReport::stage("theme");
     initCustomTheme();
 
     auto& platform = akira::platform::PlatformFactory::instance();
     platform.updates().prepare(argc, argv);
     platform.display().prepare();
 
-    akira::CrashReport::stage("borealis init");
+    akira::app::CrashReport::stage("borealis init");
     if (!brls::Application::init())
     {
         akira::log::error("Unable to init Borealis application");
@@ -576,14 +576,14 @@ int main(int argc, char* argv[])
             httpMarkConnectionsStale();
     });
 
-    akira::CrashReport::stage("sdl init");
+    akira::app::CrashReport::stage("sdl init");
     if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) < 0)
     {
         akira::log::error("SDL_Init failed: {}", SDL_GetError());
         return EXIT_FAILURE;
     }
 
-    akira::CrashReport::stage("curl init");
+    akira::app::CrashReport::stage("curl init");
     const CURLcode curlInit = curl_global_init(CURL_GLOBAL_DEFAULT);
     if (curlInit != CURLE_OK)
     {
@@ -592,10 +592,10 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    akira::CrashReport::stage("core init");
+    akira::app::CrashReport::stage("core init");
     std::optional<akira::ChiakiCore> core;
     core.emplace(*settings);
-    akira::CrashReport::stage("post core");
+    akira::app::CrashReport::stage("post core");
     if (!core->opened())
         akira::log::error("[CORE] running without the core: streaming, sign-in and discovery are unavailable");
     brls::Application::getWindowFocusChangedEvent()->subscribe([&core](bool focused) {
@@ -637,10 +637,10 @@ int main(int argc, char* argv[])
 
     brls::Application::registerXMLView("HostListTab", HostListTab::create);
     brls::Application::registerXMLView("PsnGatedBox", PsnGatedBox::create);
-    brls::Application::registerXMLView("RecyclingGrid", RecyclingGrid::create);
+    brls::Application::registerXMLView("RecyclingGrid", akira::app::views::RecyclingGrid::create);
     brls::Application::registerXMLView("TrophyListTab", TrophyListTab::create);
     brls::Application::registerXMLView("AddHostTab", AddHostTab::create);
-    brls::Application::registerXMLView("BuildInfoTab", BuildInfoTab::create);
+    brls::Application::registerXMLView("BuildInfoTab", akira::app::views::BuildInfoTab::create);
     brls::Application::registerXMLView("ConfigViewTab", ConfigViewTab::create);
     brls::Application::registerXMLView("NetworkUtilitiesTab", NetworkUtilitiesTab::create);
     brls::Application::registerXMLView("StreamView", StreamView::create);
@@ -648,7 +648,7 @@ int main(int argc, char* argv[])
 
     platform.prepareVideo();
 
-    akira::CrashReport::stage("create window");
+    akira::app::CrashReport::stage("create window");
     brls::Application::createWindow("Akira");
 
     if (!brls::Application::loadFontFromFile("mono", BRLS_ASSET("font/Cousine-Regular.ttf")))
@@ -666,7 +666,7 @@ int main(int argc, char* argv[])
         brls::Application::pushActivity(new AppletWarningActivity());
     }
 
-    akira::CrashReport::stage("main loop");
+    akira::app::CrashReport::stage("main loop");
     try{
         while (brls::Application::mainLoop())
         {

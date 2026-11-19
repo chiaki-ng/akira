@@ -80,15 +80,15 @@ void PsnActionButton::apply()
         case psn::ActionState::Busy:
             button->setText(busyLabel);
             button->setState(brls::ButtonState::DISABLED);
-            button->setTextColor(akira::ui::active().textDim);
-            button->setBackgroundColor(akira::ui::active().surface);
+            button->setTextColor(akira::app::views::active().textDim);
+            button->setBackgroundColor(akira::app::views::active().surface);
             break;
 
         case psn::ActionState::CoolingDown:
             button->setText(brls::getStr(waitLabelKey, formatWait(status.secondsRemaining)));
             button->setState(brls::ButtonState::DISABLED);
-            button->setTextColor(akira::ui::active().textDim);
-            button->setBackgroundColor(akira::ui::active().surface);
+            button->setTextColor(akira::app::views::active().textDim);
+            button->setBackgroundColor(akira::app::views::active().surface);
             break;
     }
 }

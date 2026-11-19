@@ -245,7 +245,7 @@ TrophyRowCell::TrophyRowCell()
 
     detailLabel = new brls::Label();
     detailLabel->setFontSize(13);
-    detailLabel->setTextColor(akira::ui::active().textDim);
+    detailLabel->setTextColor(akira::app::views::active().textDim);
     detailLabel->setSingleLine(true);
     detailLabel->setMarginTop(2);
     text->addView(detailLabel);
@@ -260,7 +260,7 @@ TrophyRowCell::TrophyRowCell()
     progressFill = new brls::Rectangle();
     progressFill->setHeight(4);
     progressFill->setCornerRadius(2);
-    progressFill->setColor(akira::ui::active().accent);
+    progressFill->setColor(akira::app::views::active().accent);
     progressTrack->addView(progressFill);
 
     text->addView(progressTrack);
@@ -277,7 +277,7 @@ TrophyRowCell::TrophyRowCell()
 
     rarityLabel = new brls::Label();
     rarityLabel->setFontSize(12);
-    rarityLabel->setTextColor(akira::ui::active().textDim);
+    rarityLabel->setTextColor(akira::app::views::active().textDim);
     rarityLabel->setSingleLine(true);
     rarityLabel->setMarginTop(4);
     badges->addView(rarityLabel);
@@ -305,12 +305,12 @@ void TrophyRowCell::bindTrophy(const libchiaking::trophies::Trophy& trophy)
         stateLabel->setText(date.empty()
             ? std::format("{}  {}", trophyTypeLabel(trophy.grade), "akira/trophies/earned"_i18n)
             : std::format("{}  {}", trophyTypeLabel(trophy.grade), date));
-        stateLabel->setTextColor(akira::ui::active().success);
+        stateLabel->setTextColor(akira::app::views::active().success);
     }
     else
     {
         stateLabel->setText(trophyTypeLabel(trophy.grade));
-        stateLabel->setTextColor(akira::ui::active().textDim);
+        stateLabel->setTextColor(akira::app::views::active().textDim);
     }
 
     rarityLabel->setText(formatTrophyRarity(trophy));
@@ -373,7 +373,7 @@ void TrophyRowCell::cacheForReuse()
     icon->clear();
 }
 
-RecyclingGridItem* TrophyRowCell::create()
+akira::app::views::RecyclingGridItem* TrophyRowCell::create()
 {
     return new TrophyRowCell();
 }
@@ -404,7 +404,7 @@ SummaryCell::SummaryCell()
 
         auto* cap = new brls::Label();
         cap->setFontSize(14);
-        cap->setTextColor(akira::ui::active().textDim);
+        cap->setTextColor(akira::app::views::active().textDim);
         cap->setText(caption);
         cap->setMarginTop(6);
         col->addView(cap);
@@ -432,7 +432,7 @@ SummaryCell::SummaryCell()
 
     auto* separator = new brls::Rectangle();
     separator->setHeight(1);
-    separator->setColor(akira::ui::withAlpha(akira::ui::active().text, 0x14));
+    separator->setColor(akira::app::views::withAlpha(akira::app::views::active().text, 0x14));
     separator->setMarginTop(14);
     this->addView(separator);
 
@@ -480,21 +480,21 @@ void SummaryCell::bindSummary(int earned, int available, int progress, const lib
 {
     if (earned != prevEarned)
     {
-        akira::ui::motion::countTo(earnedValue, earnedAnim,
+        akira::app::views::motion::countTo(earnedValue, earnedAnim,
             prevEarned < 0 ? 0 : static_cast<int>(std::lround(earnedAnim.getValue())),
             earned, 520, [](int n) { return std::to_string(n); });
         prevEarned = earned;
     }
     if (available != prevAvail)
     {
-        akira::ui::motion::countTo(availableValue, availAnim,
+        akira::app::views::motion::countTo(availableValue, availAnim,
             prevAvail < 0 ? 0 : static_cast<int>(std::lround(availAnim.getValue())),
             available, 520, [](int n) { return std::to_string(n); });
         prevAvail = available;
     }
     if (progress != prevRingPct)
     {
-        akira::ui::motion::countTo(ringLabel, ringLabelAnim,
+        akira::app::views::motion::countTo(ringLabel, ringLabelAnim,
             prevRingPct < 0 ? 0 : static_cast<int>(std::lround(ringLabelAnim.getValue())),
             progress, 520, [](int n) { return std::format("{}%", n); });
         prevRingPct = progress;
@@ -512,7 +512,7 @@ void SummaryCell::bindSummary(int earned, int available, int progress, const lib
     {
         if (values[i] != prevTier[i])
         {
-            akira::ui::motion::countTo(tierCounts[i], tierAnim[i],
+            akira::app::views::motion::countTo(tierCounts[i], tierAnim[i],
                 prevTier[i] < 0 ? 0 : static_cast<int>(std::lround(tierAnim[i].getValue())),
                 values[i], 520, [](int n) { return std::to_string(n); });
             prevTier[i] = values[i];
@@ -521,7 +521,7 @@ void SummaryCell::bindSummary(int earned, int available, int progress, const lib
     }
 }
 
-RecyclingGridItem* SummaryCell::create()
+akira::app::views::RecyclingGridItem* SummaryCell::create()
 {
     return new SummaryCell();
 }
@@ -546,7 +546,7 @@ float TrophyDetailSource::heightForRow(brls::View* recycler, size_t index)
     return index == 0 ? SUMMARY_CELL_HEIGHT : ROW_HEIGHT;
 }
 
-RecyclingGridItem* TrophyDetailSource::cellForRow(RecyclingView* recycler, size_t index)
+akira::app::views::RecyclingGridItem* TrophyDetailSource::cellForRow(akira::app::views::RecyclingView* recycler, size_t index)
 {
     if (index == 0)
     {
@@ -593,7 +593,7 @@ TrophyDetailView::TrophyDetailView(const TrophyManager::Title& title)
     for (brls::Button* button : {groupBtn.getView(), sortBtn.getView(), filterBtn.getView()})
     {
         button->setStyle(&BUTTONSTYLE_BLUE);
-        button->setBackgroundColor(akira::ui::active().surfaceElevated);
+        button->setBackgroundColor(akira::app::views::active().surfaceElevated);
     }
 
     groupBtn->setVisibility(brls::Visibility::GONE);
@@ -618,7 +618,7 @@ TrophyDetailView::TrophyDetailView(const TrophyManager::Title& title)
 
     refreshGate.attach(
         refreshBtn,
-        akira::ui::active().accent,
+        akira::app::views::active().accent,
         "akira/trophies/force_refresh_btn"_i18n,
         "akira/trophies/force_refresh_busy"_i18n,
         "akira/trophies/force_refresh_wait",
