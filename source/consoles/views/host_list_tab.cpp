@@ -973,8 +973,8 @@ public:
             }
 
             auto* frame = new brls::AppletFrame(new cloud::views::LibraryView());
-            app::views::decorateAkiraHeader(frame);
-            app::views::registerAkiraTabActions(frame);
+            app::views::AkiraHeader::decorate(frame);
+            app::views::AkiraHeader::registerTabActions(frame);
             brls::Application::pushActivity(new brls::Activity(frame));
             return true;
         });
