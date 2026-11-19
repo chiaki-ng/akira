@@ -210,7 +210,7 @@ void Host::copyRegistrationFrom(const Host* other)
     log::info("Copied registration data from '{}' to '{}'", other->hostName, hostName);
 }
 
-libchiaking::Expected<void, Host::WakeRefusal> Host::wake()
+libchiaking::Expected<void, Host::WakeRefusal> Host::wake(network::WireGuardManager& wireGuard)
 {
     auto* accounts = play::ChiakiCore::current().accounts();
     const auto user = accounts ? accounts->activeUser() : nullptr;
@@ -220,7 +220,7 @@ libchiaking::Expected<void, Host::WakeRefusal> Host::wake()
         return libchiaking::unexpected(WakeRefusal::not_paired);
     }
 
-    const auto network = homeNetwork();
+    const auto network = homeNetwork(wireGuard);
     auto woken = console->wake(*user, network);
     if (!woken)
         log::error("Host::wake: {} refused (reason {})", hostName, static_cast<int>(woken.error()));
@@ -230,11 +230,11 @@ libchiaking::Expected<void, Host::WakeRefusal> Host::wake()
     return woken;
 }
 
-libchiaking::consoles::HomeNetwork Host::homeNetwork() const
+libchiaking::consoles::HomeNetwork Host::homeNetwork(network::WireGuardManager& wireGuard) const
 {
     if (isRemote() || isCloud())
         return {};
-    return network::WireGuardManager::instance().homeNetwork(getHostAddr());
+    return wireGuard.homeNetwork(getHostAddr());
 }
 
 HostRegisterError Host::registerHost(int pin, PairingCallback done)

@@ -8,6 +8,10 @@ namespace akira::consoles {
 class DiscoveryManager;
 }
 
+namespace akira::network {
+class WireGuardManager;
+}
+
 namespace akira::platform {
 class PlatformFactory;
 }
@@ -25,6 +29,7 @@ namespace akira::app {
 
 struct Services {
     platform::PlatformFactory& platform;
+    network::WireGuardManager& wireGuard;
     consoles::DiscoveryManager& discovery;
     play::StreamPreferences& preferences;
     play::LazySession& session;

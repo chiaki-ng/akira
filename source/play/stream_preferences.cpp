@@ -20,7 +20,7 @@ namespace play = libchiaking::play;
 StreamPreferences::StreamPreferences(const StreamSettings& stream, const cloud::CloudSettings& cloud,
                                      const network::NetworkSettings& network, const settings::DeveloperSettings& developer,
                                      const akira::platform::PlatformFactory& platform,
-                                     const network::WireGuardManager& wireGuard)
+                                     network::WireGuardManager& wireGuard)
     : streamSettings(stream), cloudSettings(cloud), networkSettings(network), developerSettings(developer),
       platformFactory(platform), wireGuard(wireGuard)
 {
@@ -56,7 +56,7 @@ auto StreamPreferences::forConsole(consoles::Host& host) const -> std::optional<
     auto preferences = tuned(*picture, takionVersion);
     if (preferences && vpn)
     {
-        if (auto network = host.homeNetwork(); network.network())
+        if (auto network = host.homeNetwork(wireGuard); network.network())
             preferences->home = std::move(network);
         else
             log::error("Stream over WireGuard has no tunnel network; using the local network");

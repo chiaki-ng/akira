@@ -35,7 +35,7 @@ class StreamPreferences {
 public:
     StreamPreferences(const StreamSettings& stream, const cloud::CloudSettings& cloud,
                       const network::NetworkSettings& network, const settings::DeveloperSettings& developer,
-                      const platform::PlatformFactory& platform, const network::WireGuardManager& wireGuard);
+                      const platform::PlatformFactory& platform, network::WireGuardManager& wireGuard);
 
     auto forConsole(consoles::Host& host) const -> std::optional<libchiaking::play::Preferences>;
     auto forCloud(const cloud::CloudLaunch& launch) const -> std::optional<libchiaking::play::Preferences>;
@@ -49,7 +49,7 @@ private:
     const network::NetworkSettings& networkSettings;
     const settings::DeveloperSettings& developerSettings;
     const platform::PlatformFactory& platformFactory;
-    const network::WireGuardManager& wireGuard;
+    network::WireGuardManager& wireGuard;
 };
 
 }

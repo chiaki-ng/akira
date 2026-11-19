@@ -1,5 +1,5 @@
 #include "network/wireguard_manager.hpp"
-#include "settings/settings_manager.hpp"
+#include "settings/developer_settings.hpp"
 #include "play/chiaki_core.hpp"
 #include "network/tunnel_stack.hpp"
 #include <algorithm>
@@ -16,23 +16,21 @@
 
 namespace akira::network {
 
-WireGuardManager& WireGuardManager::instance() {
-    static WireGuardManager inst;
-    return inst;
+void WireGuardManager::forwardLibraryLog(const char* message) {
+    const settings::DeveloperSettings* developer = libraryLogSettings.load(std::memory_order_acquire);
+    if (developer && developer->wireguardLog())
+        log::info("WG-LIB: {}", message);
 }
 
-static void wg_lib_log_callback(const char* msg) {
-    if (settings::SettingsManager::getInstance()->developer().wireguardLog())
-        log::info("WG-LIB: {}", msg);
-}
-
-WireGuardManager::WireGuardManager() {
+WireGuardManager::WireGuardManager(const settings::DeveloperSettings& developer) {
     memset(&config, 0, sizeof(config));
-    wg_set_log_callback(wg_lib_log_callback);
+    libraryLogSettings.store(&developer, std::memory_order_release);
+    wg_set_log_callback(forwardLibraryLog);
 }
 
 WireGuardManager::~WireGuardManager() {
     disconnect();
+    libraryLogSettings.store(nullptr, std::memory_order_release);
 }
 
 bool WireGuardManager::configExists() const {

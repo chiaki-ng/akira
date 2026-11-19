@@ -27,6 +27,10 @@ namespace akira::app {
 class AppSettings;
 }
 
+namespace akira::network {
+class WireGuardManager;
+}
+
 namespace akira::consoles {
 
 // Registration error codes
@@ -195,8 +199,8 @@ public:
     std::string getStateString() const;
     std::string getTargetString() const;
 
-    [[nodiscard]] libchiaking::Expected<void, WakeRefusal> wake();
-    libchiaking::consoles::HomeNetwork homeNetwork() const;
+    [[nodiscard]] libchiaking::Expected<void, WakeRefusal> wake(network::WireGuardManager& wireGuard);
+    libchiaking::consoles::HomeNetwork homeNetwork(network::WireGuardManager& wireGuard) const;
     [[nodiscard]] HostRegisterError registerHost(int pin, PairingCallback done);
     [[nodiscard]] HostRegisterError registerOverInternet(PairingStageCallback stage, PairingCallback done);
     bool canPairOverInternet() const;

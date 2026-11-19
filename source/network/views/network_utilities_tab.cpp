@@ -27,7 +27,7 @@ NetworkUtilitiesTab::~NetworkUtilitiesTab() {
 }
 
 void NetworkUtilitiesTab::initWireGuardUI() {
-    auto& wg = WireGuardManager::instance();
+    auto& wg = app::ViewServices::current().wireGuard;
 
     if (!wg.configExists()) {
         auto* noConfigLabel = new brls::Label();
@@ -67,7 +67,7 @@ void NetworkUtilitiesTab::initWireGuardUI() {
 }
 
 void NetworkUtilitiesTab::updateWireGuardStatus() {
-    auto& wg = WireGuardManager::instance();
+    auto& wg = app::ViewServices::current().wireGuard;
 
     wgStatusContainer->clearViews();
 
@@ -139,7 +139,7 @@ void NetworkUtilitiesTab::onWgConnectClicked() {
 
     auto guard = alive;
     brls::async([this, guard]() {
-        bool success = WireGuardManager::instance().connect();
+        bool success = app::ViewServices::current().wireGuard.connect();
         brls::sync([this, guard, success]() {
             if (!*guard)
                 return;
@@ -152,7 +152,7 @@ void NetworkUtilitiesTab::onWgConnectClicked() {
 }
 
 void NetworkUtilitiesTab::onWgDisconnectClicked() {
-    WireGuardManager::instance().disconnect();
+    app::ViewServices::current().wireGuard.disconnect();
     app::ViewServices::current().discovery.restartSearch();
     updateWireGuardStatus();
 }

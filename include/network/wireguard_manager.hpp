@@ -16,11 +16,19 @@ extern "C" {
 #include <wireguard.h>
 }
 
+namespace akira::settings {
+class DeveloperSettings;
+}
+
 namespace akira::network {
 
 class WireGuardManager {
 public:
-    static WireGuardManager& instance();
+    explicit WireGuardManager(const settings::DeveloperSettings& developer);
+    ~WireGuardManager();
+
+    WireGuardManager(const WireGuardManager&) = delete;
+    WireGuardManager& operator=(const WireGuardManager&) = delete;
 
     bool configExists() const;
     bool loadConfig();
@@ -35,10 +43,9 @@ public:
     auto allowedHosts() const -> std::vector<libchiaking::platform::IpAddress>;
 
 private:
-    WireGuardManager();
-    ~WireGuardManager();
-    WireGuardManager(const WireGuardManager&) = delete;
-    WireGuardManager& operator=(const WireGuardManager&) = delete;
+    static void forwardLibraryLog(const char* message);
+
+    static inline std::atomic<const settings::DeveloperSettings*> libraryLogSettings{nullptr};
 
     static constexpr const char* CONFIG_PATH = "sdmc:/switch/akira/wg0.conf";
 

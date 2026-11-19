@@ -322,7 +322,7 @@ private:
     void doWake() {
             log::info("Wake {}", host->getHostName());
 
-            if (host->wake()) {
+            if (host->wake(app::ViewServices::current().wireGuard)) {
                 brls::Application::notify(brls::getStr("akira/hosts/wake_sent", host->getHostName()));
             } else {
                 brls::Application::notify(brls::getStr("akira/hosts/wake_failed", host->getHostName()));

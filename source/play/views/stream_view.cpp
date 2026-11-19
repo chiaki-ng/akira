@@ -237,7 +237,7 @@ void StreamView::startStream()
         }
         else if (host->isRemote())
             profile = play::StreamProfile::Remote;
-        else if (network::WireGuardManager::instance().isConnected())
+        else if (app::ViewServices::current().wireGuard.isConnected())
             profile = play::StreamProfile::Vpn;
         settings->streamState().setProfile(profile);
 
@@ -358,7 +358,7 @@ void StreamView::openConnection()
         session->setConnectionContext(std::format("Cloud \xc2\xb7 {}", cloud->name()));
     } else if (host->isRemote()) {
         session->setConnectionContext(std::format("{} \xc2\xb7 Remote", platformLabel));
-    } else if (network::WireGuardManager::instance().isConnected()) {
+    } else if (app::ViewServices::current().wireGuard.isConnected()) {
         session->setConnectionContext(std::format("{} \xc2\xb7 VPN", platformLabel));
     } else {
         session->setConnectionContext(std::format("{} \xc2\xb7 Direct", platformLabel));

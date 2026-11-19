@@ -13,6 +13,7 @@
 #include "cloud/service.hpp"
 #endif
 #include "consoles/discovery_manager.hpp"
+#include "network/wireguard_manager.hpp"
 #include "platform/factory.hpp"
 #include "play/chiaki_core.hpp"
 #include "play/lazy_session.hpp"
@@ -51,6 +52,7 @@ private:
     int argc;
     char** argv;
     Result mainPlaced;
+    std::optional<network::WireGuardManager> wireGuard;
     std::optional<trophies::TrophyManager> trophies;
 #if AKIRA_CLOUD
     std::optional<cloud::Service> cloud;
