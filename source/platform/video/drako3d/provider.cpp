@@ -16,11 +16,8 @@ namespace akira::platform::drako3d
 {
 
 Drako3dVideoProvider::Drako3dVideoProvider(play::StreamSettings& stream, const play::StreamState& streamState,
-    settings::SettingsStore& store, const settings::DeveloperSettings& developer,
-    const network::WireGuardManager& wireGuard)
-    : m_stream(stream)
-    , m_store(store)
-    , m_deko3d("drako3d", { .stream = stream, .streamState = streamState, .wireGuard = wireGuard },
+    const settings::DeveloperSettings& developer, const network::WireGuardManager& wireGuard)
+    : m_deko3d("drako3d", { .stream = stream, .streamState = streamState, .wireGuard = wireGuard },
           deko3d::Deko3dVideoProvider::DecoderChoice{ .name = "Switch 2 hardware decoder", .stat = "HW",
               .make =
                   [&developer] {
@@ -32,12 +29,6 @@ Drako3dVideoProvider::Drako3dVideoProvider(play::StreamSettings& stream, const p
           deko3d::Deko3dVideoProvider::DecoderChoice{ .name = "Switch 2 software HEVC decoder", .stat = "SW",
               .make = [] { return std::make_unique<Nv12FrameDecoder<software::HevcDecoder>>(); } })
 {
-}
-
-bool Drako3dVideoProvider::addSettings(brls::Box& group) const
-{
-    software::HevcDecoder::addSetting(group, m_stream, m_store);
-    return true;
 }
 
 bool Drako3dVideoProvider::shadersPresent()

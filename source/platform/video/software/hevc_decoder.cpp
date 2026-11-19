@@ -11,33 +11,14 @@
 #include <ranges>
 #include <string>
 
-#include <borealis.hpp>
-
-#include "play/stream_settings.hpp"
-#include "settings/settings_store.hpp"
-
 extern "C"
 {
 #include <libavutil/error.h>
 #include <libavutil/pixdesc.h>
 }
 
-using namespace brls::literals;
-
 namespace akira::platform::software
 {
-
-void HevcDecoder::addSetting(brls::Box& group, play::StreamSettings& stream, settings::SettingsStore& store)
-{
-    auto* cell = new brls::BooleanCell();
-    cell->init("akira/settings/software_hevc"_i18n, stream.softwareHevc(), [&stream, &store](bool isOn) {
-        stream.setSoftwareHevc(isOn);
-        store.save();
-        log::info("Software HEVC set to {}", isOn ? "on" : "off");
-    });
-    cell->setId("settings/softwareHevc");
-    group.addView(cell);
-}
 
 HevcDecoder::HevcDecoder() = default;
 

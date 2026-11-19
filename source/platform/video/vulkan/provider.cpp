@@ -1,25 +1,18 @@
 #include "platform/video/vulkan/provider.hpp"
 #include "log/log.hpp"
 
-#include <borealis.hpp>
-
 #include "play/stream_settings.hpp"
-#include "settings/settings_store.hpp"
 #include "platform/video/software/hevc_decoder.hpp"
 #include "platform/video/viddec/decoder.hpp"
 #include "platform/video/vulkan/renderer.hpp"
-
-using namespace brls::literals;
 
 namespace akira::platform::vulkan
 {
 
 VulkanVideoProvider::VulkanVideoProvider(play::StreamSettings& stream, const play::StreamState& streamState,
-    settings::SettingsStore& store, const settings::DeveloperSettings& developer,
-    const network::WireGuardManager& wireGuard)
+    const settings::DeveloperSettings& developer, const network::WireGuardManager& wireGuard)
     : m_stream(stream)
     , m_stream_state(streamState)
-    , m_store(store)
     , m_developer(developer)
     , m_wire_guard(wireGuard)
 {
@@ -35,21 +28,6 @@ std::string_view VulkanVideoProvider::decoderName() const
 std::string_view VulkanVideoProvider::decoderStat() const
 {
     return m_software ? "SW" : "HW";
-}
-
-bool VulkanVideoProvider::addSettings(brls::Box& group) const
-{
-    akira::platform::software::HevcDecoder::addSetting(group, m_stream, m_store);
-
-    auto* zeroCopy = new brls::BooleanCell();
-    zeroCopy->init("akira/settings/zero_copy"_i18n, m_stream.zeroCopyVideo(), [&stream = m_stream, &store = m_store](bool isOn) {
-        stream.setZeroCopyVideo(isOn);
-        store.save();
-        log::info("Zero-copy video set to {}", isOn ? "on" : "off");
-    });
-    zeroCopy->setId("settings/zeroCopy");
-    group.addView(zeroCopy);
-    return true;
 }
 
 VideoDecoder* VulkanVideoProvider::decoder()

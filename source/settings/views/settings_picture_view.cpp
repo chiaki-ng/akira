@@ -584,7 +584,12 @@ void SettingsPictureView::initRendererSection() {
     }
 
     const auto video = platform.createVideo();
-    const bool hasOptions = video->addSettings(*rendererOptions);
+    const auto options = video->options();
+    if (options.softwareHevc)
+        addSoftwareHevcCell();
+    if (options.zeroCopy)
+        addZeroCopyCell();
+    const bool hasOptions = options.softwareHevc || options.zeroCopy;
     if (hasOptions)
         rendererName->setText(video->name());
     else
@@ -593,6 +598,28 @@ void SettingsPictureView::initRendererSection() {
         rendererHeader->setVisibility(brls::Visibility::GONE);
         rendererSection->setVisibility(brls::Visibility::GONE);
     }
+}
+
+void SettingsPictureView::addSoftwareHevcCell() {
+    auto* cell = new brls::BooleanCell();
+    cell->init("akira/settings/software_hevc"_i18n, services->stream.softwareHevc(), [this](bool isOn) {
+        services->stream.setSoftwareHevc(isOn);
+        services->store.save();
+        log::info("Software HEVC set to {}", isOn ? "on" : "off");
+    });
+    cell->setId("settings/softwareHevc");
+    rendererOptions->addView(cell);
+}
+
+void SettingsPictureView::addZeroCopyCell() {
+    auto* zeroCopy = new brls::BooleanCell();
+    zeroCopy->init("akira/settings/zero_copy"_i18n, services->stream.zeroCopyVideo(), [this](bool isOn) {
+        services->stream.setZeroCopyVideo(isOn);
+        services->store.save();
+        log::info("Zero-copy video set to {}", isOn ? "on" : "off");
+    });
+    zeroCopy->setId("settings/zeroCopy");
+    rendererOptions->addView(zeroCopy);
 }
 
 }

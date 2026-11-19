@@ -69,8 +69,8 @@ std::unique_ptr<VideoProvider> OuncePlatformFactory::createVideo()
 {
     if (switchPlatform().getRenderer() == brls::SwitchRenderer::Deko3d)
         return std::make_unique<drako3d::Drako3dVideoProvider>(m_services.stream, m_services.streamState,
-            m_services.store, m_services.developer, m_services.wireGuard);
-    return std::make_unique<vulkan::VulkanVideoProvider>(m_services.stream, m_services.streamState, m_services.store,
+            m_services.developer, m_services.wireGuard);
+    return std::make_unique<vulkan::VulkanVideoProvider>(m_services.stream, m_services.streamState,
         m_services.developer, m_services.wireGuard);
 }
 

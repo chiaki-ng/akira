@@ -7,15 +7,16 @@
 
 #include "platform/video/decoder.hpp"
 
-namespace brls
-{
-class Box;
-}
-
 namespace akira::platform
 {
 
 class VideoRenderer;
+
+struct VideoOptions
+{
+    bool softwareHevc = false;
+    bool zeroCopy = false;
+};
 
 struct FrameInfo
 {
@@ -37,7 +38,7 @@ public:
     virtual const char* name() const = 0;
     virtual std::string_view decoderName() const = 0;
     virtual std::string_view decoderStat() const = 0;
-    virtual bool addSettings(brls::Box& group) const = 0;
+    virtual VideoOptions options() const = 0;
 
     virtual VideoDecoder* decoder() = 0;
     virtual VideoDecoder& ensureDecoder() = 0;

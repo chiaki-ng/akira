@@ -37,7 +37,6 @@ namespace akira::settings
 {
 
 class DeveloperSettings;
-class SettingsStore;
 
 }
 
@@ -50,7 +49,7 @@ class VulkanVideoProvider final : public VideoProvider
 {
 public:
     VulkanVideoProvider(play::StreamSettings& stream, const play::StreamState& streamState,
-        settings::SettingsStore& store, const settings::DeveloperSettings& developer,
+        const settings::DeveloperSettings& developer,
         const network::WireGuardManager& wireGuard);
     ~VulkanVideoProvider() override;
     VulkanVideoProvider(const VulkanVideoProvider&) = delete;
@@ -59,7 +58,7 @@ public:
     const char* name() const override { return "Vulkan"; }
     std::string_view decoderName() const override;
     std::string_view decoderStat() const override;
-    bool addSettings(brls::Box& group) const override;
+    VideoOptions options() const override { return { .softwareHevc = true, .zeroCopy = true }; }
 
     VideoDecoder* decoder() override;
     VideoDecoder& ensureDecoder() override;
@@ -73,7 +72,6 @@ public:
 private:
     play::StreamSettings& m_stream;
     const play::StreamState& m_stream_state;
-    settings::SettingsStore& m_store;
     const settings::DeveloperSettings& m_developer;
     const network::WireGuardManager& m_wire_guard;
     std::unique_ptr<akira::platform::viddec::ViddecDecoder> m_decoder;

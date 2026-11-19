@@ -52,7 +52,7 @@ public:
     const char* name() const override { return m_name; }
     std::string_view decoderName() const override { return active().name; }
     std::string_view decoderStat() const override { return active().stat; }
-    bool addSettings(brls::Box&) const override { return false; }
+    VideoOptions options() const override { return {}; }
 
     VideoDecoder* decoder() override;
     VideoDecoder& ensureDecoder() override;

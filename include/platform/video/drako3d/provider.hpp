@@ -9,7 +9,6 @@ namespace akira::settings
 {
 
 class DeveloperSettings;
-class SettingsStore;
 
 }
 
@@ -20,7 +19,7 @@ class Drako3dVideoProvider final : public VideoProvider
 {
 public:
     Drako3dVideoProvider(play::StreamSettings& stream, const play::StreamState& streamState,
-        settings::SettingsStore& store, const settings::DeveloperSettings& developer,
+        const settings::DeveloperSettings& developer,
         const network::WireGuardManager& wireGuard);
     Drako3dVideoProvider(const Drako3dVideoProvider&) = delete;
     Drako3dVideoProvider& operator=(const Drako3dVideoProvider&) = delete;
@@ -30,7 +29,7 @@ public:
     const char* name() const override { return m_deko3d.name(); }
     std::string_view decoderName() const override { return m_deko3d.decoderName(); }
     std::string_view decoderStat() const override { return m_deko3d.decoderStat(); }
-    bool addSettings(brls::Box& group) const override;
+    VideoOptions options() const override { return { .softwareHevc = true }; }
 
     VideoDecoder* decoder() override { return m_deko3d.decoder(); }
     VideoDecoder& ensureDecoder() override { return m_deko3d.ensureDecoder(); }
@@ -47,8 +46,6 @@ public:
 private:
     static constexpr std::string_view ShaderDirectory = "romfs:/shaders/drako3d";
 
-    play::StreamSettings& m_stream;
-    settings::SettingsStore& m_store;
     deko3d::Deko3dVideoProvider m_deko3d;
 };
 

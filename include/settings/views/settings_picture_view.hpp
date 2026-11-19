@@ -76,6 +76,8 @@ private:
     void initRcasEnabledToggle();
     void initRcasSharpnessSlider();
     void initRendererSection();
+    void addSoftwareHevcCell();
+    void addZeroCopyCell();
 };
 
 }
