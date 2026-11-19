@@ -5,6 +5,8 @@
 #include <switch.h>
 
 #include <atomic>
+#include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
@@ -17,6 +19,8 @@ class Host;
 namespace akira::play {
 class Connection;
 class CouchSeats;
+struct CouchSeat;
+enum class SeatPhase : uint8_t;
 }
 
 namespace akira::accounts {
@@ -63,6 +67,27 @@ public:
     bool isTranslucent() override { return true; }
 
 private:
+    class ProfileAvatar;
+
+    static const int kSecondarySlots;
+    static constexpr float kPanelWidth = 680.0f;
+    static constexpr float kContentWidth = 644.0f;
+
+    static NVGcolor SlotLed(int player);
+    static brls::Box* MakeRowShell(bool empty);
+    static brls::Box* MakeLed(int player, bool empty);
+    static brls::Box* MakeBody(const std::string& dev, const std::string& meta, bool dim,
+                               brls::Label** outMeta = nullptr);
+    static NVGcolor ProfileAccent(std::size_t index);
+    static brls::Button* MakeAction(const std::string& text, NVGcolor color);
+    static NVGcolor MetaColor(play::SeatPhase phase);
+    static bool NeedsAnotherAccount(const play::CouchSeat& seat);
+    static std::string FailureText(const play::CouchSeat& seat);
+    static std::string MetaText(int player, const play::CouchSeat& seat);
+    static std::string WithAccount(const std::string& text, const consoles::Host* host,
+                                   const play::Connection* connection, uint8_t slot,
+                                   const accounts::AccountSettings& accounts, const app::AppSettings& app);
+
     void rebuild(bool refocus);
     void startAddPlayer();
     void startClaim();

@@ -5,6 +5,7 @@
 #include <switch.h>
 
 #include <functional>
+#include <string>
 #include <vector>
 
 #include "platform/pads/pad.hpp"
@@ -51,6 +52,10 @@ private:
     void buildCards();
     static bool SameSet(const std::vector<akira::platform::PadDescription>& a,
                         const std::vector<akira::platform::PadDescription>& b);
+    static bool Differ(const akira::platform::PadDescription& a, const akira::platform::PadDescription& b);
+    static std::vector<std::string> CapabilityLabels(const akira::platform::PadDescription& d);
+    static brls::Box* MakeCapabilityChip(const std::string& text);
+    static std::string SlotLine(HidNpadIdType npad);
 
     void accept();
 

@@ -24,13 +24,9 @@ using play::Connection;
 using play::CouchSeat;
 using play::SeatPhase;
 
-namespace {
+const int PlayersPanelView::kSecondarySlots = Connection::seatCount - 1;
 
-constexpr int kSecondarySlots = Connection::seatCount - 1;
-constexpr float kPanelWidth = 680.0f;
-constexpr float kContentWidth = 644.0f;
-
-NVGcolor SlotLed(int player)
+NVGcolor PlayersPanelView::SlotLed(int player)
 {
     switch (player) {
         case 1:  return nvgRGB(0x4a, 0x9e, 0xff);
@@ -41,7 +37,7 @@ NVGcolor SlotLed(int player)
     }
 }
 
-brls::Box* MakeRowShell(bool empty)
+brls::Box* PlayersPanelView::MakeRowShell(bool empty)
 {
     const auto& p = app::views::active();
     auto* row = new brls::Box();
@@ -60,7 +56,7 @@ brls::Box* MakeRowShell(bool empty)
     return row;
 }
 
-brls::Box* MakeLed(int player, bool empty)
+brls::Box* PlayersPanelView::MakeLed(int player, bool empty)
 {
     const auto& p = app::views::active();
     auto* led = new brls::Box();
@@ -87,7 +83,7 @@ brls::Box* MakeLed(int player, bool empty)
     return led;
 }
 
-brls::Box* MakeBody(const std::string& dev, const std::string& meta, bool dim, brls::Label** outMeta = nullptr)
+brls::Box* PlayersPanelView::MakeBody(const std::string& dev, const std::string& meta, bool dim, brls::Label** outMeta)
 {
     const auto& p = app::views::active();
     auto* body = new brls::Box();
@@ -114,7 +110,7 @@ brls::Box* MakeBody(const std::string& dev, const std::string& meta, bool dim, b
     return body;
 }
 
-NVGcolor ProfileAccent(std::size_t index)
+NVGcolor PlayersPanelView::ProfileAccent(std::size_t index)
 {
     const auto& p = app::views::active();
     switch (index % 4) {
@@ -125,7 +121,7 @@ NVGcolor ProfileAccent(std::size_t index)
     }
 }
 
-class ProfileAvatar final : public brls::View
+class PlayersPanelView::ProfileAvatar final : public brls::View
 {
 public:
     explicit ProfileAvatar(NVGcolor accent) : m_accent(accent) {}
@@ -170,7 +166,7 @@ private:
     NVGcolor m_accent;
 };
 
-brls::Button* MakeAction(const std::string& text, NVGcolor color)
+brls::Button* PlayersPanelView::MakeAction(const std::string& text, NVGcolor color)
 {
     auto* btn = new brls::Button();
     btn->setStyle(&brls::BUTTONSTYLE_BORDERLESS);
@@ -181,7 +177,7 @@ brls::Button* MakeAction(const std::string& text, NVGcolor color)
     return btn;
 }
 
-NVGcolor MetaColor(SeatPhase phase)
+NVGcolor PlayersPanelView::MetaColor(SeatPhase phase)
 {
     switch (phase) {
         case SeatPhase::Playing:  return nvgRGB(0x8a, 0xd6, 0xa8);
@@ -191,13 +187,13 @@ NVGcolor MetaColor(SeatPhase phase)
     }
 }
 
-bool NeedsAnotherAccount(const CouchSeat& seat)
+bool PlayersPanelView::NeedsAnotherAccount(const CouchSeat& seat)
 {
     return seat.phase == SeatPhase::Failed && seat.refusal &&
            seat.refusal->kind() == libchiaking::play::SeatRefusal::Kind::account_not_on_console;
 }
 
-std::string FailureText(const CouchSeat& seat)
+std::string PlayersPanelView::FailureText(const CouchSeat& seat)
 {
     using Kind = libchiaking::play::SeatRefusal::Kind;
     if (seat.dropped)
@@ -221,7 +217,7 @@ std::string FailureText(const CouchSeat& seat)
     }
 }
 
-std::string MetaText(int player, const CouchSeat& seat)
+std::string PlayersPanelView::MetaText(int player, const CouchSeat& seat)
 {
     switch (seat.phase) {
         case SeatPhase::Playing:
@@ -236,7 +232,7 @@ std::string MetaText(int player, const CouchSeat& seat)
     }
 }
 
-std::string WithAccount(const std::string& text, const consoles::Host* host, const Connection* connection, uint8_t slot,
+std::string PlayersPanelView::WithAccount(const std::string& text, const consoles::Host* host, const Connection* connection, uint8_t slot,
                         const accounts::AccountSettings& accounts, const app::AppSettings& app)
 {
     if (!host || !host->isPS5())
@@ -252,8 +248,6 @@ std::string WithAccount(const std::string& text, const consoles::Host* host, con
         return text + " - no PSN account configured";
     return text + " - PSN: " + app.maskAccountName(account);
 }
-
-} // namespace
 
 PlayersPanelView::PlayersPanelView(Profiles profiles, consoles::Host* host, std::weak_ptr<Connection> connection,
                                    CouchSeats* input, bool claimImmediately)

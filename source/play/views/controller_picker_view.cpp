@@ -19,9 +19,7 @@ using namespace brls::literals;
 using akira::platform::PadDescription;
 using akira::platform::PadPathKind;
 
-namespace {
-
-bool Differ(const PadDescription& a, const PadDescription& b)
+bool ControllerPickerView::Differ(const PadDescription& a, const PadDescription& b)
 {
     if (a.kind != b.kind)
         return true;
@@ -32,7 +30,7 @@ bool Differ(const PadDescription& a, const PadDescription& b)
     return false;
 }
 
-std::vector<std::string> CapabilityLabels(const PadDescription& d)
+std::vector<std::string> ControllerPickerView::CapabilityLabels(const PadDescription& d)
 {
     std::vector<std::string> out;
 
@@ -44,7 +42,7 @@ std::vector<std::string> CapabilityLabels(const PadDescription& d)
     return out;
 }
 
-brls::Box* MakeCapabilityChip(const std::string& text)
+brls::Box* ControllerPickerView::MakeCapabilityChip(const std::string& text)
 {
     const auto& p = app::views::active();
     auto* chip = new brls::Box();
@@ -69,14 +67,12 @@ brls::Box* MakeCapabilityChip(const std::string& text)
     return chip;
 }
 
-std::string SlotLine(HidNpadIdType npad)
+std::string ControllerPickerView::SlotLine(HidNpadIdType npad)
 {
     if (npad == HidNpadIdType_Handheld)
         return "Handheld";
     return "Player " + std::to_string((int)npad + 1);
 }
-
-} // namespace
 
 bool ControllerPickerView::worthAsking(const std::vector<PadDescription>& pads)
 {
