@@ -14,7 +14,7 @@
 #   make fetch-devkit OUNCE_DEVKIT_URL=u Download the pinned ounce devkit and check its sha256
 #   make ounce-deps                      Build ../native-deps-ounce inside devkita64-ounce
 
-.PHONY: help build build-arisa arisa-package deploy crash test check-strings lint-structure rebuild shell clean docker-image devkit-image fetch-devkit devkit-pin release-notes ounce-deps ounce-deps-check image-tag submodules backup platform
+.PHONY: help build build-arisa arisa-package test-arisa deploy crash test check-strings lint-structure rebuild shell clean docker-image devkit-image fetch-devkit devkit-pin release-notes ounce-deps ounce-deps-check image-tag submodules backup platform
 
 PLATFORM ?=
 
@@ -62,6 +62,13 @@ ARISA_ARCHIVE       = $(ARISA_PACKAGE_DIR)/$(ARISA_NAME).tar.gz
 ARISA_UNPACK        = $(CURDIR)/build/arisa-package/$(ARISA_SHA256_$(PLATFORM))
 ARISA_PREFIX        = $(ARISA_UNPACK)/$(ARISA_NAME)
 ARISA_NRO_FILE      = $(CURDIR)/build/arisa-$(PLATFORM)/akira_arisa.nro
+ARISA_HOST_NAME    := arisa-$(ARISA_VERSION)-macos-arm64
+ARISA_HOST_SHA256  := 2d6d6d712f447e0edcab524c2d20785e0c58d787db32e0f5e8c4f060b51cf46d
+ARISA_HOST_ARCHIVE  = $(ARISA_PACKAGE_DIR)/$(ARISA_HOST_NAME).tar.gz
+ARISA_HOST_UNPACK   = $(CURDIR)/build/arisa-package/$(ARISA_HOST_SHA256)
+ARISA_HOST_PREFIX   = $(ARISA_HOST_UNPACK)/$(ARISA_HOST_NAME)
+ARISA_HOST_CXX     ?= /opt/homebrew/bin/g++-16
+ARISA_TEST_DIR      = $(CURDIR)/build/tests/arisa
 NRO_FILE     := $(CURDIR)/build/$(PLATFORM)/akira.nro
 ELF_FILE     := build/$(PLATFORM)/akira.elf
 FTP_PORT     ?= 5000
@@ -207,6 +214,7 @@ help:
 	@echo "  test-nx, test-ounce              Run the host-side unit tests"
 	@echo "  build-arisa-nx, build-arisa-ounce  Build akira_arisa.nro on the pinned arisa package"
 	@echo "  arisa-package-nx, arisa-package-ounce  Check and extract the pinned arisa package"
+	@echo "  test-arisa     Run the arisa shell seam tests on the headless arisa macOS package"
 	@echo "  image-tag-nx, image-tag-ounce    Print the builder image tag for this checkout"
 	@echo "  check-strings  Check resources/strings matches the borealis catalogs"
 	@echo "  lint-structure Check the subject/views include rules"
@@ -279,6 +287,21 @@ test: platform
 		-L"$(OPENSSL_PREFIX)/lib" -lcrypto -o "$(TEST_BIN)"
 	@printf "$(GREEN)[*]$(NC) Running host tests...\n"
 	@"$(TEST_BIN)"
+
+test-arisa:
+	@test -f "$(ARISA_HOST_ARCHIVE)" || { printf "$(RED)[x]$(NC) No arisa host package at $(ARISA_HOST_ARCHIVE): build arisa $(ARISA_TAG) with make package TARGET=macos\n"; exit 1; }
+	@echo "$(ARISA_HOST_SHA256)  $(ARISA_HOST_ARCHIVE)" | shasum -a 256 -c - > /dev/null || { printf "$(RED)[x]$(NC) $(ARISA_HOST_ARCHIVE) does not match the pinned sha256\n"; exit 1; }
+	@if [ ! -f "$(ARISA_HOST_PREFIX)/lib/libarisa.a" ]; then mkdir -p "$(ARISA_HOST_UNPACK)" && tar -xzf "$(ARISA_HOST_ARCHIVE)" -C "$(ARISA_HOST_UNPACK)"; fi
+	@mkdir -p "$(ARISA_TEST_DIR)"
+	@printf "$(GREEN)[*]$(NC) Building arisa seam tests...\n"
+	@$(ARISA_HOST_CXX) -std=c++23 -O0 -g -DAKIRA_MUTE_CORE_LOGS=0 -I"$(CURDIR)/include" -c "$(CURDIR)/source/log/log.cpp" -o "$(ARISA_TEST_DIR)/log.o"
+	@$(ARISA_HOST_CXX) -std=c++23 -O0 -g -fno-exceptions -fno-rtti -DAKIRA_MUTE_CORE_LOGS=0 \
+		-DAKIRA_RESOURCES_DIR=\"$(CURDIR)/resources\" -I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(ARISA_HOST_PREFIX)/include" \
+		"$(CURDIR)/tests/test_main.cpp" $(wildcard $(CURDIR)/tests/arisa/*.cpp) \
+		"$(CURDIR)/source/app/arisa/dispatcher.cpp" "$(CURDIR)/source/app/arisa/string_catalog.cpp" \
+		"$(ARISA_TEST_DIR)/log.o" "$(ARISA_HOST_PREFIX)/lib/libarisa.a" -o "$(ARISA_TEST_DIR)/seam_tests"
+	@printf "$(GREEN)[*]$(NC) Running arisa seam tests...\n"
+	@"$(ARISA_TEST_DIR)/seam_tests"
 
 check-strings:
 	@python3 "$(CURDIR)/scripts/convert-i18n.py" --check
