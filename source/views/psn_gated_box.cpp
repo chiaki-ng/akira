@@ -1,6 +1,7 @@
 #include "views/psn_gated_box.hpp"
 #include "ui/theme.hpp"
 #include "core/chiaki_core.hpp"
+#include "log/log.hpp"
 
 using namespace brls::literals;
 
@@ -87,5 +88,5 @@ void PsnGatedBox::applyState(psn::SessionState state)
     placeholder->setText("akira/trophies/no_psn_token"_i18n);
     placeholder->setVisibility(brls::Visibility::VISIBLE);
 
-    brls::Logger::info("PSN gate closed: no account linked");
+    akira::log::info("PSN gate closed: no account linked");
 }

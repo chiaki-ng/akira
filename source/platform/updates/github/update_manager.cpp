@@ -1,4 +1,5 @@
 #include "platform/updates/github/update_manager.hpp"
+#include "log/log.hpp"
 
 #include <cctype>
 #include <cerrno>
@@ -13,7 +14,6 @@ extern "C" {
 #include <switch/runtime/devices/romfs_dev.h>
 }
 
-#include <borealis/core/logger.hpp>
 #include <borealis/extern/nlohmann/json.hpp>
 
 #include "core/settings_manager.hpp"
@@ -92,7 +92,7 @@ UpdateInfo UpdateManager::checkForUpdate(const std::string& channel) {
     HttpResponse res = httpPerform(req);
     if (!res.ok()) {
         result.error = res.error.empty() ? ("HTTP " + std::to_string(res.status)) : res.error;
-        brls::Logger::warning("Update check failed: {}", result.error);
+        akira::log::warning("Update check failed: {}", result.error);
         return result;
     }
 
@@ -157,7 +157,7 @@ UpdateInfo UpdateManager::checkForUpdate(const std::string& channel) {
     }
 
     result.available = compareSemver(bestVersion, self) > 0;
-    brls::Logger::info("Update check ({}): latest {} vs self {} -> {}",
+    akira::log::info("Update check ({}): latest {} vs self {} -> {}",
                        channel, bestVersion, self, result.available ? "update available" : "up to date");
     return result;
 }
@@ -302,7 +302,7 @@ bool UpdateManager::verify(const std::string& path, const std::string& expectedS
 bool UpdateManager::applyDownloaded(const std::string& tempPath, std::string& outError) {
     std::string target = resolveInstallPath();
     std::string bak = target + ".bak";
-    brls::Logger::info("Update apply: self='{}' target='{}' temp='{}'", g_selfPath, target, tempPath);
+    akira::log::info("Update apply: self='{}' target='{}' temp='{}'", g_selfPath, target, tempPath);
 
     bool hadTarget = false;
     if (FILE* t = std::fopen(target.c_str(), "rb")) {
@@ -318,7 +318,7 @@ bool UpdateManager::applyDownloaded(const std::string& tempPath, std::string& ou
         if (std::rename(target.c_str(), bak.c_str()) == 0) {
             haveBak = true;
         } else {
-            brls::Logger::warning("Update: backup rename failed ({}), removing target", std::strerror(errno));
+            akira::log::warning("Update: backup rename failed ({}), removing target", std::strerror(errno));
             std::remove(target.c_str());
         }
     }
@@ -332,7 +332,7 @@ bool UpdateManager::applyDownloaded(const std::string& tempPath, std::string& ou
         return false;
     }
 
-    brls::Logger::info("Update applied to {}{}", target, haveBak ? " (backup at " + bak + ")" : "");
+    akira::log::info("Update applied to {}{}", target, haveBak ? " (backup at " + bak + ")" : "");
     return true;
 }
 

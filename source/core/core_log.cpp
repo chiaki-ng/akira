@@ -1,7 +1,6 @@
 #include "core/core_log.hpp"
 #include "core/settings_manager.hpp"
-
-#include <borealis.hpp>
+#include "log/log.hpp"
 
 namespace akira {
 
@@ -21,19 +20,19 @@ void CoreLog::write(LogRecord record) noexcept
     try {
         switch (record.severity) {
             case LogSeverity::error:
-                brls::Logger::error("{}", record.message);
+                akira::log::error("{}", record.message);
                 break;
             case LogSeverity::warning:
-                brls::Logger::warning("{}", record.message);
+                akira::log::warning("{}", record.message);
                 break;
             case LogSeverity::info:
-                brls::Logger::info("{}", record.message);
+                akira::log::info("{}", record.message);
                 break;
             case LogSeverity::debug:
-                brls::Logger::debug("{}", record.message);
+                akira::log::debug("{}", record.message);
                 break;
             case LogSeverity::verbose:
-                brls::Logger::verbose("{}", record.message);
+                akira::log::verbose("{}", record.message);
                 break;
         }
     } catch (...) {

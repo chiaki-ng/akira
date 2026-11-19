@@ -2,6 +2,7 @@
 #include "views/host_list_tab.hpp"
 #include "views/log_browser_view.hpp"
 #include "platform/factory.hpp"
+#include "log/log.hpp"
 
 #include <borealis/core/i18n.hpp>
 
@@ -35,7 +36,7 @@ void runTlsVerifyProbe(HttpSession& session, brls::DetailCell* cell, std::shared
         { "https://untrusted-root.badssl.com/", false, "untrusted root" },
     };
 
-    brls::Logger::info("tlsprobe: ===== TLS verification probe (certinfo path) =====");
+    akira::log::info("tlsprobe: ===== TLS verification probe (certinfo path) =====");
     show("running...");
     int failures = 0;
     int done = 0;
@@ -51,7 +52,7 @@ void runTlsVerifyProbe(HttpSession& session, brls::DetailCell* cell, std::shared
         bool asExpected = (connected == c.expectOk);
         if (!asExpected) failures++;
 
-        brls::Logger::info("tlsprobe: {} {} -> {} ({})",
+        akira::log::info("tlsprobe: {} {} -> {} ({})",
             asExpected ? "PASS" : "FAIL", c.what,
             connected ? "connected" : "rejected",
             res.error.empty() ? "no transport error" : res.error);
@@ -64,12 +65,12 @@ void runTlsVerifyProbe(HttpSession& session, brls::DetailCell* cell, std::shared
 
     if (failures == 0)
     {
-        brls::Logger::info("tlsprobe: ===== all cases as expected: the service verifies this path =====");
+        akira::log::info("tlsprobe: ===== all cases as expected: the service verifies this path =====");
         show("PASS - service verifies CA, hostname and expiry");
     }
     else
     {
-        brls::Logger::error("tlsprobe: ===== {} case(s) UNEXPECTED: do not rely on the service here =====", failures);
+        akira::log::error("tlsprobe: ===== {} case(s) UNEXPECTED: do not rely on the service here =====", failures);
         show(fmt::format("FAIL - {} of 5 unexpected, see log", failures));
     }
 }

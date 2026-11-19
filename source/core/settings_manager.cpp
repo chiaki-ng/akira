@@ -8,8 +8,8 @@
 #include "util/base64.hpp"
 #include "util/custom_dns.hpp"
 #include "util/http.hpp"
+#include "log/log.hpp"
 
-#include <borealis.hpp>
 #include <format>
 #include <ranges>
 #include <utility>
@@ -52,14 +52,14 @@ const char* chiakiLogVerbosityToString(ChiakiLogVerbosity verbosity)
     }
 }
 
-brls::LogLevel borealisLogLevel(ChiakiLogVerbosity verbosity)
+akira::log::Level appLogLevel(ChiakiLogVerbosity verbosity)
 {
     switch (verbosity) {
-        case ChiakiLogVerbosity::Debug: return brls::LogLevel::LOG_DEBUG;
-        case ChiakiLogVerbosity::Trace: return brls::LogLevel::LOG_VERBOSE;
+        case ChiakiLogVerbosity::Debug: return akira::log::Level::debug;
+        case ChiakiLogVerbosity::Trace: return akira::log::Level::verbose;
         case ChiakiLogVerbosity::Normal:
         case ChiakiLogVerbosity::Info:
-        default:                        return brls::LogLevel::LOG_INFO;
+        default:                        return akira::log::Level::info;
     }
 }
 
@@ -334,7 +334,7 @@ void SettingsManager::ensureCloudDuid(libchiaking::platform::SecureRandomProvide
 
     std::array<std::byte, 16> randomBytes{};
     if (!random.fill_bytes(randomBytes)) {
-        brls::Logger::error("Failed to generate cloud DUID");
+        akira::log::error("Failed to generate cloud DUID");
         cloudDuid.clear();
         return;
     }
@@ -343,7 +343,7 @@ void SettingsManager::ensureCloudDuid(libchiaking::platform::SecureRandomProvide
         std::format_to(std::back_inserter(generated), "{:02x}", std::to_integer<unsigned>(byte));
     cloudDuid = std::move(generated);
     if (writeFile() != 0)
-        brls::Logger::error("Failed to persist cloud DUID");
+        akira::log::error("Failed to persist cloud DUID");
 }
 
 SettingsManager* SettingsManager::getInstance() {
@@ -429,16 +429,16 @@ void SettingsManager::parseFile() {
     if (fileExists(TOML_CONFIG_FILE)) {
         parseTomlFile();
     } else if (fileExists(LEGACY_CONFIG_FILE)) {
-        brls::Logger::info("Migrating from legacy config format");
+        akira::log::info("Migrating from legacy config format");
         parseLegacyFile();
         writeFile();
     } else {
-        brls::Logger::info("No config file found, using defaults");
+        akira::log::info("No config file found, using defaults");
     }
 }
 
 void SettingsManager::parseTomlFile() {
-    brls::Logger::info("Parsing TOML config file: {}", TOML_CONFIG_FILE);
+    akira::log::info("Parsing TOML config file: {}", TOML_CONFIG_FILE);
 
     try {
         auto config = toml::parse_file(TOML_CONFIG_FILE);
@@ -451,7 +451,7 @@ void SettingsManager::parseTomlFile() {
             configMigrated =
                 chiaki_migrations::buildSettingsMigrator().migrate(config).changed();
         } catch (const tomlmigrate::MigrationError& err) {
-            brls::Logger::error(
+            akira::log::error(
                 "Config migration skipped, loading fields as-is: {}", err.what());
         }
 
@@ -611,7 +611,7 @@ void SettingsManager::parseTomlFile() {
             migrated.envelope_decay  = rumbleEnvelopeDecay;
 
             rumbleProfiles[akira::input::kRumbleKeySwitch] = migrated;
-            brls::Logger::info("rumble profiles: migrated existing settings into the switch profile");
+            akira::log::info("rumble profiles: migrated existing settings into the switch profile");
         }
 
         {
@@ -662,7 +662,7 @@ void SettingsManager::parseTomlFile() {
             if (auto servers = akira::net::CustomDns::parseServers(*val))
                 setCustomDnsServers(std::move(*servers));
             else
-                brls::Logger::warning("Ignoring invalid network.custom_dns \"{}\"", *val);
+                akira::log::warning("Ignoring invalid network.custom_dns \"{}\"", *val);
         }
         if (auto val = config["network"]["companion_port"].value<int64_t>())
             companionPort = static_cast<int>(*val);
@@ -758,7 +758,7 @@ void SettingsManager::parseTomlFile() {
             if (auto val = (*mappingTable)["swipe_right_enabled"].value<bool>())
                 swipeRightEnabled = *val;
 
-            brls::Logger::info("Loaded button mapping from config");
+            akira::log::info("Loaded button mapping from config");
         }
 
         if (auto* profilesArr = config["profiles"].as_array()) {
@@ -846,30 +846,30 @@ void SettingsManager::parseTomlFile() {
         signInStore.read(config);
         pairingStore.read(config);
 
-        brls::Logger::info("Loaded {} profile(s), {} console(s) from TOML config",
+        akira::log::info("Loaded {} profile(s), {} console(s) from TOML config",
             profiles.size(), hosts.size());
         logProfileCensus("load");
 
         refreshLegacyGate();
 
         if (configMigrated) {
-            brls::Logger::info("Config migrated to current schema, rewriting");
+            akira::log::info("Config migrated to current schema, rewriting");
             backupConfig(configVersion);
             writeFile();
         }
     } catch (const toml::parse_error& err) {
-        brls::Logger::error("Failed to parse TOML config: {}", err.what());
+        akira::log::error("Failed to parse TOML config: {}", err.what());
     } catch (const std::exception& err) {
-        brls::Logger::error("Failed to load TOML config: {}", err.what());
+        akira::log::error("Failed to load TOML config: {}", err.what());
     }
 }
 
 void SettingsManager::parseLegacyFile() {
-    brls::Logger::info("Parsing legacy config file: {}", LEGACY_CONFIG_FILE);
+    akira::log::info("Parsing legacy config file: {}", LEGACY_CONFIG_FILE);
 
     std::ifstream configFile(LEGACY_CONFIG_FILE);
     if (!configFile.is_open()) {
-        brls::Logger::error("Failed to open legacy config file");
+        akira::log::error("Failed to open legacy config file");
         return;
     }
 
@@ -942,7 +942,7 @@ void SettingsManager::parseLegacyFile() {
                 if (cleanName != value && hosts.find(cleanName) != hosts.end()) {
                     Host* existing = hosts[cleanName].get();
                     if (existing->hostType == HostType::Manual && migratedType != HostType::Manual) {
-                        brls::Logger::info("Skipping {} - Manual host {} already exists", value, cleanName);
+                        akira::log::info("Skipping {} - Manual host {} already exists", value, cleanName);
                         currentHost = nullptr;
                         break;
                     }
@@ -1024,7 +1024,7 @@ void SettingsManager::parseLegacyFile() {
     configFile.close();
     libchiaking::memory::secure_zero(std::span<std::byte>{legacyRegistKey});
     libchiaking::memory::secure_zero(std::span<std::byte>{legacyKey});
-    brls::Logger::info("Loaded {} host(s) from legacy config", hosts.size());
+    akira::log::info("Loaded {} host(s) from legacy config", hosts.size());
 }
 
 std::mutex SettingsManager::writeMutex;
@@ -1033,7 +1033,7 @@ std::atomic<uint64_t> SettingsManager::writeSeq{0};
 int SettingsManager::writeFile() {
     std::lock_guard<std::mutex> writeLock(writeMutex);
 
-    brls::Logger::info("Writing config file: {}", TOML_CONFIG_FILE);
+    akira::log::info("Writing config file: {}", TOML_CONFIG_FILE);
 
     ensureConfigDir();
     owned = ownedSettings();
@@ -1043,7 +1043,7 @@ int SettingsManager::writeFile() {
 int SettingsManager::writeStores() {
     std::lock_guard<std::mutex> writeLock(writeMutex);
 
-    brls::Logger::info("Writing the stores to {}", TOML_CONFIG_FILE);
+    akira::log::info("Writing the stores to {}", TOML_CONFIG_FILE);
 
     ensureConfigDir();
     return persist(owned);
@@ -1334,14 +1334,14 @@ int SettingsManager::persist(toml::table config) {
     {
         std::ofstream configFile(tmpPath, std::ios::out | std::ios::trunc);
         if (!configFile.is_open()) {
-            brls::Logger::error("Failed to open config file for writing");
+            akira::log::error("Failed to open config file for writing");
             return -1;
         }
         configFile << config;
         configFile.flush();
         configFile.close();
         if (configFile.fail()) {
-            brls::Logger::error("Failed to flush config to {}", tmpPath);
+            akira::log::error("Failed to flush config to {}", tmpPath);
             std::remove(tmpPath.c_str());
             return -1;
         }
@@ -1349,7 +1349,7 @@ int SettingsManager::persist(toml::table config) {
 
     std::remove(TOML_CONFIG_FILE);
     if (std::rename(tmpPath.c_str(), TOML_CONFIG_FILE) != 0) {
-        brls::Logger::error("Failed to move config into place");
+        akira::log::error("Failed to move config into place");
         std::remove(tmpPath.c_str());
         return -1;
     }
@@ -1500,13 +1500,13 @@ bool SettingsManager::isValidHostAddress(const std::string& addr) {
 
 std::string SettingsManager::getHostName(Host* host) {
     if (host) return host->getHostName();
-    brls::Logger::error("Cannot getHostName from nullptr");
+    akira::log::error("Cannot getHostName from nullptr");
     return "";
 }
 
 std::string SettingsManager::getHostAddr(Host* host) {
     if (host) return host->getHostAddr();
-    brls::Logger::error("Cannot getHostAddr from nullptr");
+    akira::log::error("Cannot getHostAddr from nullptr");
     return "";
 }
 
@@ -1514,7 +1514,7 @@ void SettingsManager::setHostAddr(Host* host, const std::string& addr) {
     if (host) {
         host->hostAddr = addr;
     } else {
-        brls::Logger::error("Cannot setHostAddr on nullptr");
+        akira::log::error("Cannot setHostAddr on nullptr");
     }
 }
 
@@ -1555,7 +1555,7 @@ void SettingsManager::setConsolePIN(Host* host, const std::string& pin) {
     if (host) {
         host->consolePIN = pin;
     } else {
-        brls::Logger::error("Cannot setConsolePIN on nullptr");
+        akira::log::error("Cannot setConsolePIN on nullptr");
     }
 }
 
@@ -1875,12 +1875,12 @@ bool SettingsManager::adoptLegacyRegistrations(Host& host) {
         return false;
 
     if (!pairingStore.adopt(std::move(console), std::move(adopted))) {
-        brls::Logger::error("Could not adopt the saved registrations of {}", host.hostName);
+        akira::log::error("Could not adopt the saved registrations of {}", host.hostName);
         return false;
     }
     host.legacyRegistrations.clear();
     writeFile();
-    brls::Logger::info("Adopted the saved registrations of {} into the core's pairings", host.hostName);
+    akira::log::info("Adopted the saved registrations of {} into the core's pairings", host.hostName);
     return true;
 }
 
@@ -1895,9 +1895,9 @@ void SettingsManager::backupConfig(int64_t version) {
     std::error_code error;
     const auto expected = std::filesystem::file_size(TOML_CONFIG_FILE, error);
     if (error || written < 0 || static_cast<std::uintmax_t>(written) != expected)
-        brls::Logger::error("Could not back up {} to {} before migrating", TOML_CONFIG_FILE, backupPath);
+        akira::log::error("Could not back up {} to {} before migrating", TOML_CONFIG_FILE, backupPath);
     else
-        brls::Logger::info("Backed up {} to {} before migrating", TOML_CONFIG_FILE, backupPath);
+        akira::log::info("Backed up {} to {} before migrating", TOML_CONFIG_FILE, backupPath);
 }
 
 int SettingsManager::getCompanionPort() const {
@@ -1956,7 +1956,7 @@ void SettingsManager::setActiveProfileId(int64_t id) {
     if (activeProfileId != id) {
         const Profile* from = findProfile(activeProfileId);
         const Profile* to = findProfile(id);
-        brls::Logger::info("Active profile {} ({}) -> {} ({})",
+        akira::log::info("Active profile {} ({}) -> {} ({})",
             activeProfileId, from ? from->label() : std::string("<none>"),
             id, to ? to->label() : std::string("<none>"));
     }
@@ -1965,10 +1965,10 @@ void SettingsManager::setActiveProfileId(int64_t id) {
 }
 
 void SettingsManager::logProfileCensus(const char* stage) {
-    brls::Logger::info("Profile census [{}]: active={} count={}",
+    akira::log::info("Profile census [{}]: active={} count={}",
         stage, activeProfileId, profiles.size());
     for (const Profile& p : profiles) {
-        brls::Logger::info("  profile id={} label='{}' legacy={} account={} shortcuts={}",
+        akira::log::info("  profile id={} label='{}' legacy={} account={} shortcuts={}",
             p.id, p.label(), p.legacy, !p.accountId.empty(), p.cloudShortcuts.size());
     }
 }
@@ -2485,9 +2485,10 @@ void SettingsManager::setChiakiLogVerbosity(ChiakiLogVerbosity verbosity) {
 }
 
 void SettingsManager::applyChiakiLogVerbosity() {
-    brls::Logger::setLogLevel(silenceAllLogs
-        ? static_cast<brls::LogLevel>(static_cast<int>(brls::LogLevel::LOG_ERROR) - 1)
-        : borealisLogLevel(chiakiLogVerbosity));
+    if (silenceAllLogs)
+        akira::log::Log::process().silence();
+    else
+        akira::log::Log::process().setLevel(appLogLevel(chiakiLogVerbosity));
     updateChiakiLogMask();
 }
 

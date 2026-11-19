@@ -1,6 +1,6 @@
 #include "stream/audio_manager.hpp"
-#include <borealis.hpp>
 #include <cstring>
+#include "log/log.hpp"
 
 AudioManager::AudioManager()
 {
@@ -30,7 +30,7 @@ void AudioManager::init(unsigned int channels, unsigned int rate)
 
     if (m_device_id <= 0)
     {
-        brls::Logger::error("SDL_OpenAudioDevice failed: {}", SDL_GetError());
+        akira::log::error("SDL_OpenAudioDevice failed: {}", SDL_GetError());
     }
     else
     {
@@ -50,12 +50,12 @@ void AudioManager::play(std::span<const int16_t> samples)
         if (sample > INT16_MAX)
         {
             buf[x] = INT16_MAX;
-            brls::Logger::debug("Audio Hard clipping INT16_MAX < {}", sample);
+            akira::log::debug("Audio Hard clipping INT16_MAX < {}", sample);
         }
         else if (sample < INT16_MIN)
         {
             buf[x] = INT16_MIN;
-            brls::Logger::debug("Audio Hard clipping INT16_MIN > {}", sample);
+            akira::log::debug("Audio Hard clipping INT16_MIN > {}", sample);
         }
         else
         {
@@ -66,14 +66,14 @@ void AudioManager::play(std::span<const int16_t> samples)
     int audio_queued_size = SDL_GetQueuedAudioSize(m_device_id);
     if (audio_queued_size > 16000)
     {
-        brls::Logger::warning("Triggering SDL_ClearQueuedAudio with queue size = {}", audio_queued_size);
+        akira::log::warning("Triggering SDL_ClearQueuedAudio with queue size = {}", audio_queued_size);
         SDL_ClearQueuedAudio(m_device_id);
     }
 
     int success = SDL_QueueAudio(m_device_id, buf, sizeof(int16_t) * m_boosted.size());
     if (success != 0)
     {
-        brls::Logger::error("SDL_QueueAudio failed: {}", SDL_GetError());
+        akira::log::error("SDL_QueueAudio failed: {}", SDL_GetError());
     }
 }
 

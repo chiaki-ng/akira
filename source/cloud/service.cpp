@@ -1,4 +1,5 @@
 #include "cloud/service.hpp"
+#include "log/log.hpp"
 
 #include <borealis.hpp>
 #include <borealis/core/i18n.hpp>
@@ -35,7 +36,7 @@ Service::Service()
     settings = SettingsManager::getInstance();
     std::error_code ignored;
     if (std::filesystem::remove_all(LEGACY_CACHE_DIR, ignored) > 0)
-        brls::Logger::info("Cloud: removed the old catalog cache");
+        akira::log::info("Cloud: removed the old catalog cache");
     backgroundSubscription = akira::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
 }
 
@@ -59,7 +60,7 @@ void Service::followBackgroundWork(bool nowPaused)
             }
         }
         if (stopped)
-            brls::Logger::info("Cloud: catalog refresh stopped for the stream");
+            akira::log::info("Cloud: catalog refresh stopped for the stream");
         return;
     }
 
@@ -71,7 +72,7 @@ void Service::followBackgroundWork(bool nowPaused)
     }
     if (!resumed.wanted)
         return;
-    brls::Logger::info("Cloud: catalog refresh resumed after the stream");
+    akira::log::info("Cloud: catalog refresh resumed after the stream");
     if (resumed.waiters.empty())
     {
         refreshActiveProfile(resumed.force);
@@ -267,7 +268,7 @@ auto Service::recentlyPlayedOf(libchiaking::users::PsUser& user) -> std::vector<
     auto played = catalogOf().recently_played(user);
     if (!played)
     {
-        brls::Logger::warning("Cloud: recently played unanswered (reason {})", static_cast<int>(played.error().reason()));
+        akira::log::warning("Cloud: recently played unanswered (reason {})", static_cast<int>(played.error().reason()));
         return {};
     }
     std::vector<RecentlyPlayed> out;
@@ -462,7 +463,7 @@ void Service::refreshInBackground()
         if (it != entries.end() && it->second.fetchedAt)
             return;
     }
-    brls::Logger::info("Cloud: background catalog refresh after the PSN keep-alive");
+    akira::log::info("Cloud: background catalog refresh after the PSN keep-alive");
     refreshActiveProfile(false);
 }
 
@@ -538,7 +539,7 @@ void Service::refreshActiveProfile(bool force, SnapshotCallback onDone, FetchCal
 
     if (fresh)
     {
-        brls::Logger::debug("Cloud: catalog is fresh, not refreshing");
+        akira::log::debug("Cloud: catalog is fresh, not refreshing");
         if (onDone)
             brls::sync([onDone = std::move(onDone), snapshot = std::move(*fresh)]() { onDone(snapshot); });
         return;
@@ -615,7 +616,7 @@ void Service::runRefresh(int64_t profileId, uint64_t generation, User user, bool
         return;
     if (!games)
     {
-        brls::Logger::warning("Cloud: catalog unanswered (reason {}, HTTP {})",
+        akira::log::warning("Cloud: catalog unanswered (reason {}, HTTP {})",
             static_cast<int>(games.error().reason()), games.error().http_status());
         Snapshot failed = snapshotOf(failureOf(games.error()));
         failed.status.plusMembership = plusMembership;
@@ -625,7 +626,7 @@ void Service::runRefresh(int64_t profileId, uint64_t generation, User user, bool
 
     Snapshot snapshot = snapshotOf(*games.value(), catalogOf(), *user, plusMembership);
     snapshot.recentlyPlayed = recentlyPlayedOf(*user);
-    brls::Logger::info("Cloud: catalog has {} visible title(s), {} launchable",
+    akira::log::info("Cloud: catalog has {} visible title(s), {} launchable",
         snapshot.catalog.games.size(), snapshot.status.gameCount);
     finishRefresh(profileId, generation, std::move(snapshot), true);
 }
@@ -722,7 +723,7 @@ void Service::detailsOf(const Game& game, const platform::StopToken& stop, Detai
         if (details)
             detail = detailOf(*details);
         else
-            brls::Logger::warning("Cloud: details of {} unanswered (reason {})", product.text(),
+            akira::log::warning("Cloud: details of {} unanswered (reason {})", product.text(),
                 static_cast<int>(details.error().reason()));
         brls::sync([onDone, stop, detail = std::move(detail)]() {
             if (!stop.stop_requested())
@@ -758,7 +759,7 @@ void Service::imageOf(const std::string& url, int width, const platform::StopTok
             std::ranges::transform(*bytes, out.begin(), [](std::byte b) { return std::to_integer<uint8_t>(b); });
         }
         else
-            brls::Logger::warning("Cloud: image {} unanswered", image.url());
+            akira::log::warning("Cloud: image {} unanswered", image.url());
         brls::sync([onDone, stop, out = std::move(out)]() mutable {
             if (!stop.stop_requested())
                 onDone(std::move(out));
@@ -915,7 +916,7 @@ void Service::clearForLaunch(const Game& game, const platform::StopToken& stop, 
 
         if (const catalog::LaunchRefusal* refused = verdict.refusal())
         {
-            brls::Logger::warning("CloudLaunch: {} ({}) refused by the catalog, kind {}",
+            akira::log::warning("CloudLaunch: {} ({}) refused by the catalog, kind {}",
                 name, product.text(), static_cast<int>(refused->kind()));
             const std::string message = CloudLaunch::clearanceText(*refused, name);
             if (onError)
@@ -926,14 +927,14 @@ void Service::clearForLaunch(const Game& game, const platform::StopToken& stop, 
         const catalog::ClearedLaunch* cleared = verdict.cleared_launch();
         if (!cleared)
         {
-            brls::Logger::error("CloudLaunch: {} allowed without a cleared launch", product.text());
+            akira::log::error("CloudLaunch: {} allowed without a cleared launch", product.text());
             if (onError)
                 brls::sync([onError]() { onError("akira/cloud/launch_failed"_i18n); });
             return;
         }
 
         auto launch = std::make_shared<CloudLaunch>(user, *cleared, name);
-        brls::Logger::info("CloudLaunch: {} cleared for launch", product.text());
+        akira::log::info("CloudLaunch: {} cleared for launch", product.text());
         if (onCleared)
             brls::sync([onCleared, launch]() { onCleared(launch); });
     });

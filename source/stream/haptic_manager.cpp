@@ -1,4 +1,5 @@
 #include "stream/haptic_manager.hpp"
+#include "log/log.hpp"
 
 #include <cstdio>
 #include "stream/input_manager.hpp"
@@ -7,7 +8,6 @@
 #include "input/rumble_profile.hpp"
 #include <algorithm>
 #include <cstring>
-#include <borealis.hpp>
 
 HapticManager::HapticManager(std::unique_ptr<akira::platform::HapticsProvider> pad)
     : m_pad(std::move(pad))
@@ -55,11 +55,11 @@ void HapticManager::emit(float left, float right)
 void HapticManager::setRumble(uint8_t left, uint8_t right)
 {
     if (SettingsManager::getInstance()->getDebugChiakiLog() && (left > 0 || right > 0))
-        brls::Logger::info("setRumble: left={}, right={}, strength={:.2f}", left, right, m_rumble_strength);
+        akira::log::info("setRumble: left={}, right={}, strength={:.2f}", left, right, m_rumble_strength);
 
     m_rumble_events++;
     if (m_rumble_events == 1)
-        brls::Logger::info("rumble events: console sent one while announced as a DualSense"
+        akira::log::info("rumble events: console sent one while announced as a DualSense"
                            " (haptic buffers so far: {})", m_haptic_buffers);
 
     if (effectiveSource() != akira::input::RumbleSource::Game)
@@ -113,11 +113,11 @@ void HapticManager::processHapticAudio(std::span<const std::byte> pcm)
 
     m_haptic_buffers++;
     if (m_haptic_buffers == 1)
-        brls::Logger::info("haptic stream: first buffer (rumble events so far: {})",
+        akira::log::info("haptic stream: first buffer (rumble events so far: {})",
                            m_rumble_events);
     if (++m_stream_logged >= 600) {
         m_stream_logged = 0;
-        brls::Logger::info("haptic stream: {} buffers, {} rumble events, source={}",
+        akira::log::info("haptic stream: {} buffers, {} rumble events, source={}",
                            m_haptic_buffers, m_rumble_events, (int)effectiveSource());
     }
 

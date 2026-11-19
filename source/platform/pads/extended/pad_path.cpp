@@ -1,5 +1,6 @@
 #include "platform/pads/extended/pad_path.hpp"
 #include "platform/pad_settings/extended/provider.hpp"
+#include "log/log.hpp"
 
 #include <cstring>
 #include "platform/pads/extended/pad_names.hpp"
@@ -239,7 +240,7 @@ bool HidsysReady()
         const Result rc = hidsysInitialize();
         ready = R_SUCCEEDED(rc);
         if (!ready) {
-            brls::Logger::warning("pad path: hidsysInitialize failed (0x{:x}),"
+            akira::log::warning("pad path: hidsysInitialize failed (0x{:x}),"
                                   " falling back to positional pad matching", rc);
         }
     }
@@ -432,7 +433,7 @@ std::unique_ptr<PadPath> MakePath(const input::PadDescription& desc, ExtendedInp
                 return nullptr;
 
             if (ResolvePadDriver(desc, extended) == PadDriver::MissionControl) {
-                brls::Logger::info("pad {:04x}:{:04x} driven by MissionControl"
+                akira::log::info("pad {:04x}:{:04x} driven by MissionControl"
                                    " - using the generic path",
                                    desc.vendor_id, desc.product_id);
                 return std::make_unique<McGenericPath>(desc.npad, extended, desc.vendor_id,

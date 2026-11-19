@@ -1,6 +1,7 @@
 #ifndef AKIRA_CONNECTING_VIEW_HPP
 #define AKIRA_CONNECTING_VIEW_HPP
 
+#include "log/log.hpp"
 #include "util/connection_log.hpp"
 
 #include <optional>
@@ -84,7 +85,7 @@ private:
     static constexpr int kFailureLingerMs = 4000;
     std::string failureText;
 
-    brls::Event<brls::Logger::TimePoint, brls::LogLevel, std::string>::Subscription logSubscription;
+    std::optional<akira::log::Log::Subscription> logSubscription;
 
     std::optional<akira::ConnectionLog> connectionLog;
 

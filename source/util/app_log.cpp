@@ -1,36 +1,28 @@
 #include "util/app_log.hpp"
 
-#include <borealis.hpp>
-
 namespace akira {
 
 void AppLog::open(const std::string& path)
 {
-    if (file)
+    auto& current = redirect();
+    if (current)
         return;
-    file = std::fopen(path.c_str(), "w");
-    if (!file)
+    current = log::Log::process().redirect(path, log::Buffering::line);
+    if (!current)
         return;
-    std::setvbuf(file, nullptr, _IOLBF, 0);
-    brls::Logger::setLogOutput(file);
-    brls::Logger::info("File logging enabled: {}", path);
+    log::info("File logging enabled: {}", path);
 }
 
 void AppLog::close()
 {
-    if (!file)
-        return;
-    brls::Logger::flushAsyncLogs();
-    if (brls::Logger::getLogOutput() == file)
-        brls::Logger::setLogOutput(stdout);
-    brls::Logger::flushAsyncLogs();
-    std::fclose(file);
-    file = nullptr;
+    redirect().reset();
 }
 
-auto AppLog::output() noexcept -> std::FILE*
+auto AppLog::redirect() -> std::optional<log::Log::Redirect>&
 {
-    return file ? file : stdout;
+    log::Log::process();
+    static std::optional<log::Log::Redirect> current;
+    return current;
 }
 
 }

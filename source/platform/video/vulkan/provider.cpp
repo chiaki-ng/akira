@@ -1,4 +1,5 @@
 #include "platform/video/vulkan/provider.hpp"
+#include "log/log.hpp"
 
 #include <borealis.hpp>
 
@@ -35,7 +36,7 @@ bool VulkanVideoProvider::addSettings(brls::Box& group) const
     zeroCopy->init("akira/settings/zero_copy"_i18n, settings->getZeroCopyVideo(), [settings](bool isOn) {
         settings->setZeroCopyVideo(isOn);
         settings->writeFile();
-        brls::Logger::info("Zero-copy video set to {}", isOn ? "on" : "off");
+        akira::log::info("Zero-copy video set to {}", isOn ? "on" : "off");
     });
     zeroCopy->setId("settings/zeroCopy");
     group.addView(zeroCopy);
@@ -78,7 +79,7 @@ VideoRenderer* VulkanVideoProvider::renderer()
 
 bool VulkanVideoProvider::startRenderer(int width, int height, FrameHooks hooks)
 {
-    brls::Logger::info("Creating {} renderer", name());
+    akira::log::info("Creating {} renderer", name());
     auto renderer = std::make_unique<VulkanRenderer>();
     if (!renderer->initialize(width, height))
         return false;
@@ -101,7 +102,7 @@ bool VulkanVideoProvider::startRenderer(int width, int height, FrameHooks hooks)
     if (SettingsManager::getInstance()->getZeroCopyVideo())
         m_decoder->setOutputMemory(m_renderer->decoderOutputMemory());
     else
-        brls::Logger::info("Zero-copy video is off, decoded frames are copied");
+        akira::log::info("Zero-copy video is off, decoded frames are copied");
     m_decoder->setFrameReadyCallback(std::move(present));
     return true;
 }

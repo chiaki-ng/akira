@@ -1,8 +1,7 @@
 #include "platform/pads/extended/extended_input_manager.hpp"
 #include "platform/pad_settings/extended/provider.hpp"
 #include "input/sample_cadence.hpp"
-
-#include <borealis.hpp>
+#include "log/log.hpp"
 
 #include <cstring>
 #include <format>
@@ -332,21 +331,21 @@ bool ExtendedInputManager::initializeOptional()
 {
     if (!serviceIsRunning(AKIRA_INPUT_IPC_SERVICE_NAME)) {
         m_availability = Availability::NotInstalled;
-        brls::Logger::info("analog triggers: akira-input not installed");
+        akira::log::info("analog triggers: akira-input not installed");
         return false;
     }
 
     Result rc = smGetService(&m_srv, AKIRA_INPUT_IPC_SERVICE_NAME);
     if (R_FAILED(rc)) {
         m_availability = Availability::NotInstalled;
-        brls::Logger::info("analog triggers: could not open akira-input (0x{:x})", rc);
+        akira::log::info("analog triggers: could not open akira-input (0x{:x})", rc);
         return false;
     }
 
     uint32_t api = 0;
     rc = serviceDispatchOut(&m_srv, AkiraInputCmd_GetApiVersion, api);
     if (R_FAILED(rc) || api != AKIRA_INPUT_IPC_API_VERSION) {
-        brls::Logger::warning("analog triggers: api {} != {} (rc=0x{:x})",
+        akira::log::warning("analog triggers: api {} != {} (rc=0x{:x})",
                               api, AKIRA_INPUT_IPC_API_VERSION, rc);
         m_availability = Availability::VersionMismatch;
         serviceClose(&m_srv);
@@ -366,7 +365,7 @@ bool ExtendedInputManager::initializeOptional()
     if (status.backend_state == AkiraInputBackend_Unavailable
         || status.backend_state == AkiraInputBackend_Failed) {
         m_availability = Availability::Unsupported;
-        brls::Logger::info("analog triggers: backend unavailable (state {}, last 0x{:x})",
+        akira::log::info("analog triggers: backend unavailable (state {}, last 0x{:x})",
                            status.backend_state, static_cast<uint32_t>(status.last_error));
         serviceClose(&m_srv);
         return false;
@@ -375,7 +374,7 @@ bool ExtendedInputManager::initializeOptional()
     rc = serviceDispatch(&m_srv, AkiraInputCmd_Subscribe);
     if (R_FAILED(rc)) {
         m_availability = Availability::Unsupported;
-        brls::Logger::info("analog triggers: subscribe refused (0x{:x})", rc);
+        akira::log::info("analog triggers: subscribe refused (0x{:x})", rc);
         serviceClose(&m_srv);
         return false;
     }
@@ -386,7 +385,7 @@ bool ExtendedInputManager::initializeOptional()
         "extended-input", libchiaking::platform::ThreadRole::input,
         [this](libchiaking::platform::StopToken) { poll(); });
     if (!started) {
-        brls::Logger::warning("analog triggers: poll thread failed");
+        akira::log::warning("analog triggers: poll thread failed");
         m_running.store(false, std::memory_order_release);
         m_availability = Availability::Failed;
         shutdown();
@@ -395,7 +394,7 @@ bool ExtendedInputManager::initializeOptional()
     m_thread = std::move(started).value();
 
     m_availability = Availability::Available;
-    brls::Logger::info("analog triggers: available (mc 0x{:06x})", m_mc_version);
+    akira::log::info("analog triggers: available (mc 0x{:06x})", m_mc_version);
     return true;
 }
 
@@ -560,7 +559,7 @@ void ExtendedInputManager::refreshDirectGates(uint16_t vendor_id, uint16_t produ
     const bool haptics = profile.rumble_source != akira::input::RumbleSource::Off;
     s_direct_haptics_allowed.store(haptics, std::memory_order_release);
 
-    brls::Logger::info("direct gates for {:04x}:{:04x}: driver={} haptics={}",
+    akira::log::info("direct gates for {:04x}:{:04x}: driver={} haptics={}",
                        vendor_id, product_id,
                        akira::platform::extended::PadDriverName(
                            native ? akira::platform::extended::PadDriver::Akira
@@ -596,7 +595,7 @@ void ExtendedInputManager::setConsoleIntensity(akira::input::Ds5EffectIntensity 
     if (was_v == (uint8_t)vibration && was_t == (uint8_t)trigger)
         return;
 
-    brls::Logger::info("console intensity: vibration={} triggers={} (byte 0x{:02x})",
+    akira::log::info("console intensity: vibration={} triggers={} (byte 0x{:02x})",
                        (int)vibration, (int)trigger,
                        akira::platform::extended::Ds5IntensityByte(vibration, trigger));
 }
@@ -746,7 +745,7 @@ void ExtendedInputManager::ensureOutputOwnership(bool want)
         s_output_refused.store(refused, std::memory_order_release);
 
     if (R_FAILED(rc)) {
-        brls::Logger::warning("output ownership: {} failed ipc=0x{:x}",
+        akira::log::warning("output ownership: {} failed ipc=0x{:x}",
                               want ? "acquire" : "release", rc);
         return;
     }
@@ -755,9 +754,9 @@ void ExtendedInputManager::ensureOutputOwnership(bool want)
         const bool had = m_owns_output;
         m_owns_output = false;
         if (had) {
-            brls::Logger::warning("output ownership: lost - the backend released it");
+            akira::log::warning("output ownership: lost - the backend released it");
         }
-        brls::Logger::info("output ownership: refused rc=0x{:x} - leaving the pad "
+        akira::log::info("output ownership: refused rc=0x{:x} - leaving the pad "
                            "to MissionControl", out_rc);
         return;
     }
@@ -770,7 +769,7 @@ void ExtendedInputManager::ensureOutputOwnership(bool want)
         m_lightbar_painted_valid = false;
 
     if (took_it || gave_it)
-        brls::Logger::info("output ownership: {} rc=0x{:x} - link {}",
+        akira::log::info("output ownership: {} rc=0x{:x} - link {}",
                            want ? "acquired" : "released", out_rc,
                            want ? "widened for haptics" : "back to its default width");
 
@@ -838,7 +837,7 @@ void ExtendedInputManager::paintLightbar()
         m_lightbar_painted_ms    = now;
     }
 
-    brls::Logger::info("lightbar: {:02x}{:02x}{:02x} {}",
+    akira::log::info("lightbar: {:02x}{:02x}{:02x} {}",
                        rgb[0], rgb[1], rgb[2], ok ? "sent" : "refused");
 }
 
@@ -858,7 +857,7 @@ void ExtendedInputManager::reconsiderBackendRefusal()
         return;
 
     s_output_refused.store(false, std::memory_order_release);
-    brls::Logger::info("output ownership: the backend has native output on again");
+    akira::log::info("output ownership: the backend has native output on again");
 }
 
 void ExtendedInputManager::pumpDirectOutput()
@@ -875,7 +874,7 @@ void ExtendedInputManager::pumpDirectOutput()
     if (!allowed || !m_direct_addr_valid) {
         if (!m_direct_gate_logged) {
             m_direct_gate_logged = true;
-            brls::Logger::info("direct output blocked: stream_toggle={} addr_valid={} wanted={}",
+            akira::log::info("direct output blocked: stream_toggle={} addr_valid={} wanted={}",
                                allowed, m_direct_addr_valid,
                                m_direct_wanted.load(std::memory_order_acquire));
         }
@@ -884,7 +883,7 @@ void ExtendedInputManager::pumpDirectOutput()
 
     if (!m_direct_gate_logged) {
         m_direct_gate_logged = true;
-        brls::Logger::info("direct output live: addr valid, wanted={}",
+        akira::log::info("direct output live: addr valid, wanted={}",
                            m_direct_wanted.load(std::memory_order_acquire));
     }
 
@@ -971,7 +970,7 @@ void ExtendedInputManager::pumpDirectState(uint32_t now)
 
     if (!m_direct_trigger_logged) {
         m_direct_trigger_logged = true;
-        brls::Logger::info("direct state: rumble={:04x} triggers left=0x{:02x} right=0x{:02x} "
+        akira::log::info("direct state: rumble={:04x} triggers left=0x{:02x} right=0x{:02x} "
                            "intensity=0x{:02x}",
                            want_rumble, left[0], right[0], want_intensity);
     }
@@ -1024,10 +1023,10 @@ void ExtendedInputManager::registerCouchOutput(const uint8_t* bt_addr, uint16_t 
     mutexUnlock(&m_couch_lock);
 
     if (t == nullptr)
-        brls::Logger::warning("couch output: no free slot for pad {:04x}:{:04x}",
+        akira::log::warning("couch output: no free slot for pad {:04x}:{:04x}",
                               vendor_id, product_id);
     else
-        brls::Logger::info("couch output: registered {:04x}:{:04x}", vendor_id, product_id);
+        akira::log::info("couch output: registered {:04x}:{:04x}", vendor_id, product_id);
 }
 
 void ExtendedInputManager::unregisterCouchOutput(const uint8_t* bt_addr)
@@ -1358,7 +1357,7 @@ void ExtendedInputManager::logStatus(const char* when)
     AkiraInputStatus status{};
     const Result rc = serviceDispatchOut(&m_srv, AkiraInputCmd_GetStatus, status);
     if (R_FAILED(rc)) {
-        brls::Logger::warning("analog triggers [{}]: status read failed (0x{:x})", when, rc);
+        akira::log::warning("analog triggers [{}]: status read failed (0x{:x})", when, rc);
         return;
     }
 
@@ -1369,7 +1368,7 @@ void ExtendedInputManager::logStatus(const char* when)
 
     if (missed > 0 && wrote == 0) {
         if (m_haptics_landing.exchange(false, std::memory_order_acq_rel)) {
-            brls::Logger::warning(
+            akira::log::warning(
                 "haptic stream: {} report(s) refused and none accepted - falling back to motors",
                 missed);
         }
@@ -1380,14 +1379,14 @@ void ExtendedInputManager::logStatus(const char* when)
     const uint64_t reports = status.reports_received - m_reports_seen;
     m_reports_seen = status.reports_received;
 
-    brls::Logger::info(
+    akira::log::info(
         "analog triggers [{}]: state={} subs={} claims={} reports=+{} last=0x{:x}",
         when, status.backend_state, status.subscriber_count,
         status.claims_held, reports,
         static_cast<uint32_t>(status.last_error));
 
     if (status.claims_held > 0 && reports == 0) {
-        brls::Logger::warning(
+        akira::log::warning(
             "analog triggers [{}]: {} claim(s) held and no reports arriving",
             when, status.claims_held);
     }
@@ -1395,7 +1394,7 @@ void ExtendedInputManager::logStatus(const char* when)
     logRawReport(when);
 
     if (status.last_unknown_vid_pid != 0) {
-        brls::Logger::warning(
+        akira::log::warning(
             "analog triggers [{}]: unrecognised pad vid={:04x} pid={:04x} - no analog for it",
             when,
             status.last_unknown_vid_pid >> 16,
@@ -1430,11 +1429,11 @@ void ExtendedInputManager::logRawReport(const char* when)
         }
     }
 
-    brls::Logger::info(
+    akira::log::info(
         "analog triggers [{}]: raw vid={:04x} pid={:04x} report=0x{:02x} len={} desc_len={}",
         when, raw.vendor_id, raw.product_id, raw.report_id, raw.length,
         raw.descriptor_length);
-    brls::Logger::info("analog triggers [{}]: raw bytes {}", when, hex);
+    akira::log::info("analog triggers [{}]: raw bytes {}", when, hex);
 }
 
 void ExtendedInputManager::resolveDirectAddress()
@@ -1442,14 +1441,14 @@ void ExtendedInputManager::resolveDirectAddress()
     AkiraInputDeviceList devices{};
     if (!listDevices(&devices)) {
         if (m_direct_discovery_state != DirectDiscoveryState::Failed)
-            brls::Logger::warning("direct output: listDevices failed, no raw reports will be polled");
+            akira::log::warning("direct output: listDevices failed, no raw reports will be polled");
         m_direct_discovery_state = DirectDiscoveryState::Failed;
         return;
     }
 
     if (devices.count == 0) {
         if (m_direct_discovery_state != DirectDiscoveryState::Empty)
-            brls::Logger::info("direct output: device list empty, waiting for a controller");
+            akira::log::info("direct output: device list empty, waiting for a controller");
         m_direct_discovery_state = DirectDiscoveryState::Empty;
         return;
     }
@@ -1457,7 +1456,7 @@ void ExtendedInputManager::resolveDirectAddress()
     if (m_direct_discovery_state != DirectDiscoveryState::Candidates) {
         for (uint8_t i = 0; i < devices.count; i++) {
             const AkiraInputDeviceInfo& d = devices.devices[i];
-            brls::Logger::info("direct output: candidate {:04x}:{:04x} flags=0x{:02x} takes_direct={}",
+            akira::log::info("direct output: candidate {:04x}:{:04x} flags=0x{:02x} takes_direct={}",
                                d.vendor_id, d.product_id, d.flags,
                                akira::platform::extended::PadTakesDirectOutput(d.vendor_id, d.product_id));
         }
@@ -1474,7 +1473,7 @@ void ExtendedInputManager::resolveDirectAddress()
             std::memcmp(m_direct_addr, dev.bt_addr, sizeof(m_direct_addr)) != 0) {
             std::memcpy(m_direct_addr, dev.bt_addr, sizeof(m_direct_addr));
             m_direct_addr_valid = true;
-            brls::Logger::info(
+            akira::log::info(
                 "direct output: pad {:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x} "
                 "({:04x}:{:04x}) from the device list",
                 dev.bt_addr[0], dev.bt_addr[1], dev.bt_addr[2],
@@ -1520,7 +1519,7 @@ void ExtendedInputManager::poll()
                                   true, nowMs()),
                              std::memory_order_relaxed);
         } else if (R_FAILED(rc) && rc != AKIRA_INPUT_ERR_NO_STATE) {
-            brls::Logger::warning("analog triggers: backend lost (0x{:x})", rc);
+            akira::log::warning("analog triggers: backend lost (0x{:x})", rc);
             m_snapshot.store(0, std::memory_order_relaxed);
             m_degraded_notice.store(true, std::memory_order_release);
             m_running.store(false, std::memory_order_release);

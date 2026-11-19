@@ -3,6 +3,7 @@
  * Built with Borealis UI Framework
  */
 
+#include "log/log.hpp"
 #include <switch.h>
 #include <borealis.hpp>
 #include <borealis/core/thread_pool.hpp>
@@ -73,11 +74,11 @@ static void ffmpeg_log_callback(void*, int level, const char* fmt, va_list vl) {
     if (msg.empty())
         return;
     if (level <= AV_LOG_ERROR)
-        brls::Logger::error("ffmpeg: {}", msg);
+        akira::log::error("ffmpeg: {}", msg);
     else if (level <= AV_LOG_WARNING)
-        brls::Logger::warning("ffmpeg: {}", msg);
+        akira::log::warning("ffmpeg: {}", msg);
     else
-        brls::Logger::info("ffmpeg: {}", msg);
+        akira::log::info("ffmpeg: {}", msg);
 }
 
 static std::string getLocalIpAddress() {
@@ -188,7 +189,7 @@ static void startSonyDnsStartupCheck() {
             if (!failedDomain.empty())
                 break;
         }
-        brls::Logger::warning("[NET] Sony DNS check failed domain={} server={}",
+        akira::log::warning("[NET] Sony DNS check failed domain={} server={}",
             failedDomain, failedServer);
         brls::sync([failedDomain = std::move(failedDomain),
                     failedServer = std::move(failedServer)] {
@@ -347,7 +348,7 @@ void akiraOpenTrophies()
      * cause: the home tab taking focus back from four activities down. */
     {
         auto* focus = brls::Application::getCurrentFocus();
-        brls::Logger::info("akiraOpenTrophies: focus={} stack={}",
+        akira::log::info("akiraOpenTrophies: focus={} stack={}",
                            focus ? focus->describe() : std::string("none"),
                            brls::Application::getActivitiesStack().size());
     }
@@ -423,7 +424,7 @@ public:
 
     void onContentAvailable() override
     {
-        brls::Logger::info("Main activity content available");
+        akira::log::info("Main activity content available");
 
         auto* appletFrame = dynamic_cast<brls::AppletFrame*>(this->getContentView());
         if (appletFrame) {
@@ -521,7 +522,7 @@ int main(int argc, char* argv[])
     akira::CrashReport::install("akira", AKIRA_VERSION_STRING, "/switch/akira/logs");
     if (std::freopen("sdmc:/switch/akira/logs/akira-stderr.txt", "w", stderr))
         std::setvbuf(stderr, nullptr, _IONBF, 0);
-    brls::Logger::setLogLevel(brls::LogLevel::LOG_INFO);
+    akira::log::Log::process().setLevel(akira::log::Level::info);
     const Result mainPlaced = akira::WorkerCores::placeMainThread();
     akira::CrashReport::stage("settings");
     auto* settings = SettingsManager::getInstance();
@@ -529,14 +530,14 @@ int main(int argc, char* argv[])
     if (settings->getEnableFileLogging())
         akira::AppLog::open(SettingsManager::getLogFilePath());
     akira::CrashReport::stage("log open");
-    brls::Logger::info("akira {} starting", AKIRA_VERSION_STRING);
-    brls::Logger::info("main thread core {} placement {:#x}", svcGetCurrentProcessorNumber(), mainPlaced);
+    akira::log::info("akira {} starting", AKIRA_VERSION_STRING);
+    akira::log::info("main thread core {} placement {:#x}", svcGetCurrentProcessorNumber(), mainPlaced);
 
     for (int i = 1; i < argc; i++)
     {
         if (std::strcmp(argv[i], "-d") == 0)
         {
-            brls::Logger::setLogLevel(brls::LogLevel::LOG_DEBUG);
+            akira::log::Log::process().setLevel(akira::log::Level::debug);
         }
         else if (std::strcmp(argv[i], "-v") == 0)
         {
@@ -563,7 +564,7 @@ int main(int argc, char* argv[])
     akira::CrashReport::stage("borealis init");
     if (!brls::Application::init())
     {
-        brls::Logger::error("Unable to init Borealis application");
+        akira::log::error("Unable to init Borealis application");
         return EXIT_FAILURE;
     }
 
@@ -578,7 +579,7 @@ int main(int argc, char* argv[])
     akira::CrashReport::stage("sdl init");
     if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) < 0)
     {
-        brls::Logger::error("SDL_Init failed: {}", SDL_GetError());
+        akira::log::error("SDL_Init failed: {}", SDL_GetError());
         return EXIT_FAILURE;
     }
 
@@ -586,7 +587,7 @@ int main(int argc, char* argv[])
     const CURLcode curlInit = curl_global_init(CURL_GLOBAL_DEFAULT);
     if (curlInit != CURLE_OK)
     {
-        brls::Logger::error("[NET] curl_global_init failed code={} reason=\"{}\"",
+        akira::log::error("[NET] curl_global_init failed code={} reason=\"{}\"",
             static_cast<int>(curlInit), curl_easy_strerror(curlInit));
         return EXIT_FAILURE;
     }
@@ -596,16 +597,16 @@ int main(int argc, char* argv[])
     core.emplace(*settings);
     akira::CrashReport::stage("post core");
     if (!core->opened())
-        brls::Logger::error("[CORE] running without the core: streaming, sign-in and discovery are unavailable");
+        akira::log::error("[CORE] running without the core: streaming, sign-in and discovery are unavailable");
     brls::Application::getWindowFocusChangedEvent()->subscribe([&core](bool focused) {
         if (focused && core)
             core->http().drop_connections("applet regained focus");
     });
 
-    brls::Logger::setAsyncLogging(true);
+    akira::log::Log::process().setAsync(true);
     if (const curl_version_info_data* curlInfo = curl_version_info(CURLVERSION_NOW))
     {
-        brls::Logger::info(
+        akira::log::info(
             "[NET] curl_runtime version={} ssl={} features=0x{:x} ipv6={} async_dns={}",
             curlInfo->version ? curlInfo->version : "-",
             curlInfo->ssl_version ? curlInfo->ssl_version : "-",
@@ -623,16 +624,16 @@ int main(int argc, char* argv[])
         nextFlush = now + 250ms;
 
         brls::async([]() {
-            brls::Logger::flushAsyncLogs();
+            akira::log::Log::process().flush();
             flushInFlight.store(false, std::memory_order_release);
         }, true);
     });
-    brls::Logger::info("Async logging enabled via thread pool");
+    akira::log::info("Async logging enabled via thread pool");
 
-    brls::Logger::info("Chiaki library initialized");
+    akira::log::info("Chiaki library initialized");
 
     AppletType appletType = appletGetAppletType();
-    brls::Logger::info("Applet type: {} ({})", appletTypeToString(appletType), static_cast<int>(appletType));
+    akira::log::info("Applet type: {} ({})", appletTypeToString(appletType), static_cast<int>(appletType));
 
     brls::Application::registerXMLView("HostListTab", HostListTab::create);
     brls::Application::registerXMLView("PsnGatedBox", PsnGatedBox::create);
@@ -651,7 +652,7 @@ int main(int argc, char* argv[])
     brls::Application::createWindow("Akira");
 
     if (!brls::Application::loadFontFromFile("mono", BRLS_ASSET("font/Cousine-Regular.ttf")))
-        brls::Logger::warning("Could not load mono font, stats overlay will fall back to the regular font");
+        akira::log::warning("Could not load mono font, stats overlay will fall back to the regular font");
 
     brls::Application::getPlatform()->exitToHomeMode(false);
 
@@ -671,11 +672,11 @@ int main(int argc, char* argv[])
         {
         }
     } catch (const std::exception& e) {
-        brls::Logger::error("CRASH: {}", e.what());
+        akira::log::error("CRASH: {}", e.what());
         fflush(stdout);
     }
 
-    brls::Logger::info("Application exiting");
+    akira::log::info("Application exiting");
 
     DiscoveryManager::getInstance()->setServiceEnabled(false);
     for (auto& [name, host] : *settings->getHostsMap())
@@ -697,7 +698,7 @@ int main(int argc, char* argv[])
     curl_global_cleanup();
 
     // Drain the final batch after all subsystems have reported shutdown.
-    brls::Logger::flushAsyncLogs();
+    akira::log::Log::process().flush();
     nvExit();
 
     return EXIT_SUCCESS;

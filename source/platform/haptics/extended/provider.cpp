@@ -1,7 +1,6 @@
 #include "platform/haptics/extended/provider.hpp"
 #include "platform/pad_settings/extended/provider.hpp"
-
-#include <borealis.hpp>
+#include "log/log.hpp"
 
 #include "core/settings_manager.hpp"
 #include "platform/pads/extended/rumble_keys.hpp"
@@ -69,7 +68,7 @@ bool ExtendedHapticsProvider::streamNativeHaptics(HapticManager& haptics, std::s
     if (!extended.directHapticsReady()) {
         if (!m_haptic_stopped_logged && m_haptic_sent != 0) {
             m_haptic_stopped_logged = true;
-            brls::Logger::info("haptic stream: stopped after {} frames - handing the"
+            akira::log::info("haptic stream: stopped after {} frames - handing the"
                                " signal back to the motors", m_haptic_sent);
         }
         return false;
@@ -129,7 +128,7 @@ bool ExtendedHapticsProvider::streamNativeHaptics(HapticManager& haptics, std::s
             }
             const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 m_haptic_last_send - m_haptic_first_send).count();
-            brls::Logger::info("haptic stream: {} sent, {} skipped,"
+            akira::log::info("haptic stream: {} sent, {} skipped,"
                                " {} ms elapsed, {} per sec",
                                m_haptic_sent, m_haptic_skipped,
                                (long long)ms,
@@ -138,7 +137,7 @@ bool ExtendedHapticsProvider::streamNativeHaptics(HapticManager& haptics, std::s
 
         if (!m_haptic_logged) {
             m_haptic_logged = true;
-            brls::Logger::info("haptic stream: writing to the pad's actuators ({} bytes)", len);
+            akira::log::info("haptic stream: writing to the pad's actuators ({} bytes)", len);
         }
     }
 
@@ -167,7 +166,7 @@ void ExtendedHapticsProvider::emitMotorsFromWaveform(HapticManager& haptics, std
     if (++m_native_logged >= kNativeHapticLogInterval) {
         m_native_logged = 0;
         if (SettingsManager::getInstance()->getDebugChiakiLog()) {
-            brls::Logger::info("haptic->rumble: raw={}/{} scaled={}/{} out={}/{}{}",
+            akira::log::info("haptic->rumble: raw={}/{} scaled={}/{} out={}/{}{}",
                                r.raw_left, r.raw_right, r.left, r.right,
                                (int)(m_native_env_left * 255.0f),
                                (int)(m_native_env_right * 255.0f),

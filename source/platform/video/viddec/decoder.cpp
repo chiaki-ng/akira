@@ -1,6 +1,7 @@
 #include "platform/video/viddec/decoder.hpp"
 #include "platform/video/viddec/h264_sps.hpp"
 #include "core/settings_manager.hpp"
+#include "log/log.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -9,7 +10,6 @@
 #include <optional>
 #include <ranges>
 #include <string>
-#include <borealis.hpp>
 
 namespace akira::platform::viddec
 {
@@ -31,17 +31,17 @@ bool ViddecDecoder::initCodec(bool hevc, bool ps5, int width, int height)
     m_video_height = height;
     if (hevc)
     {
-        brls::Logger::error("ViddecDecoder: the Switch 2 hardware decoder has no HEVC support; request H.264");
+        akira::log::error("ViddecDecoder: the Switch 2 hardware decoder has no HEVC support; request H.264");
         return false;
     }
-    brls::Logger::info("ViddecDecoder: H.264 on the Switch 2 hardware decoder, up to {}x{}, {} references for the {}",
+    akira::log::info("ViddecDecoder: H.264 on the Switch 2 hardware decoder, up to {}x{}, {} references for the {}",
         width, height, m_reference_limit, ps5 ? "PS5" : "PS4");
     return true;
 }
 
 bool ViddecDecoder::initVideo(int video_width, int video_height)
 {
-    brls::Logger::info("ViddecDecoder: initVideo {}x{}", video_width, video_height);
+    akira::log::info("ViddecDecoder: initVideo {}x{}", video_width, video_height);
     m_video_width = video_width;
     m_video_height = video_height;
     m_waiting_for_idr = true;
@@ -110,7 +110,7 @@ void ViddecDecoder::publishStats(std::chrono::steady_clock::time_point now)
     const std::uint32_t heldPeak = m_hardware ? m_hardware->takeHeldPeak() : 0;
     const std::uint64_t reused = m_hardware ? m_hardware->reusedWhileHeld() : 0;
     if (SettingsManager::getInstance()->getChiakiLogVerbosity() != ChiakiLogVerbosity::Normal)
-        brls::Logger::info("ViddecDecoder: last {} ms submitted {} failed {} emitted {} held peak {} slots reused while held {}",
+        akira::log::info("ViddecDecoder: last {} ms submitted {} failed {} emitted {} held peak {} slots reused while held {}",
         elapsed_ms, m_window_submitted, m_window_failed, m_frames_emitted, heldPeak, reused);
     m_window_submitted = 0;
     m_window_failed = 0;
@@ -159,7 +159,7 @@ ViddecDecoder::Keyframe ViddecDecoder::scanNalUnits(std::span<const std::uint8_t
         if (std::ranges::equal(stored, bytes))
             return;
         if (stored.empty())
-            brls::Logger::info("ViddecDecoder: received {}", name);
+            akira::log::info("ViddecDecoder: received {}", name);
         else
             keyframe.parameters_changed = true;
         stored.assign(bytes.begin(), bytes.end());
@@ -207,13 +207,13 @@ void ViddecDecoder::rememberDecoderSps()
     const auto sps = akira::platform::viddec::H264Sps::parse(m_sps);
     if (!sps)
     {
-        brls::Logger::warning("ViddecDecoder: SPS {} does not parse, giving it to the decoder unchanged", hex);
+        akira::log::warning("ViddecDecoder: SPS {} does not parse, giving it to the decoder unchanged", hex);
         m_decoder_sps = m_sps;
         return;
     }
     m_decoder_sps = sps->forDecoder(m_reference_limit);
     const auto given = akira::platform::viddec::H264Sps::parse(m_decoder_sps);
-    brls::Logger::info("ViddecDecoder: SPS {} level {} refs {} dpb {}; decoder gets refs {} and no reordering",
+    akira::log::info("ViddecDecoder: SPS {} level {} refs {} dpb {}; decoder gets refs {} and no reordering",
         hex, sps->levelIdc(), sps->maxNumRefFrames(),
         sps->maxDecFrameBuffering() ? std::to_string(*sps->maxDecFrameBuffering()) : std::string("unset"),
         given ? given->maxNumRefFrames() : 0);
@@ -248,16 +248,16 @@ bool ViddecDecoder::ensureHardwareDecoder(const Keyframe& keyframe)
     auto created = akira::platform::viddec::HardwareDecoder::create({ViddecCodec_H264, width, height, config, m_output_memory});
     if (!created)
     {
-        brls::Logger::error("ViddecDecoder: videoDecoderCreate {}x{} failed: 0x{:x}", width, height, created.error());
+        akira::log::error("ViddecDecoder: videoDecoderCreate {}x{} failed: 0x{:x}", width, height, created.error());
         return false;
     }
     m_hardware = std::move(created).value();
-    m_hardware->setReporter([](const std::string& line) { brls::Logger::warning("HardwareDecoder: {}", line); });
-    brls::Logger::info("ViddecDecoder: hardware decoder ready for {}x{}", width, height);
+    m_hardware->setReporter([](const std::string& line) { akira::log::warning("HardwareDecoder: {}", line); });
+    akira::log::info("ViddecDecoder: hardware decoder ready for {}x{}", width, height);
     if (m_hardware->zeroCopy())
-        brls::Logger::info("ViddecDecoder: the decoder writes into renderer-imported memory, frames are sampled in place");
+        akira::log::info("ViddecDecoder: the decoder writes into renderer-imported memory, frames are sampled in place");
     else if (const auto& failure = m_hardware->outputFailure())
-        brls::Logger::warning("ViddecDecoder: zero copy unavailable at {} (0x{:x}), frames are copied", failure->step, failure->code);
+        akira::log::warning("ViddecDecoder: zero copy unavailable at {} (0x{:x}), frames are copied", failure->step, failure->code);
     return true;
 }
 
@@ -297,7 +297,7 @@ bool ViddecDecoder::decode(const AVBufferHandle& data, std::size_t size)
             m_drops++;
             return false;
         }
-        brls::Logger::info("ViddecDecoder: got a complete keyframe, decoding");
+        akira::log::info("ViddecDecoder: got a complete keyframe, decoding");
         m_waiting_for_idr = false;
     }
 
@@ -314,7 +314,7 @@ bool ViddecDecoder::decode(const AVBufferHandle& data, std::size_t size)
     if (auto submitted = m_hardware->submit(submission, timestamp, SubmitTimeout); !submitted)
     {
         m_window_failed++;
-        brls::Logger::warning("ViddecDecoder: videoDecoderSubmit failed: 0x{:x}", submitted.error());
+        akira::log::warning("ViddecDecoder: videoDecoderSubmit failed: 0x{:x}", submitted.error());
         m_drops++;
         emitReadyFrames(decode_entry, std::chrono::nanoseconds(0));
         return false;
@@ -326,11 +326,11 @@ bool ViddecDecoder::decode(const AVBufferHandle& data, std::size_t size)
 
 void ViddecDecoder::flush()
 {
-    brls::Logger::warning("ViddecDecoder: flushing, waiting for IDR");
+    akira::log::warning("ViddecDecoder: flushing, waiting for IDR");
     if (m_hardware)
     {
         if (auto flushed = m_hardware->flush(); !flushed)
-            brls::Logger::warning("ViddecDecoder: videoDecoderFlush failed: 0x{:x}", flushed.error());
+            akira::log::warning("ViddecDecoder: videoDecoderFlush failed: 0x{:x}", flushed.error());
     }
     m_waiting_for_idr = true;
 }
@@ -344,7 +344,7 @@ void ViddecDecoder::stalled(std::uint32_t episode)
     }
     if (episode != ZeroCopyStalls || !m_output_memory)
         return;
-    brls::Logger::warning("ViddecDecoder: still no frames after {} stalls, rebuilding without zero copy", episode);
+    akira::log::warning("ViddecDecoder: still no frames after {} stalls, rebuilding without zero copy", episode);
     m_output_memory.reset();
     m_hardware.reset();
     m_waiting_for_idr = true;

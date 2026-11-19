@@ -1,6 +1,7 @@
 #include "views/add_host_tab.hpp"
 #include "ui/theme.hpp"
 #include "core/host.hpp"
+#include "log/log.hpp"
 
 #include <borealis/core/i18n.hpp>
 using namespace brls::literals;
@@ -88,7 +89,7 @@ void AddHostTab::onSaveClicked() {
     statusLabel->setText("akira/add_host/success"_i18n);
     statusLabel->setTextColor(akira::ui::active().success);
 
-    brls::Logger::info("Added host: {} at {}", name, addr);
+    akira::log::info("Added host: {} at {}", name, addr);
 
     hostNameInput->setValue("");
     hostAddrInput->setValue("");

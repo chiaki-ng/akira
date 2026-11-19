@@ -1,4 +1,5 @@
 #include "platform/stats/nxext/provider.hpp"
+#include "log/log.hpp"
 
 #include <borealis.hpp>
 
@@ -23,7 +24,7 @@ void NxextStatsProvider::initToggle(brls::BooleanCell& cell) const
         [settings](bool isOn) {
             settings->setIpcStatsEnabled(isOn);
             settings->writeFile();
-            brls::Logger::info("IPC Stats set to {}", isOn ? "true" : "false");
+            akira::log::info("IPC Stats set to {}", isOn ? "true" : "false");
         });
 }
 

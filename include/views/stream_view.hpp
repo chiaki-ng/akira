@@ -1,6 +1,7 @@
 #ifndef AKIRA_STREAM_VIEW_HPP
 #define AKIRA_STREAM_VIEW_HPP
 
+#include "log/log.hpp"
 #include "util/connection_log.hpp"
 
 #include <optional>
@@ -98,8 +99,7 @@ private:
     std::deque<std::string> logLines;
     std::atomic<int> currentStage{0};
     std::mutex logMutex;
-    brls::Event<brls::Logger::TimePoint, brls::LogLevel, std::string>::Subscription logSubscription;
-    bool logSubscriptionActive = false;
+    std::optional<akira::log::Log::Subscription> logSubscription;
     static constexpr size_t MAX_LOG_LINES = 30;
     void startLogCapture();
     void stopLogCapture();

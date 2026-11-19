@@ -1,4 +1,5 @@
 #include "ui/log_pane.hpp"
+#include "log/log.hpp"
 
 #include "ui/theme.hpp"
 
@@ -15,23 +16,18 @@ LogPane::~LogPane()
 
 void LogPane::subscribe()
 {
-    if (subscribed)
+    if (subscription)
         return;
 
-    subscription = brls::Logger::subscribeToLog(
-        [this](brls::Logger::TimePoint time, brls::LogLevel level, std::string msg) {
-            this->addLine(msg);
+    subscription = akira::log::Log::process().subscribe(
+        [this](const akira::log::Entry& entry) {
+            this->addLine(std::string(entry.message));
         });
-    subscribed = true;
 }
 
 void LogPane::unsubscribe()
 {
-    if (!subscribed)
-        return;
-
-    brls::Logger::unsubscribeFromLog(subscription);
-    subscribed = false;
+    subscription.reset();
 }
 
 void LogPane::addLine(const std::string& line)

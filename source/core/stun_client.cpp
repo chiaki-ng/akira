@@ -1,4 +1,5 @@
 #include "core/stun_client.hpp"
+#include "log/log.hpp"
 
 #include <cstring>
 #include <cstdlib>
@@ -11,7 +12,6 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <curl/curl.h>
-#include <borealis.hpp>
 #include <format>
 #include "util/curl_wrappers.hpp"
 #include "util/http.hpp"
@@ -19,10 +19,7 @@
 #include <sys/stat.h>
 #include "util/net_wrappers.hpp"
 
-static FILE* s_natLogFile = nullptr;
-static FILE* s_prevLogOutput = nullptr;
-
-static void natLogStart() {
+static std::optional<akira::log::Log::Redirect> natLogStart() {
     mkdir("sdmc:/switch/akira/logs", 0755);
 
     time_t now = time(nullptr);
@@ -30,32 +27,10 @@ static void natLogStart() {
     auto path = std::format("sdmc:/switch/akira/logs/{:02}{:02}{:02}_{:02}{:02}{:02}_nat.log",
         t->tm_mday, t->tm_mon + 1, t->tm_year % 100, t->tm_hour, t->tm_min, t->tm_sec);
 
-    FILE* file = fopen(path.c_str(), "w");
-    if (!file) {
-        brls::Logger::warning("NAT: could not open {}, keeping the current log output", path);
-        return;
-    }
-
-    s_natLogFile = file;
-    s_prevLogOutput = brls::Logger::getLogOutput();
-    brls::Logger::setLogOutput(s_natLogFile);
-}
-
-static void natLogEnd() {
-    // Only restore if we actually redirected. Restoring unconditionally installed a null
-    // FILE* whenever the fopen above failed, and the async log flusher fwrites to it
-    // without a null check.
-    if (!s_natLogFile) {
-        return;
-    }
-
-    brls::Logger::flushAsyncLogs();
-    brls::Logger::setLogOutput(s_prevLogOutput ? s_prevLogOutput : stdout);
-    brls::Logger::flushAsyncLogs();
-
-    s_prevLogOutput = nullptr;
-    fclose(s_natLogFile);
-    s_natLogFile = nullptr;
+    auto redirect = akira::log::Log::process().redirect(path);
+    if (!redirect)
+        akira::log::warning("NAT: could not open {}, keeping the current log output", path);
+    return redirect;
 }
 
 static const char* STUN_SERVER_1 = "stun.l.google.com";
@@ -121,7 +96,7 @@ std::vector<std::string> StunClient::fetchRFC5780Servers() {
 
     HttpResponse result = httpGet(RFC5780_SERVER_LIST_URL, "", 5);
     if (!result.ok()) {
-        brls::Logger::warning("STUN: could not fetch RFC5780 server list: {}",
+        akira::log::warning("STUN: could not fetch RFC5780 server list: {}",
             result.transportFailed() ? result.error : std::format("HTTP {}", result.status));
         return servers;
     }
@@ -142,21 +117,21 @@ std::vector<std::string> StunClient::fetchRFC5780Servers() {
 }
 
 FilteringType StunClient::detectFiltering() {
-    brls::Logger::info("=== Filtering Detection ===");
+    akira::log::info("=== Filtering Detection ===");
     std::vector<std::string> servers = fetchRFC5780Servers();
-    brls::Logger::info("Fetched {} RFC5780 servers", servers.size());
+    akira::log::info("Fetched {} RFC5780 servers", servers.size());
 
     for (const auto& server : servers) {
-        brls::Logger::info("Trying filtering server: {}", server);
+        akira::log::info("Trying filtering server: {}", server);
         FilteringType filtering = testFilteringWithServer(server);
         if (filtering != FilteringType::Unknown) {
-            brls::Logger::info("Filtering result: {}", filteringTypeToString(filtering));
+            akira::log::info("Filtering result: {}", filteringTypeToString(filtering));
             return filtering;
         }
-        brls::Logger::info("Server {} returned Unknown, trying next", server);
+        akira::log::info("Server {} returned Unknown, trying next", server);
     }
 
-    brls::Logger::info("Filtering result: Unknown (no servers worked)");
+    akira::log::info("Filtering result: Unknown (no servers worked)");
     return FilteringType::Unknown;
 }
 
@@ -232,18 +207,18 @@ FilteringType StunClient::testFilteringWithServer(const std::string& server) {
     other.valid = false;
 
     if (!parseBindingResponse(response, received, mapped, &other)) {
-        brls::Logger::info("  Filtering: failed to parse binding response");
+        akira::log::info("  Filtering: failed to parse binding response");
         return FilteringType::Unknown;
     }
 
-    brls::Logger::info("  Filtering: mapped={}:{}", mapped.ip, mapped.port);
+    akira::log::info("  Filtering: mapped={}:{}", mapped.ip, mapped.port);
 
     if (!other.valid) {
-        brls::Logger::info("  Filtering: server did not provide OTHER-ADDRESS");
+        akira::log::info("  Filtering: server did not provide OTHER-ADDRESS");
         return FilteringType::Unknown;
     }
 
-    brls::Logger::info("  Filtering: OTHER-ADDRESS={}:{}", other.ip, other.port);
+    akira::log::info("  Filtering: OTHER-ADDRESS={}:{}", other.ip, other.port);
 
     uint8_t changeRequest[28];
     memset(changeRequest, 0, sizeof(changeRequest));
@@ -292,14 +267,14 @@ FilteringType StunClient::testFilteringWithServer(const std::string& server) {
         char fromIP[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &fromAddr.sin_addr, fromIP, sizeof(fromIP));
         uint16_t fromPort = ntohs(fromAddr.sin_port);
-        brls::Logger::info("  Filtering Test II (change IP+port): got response from {}:{} (server was {}:{})", fromIP, fromPort, host, port);
+        akira::log::info("  Filtering Test II (change IP+port): got response from {}:{} (server was {}:{})", fromIP, fromPort, host, port);
         if (std::string(fromIP) != host || fromPort != port) {
-            brls::Logger::info("  Filtering: EndpointIndependent (response from alt addr)");
+            akira::log::info("  Filtering: EndpointIndependent (response from alt addr)");
             return FilteringType::EndpointIndependent;
         }
-        brls::Logger::info("  Filtering Test II: response from same addr, server may not support CHANGE-REQUEST");
+        akira::log::info("  Filtering Test II: response from same addr, server may not support CHANGE-REQUEST");
     } else {
-        brls::Logger::info("  Filtering Test II (change IP+port): no response (timeout)");
+        akira::log::info("  Filtering Test II (change IP+port): no response (timeout)");
     }
 
     changeRequest[27] = 0x02;
@@ -329,16 +304,16 @@ FilteringType StunClient::testFilteringWithServer(const std::string& server) {
         char fromIP[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &fromAddr.sin_addr, fromIP, sizeof(fromIP));
         uint16_t fromPort = ntohs(fromAddr.sin_port);
-        brls::Logger::info("  Filtering Test III (change port): got response from {}:{}", fromIP, fromPort);
+        akira::log::info("  Filtering Test III (change port): got response from {}:{}", fromIP, fromPort);
         if (std::string(fromIP) == host && fromPort != port) {
-            brls::Logger::info("  Filtering: AddressDependent");
+            akira::log::info("  Filtering: AddressDependent");
             return FilteringType::AddressDependent;
         }
     } else {
-        brls::Logger::info("  Filtering Test III (change port): no response (timeout)");
+        akira::log::info("  Filtering Test III (change port): no response (timeout)");
     }
 
-    brls::Logger::info("  Filtering: AddressPortDependent");
+    akira::log::info("  Filtering: AddressPortDependent");
     return FilteringType::AddressPortDependent;
 }
 
@@ -370,19 +345,18 @@ StunResult StunClient::detectNATType() {
     tv.tv_usec = 0;
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
-    natLogStart();
-    brls::Logger::info("=== NAT Type Detection ===");
+    auto natLog = natLogStart();
+    akira::log::info("=== NAT Type Detection ===");
 
     MappedAddress addr1 = sendBindingRequest(STUN_SERVER_1, STUN_PORT, sock);
-    brls::Logger::info("Test 1: {}:{} -> {} (ip={} port={})",
+    akira::log::info("Test 1: {}:{} -> {} (ip={} port={})",
         STUN_SERVER_1, STUN_PORT, addr1.valid ? "OK" : "FAIL",
         addr1.valid ? addr1.ip : "n/a", addr1.port);
 
     if (!addr1.valid) {
         result.type = NATType::UDPBlocked;
         result.error = "No response from STUN server";
-        brls::Logger::info("Result: UDP Blocked");
-        natLogEnd();
+        akira::log::info("Result: UDP Blocked");
         return result;
     }
 
@@ -390,7 +364,7 @@ StunResult StunClient::detectNATType() {
     result.externalPort = addr1.port;
 
     MappedAddress addr2 = sendBindingRequest(STUN_SERVER_2, STUN_PORT, sock);
-    brls::Logger::info("Test 2: {}:{} -> {} (ip={} port={})",
+    akira::log::info("Test 2: {}:{} -> {} (ip={} port={})",
         STUN_SERVER_2, STUN_PORT, addr2.valid ? "OK" : "FAIL",
         addr2.valid ? addr2.ip : "n/a", addr2.port);
 
@@ -398,12 +372,11 @@ StunResult StunClient::detectNATType() {
         result.type = NATType::Unknown;
         result.error = "Second STUN server did not respond";
         result.filtering = detectFiltering();
-        brls::Logger::info("Result: Unknown (second server failed)");
-        natLogEnd();
+        akira::log::info("Result: Unknown (second server failed)");
         return result;
     } else if (addr1.port != addr2.port) {
         result.type = NATType::Symmetric;
-        brls::Logger::info("addr1.port={} != addr2.port={} -> Symmetric (address-dependent)", addr1.port, addr2.port);
+        akira::log::info("addr1.port={} != addr2.port={} -> Symmetric (address-dependent)", addr1.port, addr2.port);
     } else {
         std::vector<std::string> rfc5780servers = fetchRFC5780Servers();
         MappedAddress addr3;
@@ -415,7 +388,7 @@ StunResult StunClient::detectNATType() {
             std::string srvHost = srv.substr(0, colonPos);
             uint16_t srvPort = static_cast<uint16_t>(std::stoi(srv.substr(colonPos + 1)));
             addr3 = sendBindingRequest(srvHost.c_str(), srvPort, sock);
-            brls::Logger::info("Test 3: {}:{} -> {} (ip={} port={})",
+            akira::log::info("Test 3: {}:{} -> {} (ip={} port={})",
                 srvHost, srvPort, addr3.valid ? "OK" : "FAIL",
                 addr3.valid ? addr3.ip : "n/a", addr3.port);
             if (addr3.valid) break;
@@ -423,15 +396,15 @@ StunResult StunClient::detectNATType() {
 
         if (addr3.valid && addr3.port != addr1.port) {
             result.type = NATType::SymmetricPortOnly;
-            brls::Logger::info("addr1.port={} != addr3.port={} -> Symmetric (port-dependent)", addr1.port, addr3.port);
+            akira::log::info("addr1.port={} != addr3.port={} -> Symmetric (port-dependent)", addr1.port, addr3.port);
         } else {
             result.type = NATType::FullCone;
-            brls::Logger::info("addr1.port={} == addr3.port={} -> Cone NAT", addr1.port, addr3.valid ? addr3.port : 0);
+            akira::log::info("addr1.port={} == addr3.port={} -> Cone NAT", addr1.port, addr3.valid ? addr3.port : 0);
         }
     }
 
     result.filtering = detectFiltering();
-    brls::Logger::info("Filtering: {}", filteringTypeToString(result.filtering));
+    akira::log::info("Filtering: {}", filteringTypeToString(result.filtering));
 
     if (result.type == NATType::FullCone && result.filtering != FilteringType::Unknown) {
         if (result.filtering == FilteringType::AddressDependent) {
@@ -441,8 +414,7 @@ StunResult StunClient::detectNATType() {
         }
     }
 
-    brls::Logger::info("Final: {} - {}", natTypeToString(result.type), natTypeDescription(result.type));
-    natLogEnd();
+    akira::log::info("Final: {} - {}", natTypeToString(result.type), natTypeDescription(result.type));
     return result;
 }
 
@@ -459,7 +431,7 @@ StunClient::MappedAddress StunClient::sendBindingRequest(const char* stunServer,
     auto portStr2 = std::to_string(stunPort);
 
     if (getaddrinfo(stunServer, portStr2.c_str(), &hints, &serverInfo) != 0) {
-        brls::Logger::info("  sendBindingRequest: DNS failed for {}:{}", stunServer, stunPort);
+        akira::log::info("  sendBindingRequest: DNS failed for {}:{}", stunServer, stunPort);
         return result;
     }
 
@@ -483,7 +455,7 @@ StunClient::MappedAddress StunClient::sendBindingRequest(const char* stunServer,
                               serverInfo->ai_addr, serverInfo->ai_addrlen);
 
         if (sent != sizeof(request)) {
-            brls::Logger::info("  sendBindingRequest: send failed attempt {}/{} to {}:{}", attempt + 1, STUN_MAX_RETRIES, stunServer, stunPort);
+            akira::log::info("  sendBindingRequest: send failed attempt {}/{} to {}:{}", attempt + 1, STUN_MAX_RETRIES, stunServer, stunPort);
             continue;
         }
 
@@ -491,7 +463,7 @@ StunClient::MappedAddress StunClient::sendBindingRequest(const char* stunServer,
         ssize_t received = recv(localSocket, response, sizeof(response), 0);
 
         if (received < 20) {
-            brls::Logger::info("  sendBindingRequest: timeout attempt {}/{} to {}:{}", attempt + 1, STUN_MAX_RETRIES, stunServer, stunPort);
+            akira::log::info("  sendBindingRequest: timeout attempt {}/{} to {}:{}", attempt + 1, STUN_MAX_RETRIES, stunServer, stunPort);
             continue;
         }
 

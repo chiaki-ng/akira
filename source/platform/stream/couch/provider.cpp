@@ -1,4 +1,5 @@
 #include "platform/stream/couch/provider.hpp"
+#include "log/log.hpp"
 
 #include <borealis.hpp>
 
@@ -76,7 +77,7 @@ void CouchStreamControlsProvider::waitForPads(int attempt)
         availability == extended::ExtendedInputManager::Availability::Available;
 
     if (!backendUsable) {
-        brls::Logger::info("PadChoice: no backend to wait for, deciding now");
+        akira::log::info("PadChoice: no backend to wait for, deciding now");
         finishPadChoice();
         return;
     }
@@ -84,7 +85,7 @@ void CouchStreamControlsProvider::waitForPads(int attempt)
     for (const auto& pad : m_pads.describePads()) {
         if (pad.kind == input::PadPathKind::McPsNative ||
             pad.kind == input::PadPathKind::McGeneric) {
-            brls::Logger::info("PadChoice: backend named a pad after {}ms",
+            akira::log::info("PadChoice: backend named a pad after {}ms",
                                attempt * kIntervalMs);
             finishPadChoice();
             return;
@@ -92,7 +93,7 @@ void CouchStreamControlsProvider::waitForPads(int attempt)
     }
 
     if (attempt >= kMaxAttempts) {
-        brls::Logger::info("PadChoice: no backend pad after {}ms, deciding anyway",
+        akira::log::info("PadChoice: no backend pad after {}ms, deciding anyway",
                            attempt * kIntervalMs);
         finishPadChoice();
         return;
@@ -122,10 +123,10 @@ void CouchStreamControlsProvider::finishPadChoice()
     {
         AkiraInputDeviceList devices{};
         if (m_pads.extendedInput().listDevices(&devices)) {
-            brls::Logger::info("PadChoice: backend lists {} device(s)", devices.count);
+            akira::log::info("PadChoice: backend lists {} device(s)", devices.count);
             for (uint8_t i = 0; i < devices.count && i < AKIRA_INPUT_MAX_LISTED_DEVICES; i++) {
                 const AkiraInputDeviceInfo& d = devices.devices[i];
-                brls::Logger::info(
+                akira::log::info(
                     "PadChoice:   {:04x}:{:04x} report=0x{:02x} flags=0x{:02x}{}{}{}",
                     d.vendor_id, d.product_id, d.report_id, d.flags,
                     (d.flags & AkiraInputDevice_Identified) ? " identified" : "",
@@ -133,19 +134,19 @@ void CouchStreamControlsProvider::finishPadChoice()
                     (d.flags & AkiraInputDevice_Claimed)    ? " claimed"    : "");
             }
         } else {
-            brls::Logger::warning("PadChoice: listDevices failed");
+            akira::log::warning("PadChoice: listDevices failed");
         }
     }
 
     for (const auto& pad : pads) {
-        brls::Logger::info("PadChoice: npad {} {} [{}{}]",
+        akira::log::info("PadChoice: npad {} {} [{}{}]",
                            (int)pad.npad, pad.label,
                            pad.caps.analog_triggers ? "analog " : "",
                            pad.caps.touchpad ? "touch " : "");
     }
 
     if (!ControllerPickerView::worthAsking(pads)) {
-        brls::Logger::info("PadChoice: {} pad(s), nothing worth asking", pads.size());
+        akira::log::info("PadChoice: {} pad(s), nothing worth asking", pads.size());
         for (const auto& pad : pads) {
             if (pad.caps.analog_triggers || pad.caps.touchpad) {
                 m_pads.selectNpad(pad.npad);
@@ -156,7 +157,7 @@ void CouchStreamControlsProvider::finishPadChoice()
         return;
     }
 
-    brls::Logger::info("PadChoice: asking between {} pads", pads.size());
+    akira::log::info("PadChoice: asking between {} pads", pads.size());
 
     auto weak = m_host;
     auto describe = [this, weak]() -> std::vector<input::PadDescription> {
@@ -221,7 +222,7 @@ void CouchStreamControlsProvider::decorateMenu(StreamMenu& menu)
         if (!self)
             return;
         if (self->controlsSession() == nullptr) {
-            brls::Logger::warning("StreamMenu: no input manager for players panel");
+            akira::log::warning("StreamMenu: no input manager for players panel");
             return;
         }
         auto* panel = new PlayersPanelView(self->controlsHost(), self->controlsConnection(), &m_pads);
@@ -237,12 +238,12 @@ void CouchStreamControlsProvider::onPadArrived(HidNpadIdType npad)
 
     auto connection = view->controlsConnection();
     if (!connection || !connection->couchSlotAvailable()) {
-        brls::Logger::info("Couch: pad arrived on npad {} but no slot is free", (int)npad);
+        akira::log::info("Couch: pad arrived on npad {} but no slot is free", (int)npad);
         return;
     }
 
     if (m_arrival_prompt_open || view->controlsMenuOpen()) {
-        brls::Logger::info("Couch: pad arrived on npad {} while UI is busy, not prompting", (int)npad);
+        akira::log::info("Couch: pad arrived on npad {} while UI is busy, not prompting", (int)npad);
         return;
     }
     m_arrival_prompt_open = true;
@@ -284,7 +285,7 @@ void CouchStreamControlsProvider::onPadArrived(HidNpadIdType npad)
         self->resumeAfterUi();
     });
 
-    brls::Logger::info("Couch: showing controller arrival prompt");
+    akira::log::info("Couch: showing controller arrival prompt");
     dialog->open();
 }
 
@@ -294,7 +295,7 @@ void CouchStreamControlsProvider::openCouchClaim()
     if (!view)
         return;
     if (view->controlsSession() == nullptr) {
-        brls::Logger::warning("StreamView: no input manager for couch claim");
+        akira::log::warning("StreamView: no input manager for couch claim");
         view->resumeAfterUi();
         return;
     }
@@ -324,12 +325,12 @@ void CouchStreamControlsProvider::openPrimaryControllerPicker()
 
     auto pads = m_pads.describePads();
     if (!ControllerPickerView::worthAsking(pads)) {
-        brls::Logger::info("Couch: no alternate primary controller worth asking about");
+        akira::log::info("Couch: no alternate primary controller worth asking about");
         view->resumeAfterUi();
         return;
     }
 
-    brls::Logger::info("Couch: opening primary controller picker after Not now");
+    akira::log::info("Couch: opening primary controller picker after Not now");
     auto weak = m_host;
     auto describe = [this, weak]() -> std::vector<input::PadDescription> {
         if (weak.lock())

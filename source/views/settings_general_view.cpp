@@ -1,5 +1,6 @@
 #include "views/settings_general_view.hpp"
 #include "views/custom_dns_prompt.hpp"
+#include "log/log.hpp"
 
 #include <borealis/core/i18n.hpp>
 #include <algorithm>
@@ -56,7 +57,7 @@ void SettingsGeneralView::initHolepunchRetryToggle() {
         [this](bool isOn) {
             settings->setHolepunchRetry(isOn);
             settings->writeFile();
-            brls::Logger::info("Holepunch retry set to {}", isOn ? "true" : "false");
+            akira::log::info("Holepunch retry set to {}", isOn ? "true" : "false");
         }
     );
 }
@@ -369,7 +370,7 @@ void SettingsGeneralView::initVersionUnlock() {
             settings->setPowerUserMenuUnlocked(true);
             settings->writeFile();
             brls::Application::notify("akira/settings/power_user_unlocked"_i18n);
-            brls::Logger::info("Power User Menu unlocked");
+            akira::log::info("Power User Menu unlocked");
             powerUserClickCount = 0;
         }
 

@@ -1,6 +1,7 @@
 #ifdef BOREALIS_USE_DEKO3D
 
 #include "platform/video/deko3d/renderer.hpp"
+#include "log/log.hpp"
 
 #include <borealis/core/assets.hpp>
 #include <nanovg_dk.h>
@@ -113,12 +114,12 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
     m_display_width = brls::Application::windowWidth;
     m_display_height = brls::Application::windowHeight;
 
-    brls::Logger::info("Deko3dRenderer::initialize: frame={}x{}", frame_width, frame_height);
+    akira::log::info("Deko3dRenderer::initialize: frame={}x{}", frame_width, frame_height);
 
     m_vctx = static_cast<brls::SwitchDeko3dVideoContext*>(brls::Application::getPlatform()->getVideoContext());
     if (!m_vctx)
     {
-        brls::Logger::error("Failed to get SwitchVideoContext");
+        akira::log::error("Failed to get SwitchVideoContext");
         return false;
     }
 
@@ -156,7 +157,7 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
     bool dithering = SettingsManager::getInstance()->getEnableDithering();
     if (!compileVideoShaders(dithering))
     {
-        brls::Logger::error("Failed to compile video shaders");
+        akira::log::error("Failed to compile video shaders");
         return false;
     }
 
@@ -164,9 +165,9 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
     memcpy(m_vertex_buffer.getCpuAddr(), QuadVertexData.data(), m_vertex_buffer.getSize());
 
     if (!ensureOverlayShaders())
-        brls::Logger::warning("Deko3dRenderer: overlay blit shaders unavailable");
+        akira::log::warning("Deko3dRenderer: overlay blit shaders unavailable");
 
-    brls::Logger::info("Deko3dRenderer: shaders and vertex buffer initialized");
+    akira::log::info("Deko3dRenderer: shaders and vertex buffer initialized");
 
 
     m_initialized = true;
@@ -204,7 +205,7 @@ bool Deko3dRenderer::setupTextures(const VideoFrame& frame)
         return true;
 
     m_frame_format = formatOf(frame);
-    brls::Logger::info("Deko3dRenderer::setupTextures: frame={}x{}, pitch_linear={}, pitch={}/{}",
+    akira::log::info("Deko3dRenderer::setupTextures: frame={}x{}, pitch_linear={}, pitch={}/{}",
         frame.width, frame.height, frame.layout == PlaneLayout::PitchLinear,
         m_frame_format.lumaPitch, m_frame_format.chromaPitch);
 
@@ -229,7 +230,7 @@ bool Deko3dRenderer::setupTextures(const VideoFrame& frame)
     recordStaticVideoCommands();
 
     m_textures_initialized = true;
-    brls::Logger::info("Deko3dRenderer::setupTextures: luma_id={}, chroma_id={}, fsr={}",
+    akira::log::info("Deko3dRenderer::setupTextures: luma_id={}, chroma_id={}, fsr={}",
         m_luma_texture_id, m_chroma_texture_id, m_fsr_enabled);
     return true;
 }
@@ -287,7 +288,7 @@ void Deko3dRenderer::recordStaticVideoCommands()
     m_cmdbuf.draw(DkPrimitive_Quads, QuadVertexData.size(), 1, 0, 0);
 
     m_video_cmdlist = m_cmdbuf.finishList();
-    brls::Logger::info("Deko3dRenderer: static video command list recorded");
+    akira::log::info("Deko3dRenderer: static video command list recorded");
 }
 
 bool Deko3dRenderer::loadShader(CShader& shader, std::optional<ShaderSource::Code> code)
@@ -298,7 +299,7 @@ bool Deko3dRenderer::loadShader(CShader& shader, std::optional<ShaderSource::Cod
     shader.destroy();
     if (!shader.loadFromMemory(*m_pool_code, code->data(), static_cast<uint32_t>(code->size())))
     {
-        brls::Logger::error("Deko3dRenderer: failed to load shader into GPU memory");
+        akira::log::error("Deko3dRenderer: failed to load shader into GPU memory");
         return false;
     }
     return true;
@@ -351,7 +352,7 @@ void Deko3dRenderer::bindDitherUniform(dk::CmdBuf cmdbuf)
 
 bool Deko3dRenderer::compileVideoShaders(bool dithering)
 {
-    brls::Logger::info("Deko3dRenderer: compiling video shaders (dithering={})", dithering);
+    akira::log::info("Deko3dRenderer: compiling video shaders (dithering={})", dithering);
 
     if (!ensureVertexShaderCompiled())
         return false;
@@ -364,7 +365,7 @@ bool Deko3dRenderer::compileVideoShaders(bool dithering)
 
     m_dithering_enabled = dithering;
     writeDitherUniform();
-    brls::Logger::info("Deko3dRenderer: video shaders compiled successfully");
+    akira::log::info("Deko3dRenderer: video shaders compiled successfully");
     return true;
 }
 
@@ -376,7 +377,7 @@ void Deko3dRenderer::setDithering(bool enabled)
     if (!m_initialized || !m_pool_code)
         return;
 
-    brls::Logger::info("Deko3dRenderer: switching dithering to {}", enabled);
+    akira::log::info("Deko3dRenderer: switching dithering to {}", enabled);
 
     if (compileVideoShaders(enabled) && m_textures_initialized)
         recordStaticVideoCommands();
@@ -410,7 +411,7 @@ void Deko3dRenderer::initFsr()
 
     m_fsr_supersampling = (m_fsr_target_width > m_display_width || m_fsr_target_height > m_display_height);
 
-    brls::Logger::info("Deko3dRenderer::initFsr: input={}x{} target={}x{} display={}x{} ss={} ratio={:.2f}x{:.2f}",
+    akira::log::info("Deko3dRenderer::initFsr: input={}x{} target={}x{} display={}x{} ss={} ratio={:.2f}x{:.2f}",
         m_frame_width, m_frame_height, m_fsr_target_width, m_fsr_target_height,
         m_display_width, m_display_height, m_fsr_supersampling,
         (float)m_fsr_target_width / m_frame_width, (float)m_fsr_target_height / m_frame_height);
@@ -446,7 +447,7 @@ void Deko3dRenderer::initFsr()
     CMemPool* imagesPool = m_vctx->getImagesPool();
     if (!imagesPool)
     {
-        brls::Logger::error("initFsr: no images pool available");
+        akira::log::error("initFsr: no images pool available");
         return;
     }
 
@@ -486,11 +487,11 @@ void Deko3dRenderer::initFsr()
         m_update_cmdmem.getOffset(),
         UpdateCmdSliceSize);
     if (!m_vctx->updateImageDescriptor(m_update_cmdbuf, m_rt_easu_texture_id, m_rt_easu_desc))
-        brls::Logger::error("Deko3dRenderer::initFsr: failed to bind EASU descriptor (id={})", m_rt_easu_texture_id);
+        akira::log::error("Deko3dRenderer::initFsr: failed to bind EASU descriptor (id={})", m_rt_easu_texture_id);
     if (m_rt_rcas_texture_id)
     {
         if (!m_vctx->updateImageDescriptor(m_update_cmdbuf, m_rt_rcas_texture_id, m_rt_rcas_desc))
-            brls::Logger::error("Deko3dRenderer::initFsr: failed to bind RCAS descriptor (id={})", m_rt_rcas_texture_id);
+            akira::log::error("Deko3dRenderer::initFsr: failed to bind RCAS descriptor (id={})", m_rt_rcas_texture_id);
     }
     m_vctx->invalidateImageDescriptors(m_update_cmdbuf);
     m_queue.submitCommands(m_update_cmdbuf.finishList());
@@ -499,7 +500,7 @@ void Deko3dRenderer::initFsr()
     recordFsrCommands();
 
     m_fsr_enabled = true;
-    brls::Logger::info("Deko3dRenderer::initFsr: initialized, sharpness={}", m_fsr_sharpness);
+    akira::log::info("Deko3dRenderer::initFsr: initialized, sharpness={}", m_fsr_sharpness);
 }
 
 void Deko3dRenderer::computeFsrConstants()
@@ -596,7 +597,7 @@ void Deko3dRenderer::recordFsrCommands()
 
     m_fsr_easu_cmdlist = m_fsr_static_cmdbuf.finishList();
 
-    brls::Logger::info("Deko3dRenderer: FSR EASU command list recorded");
+    akira::log::info("Deko3dRenderer: FSR EASU command list recorded");
 }
 
 void Deko3dRenderer::cleanupFsr()
@@ -604,7 +605,7 @@ void Deko3dRenderer::cleanupFsr()
     if (!m_fsr_enabled)
         return;
 
-    brls::Logger::info("Deko3dRenderer::cleanupFsr");
+    akira::log::info("Deko3dRenderer::cleanupFsr");
 
     m_fsr_easu_cmdlist = 0;
 
@@ -644,7 +645,7 @@ void Deko3dRenderer::draw(const VideoFrame& frame)
 
     if (m_textures_initialized && formatOf(frame) != m_frame_format)
     {
-        brls::Logger::info("Deko3dRenderer: frame format changed from {}x{} to {}x{}, rebuilding textures",
+        akira::log::info("Deko3dRenderer: frame format changed from {}x{} to {}x{}, rebuilding textures",
             m_frame_width, m_frame_height, frame.width, frame.height);
         releaseTextures();
     }
@@ -816,7 +817,7 @@ void Deko3dRenderer::registerCallback()
     });
 
     m_callback_registered = true;
-    brls::Logger::info("Deko3dRenderer: post-render callback registered");
+    akira::log::info("Deko3dRenderer: post-render callback registered");
 }
 
 void Deko3dRenderer::unregisterCallback()
@@ -827,7 +828,7 @@ void Deko3dRenderer::unregisterCallback()
     brls::Application::setExclusiveRender(false);
     brls::Application::setPostRenderCallback(nullptr);
     m_callback_registered = false;
-    brls::Logger::info("Deko3dRenderer: post-render callback unregistered");
+    akira::log::info("Deko3dRenderer: post-render callback unregistered");
 }
 
 void Deko3dRenderer::updateFrameBindings(const VideoFrame& frame)
@@ -878,7 +879,7 @@ void Deko3dRenderer::updateFrameBindings(const VideoFrame& frame)
 
     if (!updatedLuma || !updatedChroma)
     {
-        brls::Logger::error("Deko3dRenderer::updateFrameMapping: failed to bind luma/chroma descriptors (luma={}, chroma={})",
+        akira::log::error("Deko3dRenderer::updateFrameMapping: failed to bind luma/chroma descriptors (luma={}, chroma={})",
                             updatedLuma, updatedChroma);
     }
     else
@@ -898,7 +899,7 @@ void Deko3dRenderer::cleanup()
     if (!m_initialized)
         return;
 
-    brls::Logger::info("Deko3dRenderer::cleanup");
+    akira::log::info("Deko3dRenderer::cleanup");
 
     unregisterCallback();
 
@@ -1712,7 +1713,7 @@ bool Deko3dRenderer::ensureOverlayShaders()
         !loadShader(m_ovl_fragment_shader, m_shaders->load(StaticShader::OverlayFragment)) ||
         !loadShader(m_border_fragment_shader, m_shaders->load(StaticShader::BorderFragment)))
     {
-        brls::Logger::error("overlay: blit shader compilation failed");
+        akira::log::error("overlay: blit shader compilation failed");
         return false;
     }
 
@@ -1747,14 +1748,14 @@ bool Deko3dRenderer::ensureOverlayContext()
     m_ovl_vg = nvgCreateDk(&*m_ovl_renderer, NVG_ANTIALIAS | NVG_STENCIL_STROKES);
     if (!m_ovl_vg)
     {
-        brls::Logger::error("overlay: private nanovg context creation failed");
+        akira::log::error("overlay: private nanovg context creation failed");
         return false;
     }
 
     m_overlay_font = nvgCreateFont(m_ovl_vg, "mono", BRLS_ASSET("font/Cousine-Regular.ttf"));
     if (m_overlay_font < 0)
     {
-        brls::Logger::error("overlay: private context could not load the mono font");
+        akira::log::error("overlay: private context could not load the mono font");
         return false;
     }
 
@@ -1763,7 +1764,7 @@ bool Deko3dRenderer::ensureOverlayContext()
     m_ovl_rt_cmdmem->allocate(*m_ovl_data_pool, 8 * 1024);
 
     m_ovl_ctx_ready = true;
-    brls::Logger::info("overlay: private queue and nanovg context ready");
+    akira::log::info("overlay: private queue and nanovg context ready");
     return true;
 }
 
@@ -1823,7 +1824,7 @@ bool Deko3dRenderer::ensureOverlayTarget()
     m_ovl_ds_handle = m_ovl_images_pool->allocate(m_ovl_ds_layout.getSize(), m_ovl_ds_layout.getAlignment());
     if (!m_ovl_ds_handle)
     {
-        brls::Logger::error("overlay: could not allocate depth target");
+        akira::log::error("overlay: could not allocate depth target");
         return false;
     }
     m_ovl_ds_image.initialize(m_ovl_ds_layout, m_ovl_ds_handle.getMemBlock(), m_ovl_ds_handle.getOffset());
@@ -1836,7 +1837,7 @@ bool Deko3dRenderer::ensureOverlayTarget()
         m_ovl_rt_handle[i] = m_ovl_images_pool->allocate(m_ovl_rt_layout.getSize(), m_ovl_rt_layout.getAlignment());
         if (!m_ovl_rt_handle[i])
         {
-            brls::Logger::error("overlay: could not allocate {}x{} render target", wantW, wantH);
+            akira::log::error("overlay: could not allocate {}x{} render target", wantW, wantH);
             destroyOverlayTarget();
             return false;
         }
@@ -1846,7 +1847,7 @@ bool Deko3dRenderer::ensureOverlayTarget()
 
         if (!m_vctx->updateImageDescriptor(m_ovl_desc_cmdbuf, m_ovl_rt_texture_id[i], m_ovl_rt_desc[i]))
         {
-            brls::Logger::error("overlay: failed to bind render target descriptor");
+            akira::log::error("overlay: failed to bind render target descriptor");
             destroyOverlayTarget();
             return false;
         }
@@ -1864,7 +1865,7 @@ bool Deko3dRenderer::ensureOverlayTarget()
     m_ovl_rt_scale = s;
     m_ovl_dirty = true;
 
-    brls::Logger::info("overlay: render targets {}x{} ready (tex={},{})",
+    akira::log::info("overlay: render targets {}x{} ready (tex={},{})",
                        wantW, wantH, m_ovl_rt_texture_id[0], m_ovl_rt_texture_id[1]);
     return true;
 }

@@ -1,4 +1,5 @@
 #include "views/qr_sign_in_view.hpp"
+#include "log/log.hpp"
 
 #include "core/chiaki_core.hpp"
 #include "core/settings_manager.hpp"
@@ -63,7 +64,7 @@ void QrSignInView::openIfSignInExpired() {
     auto* accounts = akira::ChiakiCore::current().accounts();
     if (!accounts || accounts->state() != psn::SessionState::Expired)
         return;
-    brls::Logger::info("PSN sign-in for the active profile has expired; asking for a new one");
+    akira::log::info("PSN sign-in for the active profile has expired; asking for a new one");
     brls::Application::pushActivity(new brls::Activity(new QrSignInView()));
 }
 
@@ -127,7 +128,7 @@ void QrSignInView::onProgress(const QrSignInState& state) {
 
 void QrSignInView::onSignedIn(psn::SignInOutcome outcome, const psn::Accounts::User& user) {
     if (outcome != psn::SignInOutcome::SignedIn || !user) {
-        brls::Logger::warning("QR sign-in ended without a user");
+        akira::log::warning("QR sign-in ended without a user");
         if (!failureShown && outcome != psn::SignInOutcome::Superseded)
             showFailure("akira/qr_sign_in/status_failed"_i18n);
         return;
@@ -141,13 +142,13 @@ void QrSignInView::onSignedIn(psn::SignInOutcome outcome, const psn::Accounts::U
     if (!profile)
         return;
     if (profile->legacy) {
-        brls::Logger::warning("Rejecting QR sign-in: profile {} is legacy", profile->id);
+        akira::log::warning("Rejecting QR sign-in: profile {} is legacy", profile->id);
         showFailure("akira/pair/mode_mismatch"_i18n);
         return;
     }
 
     PairView::adoptSignedInUser(profile->id, user);
-    brls::Logger::info("Signed in to PSN with a QR code");
+    akira::log::info("Signed in to PSN with a QR code");
     brls::Application::notify(brls::getStr("akira/qr_sign_in/signed_in_fmt", user->online_id()));
     brls::Application::popActivity();
 }

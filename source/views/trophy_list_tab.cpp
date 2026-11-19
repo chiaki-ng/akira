@@ -2,6 +2,7 @@
 #include "ui/theme.hpp"
 #include "ui/motion.hpp"
 #include "views/trophy_detail_view.hpp"
+#include "log/log.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -305,7 +306,7 @@ void TrophyGameCard::bind(const TrophyManager::Title& title, std::function<void(
             if (!decodeFailed)
                 return;
 
-            brls::Logger::warning("Trophy cover failed to decode ({} bytes) {}", bytes.size(), url);
+            akira::log::warning("Trophy cover failed to decode ({} bytes) {}", bytes.size(), url);
 
             if (retriedIcons.insert(url).second)
                 TrophyManager::getInstance()->discardIcon(url);
@@ -576,7 +577,7 @@ TrophyListTab::TrophyListTab()
         if (!forceRefreshGate.isReady())
             return true;
 
-        brls::Logger::info("User triggered force refresh");
+        akira::log::info("User triggered force refresh");
 
         TrophyManager* manager = TrophyManager::getInstance();
         brls::Application::notify("akira/trophies/force_refresh"_i18n);
@@ -817,7 +818,7 @@ void TrophyListTab::load(bool forceRefresh)
 {
     if (loading)
     {
-        brls::Logger::info("Trophy grid: load already in progress, ignoring request");
+        akira::log::info("Trophy grid: load already in progress, ignoring request");
         return;
     }
 
@@ -835,7 +836,7 @@ void TrophyListTab::load(bool forceRefresh)
                 currentInstance->applySummary(summary);
         },
         [](psn::Status status, const std::string& message) {
-            brls::Logger::warning("Trophy grid: summary unavailable [{}] {}",
+            akira::log::warning("Trophy grid: summary unavailable [{}] {}",
                 psn::statusName(status), message);
             if (currentInstance)
                 currentInstance->statusLabel->setText("akira/trophies/summary_unavailable"_i18n);
@@ -865,7 +866,7 @@ void TrophyListTab::load(bool forceRefresh)
                 default: break;
             }
 
-            brls::Logger::error("Trophy grid: load failed [{}] {}", psn::statusName(status), message);
+            akira::log::error("Trophy grid: load failed [{}] {}", psn::statusName(status), message);
 
             if (currentInstance->titles.empty())
                 currentInstance->grid->setError(brls::getStr(key));

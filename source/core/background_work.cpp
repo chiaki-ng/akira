@@ -1,6 +1,5 @@
 #include "core/background_work.hpp"
-
-#include <borealis.hpp>
+#include "log/log.hpp"
 
 #include <utility>
 #include <vector>
@@ -62,7 +61,7 @@ void BackgroundWork::hold()
     }
     if (first)
     {
-        brls::Logger::info("Background work: paused for the stream");
+        akira::log::info("Background work: paused for the stream");
         announce(true);
     }
 }
@@ -76,7 +75,7 @@ void BackgroundWork::release()
     }
     if (last)
     {
-        brls::Logger::info("Background work: resumed after the stream");
+        akira::log::info("Background work: resumed after the stream");
         announce(false);
     }
 }

@@ -1,4 +1,5 @@
 #include "views/stream_nav.hpp"
+#include "log/log.hpp"
 
 #include <borealis.hpp>
 
@@ -32,7 +33,7 @@ void unwindToBase()
     const size_t depth = brls::Application::getActivitiesStack().size();
     if (depth <= baseDepth || depth <= 1)
     {
-        brls::Logger::info("stream_nav: unwound to {}", depth);
+        akira::log::info("stream_nav: unwound to {}", depth);
         clearBase();
         return;
     }

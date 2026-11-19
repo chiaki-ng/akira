@@ -1,4 +1,5 @@
 #include "cloud/library_view.hpp"
+#include "log/log.hpp"
 
 #include "cloud/game_detail_view.hpp"
 
@@ -423,12 +424,12 @@ void LibraryView::refresh(bool force)
     const uint64_t gen = ++generation;
     auto guard = alive;
 
-    brls::Logger::info("CloudLib: refresh(force={}) gen={}", force, gen);
+    akira::log::info("CloudLib: refresh(force={}) gen={}", force, gen);
     fetch.follow(gen);
     renderSnapshot(Service::instance().snapshotForActiveProfile());
     Service::instance().refreshActiveProfile(force,
         [this, guard, gen](const Snapshot& snapshot) {
-            brls::Logger::info("CloudLib: refresh cb gen={} cur={} alive={} avail={} hasCatalog={} games={}",
+            akira::log::info("CloudLib: refresh cb gen={} cur={} alive={} avail={} hasCatalog={} games={}",
                 gen, generation, *guard, static_cast<int>(snapshot.status.availability),
                 snapshot.hasCatalog, snapshot.catalog.games.size());
             if (!*guard || gen != generation)
@@ -592,7 +593,7 @@ void LibraryView::renderSnapshot(const Snapshot& snapshot)
 
     if (!snapshot.hasCatalog || snapshot.catalog.games.empty())
     {
-        brls::Logger::info("CloudLib: renderSnapshot -> STATE (avail={} hasCatalog={} games={})",
+        akira::log::info("CloudLib: renderSnapshot -> STATE (avail={} hasCatalog={} games={})",
             static_cast<int>(status.availability), snapshot.hasCatalog, snapshot.catalog.games.size());
         grid->setVisibility(brls::Visibility::GONE);
         grid->clearData();
@@ -604,7 +605,7 @@ void LibraryView::renderSnapshot(const Snapshot& snapshot)
         return;
     }
 
-    brls::Logger::info("CloudLib: renderSnapshot -> CATALOG ({} games)", snapshot.catalog.games.size());
+    akira::log::info("CloudLib: renderSnapshot -> CATALOG ({} games)", snapshot.catalog.games.size());
 
     bool refocusGrid = false;
     for (brls::View* f = brls::Application::getCurrentFocus(); f; f = f->getParent())
@@ -761,7 +762,7 @@ void LibraryView::scheduleUnlock()
     brls::delay(static_cast<long>(wait), [this, guard, scheduled]() {
         if (!*guard || scheduled != unlockGeneration)
             return;
-        brls::Logger::info("CloudLib: a scheduled release is due, reloading the library");
+        akira::log::info("CloudLib: a scheduled release is due, reloading the library");
         refresh(true);
     });
 }
@@ -898,7 +899,7 @@ void LibraryView::applyFilter()
             : brls::getStr("akira/cloud/count_all", listed));
     }
 
-    brls::Logger::info("CloudLib: applyFilter tab={} platform={} q='{}' -> {}/{} games",
+    akira::log::info("CloudLib: applyFilter tab={} platform={} q='{}' -> {}/{} games",
         LibraryListing::key(listing.filter()), static_cast<int>(listing.platform()), listing.query(),
         filtered.size(), listed);
 

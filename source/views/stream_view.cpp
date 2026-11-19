@@ -4,6 +4,7 @@
 #include "platform/factory.hpp"
 #include "views/stream_menu.hpp"
 #include "views/connecting_view.hpp"
+#include "log/log.hpp"
 #if AKIRA_CLOUD
 #include "cloud/cloud_connect_task.hpp"
 #endif
@@ -143,30 +144,25 @@ void StreamView::setupCallbacks()
 
 void StreamView::startLogCapture()
 {
-    if (logSubscriptionActive)
+    if (logSubscription)
         return;
 
     auto weak = weak_from_this();
-    logSubscription = brls::Logger::subscribeToLog(
-        [weak](brls::Logger::TimePoint, brls::LogLevel, std::string msg) {
+    logSubscription = akira::log::Log::process().subscribe(
+        [weak](const akira::log::Entry& entry) {
             if (auto self = weak.lock()) {
                 std::lock_guard<std::mutex> lock(self->logMutex);
-                self->logLines.push_back(msg);
+                self->logLines.emplace_back(entry.message);
                 while (self->logLines.size() > MAX_LOG_LINES) {
                     self->logLines.pop_front();
                 }
             }
         });
-    logSubscriptionActive = true;
 }
 
 void StreamView::stopLogCapture()
 {
-    if (!logSubscriptionActive)
-        return;
-
-    brls::Logger::unsubscribeFromLog(logSubscription);
-    logSubscriptionActive = false;
+    logSubscription.reset();
 }
 
 void StreamView::adoptConnectionLog(akira::ConnectionLog log)
@@ -213,18 +209,18 @@ void StreamView::startStream()
 
     if (sessionPreStarted)
     {
-        brls::Logger::info("Session already started while connecting, activating stream...");
+        akira::log::info("Session already started while connecting, activating stream...");
         if (!controllerReady)
             controllerReady = session->InitController();
         sessionStarted = true;
         streamActive = true;
         prepareVideoPipelineTick();
         brls::Application::blockInputs(true);
-        brls::Logger::info("Stream activated successfully");
+        akira::log::info("Stream activated successfully");
         return;
     }
 
-    brls::Logger::info("Starting stream to {}", host->getHostName());
+    akira::log::info("Starting stream to {}", host->getHostName());
 
     try
     {
@@ -243,7 +239,7 @@ void StreamView::startStream()
         {
             if (!session->InitController())
             {
-                brls::Logger::error("Failed to initialize controller");
+                akira::log::error("Failed to initialize controller");
                 throw Exception("akira/stream/failed_init_controller"_i18n);
             }
             controllerReady = true;
@@ -257,11 +253,11 @@ void StreamView::startStream()
 
         brls::Application::blockInputs(true);
 
-        brls::Logger::info("Stream started successfully");
+        akira::log::info("Stream started successfully");
     }
     catch (const Exception& e)
     {
-        brls::Logger::error("Failed to start stream: {}", e.what());
+        akira::log::error("Failed to start stream: {}", e.what());
 
         connection.reset();
         session->FreeController();
@@ -331,7 +327,7 @@ void StreamView::openConnection()
     }
     handover = play::ConsoleHandover::fresh;
 
-    brls::Logger::info("StreamView: requesting {}x{} at {} fps, {} kbps, {}", width, height, fps, bitrate,
+    akira::log::info("StreamView: requesting {}x{} at {} fps, {} kbps, {}", width, height, fps, bitrate,
                        hevc ? "HEVC" : "H.264");
     session->setRequestedProfile(width, height, fps, bitrate, hevc);
 
@@ -378,7 +374,7 @@ void StreamView::stopStream()
         return;
     }
 
-    brls::Logger::info("Stopping stream");
+    akira::log::info("Stopping stream");
 
     brls::Application::forceUnblockInputs();
     brls::Application::setRenderSuspended(false);
@@ -444,7 +440,7 @@ bool StreamView::drawPausedFrame(NVGcontext* vg, float x, float y, float width, 
     {
         pausedFrameImage = nvgCreateImageRGBA(vg, pausedFrameW, pausedFrameH, 0, pausedFrameRGBA.data());
         if (pausedFrameImage < 0)
-            brls::Logger::warning("StreamView: failed to create paused frame image");
+            akira::log::warning("StreamView: failed to create paused frame image");
         pausedFrameRGBA.clear();
         pausedFrameRGBA.shrink_to_fit();
     }
@@ -466,7 +462,7 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
     static int drawCount = 0;
     ++drawCount;
     if (settings->getDebugRenderLog() && drawCount % 60 == 0) {
-        brls::Logger::info("StreamView::draw #{}: streamActive={}, sessionStarted={}, menuOpen={}",
+        akira::log::info("StreamView::draw #{}: streamActive={}, sessionStarted={}, menuOpen={}",
             drawCount, streamActive, sessionStarted, menuOpen);
     }
 
@@ -523,7 +519,7 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
 
     if (wasMenuOpen)
     {
-        brls::Logger::info("StreamView::draw: resuming after menu close, stats_overlay={}",
+        akira::log::info("StreamView::draw: resuming after menu close, stats_overlay={}",
             (int)session->getStatsOverlayMode());
         wasMenuOpen = false;
         releasePausedFrame(vg);
@@ -532,7 +528,7 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
         nvgRect(vg, x, y, width, height);
         nvgFillColor(vg, nvgRGBA(0, 0, 0, 255));
         nvgFill(vg);
-        brls::Logger::info("StreamView::draw: skipping first frame after menu");
+        akira::log::info("StreamView::draw: skipping first frame after menu");
         return;
     }
 
@@ -621,7 +617,7 @@ void StreamView::streamingTick()
 void StreamView::onPlaying()
 {
     std::string hostName = host->getHostName();
-    brls::Logger::info("Connected to {}", hostName);
+    akira::log::info("Connected to {}", hostName);
     currentStage = static_cast<int>(ConnectionStage::Connected);
 #if AKIRA_CLOUD
     if (cloudScreen)
@@ -654,7 +650,7 @@ void StreamView::pollCloudCancel()
     cloudCancelHeld = held;
     if (!pressed)
         return;
-    brls::Logger::info("Cloud launch cancelled from the launch screen");
+    akira::log::info("Cloud launch cancelled from the launch screen");
     disconnectWithSleep(false);
 }
 
@@ -685,7 +681,7 @@ void StreamView::showCloudFailure(const std::string& message, bool retry)
 
 void StreamView::onLaunchProgress(const libchiaking::play::LaunchProgress& progress)
 {
-    brls::Logger::info("Launch progress: phase {} activity {}", static_cast<int>(progress.phase()),
+    akira::log::info("Launch progress: phase {} activity {}", static_cast<int>(progress.phase()),
                        progress.activity() ? static_cast<int>(*progress.activity()) : -1);
 #if AKIRA_CLOUD
     if (cloudScreen)
@@ -695,7 +691,7 @@ void StreamView::onLaunchProgress(const libchiaking::play::LaunchProgress& progr
 
 void StreamView::onConnectProgress(const libchiaking::play::ConnectProgress& progress)
 {
-    brls::Logger::info("Connect progress: step {} attempt {}{}", static_cast<int>(progress.step), progress.attempt,
+    akira::log::info("Connect progress: step {} attempt {}{}", static_cast<int>(progress.step), progress.attempt,
                        progress.reconnecting ? " (reconnecting)" : "");
     const int stage = static_cast<int>(connectionStageOf(progress.step));
     if (progress.reconnecting || stage > currentStage.load())
@@ -748,13 +744,13 @@ void StreamView::onEnded(const libchiaking::play::Outcome& outcome)
     using libchiaking::play::ConsoleQuit;
     using libchiaking::play::EndReason;
 
-    brls::Logger::info("Session ended: ending={} cause={}", static_cast<int>(outcome.ending()),
+    akira::log::info("Session ended: ending={} cause={}", static_cast<int>(outcome.ending()),
                        outcome.cause() ? static_cast<int>(*outcome.cause()) : -1);
 
     streamActive = false;
 
     if (!sessionStarted) {
-        brls::Logger::info("onEnded: session already stopped via menu, skipping");
+        akira::log::info("onEnded: session already stopped via menu, skipping");
         return;
     }
 
@@ -769,7 +765,7 @@ void StreamView::onEnded(const libchiaking::play::Outcome& outcome)
     const bool unpairedConsole = outcome.cause() == EndReason::Cause::unpaired_console;
 
     if (loginPinEnteredThisSession && !stopped && !unpairedConsole) {
-        brls::Logger::info("onEnded: first-time login PIN was entered, auto-reconnecting");
+        akira::log::info("onEnded: first-time login PIN was entered, auto-reconnecting");
         loginPinEnteredThisSession = false;
         attemptReconnect();
         return;
@@ -856,10 +852,10 @@ void StreamView::resumeStreamAfterUi()
 
 void StreamView::onSeatPasscodeNeeded(uint8_t slot, bool retry)
 {
-    brls::Logger::info("Couch passcode request for player {} (retry: {})", slot + 1, retry);
+    akira::log::info("Couch passcode request for player {} (retry: {})", slot + 1, retry);
 
     if (couchPasscodeDialogOpen) {
-        brls::Logger::info("Couch passcode dialog already open, ignoring repeat request");
+        akira::log::info("Couch passcode dialog already open, ignoring repeat request");
         return;
     }
     couchPasscodeDialogOpen = true;
@@ -868,7 +864,7 @@ void StreamView::onSeatPasscodeNeeded(uint8_t slot, bool retry)
     auto* pinView = new EnterPinView(host, PinViewType::CouchPasscode, retry);
 
     pinView->setOnPinEntered([weak, slot](const std::string& pin) {
-        brls::Logger::info("Couch passcode entered for player {}", slot + 1);
+        akira::log::info("Couch passcode entered for player {}", slot + 1);
         if (auto self = weak.lock()) {
             self->couchPasscodeDialogOpen = false;
             if (self->connection)
@@ -877,7 +873,7 @@ void StreamView::onSeatPasscodeNeeded(uint8_t slot, bool retry)
     });
 
     pinView->setOnCancel([weak, slot]() {
-        brls::Logger::info("Couch passcode cancelled for player {}, releasing the pad", slot + 1);
+        akira::log::info("Couch passcode cancelled for player {}, releasing the pad", slot + 1);
         if (auto self = weak.lock()) {
             self->couchPasscodeDialogOpen = false;
             if (self->connection)
@@ -899,7 +895,7 @@ void StreamView::onSeatRefused(uint8_t slot, const libchiaking::play::SeatRefusa
         case Kind::timed_out: status = libchiaking::play::SeatRefusal::timed_out_status; break;
         default: break;
     }
-    brls::Logger::error("Couch join failed for player {} with status {}", slot + 1, status);
+    akira::log::error("Couch join failed for player {} with status {}", slot + 1, status);
 
     brls::Application::notify(status == 1
         ? brls::getStr("akira/couch/join_failed_not_signed_in", slot + 1)
@@ -908,24 +904,24 @@ void StreamView::onSeatRefused(uint8_t slot, const libchiaking::play::SeatRefusa
 
 void StreamView::onSeatDropped(uint8_t slot)
 {
-    brls::Logger::info("Couch: console dropped player {}, withdrawing the pad", slot + 1);
+    akira::log::info("Couch: console dropped player {}, withdrawing the pad", slot + 1);
     brls::Application::notify(brls::getStr("akira/couch/join_failed_status", slot + 1,
         libchiaking::play::SeatRefusal::passcode_attempts_status));
 }
 
 void StreamView::onLoginPinNeeded(bool pinIncorrect)
 {
-    brls::Logger::info("Login PIN request (incorrect: {})", pinIncorrect);
+    akira::log::info("Login PIN request (incorrect: {})", pinIncorrect);
 
     if (host->isCloud()) {
-        brls::Logger::warning("Ignoring login PIN request for a cloud session");
+        akira::log::warning("Ignoring login PIN request for a cloud session");
         return;
     }
 
     if (!pinIncorrect) {
         std::string savedPin = settings->getConsolePIN(host);
         if (!savedPin.empty() && connection) {
-            brls::Logger::info("Using saved Console PIN for auto-login");
+            akira::log::info("Using saved Console PIN for auto-login");
             connection->submitLoginPin(savedPin);
             return;
         }
@@ -938,7 +934,7 @@ void StreamView::onLoginPinNeeded(bool pinIncorrect)
     auto* pinView = new EnterPinView(hostPtr, PinViewType::Login, pinIncorrect);
 
     pinView->setOnPinEntered([weak, hostPtr, settingsPtr](const std::string& pin) {
-        brls::Logger::info("Login PIN entered, sending to session");
+        akira::log::info("Login PIN entered, sending to session");
         if (auto self = weak.lock()) {
             if (self->connection)
                 self->connection->submitLoginPin(pin);
@@ -950,7 +946,7 @@ void StreamView::onLoginPinNeeded(bool pinIncorrect)
     });
 
     pinView->setOnCancel([weak]() {
-        brls::Logger::info("Login PIN cancelled, stopping session");
+        akira::log::info("Login PIN cancelled, stopping session");
         if (auto self = weak.lock()) {
             if (self->connection)
                 self->connection->leave(false);
@@ -978,7 +974,7 @@ void StreamView::checkMenuTrigger()
     if (minusPressed && checkCount++ % 30 == 0) {
         auto elapsed = minusWasHeld ?
             std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - minusHoldStart).count() : 0;
-        brls::Logger::info("checkMenuTrigger: minus pressed, wasHeld={}, elapsed={}s", minusWasHeld, elapsed);
+        akira::log::info("checkMenuTrigger: minus pressed, wasHeld={}, elapsed={}s", minusWasHeld, elapsed);
     }
 
     if (minusPressed) {
@@ -988,7 +984,7 @@ void StreamView::checkMenuTrigger()
         } else {
             auto elapsed = std::chrono::steady_clock::now() - minusHoldStart;
             if (std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() >= 3) {
-                brls::Logger::info("checkMenuTrigger: 3 seconds reached, showing menu");
+                akira::log::info("checkMenuTrigger: 3 seconds reached, showing menu");
                 showDisconnectMenu();
                 minusWasHeld = false;  // Reset
             }
@@ -1000,7 +996,7 @@ void StreamView::checkMenuTrigger()
 
 void StreamView::showDisconnectMenu()
 {
-    brls::Logger::info("showDisconnectMenu: entering");
+    akira::log::info("showDisconnectMenu: entering");
     capturePausedFrame();
 
     if (session)
@@ -1027,14 +1023,14 @@ void StreamView::showDisconnectMenu()
 
     menu->setOnStatsToggle([weak](StatsOverlayMode mode) {
         if (auto self = weak.lock()) {
-            brls::Logger::info("Stats overlay mode: {}", (int)mode);
+            akira::log::info("Stats overlay mode: {}", (int)mode);
             self->session->setStatsOverlayMode(mode);
         }
     });
 
     menu->setOnGyroReset([weak]() {
         if (auto self = weak.lock()) {
-            brls::Logger::info("Gyro reset triggered from menu");
+            akira::log::info("Gyro reset triggered from menu");
             if (self->session->getInputManager()) {
                 self->session->getInputManager()->resetMotionControls();
             }
@@ -1053,14 +1049,14 @@ void StreamView::showDisconnectMenu()
 
     menu->setOnDisconnect([weak](bool sleep) {
         if (auto self = weak.lock()) {
-            brls::Logger::info("Disconnect requested, sleep={}", sleep);
+            akira::log::info("Disconnect requested, sleep={}", sleep);
             self->disconnectWithSleep(sleep);
         }
     });
 
     menu->setOnDismiss([weak]() {
         if (auto self = weak.lock()) {
-            brls::Logger::info("Menu dismissed");
+            akira::log::info("Menu dismissed");
             self->session->setVideoPaused(false);
             self->menuOpen = false;
             if (self->connection)
@@ -1070,12 +1066,12 @@ void StreamView::showDisconnectMenu()
     });
 
     brls::Application::pushActivity(new brls::Activity(menu));
-    brls::Logger::info("showDisconnectMenu: menu opened");
+    akira::log::info("showDisconnectMenu: menu opened");
 }
 
 void StreamView::abandonStart()
 {
-    brls::Logger::info("Pad choice abandoned before the stream started");
+    akira::log::info("Pad choice abandoned before the stream started");
 
     intentionalDisconnect = true;
     controllerReady       = false;
@@ -1157,11 +1153,11 @@ void StreamView::onFocusChanged(bool focused)
     const auto state = connection ? connection->state() : std::nullopt;
     const bool sessionAlive = state && (*state == libchiaking::play::SessionState::playing ||
                                         *state == libchiaking::play::SessionState::connecting);
-    brls::Logger::info("StreamView::onFocusChanged(InFocus): streamActive={}, sessionAlive={}",
+    akira::log::info("StreamView::onFocusChanged(InFocus): streamActive={}, sessionAlive={}",
                        streamActive, sessionAlive);
 
     if (!streamActive || !sessionAlive) {
-        brls::Logger::info("Stream dead on focus regain, prompting user");
+        akira::log::info("Stream dead on focus regain, prompting user");
         stopStream();
         brls::Application::forceUnblockInputs();
 
@@ -1185,13 +1181,13 @@ void StreamView::onFocusChanged(bool focused)
 void StreamView::attemptReconnect()
 {
     if (reconnecting) {
-        brls::Logger::info("Already reconnecting, skipping");
+        akira::log::info("Already reconnecting, skipping");
         return;
     }
 
     reconnecting = true;
 
-    brls::Logger::info("Auto-reconnect: tearing down old session");
+    akira::log::info("Auto-reconnect: tearing down old session");
     stopStream();
 
     currentStage = static_cast<int>(ConnectionStage::Idle);

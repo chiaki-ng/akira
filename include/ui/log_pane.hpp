@@ -1,10 +1,13 @@
 #ifndef AKIRA_UI_LOG_PANE_HPP
 #define AKIRA_UI_LOG_PANE_HPP
 
+#include "log/log.hpp"
+
 #include <borealis.hpp>
 
 #include <deque>
 #include <mutex>
+#include <optional>
 #include <string>
 
 namespace akira::ui {
@@ -24,8 +27,7 @@ private:
     std::mutex linesMutex;
     static constexpr size_t MAX_LINES = 100;
 
-    brls::Event<brls::Logger::TimePoint, brls::LogLevel, std::string>::Subscription subscription;
-    bool subscribed = false;
+    std::optional<akira::log::Log::Subscription> subscription;
 };
 
 } // namespace akira::ui

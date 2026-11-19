@@ -1,11 +1,10 @@
 #include "core/chiaki_core.hpp"
+#include "log/log.hpp"
 #if AKIRA_CLOUD
 #include "cloud/service.hpp"
 #endif
 #include "core/settings_manager.hpp"
 #include "util/crash_report.hpp"
-
-#include <borealis.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -97,21 +96,21 @@ auto ChiakiCore::transportSettings() noexcept -> platform::HttpTransportSettings
 void ChiakiCore::rememberSaved()
 {
     if (!chiakiNg) {
-        brls::Logger::error("[CORE] ChiakiNg did not open: {} provider missing",
+        akira::log::error("[CORE] ChiakiNg did not open: {} provider missing",
             chiakiNg.error() == Missing::crypto ? "crypto" : "http");
         return;
     }
 
     if (auto returned = chiakiNg->users().welcome_back())
-        brls::Logger::info("[CORE] remembered {} user(s), skipped {}", returned->users.size(), returned->rejected);
+        akira::log::info("[CORE] remembered {} user(s), skipped {}", returned->users.size(), returned->rejected);
     else
-        brls::Logger::error("[CORE] saved users could not be read");
+        akira::log::error("[CORE] saved users could not be read");
 
     if (auto remembered = chiakiNg->consoles().remember_saved())
-        brls::Logger::info("[CORE] remembered {} console(s), skipped {}", remembered->consoles.size(),
+        akira::log::info("[CORE] remembered {} console(s), skipped {}", remembered->consoles.size(),
             remembered->rejected);
     else
-        brls::Logger::error("[CORE] saved consoles could not be read");
+        akira::log::error("[CORE] saved consoles could not be read");
 
     psnAccounts.emplace(*chiakiNg, settings, threadingProvider, steadyClock, random());
 #if AKIRA_CLOUD

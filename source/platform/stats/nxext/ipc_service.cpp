@@ -3,7 +3,7 @@
 #include "core/wireguard_manager.hpp"
 #include <akira/ipc.h>
 #include <cstring>
-#include <borealis.hpp>
+#include "log/log.hpp"
 
 namespace akira::platform::nxext
 {
@@ -28,7 +28,7 @@ void IpcStatsService::Start()
     Result rc = ipcServerInit(&m_server, AKIRA_IPC_SERVICE_NAME, 4);
     if (R_FAILED(rc))
     {
-        brls::Logger::error("IpcStatsService: failed to init server: 0x{:X}", rc);
+        akira::log::error("IpcStatsService: failed to init server: 0x{:X}", rc);
         return;
     }
 
@@ -36,7 +36,7 @@ void IpcStatsService::Start()
     rc = svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
     if (R_FAILED(rc))
     {
-        brls::Logger::error("IpcStatsService: failed to get thread priority: 0x{:X}", rc);
+        akira::log::error("IpcStatsService: failed to get thread priority: 0x{:X}", rc);
         ipcServerExit(&m_server);
         return;
     }
@@ -44,7 +44,7 @@ void IpcStatsService::Start()
     rc = threadCreate(&m_thread, &ProcessThreadFunc, this, NULL, 0x2000, priority, -2);
     if (R_FAILED(rc))
     {
-        brls::Logger::error("IpcStatsService: failed to create thread: 0x{:X}", rc);
+        akira::log::error("IpcStatsService: failed to create thread: 0x{:X}", rc);
         ipcServerExit(&m_server);
         return;
     }
@@ -52,14 +52,14 @@ void IpcStatsService::Start()
     rc = threadStart(&m_thread);
     if (R_FAILED(rc))
     {
-        brls::Logger::error("IpcStatsService: failed to start thread: 0x{:X}", rc);
+        akira::log::error("IpcStatsService: failed to start thread: 0x{:X}", rc);
         threadClose(&m_thread);
         ipcServerExit(&m_server);
         return;
     }
 
     m_running = true;
-    brls::Logger::info("IpcStatsService: started on service '{}'", AKIRA_IPC_SERVICE_NAME);
+    akira::log::info("IpcStatsService: started on service '{}'", AKIRA_IPC_SERVICE_NAME);
 }
 
 void IpcStatsService::Stop()
@@ -72,7 +72,7 @@ void IpcStatsService::Stop()
     threadWaitForExit(&m_thread);
     threadClose(&m_thread);
     ipcServerExit(&m_server);
-    brls::Logger::info("IpcStatsService: stopped");
+    akira::log::info("IpcStatsService: stopped");
 }
 
 void IpcStatsService::ProcessThreadFunc(void* arg)

@@ -1,11 +1,11 @@
 #include "platform/video/uam/shader_source.hpp"
+#include "log/log.hpp"
 
 #include <cstdlib>
 #include <format>
 #include <utility>
 #include <memory>
 
-#include <borealis.hpp>
 #include <uam.h>
 
 #include "core/settings_manager.hpp"
@@ -43,19 +43,19 @@ std::optional<deko3d::ShaderSource::Code> UamShaderSource::compile(const std::st
 
     const std::string glsl = injectDefines(std::move(*source), defines);
     const char* kind = vertex ? "vertex" : "fragment";
-    brls::Logger::info("UamShaderSource: compiling {} shader {} ({} bytes)", kind, path, glsl.size());
+    akira::log::info("UamShaderSource: compiling {} shader {} ({} bytes)", kind, path, glsl.size());
 
     std::uint8_t* raw = nullptr;
     std::uint32_t size = 0;
     if (!uam_compileDksh(vertex ? uam_pipeline_stage_vertex : uam_pipeline_stage_fragment,
             glsl.c_str(), 3, &raw, &size))
     {
-        brls::Logger::error("UamShaderSource: failed to compile {} shader {}", kind, path);
+        akira::log::error("UamShaderSource: failed to compile {} shader {}", kind, path);
         return std::nullopt;
     }
     std::unique_ptr<std::uint8_t, decltype(&std::free)> owned(raw, &std::free);
 
-    brls::Logger::info("UamShaderSource: {} shader compiled ({} bytes dksh)", kind, size);
+    akira::log::info("UamShaderSource: {} shader compiled ({} bytes dksh)", kind, size);
     return Code(owned.get(), owned.get() + size);
 }
 

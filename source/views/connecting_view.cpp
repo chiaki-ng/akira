@@ -1,5 +1,6 @@
 #include "views/connecting_view.hpp"
 #include "views/stream_nav.hpp"
+#include "log/log.hpp"
 
 #include <chrono>
 #include <ctime>
@@ -73,7 +74,7 @@ ConnectingView::ConnectingView(std::unique_ptr<ConnectTask> task)
 
 ConnectingView::~ConnectingView()
 {
-    brls::Logger::unsubscribeFromLog(logSubscription);
+    logSubscription.reset();
 
     if (!settled.load())
         task->cancel();
@@ -107,17 +108,17 @@ void ConnectingView::setupAndStart()
         }
     }
 
-    logSubscription = brls::Logger::subscribeToLog(
-        [weak](brls::Logger::TimePoint, brls::LogLevel, std::string msg) {
+    logSubscription = akira::log::Log::process().subscribe(
+        [weak](const akira::log::Entry& entry) {
             if (auto self = weak.lock())
-                self->addLogLine(msg);
+                self->addLogLine(std::string(entry.message));
         });
 
     switchToConnectionLog();
 
-    brls::Logger::info("========================================");
-    brls::Logger::info("CONNECTION ATTEMPT: {} to {}", task->logKind(), task->title());
-    brls::Logger::info("========================================");
+    akira::log::info("========================================");
+    akira::log::info("CONNECTION ATTEMPT: {} to {}", task->logKind(), task->title());
+    akira::log::info("========================================");
 
     addLogLine("akira/connection/starting"_i18n);
 
@@ -129,7 +130,7 @@ void ConnectingView::cancelFromUser()
     if (settled.exchange(true))
         return;
 
-    brls::Logger::info("Connection cancelled by user");
+    akira::log::info("Connection cancelled by user");
     wasCancelled.store(true);
     task->cancel();
 
@@ -167,7 +168,7 @@ void ConnectingView::switchToConnectionLog()
     const std::string logPath = SettingsManager::getConnectionLogFilePath(task->logKind());
     connectionLog = akira::ConnectionLog::open(logPath);
     if (connectionLog)
-        brls::Logger::info("Switched to connection log: {}", logPath);
+        akira::log::info("Switched to connection log: {}", logPath);
 }
 
 void ConnectingView::progress(ConnectionStage stage)
@@ -201,7 +202,7 @@ void ConnectingView::succeeded(Host* host, std::shared_ptr<Host> owner)
     if (settled.exchange(true))
         return;
 
-    brls::Logger::info("Transitioning to stream view...");
+    akira::log::info("Transitioning to stream view...");
 
     auto streamView = SharedViewHolder::holdNew<StreamView>(host, owner);
     streamView->setupCallbacks();
@@ -227,7 +228,7 @@ void ConnectingView::failed(const std::string& error)
     if (settled.load())
         return;
 
-    brls::Logger::error("{}", error);
+    akira::log::error("{}", error);
 
     if (task->presentFailure(error, *this))
         return;
@@ -267,7 +268,7 @@ void ConnectingView::dismissAfterFailure()
     if (dismissed.exchange(true))
         return;
 
-    brls::Logger::info("Connection failure acknowledged, returning to hosts");
+    akira::log::info("Connection failure acknowledged, returning to hosts");
     stream_nav::unwindToBase();
 }
 

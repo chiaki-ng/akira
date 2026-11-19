@@ -3,6 +3,7 @@
 #include "views/host_list_tab.hpp"
 #include "core/trophy_manager.hpp"
 #include "platform/factory.hpp"
+#include "log/log.hpp"
 
 #include <borealis/core/i18n.hpp>
 #include <algorithm>
@@ -46,7 +47,7 @@ void SettingsPowerUserView::initUnlockBitrateMaxToggle() {
         [this](bool isOn) {
             settings->setUnlockBitrateMax(isOn);
             settings->writeFile();
-            brls::Logger::info("Unlock Bitrate Max set to {}", isOn ? "true" : "false");
+            akira::log::info("Unlock Bitrate Max set to {}", isOn ? "true" : "false");
         }
     );
 }
@@ -70,7 +71,7 @@ void SettingsPowerUserView::initAutoReconnectToggle() {
         [this](bool isOn) {
             settings->setAutoReconnect(isOn);
             settings->writeFile();
-            brls::Logger::info("Auto Reconnect set to {}", isOn ? "true" : "false");
+            akira::log::info("Auto Reconnect set to {}", isOn ? "true" : "false");
         }
     );
 }
@@ -84,7 +85,7 @@ void SettingsPowerUserView::initPortGuessingToggle() {
         [this](bool isOn) {
             settings->setPortGuessing(isOn);
             settings->writeFile();
-            brls::Logger::info("Port Guessing set to {}", isOn ? "true" : "false");
+            akira::log::info("Port Guessing set to {}", isOn ? "true" : "false");
         }
     );
 }

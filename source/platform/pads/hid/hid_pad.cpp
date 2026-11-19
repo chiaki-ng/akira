@@ -1,4 +1,5 @@
 #include "platform/pads/hid/hid_pad.hpp"
+#include "log/log.hpp"
 
 #include <algorithm>
 
@@ -22,7 +23,7 @@ HidPad::HidPad()
         const Result rc = hidStartSixAxisSensor(m_sixaxis[i]);
         m_started[i] = R_SUCCEEDED(rc);
         if (!m_started[i])
-            brls::Logger::warning("PadPath: six-axis start failed for sensor {}: 0x{:x}", i, rc);
+            akira::log::warning("PadPath: six-axis start failed for sensor {}: 0x{:x}", i, rc);
     }
 }
 

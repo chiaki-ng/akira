@@ -1,4 +1,5 @@
 #include "platform/video/viddec/hardware_decoder.hpp"
+#include "log/log.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -6,8 +7,6 @@
 #include <format>
 #include <iterator>
 #include <ranges>
-
-#include <borealis/core/logger.hpp>
 
 namespace akira::platform::viddec
 {
@@ -77,7 +76,7 @@ public:
         : m_result(viddecInitialize())
     {
         if (R_FAILED(m_result))
-            brls::Logger::warning("HardwareDecoder: viddec did not open: {:#x}", m_result);
+            akira::log::warning("HardwareDecoder: viddec did not open: {:#x}", m_result);
     }
 
     ~ViddecService()
@@ -104,7 +103,7 @@ std::expected<std::shared_ptr<HardwareDecoder>, Result> HardwareDecoder::create(
         else
         {
             decoder->m_output_failure = opened.error();
-            brls::Logger::warning("HardwareDecoder: zero-copy open failed at {}: {:#x}", opened.error().step,
+            akira::log::warning("HardwareDecoder: zero-copy open failed at {}: {:#x}", opened.error().step,
                 opened.error().code);
         }
         decoder->closeDecoder();
@@ -137,7 +136,7 @@ void HardwareDecoder::closeDecoder()
         m_decoder.image_count = 0;
     videoDecoderClose(&m_decoder);
     m_outputs.clear();
-    brls::Logger::info("HardwareDecoder: closed the {}x{} decoder", m_width, m_height);
+    akira::log::info("HardwareDecoder: closed the {}x{} decoder", m_width, m_height);
 }
 
 std::expected<void, OutputFailure> HardwareDecoder::openWithOutputs(const Config& config, OutputMemory& memory)

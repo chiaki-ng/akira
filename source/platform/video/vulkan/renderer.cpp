@@ -1,5 +1,6 @@
 #include "platform/video/vulkan/renderer.hpp"
 #include "platform/video/vulkan/decoder_output.hpp"
+#include "log/log.hpp"
 
 #include "core/settings_manager.hpp"
 #include "core/wireguard_manager.hpp"
@@ -149,7 +150,7 @@ bool VulkanRenderer::succeeded(VkResult result, std::string_view what)
 {
     if (result == VK_SUCCESS)
         return true;
-    brls::Logger::error("VulkanRenderer: {} failed ({})", what, static_cast<int>(result));
+    akira::log::error("VulkanRenderer: {} failed ({})", what, static_cast<int>(result));
     return false;
 }
 
@@ -423,12 +424,12 @@ bool VulkanRenderer::initialize(int frame_width, int frame_height)
     if (m_initialized.load(std::memory_order_acquire))
         return true;
 
-    brls::Logger::info("VulkanRenderer::initialize: frame={}x{}", frame_width, frame_height);
+    akira::log::info("VulkanRenderer::initialize: frame={}x{}", frame_width, frame_height);
 
     m_vctx = static_cast<brls::SwitchVulkanVideoContext*>(brls::Application::getPlatform()->getVideoContext());
     if (!m_vctx)
     {
-        brls::Logger::error("VulkanRenderer: no SwitchVulkanVideoContext");
+        akira::log::error("VulkanRenderer: no SwitchVulkanVideoContext");
         return false;
     }
     m_device = m_vctx->device();
@@ -446,7 +447,7 @@ bool VulkanRenderer::initialize(int frame_width, int frame_height)
 
     m_dithering_enabled.store(SettingsManager::getInstance()->getEnableDithering(), std::memory_order_relaxed);
     m_initialized.store(true, std::memory_order_release);
-    brls::Logger::info("VulkanRenderer: initialized (dithering={})", m_dithering_enabled.load());
+    akira::log::info("VulkanRenderer: initialized (dithering={})", m_dithering_enabled.load());
     return true;
 }
 
@@ -454,7 +455,7 @@ bool VulkanRenderer::queryCapabilities()
 {
     if (!m_vctx->hasDeviceExtension(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME))
     {
-        brls::Logger::error("VulkanRenderer: {} is not enabled, decoded frames cannot be sampled in place",
+        akira::log::error("VulkanRenderer: {} is not enabled, decoded frames cannot be sampled in place",
             VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
         return false;
     }
@@ -463,7 +464,7 @@ bool VulkanRenderer::queryCapabilities()
         vkGetDeviceProcAddr(m_device, "vkGetMemoryHostPointerPropertiesEXT"));
     if (!m_get_host_pointer_properties)
     {
-        brls::Logger::error("VulkanRenderer: vkGetMemoryHostPointerPropertiesEXT is unavailable");
+        akira::log::error("VulkanRenderer: vkGetMemoryHostPointerPropertiesEXT is unavailable");
         return false;
     }
 
@@ -490,12 +491,12 @@ bool VulkanRenderer::queryCapabilities()
         m_path = PlanePath::TexelBuffer;
     else
     {
-        brls::Logger::error("VulkanRenderer: neither linear host images nor host texel buffers can be imported, "
+        akira::log::error("VulkanRenderer: neither linear host images nor host texel buffers can be imported, "
             "decoded frames cannot be sampled in place");
         return false;
     }
 
-    brls::Logger::info("VulkanRenderer: decoded planes are sampled through uniform texel buffers");
+    akira::log::info("VulkanRenderer: decoded planes are sampled through uniform texel buffers");
     return true;
 }
 
@@ -528,7 +529,7 @@ std::optional<VkExtent3D> VulkanRenderer::queryImagePlanes() const
         if (linear == modifiers.end() || linear->drmFormatModifierPlaneCount != 1 ||
             (linear->drmFormatModifierTilingFeatures & required) != required)
         {
-            brls::Logger::info("VulkanRenderer: format {} has no sampleable linear DRM modifier",
+            akira::log::info("VulkanRenderer: format {} has no sampleable linear DRM modifier",
                 static_cast<int>(format));
             return std::nullopt;
         }
@@ -562,13 +563,13 @@ std::optional<VkExtent3D> VulkanRenderer::queryImagePlanes() const
             vkGetPhysicalDeviceImageFormatProperties2(m_vctx->physicalDevice(), &info, &imageProperties);
         if (result != VK_SUCCESS)
         {
-            brls::Logger::info("VulkanRenderer: linear host-memory images of format {} are unsupported ({})",
+            akira::log::info("VulkanRenderer: linear host-memory images of format {} are unsupported ({})",
                 static_cast<int>(format), static_cast<int>(result));
             return std::nullopt;
         }
         if ((external.externalMemoryProperties.externalMemoryFeatures & VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT) == 0)
         {
-            brls::Logger::info("VulkanRenderer: format {} images cannot import host allocations",
+            akira::log::info("VulkanRenderer: format {} images cannot import host allocations",
                 static_cast<int>(format));
             return std::nullopt;
         }
@@ -588,7 +589,7 @@ bool VulkanRenderer::queryTexelPlanes() const
         vkGetPhysicalDeviceFormatProperties(m_vctx->physicalDevice(), format, &properties);
         if ((properties.bufferFeatures & VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT) == 0)
         {
-            brls::Logger::info("VulkanRenderer: format {} cannot back a uniform texel buffer", static_cast<int>(format));
+            akira::log::info("VulkanRenderer: format {} cannot back a uniform texel buffer", static_cast<int>(format));
             return false;
         }
     }
@@ -763,7 +764,7 @@ std::optional<VulkanRenderer::RenderTarget> VulkanRenderer::createRenderTarget(V
         type = m_vctx->findMemoryType(requirements.memoryTypeBits, 0);
     if (!type)
     {
-        brls::Logger::error("VulkanRenderer: no memory type for a {}x{} render target", extent.width, extent.height);
+        akira::log::error("VulkanRenderer: no memory type for a {}x{} render target", extent.width, extent.height);
         return std::nullopt;
     }
 
@@ -817,13 +818,13 @@ std::optional<VulkanRenderer::HostRange> VulkanRenderer::hostRange(const PlaneLa
 {
     if (!layout.backing || layout.width == 0 || layout.height == 0)
     {
-        brls::Logger::error("VulkanRenderer: decoder frame has no backing memory or an empty size");
+        akira::log::error("VulkanRenderer: decoder frame has no backing memory or an empty size");
         return std::nullopt;
     }
     const VkDeviceSize required = std::max(layout.lumaEnd(), layout.chromaEnd());
     if (required > layout.backingSize)
     {
-        brls::Logger::error("VulkanRenderer: decoder backing of {:#x} bytes is short of the {:#x} bytes the NV12 planes "
+        akira::log::error("VulkanRenderer: decoder backing of {:#x} bytes is short of the {:#x} bytes the NV12 planes "
             "span", layout.backingSize, required);
         return std::nullopt;
     }
@@ -836,7 +837,7 @@ std::optional<VulkanRenderer::DeviceMemory> VulkanRenderer::importHostMemory(con
     const auto type = m_vctx->findMemoryType(typeBits, 0);
     if (!type)
     {
-        brls::Logger::error("VulkanRenderer: the planes and the decoder backing share no memory type (bits {:#x})",
+        akira::log::error("VulkanRenderer: the planes and the decoder backing share no memory type (bits {:#x})",
             typeBits);
         return std::nullopt;
     }
@@ -863,7 +864,7 @@ std::optional<VulkanRenderer::ImagePlanes> VulkanRenderer::importImagePlanes(con
 {
     if (layout.width > m_caps.imageMaxExtent.width || layout.height > m_caps.imageMaxExtent.height)
     {
-        brls::Logger::error("VulkanRenderer: {}x{} exceeds the linear image limit {}x{}", layout.width, layout.height,
+        akira::log::error("VulkanRenderer: {}x{} exceeds the linear image limit {}x{}", layout.width, layout.height,
             m_caps.imageMaxExtent.width, m_caps.imageMaxExtent.height);
         return std::nullopt;
     }
@@ -920,7 +921,7 @@ std::optional<VulkanRenderer::ImagePlanes> VulkanRenderer::importImagePlanes(con
     vkGetImageMemoryRequirements(m_device, chroma->get(), &chromaRequirements);
     if (lumaRequirements.size > range.size || chromaRequirements.size > range.size)
     {
-        brls::Logger::error("VulkanRenderer: linear planes need {:#x}/{:#x} bytes but only {:#x} are importable",
+        akira::log::error("VulkanRenderer: linear planes need {:#x}/{:#x} bytes but only {:#x} are importable",
             lumaRequirements.size, chromaRequirements.size, range.size);
         return std::nullopt;
     }
@@ -982,7 +983,7 @@ std::optional<VulkanRenderer::TexelPlanes> VulkanRenderer::stagingTexelPlanes(co
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     if (!type)
     {
-        brls::Logger::error("VulkanRenderer: no host-visible coherent memory type can back the plane buffer");
+        akira::log::error("VulkanRenderer: no host-visible coherent memory type can back the plane buffer");
         return std::nullopt;
     }
     const VkMemoryAllocateInfo allocation{
@@ -1021,7 +1022,7 @@ std::optional<VulkanRenderer::TexelPlanes> VulkanRenderer::texelViews(const Plan
 
     if (lumaRange > m_caps.maxTexelBufferElements || chromaRange / 2 > m_caps.maxTexelBufferElements)
     {
-        brls::Logger::error("VulkanRenderer: plane spans {}/{} texels, beyond maxTexelBufferElements {}",
+        akira::log::error("VulkanRenderer: plane spans {}/{} texels, beyond maxTexelBufferElements {}",
             lumaRange, chromaRange / 2, m_caps.maxTexelBufferElements);
         return std::nullopt;
     }
@@ -1089,7 +1090,7 @@ std::unique_ptr<VulkanRenderer::PlaneImport> VulkanRenderer::importPlanes(const 
 
     if (layout.chroma.offset % 2 != 0 || layout.chroma.pitch % 2 != 0)
     {
-        brls::Logger::error("VulkanRenderer: chroma plane offset {:#x} / pitch {} is not RG8 addressable",
+        akira::log::error("VulkanRenderer: chroma plane offset {:#x} / pitch {} is not RG8 addressable",
             layout.chroma.offset, layout.chroma.pitch);
         return nullptr;
     }
@@ -1121,7 +1122,7 @@ std::shared_ptr<VulkanRenderer::ImportCache> VulkanRenderer::createImportCache(s
         slots, slots * 2);
     if (!pool)
         return nullptr;
-    brls::Logger::info("VulkanRenderer: importing decoder generation {} through {}", generation,
+    akira::log::info("VulkanRenderer: importing decoder generation {} through {}", generation,
         m_path == PlanePath::Image ? "linear images" : "texel buffers");
     return std::make_shared<ImportCache>(generation, m_path, std::move(*pool));
 }
@@ -1133,17 +1134,17 @@ VulkanRenderer::PlaneImport* VulkanRenderer::acquireImport(const Frame& frame)
     {
         m_decoder_sampling = decoderSamplingMatches(layout) ? DecoderSampling::Verified : DecoderSampling::Broken;
         if (m_decoder_sampling == DecoderSampling::Verified)
-            brls::Logger::info("VulkanRenderer: the GPU reads what the decoder wrote, frames are sampled in place");
+            akira::log::info("VulkanRenderer: the GPU reads what the decoder wrote, frames are sampled in place");
         else
         {
-            brls::Logger::warning("VulkanRenderer: the GPU does not read what the decoder wrote, frames are copied");
+            akira::log::warning("VulkanRenderer: the GPU does not read what the decoder wrote, frames are copied");
             layout = planeLayout(*frame);
         }
     }
     const std::uint32_t slot = frame->slot();
     if (slot >= akira::platform::Nv12Frame::SlotCount)
     {
-        brls::Logger::error("VulkanRenderer: decoder slot {} is out of range", slot);
+        akira::log::error("VulkanRenderer: decoder slot {} is out of range", slot);
         return nullptr;
     }
 
@@ -1152,7 +1153,7 @@ VulkanRenderer::PlaneImport* VulkanRenderer::acquireImport(const Frame& frame)
     {
         if (const PlaneImport* existing = m_cache->find(slot); existing && !(existing->layout() == layout))
         {
-            brls::Logger::warning("VulkanRenderer: slot {} changed its plane layout, re-importing generation {}",
+            akira::log::warning("VulkanRenderer: slot {} changed its plane layout, re-importing generation {}",
                 slot, frame->generation());
             stale = true;
         }
@@ -1191,7 +1192,7 @@ VulkanRenderer::PlaneImport* VulkanRenderer::acquireImport(const Frame& frame)
     auto created = importPlanes(layout, *range, *m_cache);
     if (!created && layout.decoderBuffer)
     {
-        brls::Logger::warning("VulkanRenderer: slot {} of generation {} cannot be sampled in place, frames are copied",
+        akira::log::warning("VulkanRenderer: slot {} of generation {} cannot be sampled in place, frames are copied",
             slot, frame->generation());
         m_decoder_sampling = DecoderSampling::Broken;
         return acquireImport(frame);
@@ -1201,12 +1202,12 @@ VulkanRenderer::PlaneImport* VulkanRenderer::acquireImport(const Frame& frame)
         m_cache->markFailed(slot);
         if (m_path == PlanePath::Image && m_caps.texelPlanes)
         {
-            brls::Logger::warning("VulkanRenderer: linear image import of slot {} failed, switching to texel buffer "
+            akira::log::warning("VulkanRenderer: linear image import of slot {} failed, switching to texel buffer "
                 "planes", slot);
             m_path = PlanePath::TexelBuffer;
             return acquireImport(frame);
         }
-        brls::Logger::error("VulkanRenderer: slot {} of generation {} cannot be sampled in place, its frames are "
+        akira::log::error("VulkanRenderer: slot {} of generation {} cannot be sampled in place, its frames are "
             "dropped", slot, frame->generation());
         return nullptr;
     }
@@ -1369,7 +1370,7 @@ std::shared_ptr<VulkanRenderer::FsrState> VulkanRenderer::createFsr(const FsrCon
     if (!config.easu && !config.rcas)
         return nullptr;
 
-    brls::Logger::info("VulkanRenderer::createFsr: input={}x{} target={}x{} display={}x{} ss={} ratio={:.2f}x{:.2f}",
+    akira::log::info("VulkanRenderer::createFsr: input={}x{} target={}x{} display={}x{} ss={} ratio={:.2f}x{:.2f}",
         config.inputWidth, config.inputHeight, config.targetWidth, config.targetHeight, config.display.width,
         config.display.height, config.supersampling,
         static_cast<float>(config.targetWidth) / static_cast<float>(config.inputWidth),
@@ -1394,7 +1395,7 @@ std::shared_ptr<VulkanRenderer::FsrState> VulkanRenderer::createFsr(const FsrCon
             return nullptr;
     }
 
-    brls::Logger::info("VulkanRenderer::createFsr: initialized, sharpness={}", config.sharpness);
+    akira::log::info("VulkanRenderer::createFsr: initialized, sharpness={}", config.sharpness);
     return std::make_shared<FsrState>(config, std::move(*pool), std::move(*easu), std::move(rcas));
 }
 
@@ -1433,7 +1434,7 @@ void VulkanRenderer::setConnectionContext(const std::string& context)
 void VulkanRenderer::setDithering(bool enabled)
 {
     if (m_dithering_enabled.exchange(enabled, std::memory_order_relaxed) != enabled)
-        brls::Logger::info("VulkanRenderer: switching dithering to {}", enabled);
+        akira::log::info("VulkanRenderer: switching dithering to {}", enabled);
 }
 
 void VulkanRenderer::setStatsOverlayMode(StatsOverlayMode mode)
@@ -1522,7 +1523,7 @@ void VulkanRenderer::renderVideo()
     const int height = static_cast<int>(frame->height());
     if (width != m_configured_width || height != m_configured_height)
     {
-        brls::Logger::info("VulkanRenderer: frame size {}x{} -> {}x{}", m_configured_width, m_configured_height,
+        akira::log::info("VulkanRenderer: frame size {}x{} -> {}x{}", m_configured_width, m_configured_height,
             width, height);
         if (m_fsr)
             retire(Retired{ .fsr = std::move(m_fsr) });
@@ -1553,7 +1554,7 @@ void VulkanRenderer::renderVideo()
         const std::int64_t timestamp = frame->timestampNs();
         if (timestamp < m_drawn_timestamp)
         {
-            brls::Logger::warning("VulkanRenderer: drawing frame {} (slot {}) after frame {} (slot {}), {} us back in time",
+            akira::log::warning("VulkanRenderer: drawing frame {} (slot {}) after frame {} (slot {}), {} us back in time",
                 timestamp, frame->slot(), m_drawn_timestamp, m_drawn_slot, (m_drawn_timestamp - timestamp) / 1000);
         }
         m_drawn_timestamp = timestamp;
@@ -1805,7 +1806,7 @@ void VulkanRenderer::registerCallback()
     });
 
     m_callback_registered = true;
-    brls::Logger::info("VulkanRenderer: post-render callback registered");
+    akira::log::info("VulkanRenderer: post-render callback registered");
 }
 
 void VulkanRenderer::unregisterCallback()
@@ -1816,7 +1817,7 @@ void VulkanRenderer::unregisterCallback()
     brls::Application::setExclusiveRender(false);
     brls::Application::setPostRenderCallback(nullptr);
     m_callback_registered = false;
-    brls::Logger::info("VulkanRenderer: post-render callback unregistered");
+    akira::log::info("VulkanRenderer: post-render callback unregistered");
 }
 
 void VulkanRenderer::cleanup()
@@ -1824,7 +1825,7 @@ void VulkanRenderer::cleanup()
     if (!m_initialized.exchange(false, std::memory_order_acq_rel))
         return;
 
-    brls::Logger::info("VulkanRenderer::cleanup");
+    akira::log::info("VulkanRenderer::cleanup");
 
     unregisterCallback();
 
@@ -2762,7 +2763,7 @@ bool VulkanRenderer::ensureOverlayContext()
     NVGcontext* vg = renderer->createContext(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
     if (!vg)
     {
-        brls::Logger::error("overlay: private nanovg context creation failed");
+        akira::log::error("overlay: private nanovg context creation failed");
         return false;
     }
 
@@ -2771,13 +2772,13 @@ bool VulkanRenderer::ensureOverlayContext()
         vg, font);
     if (font < 0)
     {
-        brls::Logger::error("overlay: private context could not load the mono font");
+        akira::log::error("overlay: private context could not load the mono font");
         return false;
     }
 
     m_ovl_context = std::move(context);
     m_font_atlas_warm = false;
-    brls::Logger::info("overlay: private nanovg context ready");
+    akira::log::info("overlay: private nanovg context ready");
     return true;
 }
 
@@ -2815,7 +2816,7 @@ bool VulkanRenderer::ensureOverlayTarget()
         stencilAspect(m_vctx->stencilFormat()), VK_NULL_HANDLE);
     if (!first || !second || !stencil)
     {
-        brls::Logger::error("overlay: could not allocate {}x{} render targets", want.width, want.height);
+        akira::log::error("overlay: could not allocate {}x{} render targets", want.width, want.height);
         return false;
     }
 
@@ -2828,7 +2829,7 @@ bool VulkanRenderer::ensureOverlayTarget()
     }
     m_ovl_dirty = true;
 
-    brls::Logger::info("overlay: render targets {}x{} ready", want.width, want.height);
+    akira::log::info("overlay: render targets {}x{} ready", want.width, want.height);
     return true;
 }
 

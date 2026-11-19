@@ -1,4 +1,5 @@
 #include "views/host_list_tab.hpp"
+#include "log/log.hpp"
 #if AKIRA_CLOUD
 #include "cloud/library_view.hpp"
 #include "cloud/cloud_connect_task.hpp"
@@ -263,7 +264,7 @@ public:
         else if (!host->hasRpKey() && (host->isDiscovered() || host->canPairOverInternet())) doRegister();
         else if (host->isStandby() && host->hasRpKey() && !host->isRemote()) doWake();
         else if (host->hasRpKey()) doConnect();
-        else brls::Logger::warning("No primary action for {} (remote={}, needsLink={}, discovered={}, rpkey={}, canAuto={})",
+        else akira::log::warning("No primary action for {} (remote={}, needsLink={}, discovered={}, rpkey={}, canAuto={})",
             host->getHostName(), host->isRemote(), host->needsLink(), host->isDiscovered(), host->hasRpKey(), host->canPairOverInternet());
     }
 
@@ -315,7 +316,7 @@ private:
     }
 
     void doWake() {
-            brls::Logger::info("Wake {}", host->getHostName());
+            akira::log::info("Wake {}", host->getHostName());
 
             if (host->wake()) {
                 brls::Application::notify(brls::getStr("akira/hosts/wake_sent", host->getHostName()));
@@ -329,11 +330,11 @@ private:
                 return;
             }
 
-            brls::Logger::info("Register button clicked for {}", host->getHostName());
+            akira::log::info("Register button clicked for {}", host->getHostName());
 
             auto* settings = SettingsManager::getInstance();
             auto* accounts = akira::ChiakiCore::current().accounts();
-            brls::Logger::info("Register {}: remoteDuid='{}' signedIn={} hasAccountId={} canAuto={}",
+            akira::log::info("Register {}: remoteDuid='{}' signedIn={} hasAccountId={} canAuto={}",
                 host->getHostName(), host->getRemoteDuid(),
                 accounts && accounts->state() == psn::SessionState::Valid,
                 !settings->getPsnAccountId(host).empty(), host->canPairOverInternet());
@@ -392,7 +393,7 @@ private:
         pinView->setOnCancel([hostPtr]() {
             hostPtr->cancelRegistration();
             HostListTab::isRegistering = false;
-            brls::Logger::info("PIN entry cancelled");
+            akira::log::info("PIN entry cancelled");
         });
         pinView->setOnPinEntered([hostPtr](const std::string& pin) {
             HostListTab::isRegistering = true;
@@ -566,7 +567,7 @@ private:
     }
 
     void doLink() {
-            brls::Logger::info("Link button clicked for {}", host->getHostName());
+            akira::log::info("Link button clicked for {}", host->getHostName());
 
             std::vector<std::string> hostNames;
             std::vector<Host*> hostPtrs;
@@ -693,7 +694,7 @@ private:
 
     void doDelete() {
             std::string hostName = host->getHostName();
-            brls::Logger::info("Delete button clicked for {}", hostName);
+            akira::log::info("Delete button clicked for {}", hostName);
 
             auto* dialog = new brls::Dialog(brls::getStr("akira/hosts/delete_confirm", hostName));
             dialog->addButton("akira/common/cancel"_i18n, []() {});
@@ -705,7 +706,7 @@ private:
                 if (accounts && hostIt != settings->getHostsMap()->end() && hostIt->second->getConsole()) {
                     if (const auto user = accounts->activeUser()) {
                         if (!core.chiaki().consoles().unpair(user->account_id(), *hostIt->second->getConsole()))
-                            brls::Logger::error("Could not forget the pairing with {}", hostName);
+                            akira::log::error("Could not forget the pairing with {}", hostName);
                     }
                 }
                 settings->removeActiveProfileRegistration(hostName);
@@ -993,21 +994,21 @@ HostListTab::HostListTab() {
 
     discovery->setOnHostDiscovered([](Host* host) {
         if (!host) {
-            brls::Logger::warning("onHostDiscovered: host is null");
+            akira::log::warning("onHostDiscovered: host is null");
             return;
         }
-        brls::Logger::info("onHostDiscovered: isActive={}, currentInstance={}",
+        akira::log::info("onHostDiscovered: isActive={}, currentInstance={}",
             HostListTab::isActive ? "true" : "false",
             HostListTab::currentInstance ? "valid" : "null");
         if (!HostListTab::isActive || HostListTab::connectionActive) {
-            brls::Logger::info("onHostDiscovered: suspended, skipping {}", host->getHostName());
+            akira::log::info("onHostDiscovered: suspended, skipping {}", host->getHostName());
             return;
         }
         if (!HostListTab::currentInstance) {
-            brls::Logger::warning("onHostDiscovered: currentInstance is null");
+            akira::log::warning("onHostDiscovered: currentInstance is null");
             return;
         }
-        brls::Logger::info("Host discovered/updated: {}", host->getHostName());
+        akira::log::info("Host discovered/updated: {}", host->getHostName());
         HostListTab::currentInstance->updateHostItem(host);
     });
 
@@ -1162,7 +1163,7 @@ void HostListTab::connectToHost(Host* host) {
     if (!host || HostListTab::isConnecting)
         return;
 
-    brls::Logger::info("Connect to {}", host->getHostName());
+    akira::log::info("Connect to {}", host->getHostName());
 
     auto* settings = SettingsManager::getInstance();
     bool isPS5 = host->isPS5();
@@ -1171,7 +1172,7 @@ void HostListTab::connectToHost(Host* host) {
     std::string onlineId = settings->getPsnOnlineId(host);
 
     if (host->isPsnRemotePlayDisabled()) {
-        brls::Logger::warning("Connect {}: PSN reports remote play disabled for this account",
+        akira::log::warning("Connect {}: PSN reports remote play disabled for this account",
             host->getHostName());
         brls::Application::notify("akira/connection/fail_rp_disabled"_i18n);
     }
@@ -1271,7 +1272,7 @@ HostListTab::~HostListTab() {
 void HostListTab::willAppear(bool resetState) {
     Box::willAppear(resetState);
     isActive = true;
-    brls::Logger::debug("HostListTab::willAppear - resuming discovery callbacks");
+    akira::log::debug("HostListTab::willAppear - resuming discovery callbacks");
     findRemoteGate.start();
     if (profileChip) profileChip->refresh();
 #if AKIRA_CLOUD
@@ -1293,7 +1294,7 @@ void HostListTab::willAppear(bool resetState) {
 void HostListTab::willDisappear(bool resetState) {
     Box::willDisappear(resetState);
     isActive = false;
-    brls::Logger::debug("HostListTab::willDisappear - pausing discovery callbacks");
+    akira::log::debug("HostListTab::willDisappear - pausing discovery callbacks");
     findRemoteGate.stop();
 }
 
@@ -1317,7 +1318,7 @@ void HostListTab::refreshRailsIfActive() {
         bool underHome = false;
         for (brls::View* v = f; v; v = v->getParent())
             if (v == currentInstance) { underHome = true; break; }
-        brls::Logger::info("refreshRailsIfActive: focus={} isActive={} underHome={} stack={}",
+        akira::log::info("refreshRailsIfActive: focus={} isActive={} underHome={} stack={}",
             f ? f->describe() : std::string("null"),
             currentInstance->isActive ? "yes" : "no",
             underHome ? "yes" : "no",
@@ -1367,10 +1368,10 @@ void HostListTab::notifyAccountNameDisplayChanged() {
 }
 
 void HostListTab::syncHostList() {
-    brls::Logger::debug("Syncing host list...");
+    akira::log::debug("Syncing host list...");
 
     if (!hostContainer) {
-        brls::Logger::error("syncHostList: hostContainer is null");
+        akira::log::error("syncHostList: hostContainer is null");
         return;
     }
     brls::View* focused = brls::Application::getCurrentFocus();
@@ -1410,7 +1411,7 @@ void HostListTab::syncHostList() {
     if (hostsMap && !noProfile) {
         for (auto& [name, host] : *hostsMap) {
             if (!host) {
-                brls::Logger::error("Null host in hosts map for key: {}", name);
+                akira::log::error("Null host in hosts map for key: {}", name);
                 continue;
             }
             if (!host->hasRpKey() && !host->isDiscovered() && !host->isManual())
@@ -1514,7 +1515,7 @@ void HostListTab::syncHostList() {
         }
     }
 
-    brls::Logger::debug("Host list sync complete, {} hosts", hostItems.size());
+    akira::log::debug("Host list sync complete, {} hosts", hostItems.size());
 }
 
 void HostListTab::updateHostItem(Host* host) {
@@ -1523,9 +1524,9 @@ void HostListTab::updateHostItem(Host* host) {
     auto it = hostItems.find(host);
     if (it != hostItems.end()) {
         it->second->updateState();
-        brls::Logger::debug("Updated host item: {}", host->getHostName());
+        akira::log::debug("Updated host item: {}", host->getHostName());
     } else {
-        brls::Logger::debug("Host not found in items, syncing: {}", host->getHostName());
+        akira::log::debug("Host not found in items, syncing: {}", host->getHostName());
         syncHostList();
     }
 }

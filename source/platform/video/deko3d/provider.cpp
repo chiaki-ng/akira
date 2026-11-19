@@ -1,6 +1,5 @@
 #include "platform/video/deko3d/provider.hpp"
-
-#include <borealis.hpp>
+#include "log/log.hpp"
 
 #include "platform/video/deko3d/renderer.hpp"
 
@@ -47,7 +46,7 @@ VideoRenderer* Deko3dVideoProvider::renderer()
 
 bool Deko3dVideoProvider::startRenderer(int width, int height, FrameHooks hooks)
 {
-    brls::Logger::info("Creating {} renderer", name());
+    akira::log::info("Creating {} renderer", name());
     auto renderer = std::make_unique<Deko3dRenderer>(m_make_shaders(), std::string(decoderStat()));
     if (!renderer->initialize(width, height))
         return false;

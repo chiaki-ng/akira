@@ -1,6 +1,7 @@
 #include "views/enter_pin_view.hpp"
 #include "ui/theme.hpp"
 #include <format>
+#include "log/log.hpp"
 
 #include <borealis/core/i18n.hpp>
 using namespace brls::literals;
@@ -13,7 +14,7 @@ EnterPinView::EnterPinView(Host* host, PinViewType type, bool isError)
     setFocusable(true);
 
     this->registerAction("Back", brls::ControllerButton::BUTTON_B, [this](brls::View* view) {
-        brls::Logger::info("EnterPinView: Back pressed");
+        akira::log::info("EnterPinView: Back pressed");
         closePinView();
         return true;
     });
@@ -87,7 +88,7 @@ void EnterPinView::showPinDialog()
             }
             this->pin = pinStr;
 
-            brls::Logger::info("PIN entered: {}", pin);
+            akira::log::info("PIN entered: {}", pin);
 
             if (onPinEntered)
             {
@@ -104,7 +105,7 @@ void EnterPinView::showPinDialog()
 
     if (!success)
     {
-        brls::Logger::info("Keyboard cancelled, closing PIN view");
+        akira::log::info("Keyboard cancelled, closing PIN view");
         // Need to release the token we retained above
         ASYNC_RELEASE
         if (onCancel)
@@ -117,7 +118,7 @@ void EnterPinView::showPinDialog()
 
 void EnterPinView::closePinView()
 {
-    brls::Logger::info("EnterPinView: closePinView called");
+    akira::log::info("EnterPinView: closePinView called");
     if (onCancel)
     {
         onCancel();

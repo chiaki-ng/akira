@@ -2,6 +2,7 @@
 #include "core/chiaki_core.hpp"
 #include "core/settings_manager.hpp"
 #include "core/wireguard_manager.hpp"
+#include "log/log.hpp"
 
 #include <borealis.hpp>
 #include <algorithm>
@@ -139,7 +140,7 @@ void Host::copyRegistrationFrom(const Host* other)
 
     consolePIN = other->consolePIN;
 
-    brls::Logger::info("Copied registration data from '{}' to '{}'", other->hostName, hostName);
+    akira::log::info("Copied registration data from '{}' to '{}'", other->hostName, hostName);
 }
 
 libchiaking::Expected<void, Host::WakeRefusal> Host::wake()
@@ -148,16 +149,16 @@ libchiaking::Expected<void, Host::WakeRefusal> Host::wake()
     const auto user = accounts ? accounts->activeUser() : nullptr;
     if (!console || !user)
     {
-        brls::Logger::error("Host::wake: {} has no paired console or no user to wake it as", hostName);
+        akira::log::error("Host::wake: {} has no paired console or no user to wake it as", hostName);
         return libchiaking::unexpected(WakeRefusal::not_paired);
     }
 
     const auto network = homeNetwork();
     auto woken = console->wake(*user, network);
     if (!woken)
-        brls::Logger::error("Host::wake: {} refused (reason {})", hostName, static_cast<int>(woken.error()));
+        akira::log::error("Host::wake: {} refused (reason {})", hostName, static_cast<int>(woken.error()));
     else
-        brls::Logger::info("Host::wake: wake packet sent to {}{}", hostName,
+        akira::log::info("Host::wake: wake packet sent to {}{}", hostName,
             network.network() ? " through the WireGuard tunnel" : "");
     return woken;
 }
@@ -179,21 +180,21 @@ HostRegisterError Host::registerHost(int pin, PairingCallback done)
     auto user = accounts ? accounts->activeUser() : nullptr;
     if (!user)
     {
-        brls::Logger::error("Undefined PSN account for registration (please configure the profile)");
+        akira::log::error("Undefined PSN account for registration (please configure the profile)");
         return needsAccountId() ? HOST_REGISTER_ERROR_SETTING_PSNACCOUNTID : HOST_REGISTER_ERROR_SETTING_PSNONLINEID;
     }
 
     const auto known = getFirmware();
     if (!known)
     {
-        brls::Logger::error("Undefined PS4 system version (please run discover first)");
+        akira::log::error("Undefined PS4 system version (please run discover first)");
         return HOST_REGISTER_ERROR_UNDEFINED_TARGET;
     }
 
     auto parsedPin = consoles::PairingPin::create(static_cast<uint32_t>(pin));
     if (!parsedPin)
     {
-        brls::Logger::error("Registration PIN for {} is out of range", hostName);
+        akira::log::error("Registration PIN for {} is out of range", hostName);
         return HOST_REGISTER_ERROR_UNDEFINED_TARGET;
     }
 
@@ -203,7 +204,7 @@ HostRegisterError Host::registerHost(int pin, PairingCallback done)
         auto created = consoles::Host::create(hostAddr, known->generation());
         if (!created)
         {
-            brls::Logger::error("Registration address {} is not usable", hostAddr);
+            akira::log::error("Registration address {} is not usable", hostAddr);
             return HOST_REGISTER_ERROR_UNDEFINED_TARGET;
         }
         address = std::move(created.value());
@@ -212,7 +213,7 @@ HostRegisterError Host::registerHost(int pin, PairingCallback done)
     const uint64_t generation = pairingGeneration->fetch_add(1) + 1;
     pairingThread = platform::Thread{};
 
-    brls::Logger::info("Registering to host `{}` `{}` as `{}`", hostName, getHostAddr(),
+    akira::log::info("Registering to host `{}` `{}` as `{}`", hostName, getHostAddr(),
         settings->maskAccountName(user->online_id()));
 
     auto work = [this, &core, user, found = console, address = std::move(address), firmware = *known,
@@ -232,7 +233,7 @@ HostRegisterError Host::registerHost(int pin, PairingCallback done)
         else
         {
             const auto reason = paired.error().reason;
-            brls::Logger::error("Registration with {} failed (reason {})", name, static_cast<int>(reason));
+            akira::log::error("Registration with {} failed (reason {})", name, static_cast<int>(reason));
             outcome = reason == consoles::PairingFailure::Reason::cancelled ? PairingOutcome::Canceled
                 : reason == consoles::PairingFailure::Reason::refused       ? PairingOutcome::Refused
                                                                             : PairingOutcome::Failed;
@@ -251,7 +252,7 @@ HostRegisterError Host::registerHost(int pin, PairingCallback done)
         std::move(work));
     if (!started)
     {
-        brls::Logger::error("Registration thread could not start");
+        akira::log::error("Registration thread could not start");
         return HOST_REGISTER_ERROR_UNDEFINED_TARGET;
     }
     pairingThread = std::move(started).value();
@@ -283,7 +284,7 @@ HostRegisterError Host::registerOverInternet(PairingStageCallback stage, Pairing
     pairingThread = platform::Thread{};
 
     const auto consoleGeneration = isPS5() ? consoles::Generation::ps5 : consoles::Generation::ps4;
-    brls::Logger::info("Pairing {} over the internet", hostName);
+    akira::log::info("Pairing {} over the internet", hostName);
 
     auto work = [this, &core, accounts, user, generation, consoleGeneration, name = hostName,
                  duid = consoles::DeviceUid::parse(remoteDuid), stage, done](platform::StopToken stop) {
@@ -300,13 +301,13 @@ HostRegisterError Host::registerOverInternet(PairingStageCallback stage, Pairing
         };
 
         const bool signedIn = accounts->staySignedIn(stop);
-        brls::Logger::info("Internet pairing: sign-in renewed (valid={})", signedIn);
+        akira::log::info("Internet pairing: sign-in renewed (valid={})", signedIn);
         postStage(alive, generation, stage, 2);
 
         auto listed = known.consoles_on_account(*user, consoleGeneration, stop);
         if (!listed)
         {
-            brls::Logger::error("Internet pairing: PSN did not list the consoles (reason {})",
+            akira::log::error("Internet pairing: PSN did not list the consoles (reason {})",
                 static_cast<int>(listed.error().reason));
             finish(stop.stop_requested() ? PairingOutcome::Canceled : PairingOutcome::Failed, nullptr);
             return;
@@ -317,7 +318,7 @@ HostRegisterError Host::registerOverInternet(PairingStageCallback stage, Pairing
         });
         if (match == listed.value().end())
         {
-            brls::Logger::error("Internet pairing: {} is not on the PSN account", name);
+            akira::log::error("Internet pairing: {} is not on the PSN account", name);
             finish(PairingOutcome::Failed, nullptr);
             return;
         }
@@ -328,7 +329,7 @@ HostRegisterError Host::registerOverInternet(PairingStageCallback stage, Pairing
         if (!paired)
         {
             const auto reason = paired.error().reason;
-            brls::Logger::error("Internet pairing with {} failed (reason {})", name, static_cast<int>(reason));
+            akira::log::error("Internet pairing with {} failed (reason {})", name, static_cast<int>(reason));
             finish(reason == consoles::PairingFailure::Reason::cancelled ? PairingOutcome::Canceled
                 : reason == consoles::PairingFailure::Reason::refused    ? PairingOutcome::Refused
                                                                          : PairingOutcome::Failed,
@@ -342,7 +343,7 @@ HostRegisterError Host::registerOverInternet(PairingStageCallback stage, Pairing
         std::move(work));
     if (!started)
     {
-        brls::Logger::error("Internet pairing thread could not start");
+        akira::log::error("Internet pairing thread could not start");
         return HOST_REGISTER_ERROR_HOLEPUNCH;
     }
     pairingThread = std::move(started).value();
@@ -373,7 +374,7 @@ Host::InternetPairingWatcher::InternetPairingWatcher(std::weak_ptr<std::atomic<u
 void Host::InternetPairingWatcher::on_stage(libchiaking::consoles::InternetPairingStage reached)
 {
     using libchiaking::consoles::InternetPairingStage;
-    brls::Logger::info("Internet pairing stage {}", static_cast<int>(reached));
+    akira::log::info("Internet pairing stage {}", static_cast<int>(reached));
     if (reached == InternetPairingStage::pairing)
         postStage(alive, generation, stage, internetPairingStages);
 }
@@ -405,7 +406,7 @@ void Host::finishPairing(PairingOutcome outcome, std::shared_ptr<libchiaking::co
         serverNickname = paired->name();
         if (const Profile* profile = settings->getActiveProfile())
             removeRegistrationsForProfile(profile->id);
-        brls::Logger::info("Register Success {}", hostName);
+        akira::log::info("Register Success {}", hostName);
     }
     if (done)
         done(outcome);

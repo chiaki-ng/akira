@@ -1,4 +1,5 @@
 #include "platform/pads/extended/pad_path_mc.hpp"
+#include "log/log.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -74,7 +75,7 @@ void McGenericPath::sendRumble(float left, float right, float freqLow, float fre
             (uint32_t)(armTicksToNs(armGetSystemTick()) / 1000000ull);
         if (now >= m_rumble_log_next) {
             m_rumble_log_next = now + 1000;
-            brls::Logger::info("generic rumble: npad {} lo={:.3f} hi={:.3f}",
+            akira::log::info("generic rumble: npad {} lo={:.3f} hi={:.3f}",
                                (int)m_npad, lo, hi);
         }
     }
@@ -110,7 +111,7 @@ McPsNativePath::McPsNativePath(HidNpadIdType npad, ExtendedInputManager& extende
     m_direct_output = PadTakesDirectOutput(model.vendor_id, model.product_id);
     m_extended.setDirectOutput(m_direct_output);
 
-    brls::Logger::info("McPsNativePath: home blocking short={} direct rumble={}",
+    akira::log::info("McPsNativePath: home blocking short={} direct rumble={}",
                        m_home_blocked, m_direct_output);
 }
 
@@ -179,7 +180,7 @@ void McPsNativePath::sendRumble(float left, float right, float freqLow, float fr
 
     if (!m_rumble_source_logged && (left > 0.0f || right > 0.0f)) {
         m_rumble_source_logged = true;
-        brls::Logger::info("rumble source: {}",
+        akira::log::info("rumble source: {}",
                            direct ? "DIRECT - written to the pad by us"
                                   : (m_direct_output
                                         ? "MissionControl - direct path present but the stream toggle is off"

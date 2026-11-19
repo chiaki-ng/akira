@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <array>
 #include <format>
-#include <borealis.hpp>
 #include <fstream>
 #include <sstream>
 #include <cstring>
@@ -13,6 +12,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "log/log.hpp"
 
 WireGuardManager& WireGuardManager::instance() {
     static WireGuardManager inst;
@@ -21,7 +21,7 @@ WireGuardManager& WireGuardManager::instance() {
 
 static void wg_lib_log_callback(const char* msg) {
     if (SettingsManager::getInstance()->getDebugWireguardLog())
-        brls::Logger::info("WG-LIB: {}", msg);
+        akira::log::info("WG-LIB: {}", msg);
 }
 
 WireGuardManager::WireGuardManager() {
@@ -51,14 +51,14 @@ std::string WireGuardManager::parseValue(const std::string& line) {
 }
 
 bool WireGuardManager::parseConfigFile(const std::string& path, WgConfig& cfg) {
-    brls::Logger::info("WG: parseConfigFile({})", path);
+    akira::log::info("WG: parseConfigFile({})", path);
     std::ifstream file(path);
     if (!file.is_open()) {
         lastError = "Cannot open config file";
-        brls::Logger::error("WG: cannot open config file");
+        akira::log::error("WG: cannot open config file");
         return false;
     }
-    brls::Logger::info("WG: config file opened");
+    akira::log::info("WG: config file opened");
 
     std::string line;
     std::string section;
@@ -92,11 +92,11 @@ bool WireGuardManager::parseConfigFile(const std::string& path, WgConfig& cfg) {
             if (error != std::errc{} || end != value.data() + value.size() ||
                 parsed < WG_MIN_MTU || parsed > WG_MAX_MTU) {
                 lastError = std::format("Invalid MTU: expected {}-{}", WG_MIN_MTU, WG_MAX_MTU);
-                brls::Logger::error("WG: {}", lastError);
+                akira::log::error("WG: {}", lastError);
                 return false;
             }
             mtu = static_cast<uint16_t>(parsed);
-            brls::Logger::info("WG: configured MTU: {}", mtu);
+            akira::log::info("WG: configured MTU: {}", mtu);
         } else if (section == "Peer" && key == "AllowedIPs") {
             std::stringstream list(parseValue(line));
             std::string entry;
@@ -109,90 +109,90 @@ bool WireGuardManager::parseConfigFile(const std::string& path, WgConfig& cfg) {
                 if (auto prefix = akira::net::RoutingNetworkProvider::Prefix::parse(trimmed))
                     allowed.push_back(*prefix);
                 else
-                    brls::Logger::info("WG: AllowedIPs entry {} is not routed through the tunnel", trimmed);
+                    akira::log::info("WG: AllowedIPs entry {} is not routed through the tunnel", trimmed);
             }
         } else if (line.find("PrivateKey") != std::string::npos) {
             privateKey = parseValue(line);
-            brls::Logger::info("WG: found PrivateKey");
+            akira::log::info("WG: found PrivateKey");
         } else if (line.find("PublicKey") != std::string::npos) {
             publicKey = parseValue(line);
-            brls::Logger::info("WG: found PublicKey");
+            akira::log::info("WG: found PublicKey");
         } else if (line.find("Endpoint") != std::string::npos) {
             std::string ep = parseValue(line);
-            brls::Logger::info("WG: found Endpoint: {}", ep);
+            akira::log::info("WG: found Endpoint: {}", ep);
             size_t colonPos = ep.rfind(':');
             if (colonPos != std::string::npos) {
                 endpoint = ep.substr(0, colonPos);
                 std::string portStr = ep.substr(colonPos + 1);
-                brls::Logger::info("WG: parsing port: {}", portStr);
+                akira::log::info("WG: parsing port: {}", portStr);
                 port = static_cast<uint16_t>(std::stoi(portStr));
             } else {
                 endpoint = ep;
             }
-            brls::Logger::info("WG: endpoint={} port={}", endpoint, port);
+            akira::log::info("WG: endpoint={} port={}", endpoint, port);
         } else if (line.find("Address") != std::string::npos) {
             address = parseValue(line);
-            brls::Logger::info("WG: found Address: {}", address);
+            akira::log::info("WG: found Address: {}", address);
             size_t slashPos = address.find('/');
             if (slashPos != std::string::npos)
                 address = address.substr(0, slashPos);
             size_t commaPos = address.find(',');
             if (commaPos != std::string::npos)
                 address = address.substr(0, commaPos);
-            brls::Logger::info("WG: parsed address: {}", address);
+            akira::log::info("WG: parsed address: {}", address);
         } else if (line.find("PresharedKey") != std::string::npos) {
             presharedKey = parseValue(line);
-            brls::Logger::info("WG: found PresharedKey");
+            akira::log::info("WG: found PresharedKey");
         } else if (line.find("PersistentKeepalive") != std::string::npos) {
             std::string kaStr = parseValue(line);
-            brls::Logger::info("WG: found PersistentKeepalive: {}", kaStr);
+            akira::log::info("WG: found PersistentKeepalive: {}", kaStr);
             keepalive = static_cast<uint16_t>(std::stoi(kaStr));
         }
     }
 
-    brls::Logger::info("WG: validating parsed values");
+    akira::log::info("WG: validating parsed values");
     if (privateKey.empty()) {
         lastError = "Missing PrivateKey";
-        brls::Logger::error("WG: {}", lastError);
+        akira::log::error("WG: {}", lastError);
         return false;
     }
     if (publicKey.empty()) {
         lastError = "Missing PublicKey";
-        brls::Logger::error("WG: {}", lastError);
+        akira::log::error("WG: {}", lastError);
         return false;
     }
     if (endpoint.empty()) {
         lastError = "Missing Endpoint";
-        brls::Logger::error("WG: {}", lastError);
+        akira::log::error("WG: {}", lastError);
         return false;
     }
     if (address.empty()) {
         lastError = "Missing Address";
-        brls::Logger::error("WG: {}", lastError);
+        akira::log::error("WG: {}", lastError);
         return false;
     }
 
-    brls::Logger::info("WG: decoding private key");
+    akira::log::info("WG: decoding private key");
     if (wg_key_from_base64(cfg.private_key, privateKey.c_str()) != 0) {
         lastError = "Invalid PrivateKey format";
-        brls::Logger::error("WG: {}", lastError);
+        akira::log::error("WG: {}", lastError);
         return false;
     }
-    brls::Logger::info("WG: decoding public key");
+    akira::log::info("WG: decoding public key");
     if (wg_key_from_base64(cfg.peer_public_key, publicKey.c_str()) != 0) {
         lastError = "Invalid PublicKey format";
-        brls::Logger::error("WG: {}", lastError);
+        akira::log::error("WG: {}", lastError);
         return false;
     }
 
-    brls::Logger::info("WG: parsing tunnel IP: {}", address);
+    akira::log::info("WG: parsing tunnel IP: {}", address);
     if (inet_pton(AF_INET, address.c_str(), &cfg.tunnel_ip) != 1) {
         lastError = "Invalid Address format";
-        brls::Logger::error("WG: {}", lastError);
+        akira::log::error("WG: {}", lastError);
         return false;
     }
 
-    brls::Logger::info("WG: setting endpoint host: {}", endpoint);
+    akira::log::info("WG: setting endpoint host: {}", endpoint);
     strncpy(cfg.endpoint_host, endpoint.c_str(), sizeof(cfg.endpoint_host) - 1);
     cfg.endpoint_port = port;
     cfg.keepalive_interval = keepalive;
@@ -200,18 +200,18 @@ bool WireGuardManager::parseConfigFile(const std::string& path, WgConfig& cfg) {
     if (!presharedKey.empty()) {
         if (wg_key_from_base64(cfg.preshared_key, presharedKey.c_str()) != 0) {
             lastError = "Invalid PresharedKey format";
-            brls::Logger::error("WG: {}", lastError);
+            akira::log::error("WG: {}", lastError);
             return false;
         }
         cfg.has_preshared_key = 1;
-        brls::Logger::info("WG: PresharedKey configured");
+        akira::log::info("WG: PresharedKey configured");
     } else {
         cfg.has_preshared_key = 0;
     }
 
     tunnelIP = address;
     allowedIps = std::move(allowed);
-    brls::Logger::info("WG: parseConfigFile completed successfully");
+    akira::log::info("WG: parseConfigFile completed successfully");
     return true;
 }
 
@@ -226,29 +226,29 @@ bool WireGuardManager::loadConfig() {
 }
 
 bool WireGuardManager::connect() {
-    brls::Logger::info("WG: connect() entered, acquiring lock");
+    akira::log::info("WG: connect() entered, acquiring lock");
     {
         std::lock_guard<std::mutex> lock(mutex);
-        brls::Logger::info("WG: lock acquired");
+        akira::log::info("WG: lock acquired");
 
         if (connected) {
-            brls::Logger::info("WG: already connected");
+            akira::log::info("WG: already connected");
             return true;
         }
 
         if (connecting) {
-            brls::Logger::info("WG: a connect is already in progress");
+            akira::log::info("WG: a connect is already in progress");
             return false;
         }
 
         if (!configLoaded) {
-            brls::Logger::info("WG: parsing config file");
+            akira::log::info("WG: parsing config file");
             if (!parseConfigFile(CONFIG_PATH, config)) {
-                brls::Logger::error("WG: parseConfigFile failed: {}", lastError);
+                akira::log::error("WG: parseConfigFile failed: {}", lastError);
                 return false;
             }
             configLoaded = true;
-            brls::Logger::info("WG: config loaded successfully");
+            akira::log::info("WG: config loaded successfully");
         }
         connecting = true;
     }
@@ -256,23 +256,23 @@ bool WireGuardManager::connect() {
     std::string failure;
     std::shared_ptr<akira::net::TunnelStack> opened;
 
-    brls::Logger::info("WG: calling wg_init");
+    akira::log::info("WG: calling wg_init");
     WgTunnel* const handshaking = wg_init(&config);
     if (!handshaking) {
         failure = "Failed to initialize tunnel";
-        brls::Logger::error("WG: wg_init failed");
+        akira::log::error("WG: wg_init failed");
     } else {
-        brls::Logger::info("WG: wg_init succeeded, calling wg_connect");
+        akira::log::info("WG: wg_init succeeded, calling wg_connect");
         int err = wg_connect(handshaking);
         if (err != WG_OK) {
             failure = std::format("Handshake failed: {}", err);
-            brls::Logger::error("WG: wg_connect failed: {}", err);
+            akira::log::error("WG: wg_connect failed: {}", err);
         } else {
-            brls::Logger::info("WG: wg_connect succeeded, calling wg_start");
+            akira::log::info("WG: wg_connect succeeded, calling wg_start");
             err = wg_start(handshaking);
             if (err != WG_OK) {
                 failure = std::format("Failed to start tunnel: {}", err);
-                brls::Logger::error("WG: wg_start failed: {}", err);
+                akira::log::error("WG: wg_start failed: {}", err);
             } else {
                 std::array<uint8_t, 4> tunnelBytes{};
                 std::memcpy(tunnelBytes.data(), &config.tunnel_ip, tunnelBytes.size());
@@ -281,7 +281,7 @@ bool WireGuardManager::connect() {
                     libchiaking::platform::IpAddress::ipv4(tunnelBytes), core.threading(), core.clock());
                 if (!started) {
                     failure = "Failed to start the tunnel's network stack";
-                    brls::Logger::error("WG: tunnel stack failed: {}", static_cast<int>(started.error()));
+                    akira::log::error("WG: tunnel stack failed: {}", static_cast<int>(started.error()));
                     wg_stop(handshaking);
                 } else {
                     opened = std::move(started).value();
@@ -300,7 +300,7 @@ bool WireGuardManager::connect() {
     }
     tunnel = handshaking;
     stack = std::move(opened);
-    brls::Logger::info("WG: connected and started successfully");
+    akira::log::info("WG: connected and started successfully");
     connected = true;
     lastError.clear();
     return true;

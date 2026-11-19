@@ -1,4 +1,5 @@
 #include "views/host_connect_task.hpp"
+#include "log/log.hpp"
 
 #include <memory>
 
@@ -60,10 +61,10 @@ void HostConnectTask::start(ConnectSink& s)
 
 void HostConnectTask::run(const libchiaking::platform::StopToken& stop)
 {
-    brls::Logger::info("Connection thread started");
+    akira::log::info("Connection thread started");
 
     if (!host->isRemote()) {
-        brls::Logger::info("Local connection - ready to stream");
+        akira::log::info("Local connection - ready to stream");
         running.store(false);
         post([target = host](ConnectSink& to) { to.succeeded(target, {}); });
         return;
@@ -78,7 +79,7 @@ void HostConnectTask::run(const libchiaking::platform::StopToken& stop)
         return;
     }
 
-    brls::Logger::info("PSN sign-in is current, handing over to the stream");
+    akira::log::info("PSN sign-in is current, handing over to the stream");
     running.store(false);
     if (!stop.stop_requested() && !sink->cancelled())
         post([target = host](ConnectSink& to) { to.succeeded(target, {}); });

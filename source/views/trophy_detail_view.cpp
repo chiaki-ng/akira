@@ -2,6 +2,7 @@
 #include "ui/theme.hpp"
 #include "ui/motion.hpp"
 #include "views/trophy_list_tab.hpp"
+#include "log/log.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -353,7 +354,7 @@ void TrophyRowCell::bindTrophy(const libchiaking::trophies::Trophy& trophy)
             if (!decodeFailed)
                 return;
 
-            brls::Logger::warning("Trophy icon failed to decode ({} bytes) {}", bytes.size(), url);
+            akira::log::warning("Trophy icon failed to decode ({} bytes) {}", bytes.size(), url);
 
             if (retriedIcons.insert(url).second)
                 TrophyManager::getInstance()->discardIcon(url);
@@ -633,7 +634,7 @@ TrophyDetailView::TrophyDetailView(const TrophyManager::Title& title)
         if (!refreshGate.isReady())
             return true;
 
-        brls::Logger::info("User triggered force refresh of {}", this->title.id.text());
+        akira::log::info("User triggered force refresh of {}", this->title.id.text());
 
         TrophyManager* manager = TrophyManager::getInstance();
         brls::Application::notify("akira/trophies/force_refresh"_i18n);
@@ -715,7 +716,7 @@ void TrophyDetailView::load(bool forceRefresh)
             currentInstance->subtitleLabel->setText(brls::getStr(key));
             currentInstance->list->setError(brls::getStr(key));
 
-            brls::Logger::error("Trophy detail: load failed [{}] {}", psn::statusName(status), message);
+            akira::log::error("Trophy detail: load failed [{}] {}", psn::statusName(status), message);
         });
 }
 

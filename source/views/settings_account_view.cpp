@@ -7,6 +7,7 @@
 #include "core/trophy_manager.hpp"
 #include "core/chiaki_core.hpp"
 #include "views/settings_frame_view.hpp"
+#include "log/log.hpp"
 
 #include <borealis/core/i18n.hpp>
 #include <format>
@@ -126,7 +127,7 @@ void SettingsAccountView::initAuthSection() {
             settings->writeFile();
             if (profileSwitcher) profileSwitcher->refresh();
             HostListTab::notifyActiveProfileChanged();
-            brls::Logger::info("PSN Account ID set");
+            akira::log::info("PSN Account ID set");
         },
         "akira/settings/psn_account_id_placeholder"_i18n,
         "akira/settings/psn_account_id_hint"_i18n
@@ -144,7 +145,7 @@ void SettingsAccountView::initAuthSection() {
             settings->writeFile();
             if (profileSwitcher) profileSwitcher->refresh();
             HostListTab::notifyActiveProfileChanged();
-            brls::Logger::info("PSN Online ID set");
+            akira::log::info("PSN Online ID set");
         },
         "",
         ""
@@ -159,7 +160,7 @@ void SettingsAccountView::initAuthSection() {
             if (port > 0 && port <= 65535) {
                 settings->setCompanionPort(port);
                 settings->writeFile();
-                brls::Logger::info("Companion port set to {}", port);
+                akira::log::info("Companion port set to {}", port);
             } else {
                 brls::Application::notify("akira/settings/invalid_port"_i18n);
             }
