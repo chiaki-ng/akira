@@ -15,7 +15,7 @@
 #include "settings/views/config_view_tab.hpp"
 #include "network/views/network_utilities_tab.hpp"
 #include "app/view_services.hpp"
-#include "settings/settings_descriptions.hpp"
+#include "settings/views/settings_descriptions.hpp"
 
 #include <borealis/core/i18n.hpp>
 

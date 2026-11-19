@@ -1,4 +1,4 @@
-#include "settings/settings_descriptions.hpp"
+#include "settings/views/settings_descriptions.hpp"
 
 #include <borealis/core/application.hpp>
 #include <borealis/extern/nlohmann/json.hpp>
