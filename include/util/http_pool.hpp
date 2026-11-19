@@ -17,7 +17,11 @@ class HttpPool {
 public:
     using Task = std::function<void(HttpSession&)>;
 
-    static HttpPool& instance();
+    HttpPool() = default;
+    ~HttpPool();
+
+    HttpPool(const HttpPool&) = delete;
+    HttpPool& operator=(const HttpPool&) = delete;
 
     void submit(Task task);
     void stop();
@@ -25,12 +29,6 @@ public:
     size_t threadCount() const { return threads.size(); }
 
 private:
-    HttpPool() = default;
-    ~HttpPool();
-
-    HttpPool(const HttpPool&) = delete;
-    HttpPool& operator=(const HttpPool&) = delete;
-
     void ensureStarted();
     void run(int index);
 

@@ -153,7 +153,7 @@ SettingsDeveloperView::SettingsDeveloperView() {
     });
     tlsVerifyProbeCell->registerClickAction([this](brls::View*) {
         brls::DetailCell* cell = this->tlsVerifyProbeCell;
-        HttpPool::instance().submit([cell, guard = alive](HttpSession& session) {
+        app::ViewServices::current().http.submit([cell, guard = alive](HttpSession& session) {
             runTlsVerifyProbe(session, cell, guard);
         });
         return true;

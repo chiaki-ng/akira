@@ -1,5 +1,7 @@
 #pragma once
 
+class HttpPool;
+
 namespace akira::cloud {
 class Service;
 }
@@ -28,6 +30,7 @@ class TrophyManager;
 namespace akira::app {
 
 struct Services {
+    HttpPool& http;
     platform::PlatformFactory& platform;
     network::WireGuardManager& wireGuard;
     consoles::DiscoveryManager& discovery;

@@ -262,10 +262,11 @@ void App::runMainLoop()
 void App::startServices()
 {
     CrashReport::stage("services");
+    http.emplace();
     wireGuard.emplace(settings::SettingsManager::getInstance()->developer());
-    trophies.emplace(HttpPool::instance());
+    trophies.emplace(*http);
 #if AKIRA_CLOUD
-    cloud.emplace(settings::SettingsManager::getInstance()->accounts(), HttpPool::instance());
+    cloud.emplace(settings::SettingsManager::getInstance()->accounts(), *http);
 #endif
     auto* settings = settings::SettingsManager::getInstance();
     factory = platform::PlatformFactory::create(platform::PlatformServices{
@@ -277,7 +278,7 @@ void App::startServices()
         .accounts = settings->accounts(),
         .store = settings->store(),
         .wireGuard = *wireGuard,
-        .http = HttpPool::instance(),
+        .http = *http,
         .trophies = *trophies,
     });
     discovery.emplace(settings->hosts(), settings->store(), settings->network(), settings->developer(),
@@ -287,6 +288,7 @@ void App::startServices()
     session.emplace(*factory, settings->streamState(), settings->controllers(),
         settings->developer());
     services.emplace(Services{
+        .http = *http,
         .platform = *factory,
         .wireGuard = *wireGuard,
         .discovery = *discovery,
@@ -314,7 +316,7 @@ void App::shutDown()
         }
     }
 
-    HttpPool::instance().stop();
+    http->stop();
 
     wireGuard->disconnect();
 

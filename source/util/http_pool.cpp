@@ -5,12 +5,6 @@
 #include "play/chiaki_core.hpp"
 
 
-HttpPool& HttpPool::instance()
-{
-    static HttpPool* pool = new HttpPool();
-    return *pool;
-}
-
 HttpPool::~HttpPool()
 {
     stop();
