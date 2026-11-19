@@ -175,7 +175,8 @@ void HostListTab::applyProfileMode() {
         }
         app::ViewServices::current().discoveryGate.connectionStarted();
         play::views::startConnecting(std::make_unique<cloud::CloudConnectTask>(app::ViewServices::current().cloud,
-            app::ViewServices::current().accounts, app::ViewServices::current().appSettings, game));
+            app::ViewServices::current().accounts, app::ViewServices::current().appSettings,
+            app::ViewServices::current().dispatcher, app::ViewServices::current().strings, game));
     });
     shortcutsRail->setLeadingCard([]() -> brls::View* { return new cloud::views::CloudCard(); });
     railSlot->addView(shortcutsRail);
@@ -462,7 +463,8 @@ void HostListTab::syncHostList() {
         static std::vector<Host*> fakeHosts;
         if (fakeHosts.empty()) {
             for (const DebugConsoles::Console& console : DebugConsoles::list()) {
-                Host* h = new Host(HostRecord{.nickname = console.nickname}, services->accounts, services->appSettings);
+                Host* h = new Host(HostRecord{.nickname = console.nickname}, services->accounts, services->appSettings,
+                                   services->dispatcher);
                 h->setFirmware(Host::Firmware::newest(libchiaking::consoles::Generation::ps5));
                 h->setPresence(console.resting ? Host::Presence::rest_mode : Host::Presence::ready);
                 h->setHostType(console.type);

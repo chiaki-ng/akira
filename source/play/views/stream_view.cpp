@@ -278,7 +278,7 @@ void StreamView::openConnection()
 
     std::shared_ptr<ConnectionListener> self = shared_from_this();
     connection = std::make_shared<Connection>(*session, self, host->isPS5(),
-        app::ViewServices::current().platform, services->accounts);
+        app::ViewServices::current().platform, services->accounts, services->dispatcher);
     if (!connection->open(std::move(starter))) {
         connection.reset();
         throw app::Exception("akira/connection/failed_create_thread"_i18n);
@@ -587,7 +587,7 @@ void StreamView::showCloudFailure(const std::string& message, bool retry)
             brls::sync([again]() {
                 views::startConnecting(cloud::CloudConnectTask::retrying(app::ViewServices::current().cloud,
                     app::ViewServices::current().accounts, app::ViewServices::current().appSettings,
-                    again));
+                    app::ViewServices::current().dispatcher, app::ViewServices::current().strings, again));
             });
         });
     }
@@ -620,7 +620,7 @@ void StreamView::onRefused(const libchiaking::play::StartRefusal& refusal)
 
     std::string text = brls::getStr(ConnectFailure::forRefusal(refusal.kind()));
     if (refusal.launch() && host->cloudLaunch())
-        text = cloud::CloudLaunch::refusalText(*refusal.launch(), host->cloudLaunch()->name());
+        text = cloud::CloudLaunch::refusalText(app::ViewServices::current().strings, *refusal.launch(), host->cloudLaunch()->name());
 
     stopStream();
     app::views::SharedViewHolder::release(this);
@@ -699,12 +699,12 @@ void StreamView::onEnded(const libchiaking::play::Outcome& outcome)
             ? brls::getStr(ending.failureKey())
             : brls::getStr("akira/stream/session_ended", reasonStr);
         if (outcome.launch_refused())
-            message = cloud::CloudLaunch::refusalText(*outcome.launch_refused(), host->cloudLaunch()->name());
+            message = cloud::CloudLaunch::refusalText(app::ViewServices::current().strings, *outcome.launch_refused(), host->cloudLaunch()->name());
         showCloudFailure(message, !ending.endsPlayTime());
 #endif
     } else if (verdict == SessionEnding::Verdict::LaunchRefused) {
         auto* dialog = new brls::Dialog(brls::getStr("akira/stream/connection_failed",
-            cloud::CloudLaunch::refusalText(*outcome.launch_refused(), host->cloudLaunch()->name())));
+            cloud::CloudLaunch::refusalText(app::ViewServices::current().strings, *outcome.launch_refused(), host->cloudLaunch()->name())));
         dialog->setCloseCallback([]() {
             stream_nav::unwindToBase();
         });

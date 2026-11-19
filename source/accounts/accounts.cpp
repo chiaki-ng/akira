@@ -4,8 +4,6 @@
 #include "util/base64.hpp"
 #include "log/log.hpp"
 
-#include <borealis.hpp>
-
 #include <array>
 #include <format>
 #include <utility>
@@ -41,12 +39,13 @@ public:
 
 Accounts::Accounts(libchiaking::ChiakiNg& chiaki, AccountSettings& settings,
                    platform::ThreadingProvider& threading, platform::ClockProvider& clock,
-                   platform::SecureRandomProvider& random)
+                   platform::SecureRandomProvider& random, app::UiDispatcher& dispatcher)
     : chiaki(chiaki),
       settings(settings),
       threading(threading),
       clock(clock),
       random(random),
+      dispatcher(dispatcher),
       shared(std::make_shared<Shared>(threading, clock))
 {
     auto started = platform::Thread::start(threading, "psn-keep-alive", platform::ThreadRole::unspecified,
@@ -209,9 +208,9 @@ void Accounts::signInWithQr(QrProgress progress, SignedInCallback done)
         return;
     }
 
-    auto report = [weak = std::weak_ptr<Shared>(shared), generation, progress = std::move(progress)](
-                      const libchiaking::users::QrSignInState& state) {
-        brls::sync([weak, generation, progress,
+    auto report = [&dispatcher = dispatcher, weak = std::weak_ptr<Shared>(shared), generation,
+                   progress = std::move(progress)](const libchiaking::users::QrSignInState& state) {
+        dispatcher.post([weak, generation, progress,
                     snapshot = std::make_shared<libchiaking::users::QrSignInState>(state.clone())] {
             const auto alive = weak.lock();
             if (!alive)
@@ -250,9 +249,9 @@ auto Accounts::beginSignIn(SignedInCallback done) -> std::pair<uint64_t, Deliver
     }
     signInThread = platform::Thread{};
 
-    Delivery deliver = [weak = std::weak_ptr<Shared>(shared), generation, done = std::move(done)](
-                           SignInOutcome outcome, User user) {
-        brls::sync([weak, generation, done, outcome, user = std::move(user)] {
+    Delivery deliver = [&dispatcher = dispatcher, weak = std::weak_ptr<Shared>(shared), generation,
+                        done = std::move(done)](SignInOutcome outcome, User user) {
+        dispatcher.post([weak, generation, done, outcome, user = std::move(user)] {
             const auto alive = weak.lock();
             if (!alive)
                 return;
@@ -388,14 +387,14 @@ void Accounts::keepAlive(const platform::StopToken& stop)
         notifyStateChanged();
 
         for (auto& waiter : waiters) {
-            brls::sync([weak = std::weak_ptr<Shared>(shared), done = std::move(waiter.second), ok] {
+            dispatcher.post([weak = std::weak_ptr<Shared>(shared), done = std::move(waiter.second), ok] {
                 if (weak.lock())
                     done(ok);
             });
         }
 
         if (ok) {
-            brls::sync([weak = std::weak_ptr<Shared>(shared)] {
+            dispatcher.post([weak = std::weak_ptr<Shared>(shared)] {
                 RenewedObserver renewed;
                 if (const auto alive = weak.lock()) {
                     platform::Lock lock(alive->mutex);

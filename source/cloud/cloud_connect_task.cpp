@@ -1,8 +1,5 @@
 #include "cloud/cloud_connect_task.hpp"
 
-#include <borealis.hpp>
-#include <borealis/core/i18n.hpp>
-
 #include "cloud/service.hpp"
 #include "consoles/host.hpp"
 
@@ -11,20 +8,24 @@
 namespace akira::cloud {
 
 CloudConnectTask::CloudConnectTask(Service& service, const accounts::AccountSettings& accounts,
-                                   const app::AppSettings& app, const Game& game)
-    : service(service), accounts(accounts), appSettings(app), game(game)
+                                   const app::AppSettings& app, app::UiDispatcher& dispatcher,
+                                   const app::Strings& strings, const Game& game)
+    : service(service), accounts(accounts), appSettings(app), dispatcher(dispatcher), strings(strings), game(game)
 {
 }
 
 CloudConnectTask::CloudConnectTask(Service& service, const accounts::AccountSettings& accounts,
-                                   const app::AppSettings& app, std::shared_ptr<CloudLaunch> cleared)
-    : service(service), accounts(accounts), appSettings(app), clearedLaunch(std::move(cleared))
+                                   const app::AppSettings& app, app::UiDispatcher& dispatcher,
+                                   const app::Strings& strings, std::shared_ptr<CloudLaunch> cleared)
+    : service(service), accounts(accounts), appSettings(app), dispatcher(dispatcher), strings(strings),
+      clearedLaunch(std::move(cleared))
 {
     game.name = clearedLaunch->name();
 }
 
 auto CloudConnectTask::retrying(Service& service, const accounts::AccountSettings& accounts,
-                                const app::AppSettings& app, const CloudLaunch& previous)
+                                const app::AppSettings& app, app::UiDispatcher& dispatcher,
+                                const app::Strings& strings, const CloudLaunch& previous)
     -> std::unique_ptr<CloudConnectTask>
 {
     Game game;
@@ -32,7 +33,7 @@ auto CloudConnectTask::retrying(Service& service, const accounts::AccountSetting
     game.name = previous.name();
     game.serviceType = previous.ps5() ? "pscloud" : "psnow";
     game.streamServiceType = game.serviceType;
-    return std::make_unique<CloudConnectTask>(service, accounts, app, game);
+    return std::make_unique<CloudConnectTask>(service, accounts, app, dispatcher, strings, game);
 }
 
 CloudConnectTask::~CloudConnectTask()
@@ -42,7 +43,7 @@ CloudConnectTask::~CloudConnectTask()
 
 std::string CloudConnectTask::title() const
 {
-    return brls::getStr("akira/connection/connecting_to", game.name);
+    return strings.format("akira/connection/connecting_to", game.name);
 }
 
 void CloudConnectTask::start(play::ConnectSink& s)
@@ -56,37 +57,39 @@ void CloudConnectTask::start(play::ConnectSink& s)
 
     if (clearedLaunch)
     {
-        handOver(state, clearedLaunch, accounts, appSettings);
+        handOver(state, clearedLaunch, accounts, appSettings, dispatcher);
         return;
     }
 
     service.clearForLaunch(
         game, state->stop.token(),
-        [state, &accounts = accounts, &app = appSettings](std::shared_ptr<CloudLaunch> launch) {
-            handOver(state, std::move(launch), accounts, app);
+        [state, &accounts = accounts, &app = appSettings, &dispatcher = dispatcher](std::shared_ptr<CloudLaunch> launch) {
+            handOver(state, std::move(launch), accounts, app, dispatcher);
         },
         [state](const std::string& error) {
             std::lock_guard<std::mutex> lock(state->mutex);
             if (!state->stop.stop_requested() && state->sink)
                 state->sink->failed(error);
         },
-        [state](libchiaking::catalog::LaunchCheck check) {
+        [state, &strings = strings](libchiaking::catalog::LaunchCheck check) {
             constexpr int total = static_cast<int>(libchiaking::catalog::LaunchCheck::release) + 1;
             std::lock_guard<std::mutex> lock(state->mutex);
             if (!state->stop.stop_requested() && state->sink)
                 state->sink->progressStep(static_cast<int>(check) + 1, total,
-                                          brls::getStr("akira/cloud/launch_starting"));
+                                          strings.format("akira/cloud/launch_starting"));
         });
 }
 
 void CloudConnectTask::handOver(const std::shared_ptr<CallbackState>& state, std::shared_ptr<CloudLaunch> launch,
-                                const accounts::AccountSettings& accounts, const app::AppSettings& app)
+                                const accounts::AccountSettings& accounts, const app::AppSettings& app,
+                                app::UiDispatcher& dispatcher)
 {
     std::lock_guard<std::mutex> lock(state->mutex);
     if (state->stop.stop_requested() || !state->sink)
         return;
 
-    auto host = std::make_shared<consoles::Host>(consoles::HostRecord{.nickname = launch->name()}, accounts, app);
+    auto host = std::make_shared<consoles::Host>(consoles::HostRecord{.nickname = launch->name()}, accounts, app,
+                                                  dispatcher);
     host->setCloudLaunch(*launch);
     state->sink->succeeded(host.get(), host);
 }

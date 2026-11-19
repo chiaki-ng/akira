@@ -10,6 +10,10 @@ namespace akira::settings {
 class DeveloperSettings;
 }
 
+namespace akira::app {
+class UiWindow;
+}
+
 namespace akira::play {
 
 class ControllerSettings;
@@ -19,7 +23,7 @@ class StreamState;
 class LazySession {
 public:
     LazySession(platform::PlatformFactory& platform, StreamState& streamState, const ControllerSettings& controllers,
-                const settings::DeveloperSettings& developer);
+                const settings::DeveloperSettings& developer, app::UiWindow& window);
     ~LazySession();
 
     LazySession(const LazySession&) = delete;
@@ -33,6 +37,7 @@ private:
     StreamState& streamState;
     const ControllerSettings& controllers;
     const settings::DeveloperSettings& developer;
+    app::UiWindow& window;
     std::unique_ptr<Session> session;
 };
 

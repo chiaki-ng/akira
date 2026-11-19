@@ -642,7 +642,7 @@ void GameDetailView::checkAndPlay(const Game& target)
             render();
             play::views::startConnecting(std::make_unique<CloudConnectTask>(app::ViewServices::current().cloud,
                 app::ViewServices::current().accounts, app::ViewServices::current().appSettings,
-                std::move(launch)));
+                app::ViewServices::current().dispatcher, app::ViewServices::current().strings, std::move(launch)));
             checks->launched();
         },
         [this, current](const std::string& error) {

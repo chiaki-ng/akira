@@ -11,6 +11,7 @@
 #include "cloud/cloud_datacenter_store.hpp"
 #include "log/core_log.hpp"
 #include "accounts/accounts.hpp"
+#include "app/ui_dispatcher.hpp"
 
 namespace akira::cloud {
 class CloudSettings;
@@ -41,7 +42,7 @@ public:
         consoles::ConsoleSettings& consoles;
     };
 
-    ChiakiCore(Settings settings, std::function<void()> signInRenewed);
+    ChiakiCore(Settings settings, app::UiDispatcher& dispatcher, std::function<void()> signInRenewed);
     ~ChiakiCore();
 
     ChiakiCore(const ChiakiCore&) = delete;
@@ -73,6 +74,7 @@ private:
     static ChiakiCore* instance;
 
     Settings settings;
+    app::UiDispatcher& dispatcher;
     std::function<void()> signInRenewed;
     libchiaking::platform::horizon::ThreadingProvider threadingProvider;
     libchiaking::platform::SteadyClock steadyClock;

@@ -14,14 +14,13 @@
 #include <unordered_map>
 #include <vector>
 
-#include <borealis.hpp>
-
 #include <libchiaking/catalog.hpp>
 #include <libchiaking/trophies.hpp>
 #include <libchiaking/users.hpp>
 
 #include "accounts/accounts.hpp"
 #include "accounts/status.hpp"
+#include "app/ui_dispatcher.hpp"
 #include "trophies/icon_cache.hpp"
 
 class HttpPool;
@@ -41,7 +40,7 @@ public:
     using Profile = libchiaking::users::Profile;
     using PlayedGame = libchiaking::catalog::PlayedGame;
 
-    explicit TrophyManager(HttpPool& http);
+    TrophyManager(HttpPool& http, app::UiDispatcher& dispatcher);
 
     TrophyManager(const TrophyManager&) = delete;
     TrophyManager& operator=(const TrophyManager&) = delete;
@@ -96,7 +95,7 @@ private:
     static accounts::Error failureOf(const libchiaking::users::Unanswered& cause);
     static const char* reasonName(libchiaking::users::Unanswered::Reason reason);
     static int64_t nowSeconds();
-    static void deliverNotLinked(const ErrorCallback& onError);
+    void deliverNotLinked(const ErrorCallback& onError) const;
 
     auto begin() -> std::optional<Request>;
     auto requestFor(accounts::Accounts::User user) -> Request;
@@ -117,8 +116,9 @@ private:
     void runStaleCheck();
 
     HttpPool& http;
+    app::UiDispatcher& dispatcher;
 
-    brls::RepeatingTimer staleTimer;
+    std::unique_ptr<app::UiDispatcher::Repeating> staleTimer;
     bool autoRefreshStarted = false;
     Callback<Summary> summaryObserver;
     Callback<std::vector<Title>> libraryObserver;

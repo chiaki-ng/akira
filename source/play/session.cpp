@@ -1,6 +1,5 @@
 #include "play/session.hpp"
 #include "play/stream_state.hpp"
-#include <borealis.hpp>
 #include "log/log.hpp"
 
 #include "play/audio_manager.hpp"
@@ -71,11 +70,12 @@ void Session::setHapticIntensity(HapticIntensity intensity)
 }
 
 Session::Session(akira::platform::PlatformFactory& platform, StreamState& streamState,
-                 const ControllerSettings& controllers, const settings::DeveloperSettings& developer)
-    : m_platform(platform), m_stream_state(streamState)
+                 const ControllerSettings& controllers, const settings::DeveloperSettings& developer,
+                 app::UiWindow& window)
+    : m_platform(platform), m_stream_state(streamState), m_window(window)
 {
     m_audio_manager = std::make_unique<AudioManager>();
-    m_input_manager = std::make_unique<InputManager>(*this, platform.pads(), controllers);
+    m_input_manager = std::make_unique<InputManager>(*this, platform.pads(), controllers, window);
     m_haptic_manager = std::make_unique<HapticManager>(platform.createHaptics(), developer);
     m_haptic_manager->setInputManager(m_input_manager.get());
     m_pad_feedback = platform.createFeedback(*m_haptic_manager);
@@ -389,7 +389,7 @@ void Session::frameArriving(const akira::platform::FrameInfo& frame)
     if (!m_first_frame_received)
     {
         m_first_frame_received = true;
-        brls::Application::setRenderSuspended(true);
+        m_window.suspendRendering();
         updateActualResolution(static_cast<int>(frame.width), static_cast<int>(frame.height));
         m_stream_state.setActive(true);
         log::info("First video frame received!");

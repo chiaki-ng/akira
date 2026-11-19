@@ -8,6 +8,9 @@ class AccountSettings;
 
 namespace akira::app {
 class AppSettings;
+class Strings;
+class UiDispatcher;
+class UiWindow;
 }
 
 namespace akira::cloud {
@@ -53,6 +56,9 @@ class TrophyManager;
 namespace akira::app {
 
 struct Services {
+    UiDispatcher& dispatcher;
+    UiWindow& window;
+    const Strings& strings;
     settings::SettingsStore& store;
     settings::DeveloperSettings& developer;
     play::StreamSettings& stream;

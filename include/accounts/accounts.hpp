@@ -13,6 +13,7 @@
 
 #include "accounts/session_state.hpp"
 #include "app/background_work.hpp"
+#include "app/ui_dispatcher.hpp"
 
 namespace akira::accounts {
 
@@ -48,7 +49,7 @@ public:
 
     Accounts(libchiaking::ChiakiNg& chiaki, AccountSettings& settings,
              libchiaking::platform::ThreadingProvider& threading, libchiaking::platform::ClockProvider& clock,
-             libchiaking::platform::SecureRandomProvider& random);
+             libchiaking::platform::SecureRandomProvider& random, app::UiDispatcher& dispatcher);
     ~Accounts();
 
     Accounts(const Accounts&) = delete;
@@ -93,6 +94,7 @@ private:
     libchiaking::platform::ThreadingProvider& threading;
     libchiaking::platform::ClockProvider& clock;
     libchiaking::platform::SecureRandomProvider& random;
+    app::UiDispatcher& dispatcher;
     std::shared_ptr<Shared> shared;
     libchiaking::platform::Thread signInThread;
     libchiaking::platform::Thread keepAliveThread;

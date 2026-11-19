@@ -9,6 +9,9 @@
 #include "accounts/account_settings.hpp"
 #include "app/app_settings.hpp"
 #include "app/services.hpp"
+#include "app/views/borealis_dispatcher.hpp"
+#include "app/views/borealis_strings.hpp"
+#include "app/views/borealis_window.hpp"
 #include "app/view_services.hpp"
 #include "cloud/cloud_settings.hpp"
 #if AKIRA_CLOUD
@@ -70,6 +73,9 @@ private:
     int argc;
     char** argv;
     Result mainPlaced;
+    views::BorealisDispatcher dispatcher;
+    views::BorealisWindow window;
+    views::BorealisStrings strings;
     network::CustomDns dns;
     network::ResolverHook resolverHook;
     settings::SettingsStore store;

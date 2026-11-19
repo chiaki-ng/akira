@@ -54,7 +54,7 @@ App::App(int argc, char* argv[])
       accountSettings(store, [](bool legacy) { httpSetSonyBlocked(legacy); }),
       consoleSettings(store),
       appSettings(store),
-      hosts(consoleSettings, accountSettings, appSettings, store),
+      hosts(consoleSettings, accountSettings, appSettings, store, dispatcher),
       streamState(stream, cloudSettings, developer)
 {
     store.finishLoading();
@@ -179,7 +179,7 @@ void App::startCore()
                      .accounts = accountSettings,
                      .consoles = consoleSettings,
                  },
-        signInRenewed());
+        dispatcher, signInRenewed());
     CrashReport::stage("post core");
     if (!core->opened())
         log::error("[CORE] running without the core: streaming, sign-in and discovery are unavailable");
@@ -264,9 +264,9 @@ void App::startServices()
     CrashReport::stage("services");
     http.emplace();
     wireGuard.emplace(developer);
-    trophies.emplace(*http);
+    trophies.emplace(*http, dispatcher);
 #if AKIRA_CLOUD
-    cloud.emplace(accountSettings, *http);
+    cloud.emplace(accountSettings, *http, dispatcher, strings);
 #endif
     factory = platform::PlatformFactory::create(platform::PlatformServices{
         .stream = stream,
@@ -276,10 +276,13 @@ void App::startServices()
         .app = appSettings,
         .wireGuard = *wireGuard,
     });
-    discovery.emplace(hosts, store, networkSettings, developer, accountSettings, *wireGuard);
+    discovery.emplace(hosts, store, networkSettings, developer, accountSettings, *wireGuard, dispatcher, window);
     preferences.emplace(stream, cloudSettings, networkSettings, developer, *factory, *wireGuard);
-    session.emplace(*factory, streamState, controllers, developer);
+    session.emplace(*factory, streamState, controllers, developer, window);
     services.emplace(Services{
+        .dispatcher = dispatcher,
+        .window = window,
+        .strings = strings,
         .store = store,
         .developer = developer,
         .stream = stream,

@@ -202,7 +202,7 @@ void LibraryView::showFetch(uint64_t operation, const FetchProgress& progress)
 
     if (progress.shown() == FetchProgress::Shown::Failure)
     {
-        renderSnapshot(Service::snapshotOf(*progress.failure()));
+        renderSnapshot(app::ViewServices::current().cloud.snapshotOf(*progress.failure()));
         return;
     }
 

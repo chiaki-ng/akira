@@ -30,7 +30,7 @@ public:
     using Hosts = std::map<std::string, std::unique_ptr<Host>>;
 
     HostCatalog(ConsoleSettings& consoles, accounts::AccountSettings& accounts, const app::AppSettings& app,
-                settings::SettingsStore& store);
+                settings::SettingsStore& store, app::UiDispatcher& dispatcher);
     ~HostCatalog();
 
     HostCatalog(const HostCatalog&) = delete;
@@ -53,6 +53,7 @@ private:
     accounts::AccountSettings& accounts;
     const app::AppSettings& app;
     settings::SettingsStore& store;
+    app::UiDispatcher& dispatcher;
     Hosts hosts;
 };
 

@@ -6,15 +6,16 @@
 #include "network/wireguard_manager.hpp"
 #include "log/log.hpp"
 
-#include <borealis.hpp>
 #include <algorithm>
 #include <ranges>
 
 namespace akira::consoles {
 
-Host::Host(HostRecord record, const accounts::AccountSettings& accounts, const app::AppSettings& app)
+Host::Host(HostRecord record, const accounts::AccountSettings& accounts, const app::AppSettings& app,
+           app::UiDispatcher& dispatcher)
     : accountSettings(accounts),
       appSettings(app),
+      dispatcher(dispatcher),
       haptic(record.haptic),
       consolePIN(std::move(record.consolePin)),
       pinnedTakionVersion(record.pinnedTakionVersion),
@@ -291,7 +292,7 @@ HostRegisterError Host::registerHost(int pin, PairingCallback done)
                                                                             : PairingOutcome::Failed;
         }
 
-        brls::sync([this, alive = std::weak_ptr<std::atomic<uint64_t>>(pairingGeneration), generation, outcome,
+        dispatcher.post([this, alive = std::weak_ptr<std::atomic<uint64_t>>(pairingGeneration), generation, outcome,
                     console = std::move(console), done]() {
             const auto token = alive.lock();
             if (!token || token->load() != generation)
@@ -344,7 +345,7 @@ HostRegisterError Host::registerOverInternet(PairingStageCallback stage, Pairing
         auto& known = core.chiaki().consoles();
         auto finish = [this, alive, generation, done](PairingOutcome outcome,
                                                        std::shared_ptr<consoles::Console> paired) {
-            brls::sync([this, alive, generation, outcome, paired = std::move(paired), done]() {
+            dispatcher.post([this, alive, generation, outcome, paired = std::move(paired), done]() {
                 const auto token = alive.lock();
                 if (!token || token->load() != generation)
                     return;
@@ -354,7 +355,7 @@ HostRegisterError Host::registerOverInternet(PairingStageCallback stage, Pairing
 
         const bool signedIn = accounts->staySignedIn(stop);
         log::info("Internet pairing: sign-in renewed (valid={})", signedIn);
-        postStage(alive, generation, stage, 2);
+        postStage(dispatcher, alive, generation, stage, 2);
 
         auto listed = known.consoles_on_account(*user, consoleGeneration, stop);
         if (!listed)
@@ -375,8 +376,8 @@ HostRegisterError Host::registerOverInternet(PairingStageCallback stage, Pairing
             return;
         }
 
-        postStage(alive, generation, stage, 3);
-        InternetPairingWatcher watcher(alive, generation, stage);
+        postStage(dispatcher, alive, generation, stage, 3);
+        InternetPairingWatcher watcher(dispatcher, alive, generation, stage);
         auto paired = known.pair_over_the_internet(*user, *match, &watcher, stop);
         if (!paired)
         {
@@ -402,12 +403,12 @@ HostRegisterError Host::registerOverInternet(PairingStageCallback stage, Pairing
     return HOST_REGISTER_OK;
 }
 
-void Host::postStage(const std::weak_ptr<std::atomic<uint64_t>>& alive, uint64_t generation,
-                     const PairingStageCallback& stage, int index)
+void Host::postStage(app::UiDispatcher& dispatcher, const std::weak_ptr<std::atomic<uint64_t>>& alive,
+                     uint64_t generation, const PairingStageCallback& stage, int index)
 {
     if (!stage)
         return;
-    brls::sync([alive, generation, stage, index]() {
+    dispatcher.post([alive, generation, stage, index]() {
         const auto token = alive.lock();
         if (!token || token->load() != generation)
             return;
@@ -415,9 +416,11 @@ void Host::postStage(const std::weak_ptr<std::atomic<uint64_t>>& alive, uint64_t
     });
 }
 
-Host::InternetPairingWatcher::InternetPairingWatcher(std::weak_ptr<std::atomic<uint64_t>> alive, uint64_t generation,
+Host::InternetPairingWatcher::InternetPairingWatcher(app::UiDispatcher& dispatcher,
+                                                     std::weak_ptr<std::atomic<uint64_t>> alive, uint64_t generation,
                                                      PairingStageCallback stage)
-    : alive(std::move(alive))
+    : dispatcher(dispatcher)
+    , alive(std::move(alive))
     , generation(generation)
     , stage(std::move(stage))
 {
@@ -428,7 +431,7 @@ void Host::InternetPairingWatcher::on_stage(libchiaking::consoles::InternetPairi
     using libchiaking::consoles::InternetPairingStage;
     log::info("Internet pairing stage {}", static_cast<int>(reached));
     if (reached == InternetPairingStage::pairing)
-        postStage(alive, generation, stage, internetPairingStages);
+        postStage(dispatcher, alive, generation, stage, internetPairingStages);
 }
 
 void Host::cancelRegistration()

@@ -6,8 +6,6 @@
 #include <ranges>
 #include <utility>
 
-#include <borealis.hpp>
-
 #include "cloud/cloud_launch.hpp"
 #include "play/chiaki_core.hpp"
 #include "consoles/host.hpp"
@@ -24,12 +22,14 @@ namespace play = libchiaking::play;
 namespace platform = libchiaking::platform;
 
 Connection::Connection(Session& media, std::weak_ptr<ConnectionListener> listener, bool ps5,
-                       akira::platform::PlatformFactory& platform, const accounts::AccountSettings& accounts)
+                       akira::platform::PlatformFactory& platform, const accounts::AccountSettings& accounts,
+                       app::UiDispatcher& dispatcher)
     : media(media)
     , listener(std::move(listener))
     , ps5(ps5)
     , platform(platform)
     , accounts(accounts)
+    , dispatcher(dispatcher)
 {
 }
 
@@ -164,7 +164,7 @@ auto Connection::session() const -> std::shared_ptr<play::Session>
 
 void Connection::post(std::function<void(Connection&, ConnectionListener&)> work)
 {
-    brls::sync([token = aliveToken, self = this, to = listener, work = std::move(work)]() {
+    dispatcher.post([token = aliveToken, self = this, to = listener, work = std::move(work)]() {
         if (token.expired())
             return;
         if (auto target = to.lock())

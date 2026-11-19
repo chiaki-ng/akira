@@ -6,7 +6,6 @@
 #include "play/swipe_direction.hpp"
 #include "play/remap_target.hpp"
 #include "play/switch_button.hpp"
-#include <borealis.hpp>
 #include <cmath>
 #include <cstring>
 #include <algorithm>
@@ -21,10 +20,12 @@ static_assert(bits(SwitchButton::Left) == HidNpadButton_Left && bits(SwitchButto
 static_assert(bits(SwitchButton::StickLLeft) == HidNpadButton_StickLLeft && bits(SwitchButton::StickRDown) == HidNpadButton_StickRDown);
 static_assert(bits(SwitchButton::LeftSL) == HidNpadButton_LeftSL && bits(SwitchButton::RightSR) == HidNpadButton_RightSR);
 
-InputManager::InputManager(Session& session, akira::platform::PadProvider& pads, const ControllerSettings& controllers)
+InputManager::InputManager(Session& session, akira::platform::PadProvider& pads, const ControllerSettings& controllers,
+                           app::UiWindow& window)
     : m_session(session)
     , m_pads(pads)
     , m_controllers(controllers)
+    , m_window(window)
     , m_state_mutex(m_pads.mutex())
 {
 }
@@ -410,8 +411,8 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
         }
     }
 
-    const float screenScaleX = (float)brls::Application::windowWidth / (float)SWITCH_TOUCHSCREEN_MAX_X;
-    const float screenScaleY = (float)brls::Application::windowHeight / (float)SWITCH_TOUCHSCREEN_MAX_Y;
+    const float screenScaleX = (float)m_window.width() / (float)SWITCH_TOUCHSCREEN_MAX_X;
+    const float screenScaleY = (float)m_window.height() / (float)SWITCH_TOUCHSCREEN_MAX_Y;
 
     for (int i = 0; i < sw_state.count; i++)
     {

@@ -15,6 +15,7 @@
 #include <chrono>
 
 #include "app/exception.hpp"
+#include "app/ui_window.hpp"
 #include "play/rumble_profile.hpp"
 #include "platform/feedback/provider.hpp"
 #include "play/stream_stats.hpp"
@@ -42,6 +43,7 @@ class Session
 private:
     akira::platform::PlatformFactory& m_platform;
     StreamState& m_stream_state;
+    app::UiWindow& m_window;
     std::atomic<bool> quit = false;
 
     std::unique_ptr<AudioManager> m_audio_manager;
@@ -90,7 +92,7 @@ private:
 
 public:
     Session(akira::platform::PlatformFactory& platform, StreamState& streamState, const ControllerSettings& controllers,
-            const settings::DeveloperSettings& developer);
+            const settings::DeveloperSettings& developer, app::UiWindow& window);
     Session(const Session&) = delete;
     void operator=(const Session&) = delete;
 

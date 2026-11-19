@@ -4,7 +4,6 @@
 #include "util/http_pool.hpp"
 #include "log/log.hpp"
 
-#include <borealis.hpp>
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
@@ -27,8 +26,8 @@ namespace trophies = libchiaking::trophies;
 namespace catalog = libchiaking::catalog;
 using libchiaking::users::Unanswered;
 
-TrophyManager::TrophyManager(HttpPool& http)
-    : http(http)
+TrophyManager::TrophyManager(HttpPool& http, app::UiDispatcher& dispatcher)
+    : http(http), dispatcher(dispatcher)
 {
     dropLegacyCache();
 }
@@ -107,9 +106,9 @@ accounts::Error TrophyManager::failureOf(const Unanswered& cause)
     return {accounts::Status::ServerError, message};
 }
 
-void TrophyManager::deliverNotLinked(const ErrorCallback& onError)
+void TrophyManager::deliverNotLinked(const ErrorCallback& onError) const
 {
-    brls::sync([onError]() {
+    dispatcher.post([onError]() {
         if (onError)
             onError(accounts::Status::NotLinked, "PSN account not linked");
     });
@@ -150,7 +149,7 @@ template <typename Value>
 void TrophyManager::deliver(const Request& request, Value value, Callback<Value> onSuccess) const
 {
     const uint64_t asked = request.generation;
-    brls::sync([this, asked, value = std::move(value), onSuccess = std::move(onSuccess)]() {
+    dispatcher.post([this, asked, value = std::move(value), onSuccess = std::move(onSuccess)]() {
         {
             std::lock_guard<std::mutex> lock(mutex);
             if (asked != generation)
@@ -171,7 +170,7 @@ void TrophyManager::deliverFailure(const Request& request, const Unanswered& cau
     log::error("Trophy: {} failed with {} ({})", what, accounts::statusName(error.status), error.message);
 
     const uint64_t asked = request.generation;
-    brls::sync([this, asked, error, onError = std::move(onError)]() {
+    dispatcher.post([this, asked, error, onError = std::move(onError)]() {
         {
             std::lock_guard<std::mutex> lock(mutex);
             if (asked != generation)
@@ -460,7 +459,7 @@ void TrophyManager::resolvePlayedGames(const std::vector<Title>& titles, std::fu
             games->size(), resolved, asked);
 
         const uint64_t generationAsked = request.generation;
-        brls::sync([this, generationAsked, onUpdated = std::move(onUpdated)]() {
+        dispatcher.post([this, generationAsked, onUpdated = std::move(onUpdated)]() {
             {
                 std::lock_guard<std::mutex> lock(mutex);
                 if (generationAsked != generation)
@@ -533,7 +532,7 @@ void TrophyManager::fetchIcon(const std::string& url, IconCallback onSuccess)
             if (onSuccess)
             {
                 std::vector<uint8_t> bytes = std::move(*cached);
-                brls::sync([onSuccess, url, bytes]() { onSuccess(url, bytes); });
+                dispatcher.post([onSuccess, url, bytes]() { onSuccess(url, bytes); });
             }
             return;
         }
@@ -609,7 +608,7 @@ void TrophyManager::fetchIcon(const std::string& url, IconCallback onSuccess)
         if (waiters.empty())
             return;
 
-        brls::sync([waiters, url, bytes]() {
+        dispatcher.post([waiters, url, bytes]() {
             for (const IconCallback& waiter : waiters)
                 waiter(url, bytes);
         });
@@ -639,8 +638,7 @@ void TrophyManager::startAutoRefresh()
 
     autoRefreshStarted = true;
 
-    staleTimer.setCallback([this]() { runStaleCheck(); });
-    staleTimer.start(STALE_CHECK_MINUTES * 60 * 1000);
+    staleTimer = dispatcher.repeatEvery(std::chrono::minutes(STALE_CHECK_MINUTES), [this]() { runStaleCheck(); });
 
     log::info("Trophy: auto refresh checking every {} min", STALE_CHECK_MINUTES);
 }

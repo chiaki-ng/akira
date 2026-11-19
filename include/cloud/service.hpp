@@ -22,6 +22,8 @@
 #include "cloud/status.hpp"
 #include "cloud/title_refresh.hpp"
 #include "app/background_work.hpp"
+#include "app/strings.hpp"
+#include "app/ui_dispatcher.hpp"
 
 class HttpPool;
 
@@ -50,7 +52,8 @@ public:
     using TitleCallback = std::function<void(TitleRefresh)>;
     using FetchCallback = std::function<void(const FetchProgress&)>;
 
-    Service(const accounts::AccountSettings& accountSettings, HttpPool& http);
+    Service(const accounts::AccountSettings& accountSettings, HttpPool& http, app::UiDispatcher& dispatcher,
+            const app::Strings& strings);
 
     Service(const Service&) = delete;
     Service& operator=(const Service&) = delete;
@@ -74,7 +77,7 @@ public:
     std::optional<int64_t> trustedNowMs() const;
     bool signedIn() const;
 
-    static Snapshot snapshotOf(const FetchFailure& failure);
+    Snapshot snapshotOf(const FetchFailure& failure) const;
 
 private:
     using User = std::shared_ptr<libchiaking::users::PsUser>;
@@ -107,9 +110,9 @@ private:
     static constexpr std::chrono::hours freshFor{1};
     static constexpr const char* LEGACY_CACHE_DIR = "sdmc:/switch/akira/cache/cloud";
 
-    static Snapshot defaultSnapshotForProfile(bool hasProfile, bool paired);
-    static Snapshot snapshotOf(const libchiaking::catalog::MyGames& games, libchiaking::catalog::Catalog& catalog,
-                               libchiaking::users::PsUser& user, PlusMembership plusMembership);
+    Snapshot defaultSnapshotForProfile(bool hasProfile, bool paired) const;
+    Snapshot snapshotOf(const libchiaking::catalog::MyGames& games, libchiaking::catalog::Catalog& catalog,
+                        libchiaking::users::PsUser& user, PlusMembership plusMembership) const;
     static auto failureOf(const libchiaking::catalog::GamesFailure& cause) -> FetchFailure;
     static auto progressOf(const libchiaking::catalog::FetchState& state) -> FetchProgress;
     static auto stepOf(libchiaking::catalog::FetchStep step) -> FetchProgress::Step;
@@ -120,7 +123,7 @@ private:
     static bool launchLeftOut(std::string_view serviceType);
     static Standing standingOf(libchiaking::catalog::Standing standing);
     static auto recentlyPlayedOf(libchiaking::users::PsUser& user) -> std::vector<RecentlyPlayed>;
-    static Status statusOf(const Catalog& catalog, PlusMembership plusMembership);
+    Status statusOf(const Catalog& catalog, PlusMembership plusMembership) const;
     static auto detailOf(const libchiaking::catalog::GameDetails& details) -> GameDetail;
     static auto sizedImage(const std::string& url, int width) -> std::optional<libchiaking::catalog::ImageRef>;
     void replaceGame(int64_t profileId, const Game& game);
@@ -136,6 +139,8 @@ private:
 
     const accounts::AccountSettings& accountSettings;
     HttpPool& http;
+    app::UiDispatcher& dispatcher;
+    const app::Strings& strings;
 
     mutable std::mutex mutex;
     std::map<int64_t, Entry> entries;

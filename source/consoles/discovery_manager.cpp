@@ -7,7 +7,6 @@
 #include "network/wireguard_manager.hpp"
 #include "log/log.hpp"
 
-#include <borealis.hpp>
 #include <ctime>
 #include <format>
 
@@ -63,9 +62,11 @@ namespace platform = libchiaking::platform;
 DiscoveryManager::DiscoveryManager(HostCatalog& hostCatalog, settings::SettingsStore& settingsStore,
                                    const network::NetworkSettings& networkSettings,
                                    const settings::DeveloperSettings& developerSettings,
-                                   const accounts::AccountSettings& accountSettings, network::WireGuardManager& wireGuard)
+                                   const accounts::AccountSettings& accountSettings, network::WireGuardManager& wireGuard,
+                                   app::UiDispatcher& dispatcher, app::UiWindow& window)
     : hostCatalog(hostCatalog), settingsStore(settingsStore), networkSettings(networkSettings),
-      developerSettings(developerSettings), accountSettings(accountSettings), wireGuard(wireGuard)
+      developerSettings(developerSettings), accountSettings(accountSettings), wireGuard(wireGuard),
+      dispatcher(dispatcher), window(window)
 {
     backgroundSubscription = app::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
 }
@@ -92,10 +93,10 @@ void DiscoveryManager::followBackgroundWork(bool paused)
 
 void DiscoveryManager::ensureFocusSubscription()
 {
-    if (focusSubscribed)
+    if (focusWatch)
         return;
 
-    focusSubscription = brls::Application::getWindowFocusChangedEvent()->subscribe([this](bool focused) {
+    focusWatch = window.watchFocus([this](bool focused) {
         if (!focused || !serviceEnabled)
             return;
 
@@ -103,7 +104,6 @@ void DiscoveryManager::ensureFocusSubscription()
         setServiceEnabled(false);
         setServiceEnabled(true);
     });
-    focusSubscribed = true;
 }
 
 void DiscoveryManager::setServiceEnabled(bool enable)
@@ -329,7 +329,7 @@ void DiscoveryManager::Lookout::on_view(const consoles::NetworkView& view)
 
     DiscoveryManager& owner = manager;
     const uint64_t viewGeneration = generation;
-    brls::sync([&owner, viewGeneration, seen = std::move(seen)]() {
+    owner.dispatcher.post([&owner, viewGeneration, seen = std::move(seen)]() {
         owner.applyView(viewGeneration, seen);
     });
 }
@@ -544,7 +544,7 @@ void DiscoveryManager::runRemoteRefresh(const platform::StopToken& stop, uint64_
         seen.push_back({console.name(), console.device_uid().text(), console.generation(), console.remote_play_enabled()});
     log::info("Found {} PS5 remote device(s)", seen.size());
 
-    brls::sync([this, generation, seen = std::move(seen)]() { applyAccountConsoles(generation, seen); });
+    dispatcher.post([this, generation, seen = std::move(seen)]() { applyAccountConsoles(generation, seen); });
     finishRemoteRefresh(generation, {true, ""});
 }
 
@@ -708,7 +708,7 @@ void DiscoveryManager::finishRemoteRefresh(uint64_t generation, const RemoteRefr
     if (waiters.empty())
         return;
 
-    brls::sync([waiters = std::move(waiters), result]() {
+    dispatcher.post([waiters = std::move(waiters), result]() {
         for (const auto& waiter : waiters)
             waiter(result);
     });

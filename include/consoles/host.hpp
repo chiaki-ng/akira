@@ -14,6 +14,7 @@
 
 #include <libchiaking/consoles.hpp>
 
+#include "app/ui_dispatcher.hpp"
 #include "cloud/cloud_launch.hpp"
 #include "consoles/console_facts.hpp"
 #include "consoles/host_record.hpp"
@@ -71,11 +72,12 @@ public:
 private:
     class InternetPairingWatcher final : public libchiaking::consoles::PairingWatcher {
     public:
-        InternetPairingWatcher(std::weak_ptr<std::atomic<uint64_t>> alive, uint64_t generation,
-                               PairingStageCallback stage);
+        InternetPairingWatcher(app::UiDispatcher& dispatcher, std::weak_ptr<std::atomic<uint64_t>> alive,
+                               uint64_t generation, PairingStageCallback stage);
         void on_stage(libchiaking::consoles::InternetPairingStage stage) override;
 
     private:
+        app::UiDispatcher& dispatcher;
         std::weak_ptr<std::atomic<uint64_t>> alive;
         uint64_t generation;
         PairingStageCallback stage;
@@ -85,6 +87,7 @@ private:
 
     const accounts::AccountSettings& accountSettings;
     const app::AppSettings& appSettings;
+    app::UiDispatcher& dispatcher;
 
     int haptic = -1;  // -1=inherit from global, 0=disabled, 1=weak, 2=strong
 
@@ -122,11 +125,12 @@ private:
 
     void finishPairing(PairingOutcome outcome, std::shared_ptr<libchiaking::consoles::Console> paired,
                        const PairingCallback& done);
-    static void postStage(const std::weak_ptr<std::atomic<uint64_t>>& alive, uint64_t generation,
-                          const PairingStageCallback& stage, int index);
+    static void postStage(app::UiDispatcher& dispatcher, const std::weak_ptr<std::atomic<uint64_t>>& alive,
+                          uint64_t generation, const PairingStageCallback& stage, int index);
 
 public:
-    Host(HostRecord record, const accounts::AccountSettings& accounts, const app::AppSettings& app);
+    Host(HostRecord record, const accounts::AccountSettings& accounts, const app::AppSettings& app,
+         app::UiDispatcher& dispatcher);
     ~Host();
 
     Host(const Host&) = delete;

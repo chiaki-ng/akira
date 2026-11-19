@@ -27,8 +27,9 @@ auto ChiakiCore::threadPlacement() noexcept -> platform::horizon::ThreadPlacemen
     return policy;
 }
 
-ChiakiCore::ChiakiCore(Settings settings, std::function<void()> signInRenewed)
+ChiakiCore::ChiakiCore(Settings settings, app::UiDispatcher& dispatcher, std::function<void()> signInRenewed)
     : settings(settings),
+      dispatcher(dispatcher),
       signInRenewed(std::move(signInRenewed)),
       threadingProvider((app::CrashReport::stage("core threading"), threadPlacement())),
       httpProvider((app::CrashReport::stage("core http"), transportSettings()), threadingProvider, steadyClock, &coreLog),
@@ -114,7 +115,7 @@ void ChiakiCore::rememberSaved()
     else
         log::error("[CORE] saved consoles could not be read");
 
-    psnAccounts.emplace(*chiakiNg, settings.accounts, threadingProvider, steadyClock, random());
+    psnAccounts.emplace(*chiakiNg, settings.accounts, threadingProvider, steadyClock, random(), dispatcher);
     if (signInRenewed)
         psnAccounts->setRenewedObserver(signInRenewed);
 }

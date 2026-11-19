@@ -8,11 +8,11 @@
 #include <string>
 #include <vector>
 
-#include <borealis.hpp>
-
 #include <libchiaking/consoles.hpp>
 
 #include "app/background_work.hpp"
+#include "app/ui_dispatcher.hpp"
+#include "app/ui_window.hpp"
 #include "host.hpp"
 #include "consoles/host_catalog.hpp"
 #include "accounts/accounts.hpp"
@@ -53,7 +53,8 @@ public:
 
     DiscoveryManager(HostCatalog& hostCatalog, settings::SettingsStore& settingsStore,
                      const network::NetworkSettings& networkSettings, const settings::DeveloperSettings& developerSettings,
-                     const accounts::AccountSettings& accountSettings, network::WireGuardManager& wireGuard);
+                     const accounts::AccountSettings& accountSettings, network::WireGuardManager& wireGuard,
+                     app::UiDispatcher& dispatcher, app::UiWindow& window);
 
     DiscoveryManager(const DiscoveryManager&) = delete;
     DiscoveryManager& operator=(const DiscoveryManager&) = delete;
@@ -129,10 +130,11 @@ private:
     const settings::DeveloperSettings& developerSettings;
     const accounts::AccountSettings& accountSettings;
     network::WireGuardManager& wireGuard;
+    app::UiDispatcher& dispatcher;
+    app::UiWindow& window;
     bool serviceEnabled = false;
 
-    brls::Event<bool>::Subscription focusSubscription;
-    bool focusSubscribed = false;
+    std::unique_ptr<app::UiWindow::FocusWatch> focusWatch;
     bool resumeAfterPause = false;
     app::BackgroundWork::Subscription backgroundSubscription;
 

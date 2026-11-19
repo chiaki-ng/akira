@@ -9,6 +9,7 @@
 #include <mutex>
 #include <switch.h>
 
+#include "app/ui_window.hpp"
 #include "play/gesture_timing.hpp"
 #include "platform/pads/pad.hpp"
 #include "play/sample_cadence.hpp"
@@ -59,7 +60,8 @@ struct TouchpadButtonPulse {
 class InputManager
 {
 public:
-    InputManager(Session& session, akira::platform::PadProvider& pads, const ControllerSettings& controllers);
+    InputManager(Session& session, akira::platform::PadProvider& pads, const ControllerSettings& controllers,
+                 app::UiWindow& window);
     ~InputManager();
 
     InputManager(const InputManager&) = delete;
@@ -96,6 +98,7 @@ private:
     Session& m_session;
     akira::platform::PadProvider& m_pads;
     const ControllerSettings& m_controllers;
+    app::UiWindow& m_window;
     std::mutex& m_state_mutex;
     std::atomic<bool> m_menu_held{false};
 

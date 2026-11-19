@@ -6,6 +6,8 @@
 
 #include <libchiaking/play.hpp>
 
+#include "app/strings.hpp"
+
 namespace akira::cloud {
 
 class CloudLaunch {
@@ -23,8 +25,10 @@ public:
     [[nodiscard]] auto start(libchiaking::play::Preferences preferences, libchiaking::media::MediaSink& media,
                              libchiaking::play::SessionEvents& events) const -> Started;
 
-    static auto refusalText(const libchiaking::play::LaunchRefused& refused, const std::string& name) -> std::string;
-    static auto clearanceText(const libchiaking::catalog::LaunchRefusal& refusal, const std::string& name) -> std::string;
+    static auto refusalText(const app::Strings& strings, const libchiaking::play::LaunchRefused& refused,
+                            const std::string& name) -> std::string;
+    static auto clearanceText(const app::Strings& strings, const libchiaking::catalog::LaunchRefusal& refusal,
+                              const std::string& name) -> std::string;
 
 private:
     std::shared_ptr<libchiaking::users::PsUser> user;

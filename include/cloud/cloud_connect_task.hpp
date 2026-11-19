@@ -7,6 +7,8 @@
 
 #include <libchiaking/platform/platform.hpp>
 
+#include "app/strings.hpp"
+#include "app/ui_dispatcher.hpp"
 #include "cloud/cloud_launch.hpp"
 #include "cloud/models.hpp"
 #include "play/connect_task.hpp"
@@ -26,12 +28,13 @@ class Service;
 class CloudConnectTask : public play::ConnectTask {
 public:
     CloudConnectTask(Service& service, const accounts::AccountSettings& accounts, const app::AppSettings& app,
-                     const Game& game);
+                     app::UiDispatcher& dispatcher, const app::Strings& strings, const Game& game);
     CloudConnectTask(Service& service, const accounts::AccountSettings& accounts, const app::AppSettings& app,
-                     std::shared_ptr<CloudLaunch> cleared);
+                     app::UiDispatcher& dispatcher, const app::Strings& strings, std::shared_ptr<CloudLaunch> cleared);
 
     static auto retrying(Service& service, const accounts::AccountSettings& accounts, const app::AppSettings& app,
-                         const CloudLaunch& previous) -> std::unique_ptr<CloudConnectTask>;
+                         app::UiDispatcher& dispatcher, const app::Strings& strings, const CloudLaunch& previous)
+        -> std::unique_ptr<CloudConnectTask>;
     ~CloudConnectTask() override;
 
     std::string title() const override;
@@ -48,11 +51,14 @@ private:
     };
 
     static void handOver(const std::shared_ptr<CallbackState>& state, std::shared_ptr<CloudLaunch> launch,
-                         const accounts::AccountSettings& accounts, const app::AppSettings& app);
+                         const accounts::AccountSettings& accounts, const app::AppSettings& app,
+                         app::UiDispatcher& dispatcher);
 
     Service& service;
     const accounts::AccountSettings& accounts;
     const app::AppSettings& appSettings;
+    app::UiDispatcher& dispatcher;
+    const app::Strings& strings;
     Game game;
     std::shared_ptr<CloudLaunch> clearedLaunch;
     std::shared_ptr<CallbackState> callbackState;

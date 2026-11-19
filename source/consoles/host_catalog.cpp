@@ -9,11 +9,11 @@
 namespace akira::consoles {
 
 HostCatalog::HostCatalog(ConsoleSettings& consoles, accounts::AccountSettings& accounts, const app::AppSettings& app,
-                         settings::SettingsStore& store)
-    : consoles(consoles), accounts(accounts), app(app), store(store)
+                         settings::SettingsStore& store, app::UiDispatcher& dispatcher)
+    : consoles(consoles), accounts(accounts), app(app), store(store), dispatcher(dispatcher)
 {
     for (auto& [name, record] : consoles.follow([this] { return persisted(); })) {
-        auto host = std::make_unique<Host>(std::move(record), accounts, app);
+        auto host = std::make_unique<Host>(std::move(record), accounts, app, dispatcher);
         host->inConfig = true;
         hosts.insert_or_assign(name, std::move(host));
     }
@@ -57,7 +57,7 @@ Host* HostCatalog::getOrCreate(const std::string& name)
 {
     auto [entry, created] = hosts.try_emplace(name);
     if (created)
-        entry->second = std::make_unique<Host>(HostRecord{.nickname = name}, accounts, app);
+        entry->second = std::make_unique<Host>(HostRecord{.nickname = name}, accounts, app, dispatcher);
 
     Host* host = entry->second.get();
     if (created && host->consoleId == 0)

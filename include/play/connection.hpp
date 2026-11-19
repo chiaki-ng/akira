@@ -15,6 +15,8 @@
 
 #include <libchiaking/play.hpp>
 
+#include "app/ui_dispatcher.hpp"
+
 namespace akira::consoles {
 class Host;
 }
@@ -85,7 +87,8 @@ public:
     static constexpr uint8_t seatCount = libchiaking::controllers::SeatNumber::count;
 
     Connection(Session& media, std::weak_ptr<ConnectionListener> listener, bool ps5,
-               akira::platform::PlatformFactory& platform, const accounts::AccountSettings& accounts);
+               akira::platform::PlatformFactory& platform, const accounts::AccountSettings& accounts,
+               app::UiDispatcher& dispatcher);
     ~Connection();
 
     Connection(const Connection&) = delete;
@@ -145,6 +148,7 @@ private:
     const bool ps5;
     akira::platform::PlatformFactory& platform;
     const accounts::AccountSettings& accounts;
+    app::UiDispatcher& dispatcher;
 
     mutable std::mutex sessionMutex;
     std::shared_ptr<libchiaking::play::Session> active;
