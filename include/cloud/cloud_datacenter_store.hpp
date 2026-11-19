@@ -7,7 +7,7 @@
 
 class SettingsManager;
 
-namespace akira {
+namespace akira::cloud {
 
 class CloudDatacenterStore final : public libchiaking::play::DatacenterStore {
 public:

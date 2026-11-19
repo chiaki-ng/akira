@@ -10,7 +10,7 @@
 
 #include "cloud/models.hpp"
 
-namespace cloud {
+namespace akira::cloud {
 
 enum class LibraryFilter {
     Recent,
@@ -90,6 +90,6 @@ private:
     FilterChoice chosen = FilterChoice::Automatic;
 };
 
-} // namespace cloud
+} // namespace akira::cloud
 
 #endif // AKIRA_CLOUD_LIBRARY_LISTING_HPP

@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace cloud {
+namespace akira::cloud {
 
 enum class PlusMembership {
     Unknown,
@@ -153,6 +153,6 @@ struct Datacenter {
 std::string platformBadge(const Game& game);
 std::string categoryBadge(const Game& game);
 
-} // namespace cloud
+} // namespace akira::cloud
 
 #endif // AKIRA_CLOUD_MODELS_HPP

@@ -12,7 +12,7 @@
 
 struct NVGcontext;
 
-namespace cloud {
+namespace akira::cloud::views {
 
 class LaunchScreen {
 public:
@@ -44,6 +44,6 @@ private:
     Clock::time_point received{};
 };
 
-} // namespace cloud
+} // namespace akira::cloud::views
 
 #endif // AKIRA_CLOUD_LAUNCH_SCREEN_HPP

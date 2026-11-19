@@ -49,7 +49,7 @@ private:
 
     accounts::views::ProfileChipView* profileChip = nullptr;
 #if AKIRA_CLOUD
-    CloudShortcutsRail* shortcutsRail = nullptr;
+    cloud::views::CloudShortcutsRail* shortcutsRail = nullptr;
 #endif
     brls::Box* emptyActionCard = nullptr;
 

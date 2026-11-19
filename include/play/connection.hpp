@@ -19,7 +19,7 @@ namespace akira::consoles {
 class Host;
 }
 
-namespace cloud {
+namespace akira::cloud {
 class CloudLaunch;
 }
 

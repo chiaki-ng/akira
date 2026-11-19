@@ -134,7 +134,7 @@ private:
     void pollCloudCancel();
     void showCloudFailure(const std::string& message, bool retry);
 
-    std::optional<cloud::LaunchScreen> cloudScreen;
+    std::optional<cloud::views::LaunchScreen> cloudScreen;
     bool cloudCancelHeld = true;
 #endif
 

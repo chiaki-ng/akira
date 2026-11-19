@@ -63,7 +63,7 @@ private:
     libchiaking::platform::libnx::LibnxCryptoProvider cryptoProvider{secureRandom};
     libchiaking::platform::DefaultPlatformFactory factory;
     libchiaking::platform::DefaultStorageProvider recordStore;
-    CloudDatacenterStore datacenters;
+    cloud::CloudDatacenterStore datacenters;
     libchiaking::Expected<libchiaking::ChiakiNg, Missing> chiakiNg;
     std::optional<accounts::Accounts> psnAccounts;
 };

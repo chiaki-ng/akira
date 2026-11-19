@@ -1,7 +1,7 @@
 #ifndef AKIRA_CLOUD_START_STEPS_HPP
 #define AKIRA_CLOUD_START_STEPS_HPP
 
-namespace cloud {
+namespace akira::cloud {
 
 class StartSteps {
 public:
@@ -40,6 +40,6 @@ private:
     Phase phase = Phase::Starting;
 };
 
-} // namespace cloud
+} // namespace akira::cloud
 
 #endif // AKIRA_CLOUD_START_STEPS_HPP

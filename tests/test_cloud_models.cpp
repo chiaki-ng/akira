@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <limits>
 
-using namespace cloud;
+using namespace akira::cloud;
 
 TEST(catalog_finds_a_game_by_product_and_service)
 {

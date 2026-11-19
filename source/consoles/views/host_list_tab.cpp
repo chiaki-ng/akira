@@ -972,7 +972,7 @@ public:
                 return true;
             }
 
-            auto* frame = new brls::AppletFrame(new cloud::LibraryView());
+            auto* frame = new brls::AppletFrame(new cloud::views::LibraryView());
             app::views::decorateAkiraHeader(frame);
             app::views::registerAkiraTabActions(frame);
             brls::Application::pushActivity(new brls::Activity(frame));
@@ -1127,7 +1127,7 @@ void HostListTab::applyProfileMode() {
     if (shortcutsRail)
         return;
 
-    shortcutsRail = new CloudShortcutsRail();
+    shortcutsRail = new cloud::views::CloudShortcutsRail();
     shortcutsRail->setLaunchHandler([](const cloud::Game& game) {
         const cloud::Snapshot snapshot = cloud::Service::instance().snapshotForActiveProfile();
         if (snapshot.status.plusMembership == cloud::PlusMembership::None)

@@ -7,9 +7,9 @@
 
 #include <utility>
 
-using namespace brls::literals;
+namespace akira::cloud {
 
-namespace cloud {
+using namespace brls::literals;
 
 namespace catalog = libchiaking::catalog;
 namespace play = libchiaking::play;
@@ -99,4 +99,4 @@ auto CloudLaunch::refusalText(const play::LaunchRefused& refused, const std::str
     return "akira/cloud/launch_failed"_i18n;
 }
 
-} // namespace cloud
+} // namespace akira::cloud

@@ -8,7 +8,7 @@
 
 #include "cloud/models.hpp"
 
-namespace cloud {
+namespace akira::cloud {
 
 class LaunchChecks {
 public:
@@ -76,6 +76,6 @@ private:
     std::optional<std::string> refusal;
 };
 
-} // namespace cloud
+} // namespace akira::cloud
 
 #endif // AKIRA_CLOUD_LAUNCH_CHECKS_HPP

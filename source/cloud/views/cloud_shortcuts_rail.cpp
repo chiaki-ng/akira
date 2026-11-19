@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <vector>
 
+namespace akira::cloud::views {
+
 using namespace brls::literals;
 
 CloudShortcutsRail::CloudShortcutsRail()
@@ -36,7 +38,7 @@ CloudShortcutsRail::~CloudShortcutsRail()
     *alive = false;
 }
 
-void CloudShortcutsRail::setLaunchHandler(std::function<void(const cloud::Game&)> handler)
+void CloudShortcutsRail::setLaunchHandler(std::function<void(const Game&)> handler)
 {
     launchHandler = std::move(handler);
 }
@@ -50,9 +52,9 @@ void CloudShortcutsRail::setLeadingCard(std::function<brls::View*()> factory)
 void CloudShortcutsRail::removeShortcut(const std::string& productId)
 {
     auto* settings = SettingsManager::getInstance();
-    std::vector<cloud::Game> games = settings->getCloudShortcuts();
+    std::vector<Game> games = settings->getCloudShortcuts();
     games.erase(std::remove_if(games.begin(), games.end(),
-                    [&](const cloud::Game& g) { return g.productId == productId; }),
+                    [&](const Game& g) { return g.productId == productId; }),
         games.end());
     settings->setCloudShortcuts(games);
     settings->writeFile();
@@ -69,7 +71,7 @@ void CloudShortcutsRail::refresh()
     railRow->clearViews();
     const int myGen = ++refreshGen;
 
-    std::vector<cloud::Game> games = SettingsManager::getInstance()->getCloudShortcuts();
+    std::vector<Game> games = SettingsManager::getInstance()->getCloudShortcuts();
     bool hasProfile = !SettingsManager::getInstance()->getProfiles().empty();
     brls::View* lead = (hasProfile && leadingCardFactory) ? leadingCardFactory() : nullptr;
     if (!lead && games.empty())
@@ -106,21 +108,21 @@ void CloudShortcutsRail::refresh()
     size_t count = std::min(static_cast<size_t>(6), games.size());
     for (size_t i = 0; i < count; i++)
     {
-        const cloud::Game& game = games[i];
+        const Game& game = games[i];
 
-        auto* card = new akira::app::views::motion::LiftBox();
+        auto* card = new app::views::motion::LiftBox();
         card->setAxis(brls::Axis::COLUMN);
         card->setWidth(174.0f);
         card->setHeight(238.0f);
         if (i + 1 < count)
             card->setMarginRight(16);
         card->setCornerRadius(14);
-        card->setBackgroundColor(akira::app::views::active().surface);
+        card->setBackgroundColor(app::views::active().surface);
         card->setPadding(12.0f, 12.0f, 12.0f, 12.0f);
         card->setFocusable(true);
         card->setCustomNavigationRoute(brls::FocusDirection::UP, "host/container");
 
-        cloud::Game gameCopy = game;
+        Game gameCopy = game;
         card->registerClickAction([this, gameCopy](brls::View*) {
             if (launchHandler)
                 launchHandler(gameCopy);
@@ -140,7 +142,7 @@ void CloudShortcutsRail::refresh()
         cover->setHeight(172.0f);
         cover->setCornerRadius(10);
         cover->setScalingType(brls::ImageScalingType::FILL);
-        cover->setBackgroundColor(akira::app::views::active().surfaceElevated);
+        cover->setBackgroundColor(app::views::active().surfaceElevated);
         card->addView(cover);
 
         auto* name = new brls::Label();
@@ -150,7 +152,7 @@ void CloudShortcutsRail::refresh()
         name->setWidthPercentage(100.0f);
         name->setSingleLine(true);
         name->setAutoAnimate(true);
-        name->setTextColor(akira::app::views::active().text);
+        name->setTextColor(app::views::active().text);
         card->addView(name);
 
         railRow->addView(card);
@@ -163,4 +165,6 @@ void CloudShortcutsRail::refresh()
         if (!cards.empty())
             brls::Application::giveFocus(cards.front());
     }
+}
+
 }

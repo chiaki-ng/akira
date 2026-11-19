@@ -8,9 +8,9 @@
 #include <algorithm>
 #include <format>
 
-using namespace brls::literals;
+namespace akira::cloud::views {
 
-namespace cloud {
+using namespace brls::literals;
 
 namespace play = libchiaking::play;
 namespace progress = libchiaking::progress;
@@ -197,7 +197,7 @@ auto LaunchScreen::operationDetails(int since) const -> std::string
 
 void LaunchScreen::draw(NVGcontext* vg, float x, float y, float width, float height) const
 {
-    const auto& pal = akira::app::views::active();
+    const auto& pal = app::views::active();
     nvgSave(vg);
 
     nvgBeginPath(vg);
@@ -229,7 +229,7 @@ void LaunchScreen::draw(NVGcontext* vg, float x, float y, float width, float hei
         const float sx = left + slot * static_cast<float>(i) + slot / 2.0f;
         const float barWidth = mark == StartSteps::Mark::Running ? 120.0f : 96.0f;
 
-        NVGcolor fill = akira::app::views::withAlpha(pal.textMuted, 0x48);
+        NVGcolor fill = app::views::withAlpha(pal.textMuted, 0x48);
         if (mark == StartSteps::Mark::Done)
             fill = pal.success;
         else if (mark == StartSteps::Mark::Running)
@@ -281,4 +281,4 @@ void LaunchScreen::draw(NVGcontext* vg, float x, float y, float width, float hei
     nvgRestore(vg);
 }
 
-} // namespace cloud
+} // namespace akira::cloud::views

@@ -4,7 +4,7 @@
 #include <cctype>
 #include <ranges>
 
-namespace cloud {
+namespace akira::cloud {
 
 void LibraryListing::setGames(const std::vector<Game>& listedGames)
 {
@@ -185,4 +185,4 @@ bool LibraryListing::nameContains(std::string_view name, std::string_view text)
     return !std::ranges::search(name, text, {}, lower, lower).empty();
 }
 
-} // namespace cloud
+} // namespace akira::cloud

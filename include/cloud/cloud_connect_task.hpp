@@ -11,9 +11,9 @@
 #include "cloud/models.hpp"
 #include "play/views/connect_task.hpp"
 
-namespace cloud {
+namespace akira::cloud {
 
-class CloudConnectTask : public akira::play::views::ConnectTask {
+class CloudConnectTask : public play::views::ConnectTask {
 public:
     explicit CloudConnectTask(const Game& game);
     explicit CloudConnectTask(std::shared_ptr<CloudLaunch> cleared);
@@ -24,13 +24,13 @@ public:
     std::string title() const override;
     const char* logKind() const override { return "cloud"; }
 
-    void start(akira::play::views::ConnectSink& sink) override;
+    void start(play::views::ConnectSink& sink) override;
     void cancel() override;
 
 private:
     struct CallbackState {
         std::mutex mutex;
-        akira::play::views::ConnectSink* sink = nullptr;
+        play::views::ConnectSink* sink = nullptr;
         libchiaking::platform::StopSource stop;
     };
 
@@ -41,6 +41,6 @@ private:
     std::shared_ptr<CallbackState> callbackState;
 };
 
-} // namespace cloud
+} // namespace akira::cloud
 
 #endif // AKIRA_CLOUD_CONNECT_TASK_HPP

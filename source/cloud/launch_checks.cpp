@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace cloud {
+namespace akira::cloud {
 
 LaunchChecks::LaunchChecks(std::string productId, uint64_t attempt, const Game& game)
     : product(std::move(productId)), attemptId(attempt), row(rowFor(game))
@@ -99,4 +99,4 @@ auto LaunchChecks::mark(Step step) const -> Mark
     return Mark::Unchecked;
 }
 
-} // namespace cloud
+} // namespace akira::cloud

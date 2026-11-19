@@ -6,7 +6,7 @@
 
 #include <libchiaking/play.hpp>
 
-namespace cloud {
+namespace akira::cloud {
 
 class CloudLaunch {
 public:
@@ -32,6 +32,6 @@ private:
     std::string title;
 };
 
-} // namespace cloud
+} // namespace akira::cloud
 
 #endif // AKIRA_CLOUD_CLOUD_LAUNCH_HPP

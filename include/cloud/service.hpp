@@ -23,7 +23,7 @@
 
 class SettingsManager;
 
-namespace cloud {
+namespace akira::cloud {
 
 enum class Availability {
     NoProfile,
@@ -169,9 +169,9 @@ private:
     std::map<int64_t, Entry> entries;
     bool paused = false;
     Held held;
-    akira::app::BackgroundWork::Subscription backgroundSubscription;
+    app::BackgroundWork::Subscription backgroundSubscription;
 };
 
-} // namespace cloud
+} // namespace akira::cloud
 
 #endif // AKIRA_CLOUD_SERVICE_HPP

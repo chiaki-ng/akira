@@ -2,7 +2,7 @@
 
 #include <format>
 
-namespace cloud {
+namespace akira::cloud {
 
 bool Game::awaitsRelease(int64_t nowMs) const
 {
@@ -73,4 +73,4 @@ std::string categoryBadge(const Game& game)
     return "";
 }
 
-} // namespace cloud
+} // namespace akira::cloud

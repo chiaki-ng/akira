@@ -13,9 +13,9 @@
 #include <ctime>
 #include <format>
 
-using namespace brls::literals;
+namespace akira::cloud::views {
 
-namespace cloud {
+using namespace brls::literals;
 
 GameDetailView::GameDetailView(Game shownGame, std::vector<Game> listedGames)
     : game(std::move(shownGame)), listed(std::move(listedGames))
@@ -23,7 +23,7 @@ GameDetailView::GameDetailView(Game shownGame, std::vector<Game> listedGames)
     this->setAxis(brls::Axis::COLUMN);
     this->setWidthPercentage(100.0f);
     this->setHeightPercentage(100.0f);
-    this->setBackgroundColor(akira::app::views::active().backgroundDeep);
+    this->setBackgroundColor(app::views::active().backgroundDeep);
     this->setFocusable(true);
     this->setHideHighlight(true);
 
@@ -76,7 +76,7 @@ auto GameDetailView::nowMs() -> int64_t
 
 void GameDetailView::buildStage()
 {
-    const auto& pal = akira::app::views::active();
+    const auto& pal = app::views::active();
 
     stage = new brls::Box();
     stage->setWidthPercentage(100.0f);
@@ -308,7 +308,7 @@ auto GameDetailView::releaseText(const Game& game, int64_t now) -> std::optional
 
 void GameDetailView::renderMetadata()
 {
-    const auto& pal = akira::app::views::active();
+    const auto& pal = app::views::active();
     metadataRow->clearViews();
     std::string platform = game.platform;
     std::ranges::transform(platform, platform.begin(), [](unsigned char c) { return std::toupper(c); });
@@ -450,7 +450,7 @@ auto GameDetailView::cardCheckText(const CardCheck& check) -> std::optional<std:
 void GameDetailView::renderNotes()
 {
     const GameActions shown = actions();
-    const auto& pal = akira::app::views::active();
+    const auto& pal = app::views::active();
 
     checkRow->show(shown.showsLaunchChecks() && checks ? checks : std::nullopt);
     checkRow->setVisibility(shown.showsLaunchChecks() && checks ? brls::Visibility::VISIBLE
@@ -482,7 +482,7 @@ void GameDetailView::renderNotes()
 
 void GameDetailView::renderBand(const GameDetail& detail)
 {
-    const auto& pal = akira::app::views::active();
+    const auto& pal = app::views::active();
     band->clearViews();
 
     if (detail.rating)
@@ -506,7 +506,7 @@ void GameDetailView::renderBand(const GameDetail& detail)
             auto* glyph = new brls::Label();
             glyph->setText("\xE2\x98\x85");
             glyph->setFontSize(18);
-            glyph->setTextColor(star <= filled ? pal.gold : akira::app::views::withAlpha(pal.text, 0x38));
+            glyph->setTextColor(star <= filled ? pal.gold : app::views::withAlpha(pal.text, 0x38));
             stars->addView(glyph);
         }
         summary->addView(stars);
@@ -542,7 +542,7 @@ void GameDetailView::renderBand(const GameDetail& detail)
             track->setWidth(220);
             track->setHeight(6);
             track->setCornerRadius(3);
-            track->setBackgroundColor(akira::app::views::withAlpha(pal.text, 0x1a));
+            track->setBackgroundColor(app::views::withAlpha(pal.text, 0x1a));
             auto* fill = new brls::Box();
             fill->setWidth(2.2f * static_cast<float>(percent));
             fill->setHeight(6);
@@ -701,7 +701,7 @@ void GameDetailView::checkAndPlay(const Game& target)
                 return;
             checks->clear();
             render();
-            akira::play::views::startConnecting(std::make_unique<CloudConnectTask>(std::move(launch)));
+            play::views::startConnecting(std::make_unique<CloudConnectTask>(std::move(launch)));
             checks->launched();
         },
         [this, current](const std::string& error) {
@@ -723,7 +723,7 @@ void GameDetailView::showStorePage(bool addingToLibrary)
     const std::string body = addingToLibrary
         ? brls::getStr("akira/cloud/detail_add_library_body", game.name, game.conceptUrl)
         : brls::getStr("akira/cloud/detail_store_body", game.conceptUrl);
-    akira::app::views::QrCodeView::openDialog(game.conceptUrl, body);
+    app::views::QrCodeView::openDialog(game.conceptUrl, body);
 }
 
 void GameDetailView::refreshTitle()
@@ -827,8 +827,8 @@ void GameDetailView::draw(NVGcontext* vg, float x, float y, float width, float h
 void GameDetailView::StageShade::draw(NVGcontext* vg, float x, float y, float width, float height, brls::Style,
                                       brls::FrameContext*)
 {
-    const NVGcolor page = akira::app::views::active().backgroundDeep;
-    const auto shaded = [&](float alpha) { return akira::app::views::withAlpha(page, static_cast<unsigned char>(alpha * 255)); };
+    const NVGcolor page = app::views::active().backgroundDeep;
+    const auto shaded = [&](float alpha) { return app::views::withAlpha(page, static_cast<unsigned char>(alpha * 255)); };
     const auto band = [&](NVGpaint paint, float bx, float by, float bw, float bh) {
         nvgBeginPath(vg);
         nvgRect(vg, bx, by, bw, bh);
@@ -876,7 +876,7 @@ void GameDetailView::CheckRow::draw(NVGcontext* vg, float x, float y, float widt
 {
     if (!shown)
         return;
-    const auto& pal = akira::app::views::active();
+    const auto& pal = app::views::active();
     const auto& steps = shown->steps();
     const float slot = width / static_cast<float>(steps.size());
     const float radius = 9.0f;
@@ -941,4 +941,4 @@ void GameDetailView::CheckRow::draw(NVGcontext* vg, float x, float y, float widt
     }
 }
 
-} // namespace cloud
+} // namespace akira::cloud::views

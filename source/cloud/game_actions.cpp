@@ -1,6 +1,6 @@
 #include "cloud/game_actions.hpp"
 
-namespace cloud {
+namespace akira::cloud {
 
 GameActions::GameActions(const Game& game, bool signedIn, const std::optional<CardCheck>& check,
                          bool titleRefreshIdle)
@@ -74,4 +74,4 @@ auto GameActions::offerFor(const Game& game, bool signedIn) -> std::optional<Off
     return Offer::CheckAndPlay;
 }
 
-} // namespace cloud
+} // namespace akira::cloud

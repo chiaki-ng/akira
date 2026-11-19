@@ -21,9 +21,9 @@
 #include <string>
 #include <vector>
 
-using namespace brls::literals;
+namespace akira::cloud::views {
 
-namespace cloud {
+using namespace brls::literals;
 
 static constexpr size_t kCloudPerRow = 4;
 static constexpr float kCloudRowHeight = 258.0f;
@@ -38,7 +38,7 @@ static brls::Box* makePill(const std::string& text, NVGcolor color)
     pill->setPaddingTop(1);
     pill->setPaddingBottom(2);
     pill->setMarginRight(6);
-    pill->setBackgroundColor(akira::app::views::withAlpha(color, 0x2e));
+    pill->setBackgroundColor(app::views::withAlpha(color, 0x2e));
 
     auto* label = new brls::Label();
     label->setText(text);
@@ -59,14 +59,14 @@ public:
         this->setFocusable(false);
         this->setCornerRadius(14);
         this->setPadding(12, 12, 12, 12);
-        this->setBackgroundColor(akira::app::views::active().surface);
+        this->setBackgroundColor(app::views::active().surface);
 
         cover = new brls::Image();
         cover->setHeight(178);
         cover->setWidthPercentage(100.0f);
         cover->setCornerRadius(10);
         cover->setScalingType(brls::ImageScalingType::FILL);
-        cover->setBackgroundColor(akira::app::views::active().surfaceElevated);
+        cover->setBackgroundColor(app::views::active().surfaceElevated);
         this->addView(cover);
 
         name = new brls::Label();
@@ -96,7 +96,7 @@ public:
                 return true;
             });
 
-        akira::app::views::motion::liftOnFocus(this, focusAnim);
+        app::views::motion::liftOnFocus(this, focusAnim);
         g_liveCloudCards.push_back(this);
     }
 
@@ -110,7 +110,7 @@ public:
     void bind(const Game& game, const std::function<void(const Game&)>& onLaunch,
         const std::function<void(const Game&)>& onPin)
     {
-        const auto& pal = akira::app::views::active();
+        const auto& pal = app::views::active();
         bool streamable = game.streamableNow() && !game.launchLeftOut;
 
         boundGame = game;
@@ -191,7 +191,7 @@ private:
     brls::Animatable focusAnim{0.0f};
 };
 
-class CloudGameRowCell : public akira::app::views::RecyclingGridItem {
+class CloudGameRowCell : public app::views::RecyclingGridItem {
 public:
     CloudGameRowCell()
     {
@@ -209,7 +209,7 @@ public:
         }
     }
 
-    static akira::app::views::RecyclingGridItem* create()
+    static app::views::RecyclingGridItem* create()
     {
         return new CloudGameRowCell();
     }
@@ -239,7 +239,7 @@ private:
     CloudGameCard* cards[kCloudPerRow] = {};
 };
 
-class CloudCatalogDataSource : public akira::app::views::RecyclingGridDataSource {
+class CloudCatalogDataSource : public app::views::RecyclingGridDataSource {
 public:
     CloudCatalogDataSource(std::vector<Game> games, std::function<void(const Game&)> onLaunch,
         std::function<void(const Game&)> onPin)
@@ -257,7 +257,7 @@ public:
         return kCloudRowHeight;
     }
 
-    akira::app::views::RecyclingGridItem* cellForRow(akira::app::views::RecyclingView* recycler, size_t index) override
+    app::views::RecyclingGridItem* cellForRow(app::views::RecyclingView* recycler, size_t index) override
     {
         auto* cell = dynamic_cast<CloudGameRowCell*>(recycler->dequeueReusableCell("CloudRow"));
         if (!cell)
@@ -392,7 +392,7 @@ LibraryView::LibraryView()
         platformChips.push_back(chip);
     }
 
-    grid = new akira::app::views::RecyclingGrid();
+    grid = new app::views::RecyclingGrid();
     grid->setGrow(1.0f);
     grid->registerCell("CloudRow", CloudGameRowCell::create);
     grid->estimatedRowHeight = kCloudRowHeight;
@@ -424,12 +424,12 @@ void LibraryView::refresh(bool force)
     const uint64_t gen = ++generation;
     auto guard = alive;
 
-    akira::log::info("CloudLib: refresh(force={}) gen={}", force, gen);
+    log::info("CloudLib: refresh(force={}) gen={}", force, gen);
     fetch.follow(gen);
     renderSnapshot(Service::instance().snapshotForActiveProfile());
     Service::instance().refreshActiveProfile(force,
         [this, guard, gen](const Snapshot& snapshot) {
-            akira::log::info("CloudLib: refresh cb gen={} cur={} alive={} avail={} hasCatalog={} games={}",
+            log::info("CloudLib: refresh cb gen={} cur={} alive={} avail={} hasCatalog={} games={}",
                 gen, generation, *guard, static_cast<int>(snapshot.status.availability),
                 snapshot.hasCatalog, snapshot.catalog.games.size());
             if (!*guard || gen != generation)
@@ -457,14 +457,14 @@ void LibraryView::showFetch(uint64_t operation, const FetchProgress& progress)
     if (!loadingLines)
         return;
     if (change == FollowedFetch::Change::Step)
-        akira::app::views::motion::crossfade(loadingLines->box, stepFade, [this]() { writeLoadingLines(); });
+        app::views::motion::crossfade(loadingLines->box, stepFade, [this]() { writeLoadingLines(); });
     else if (!stepFade.isRunning())
         writeLoadingLines();
 }
 
 void LibraryView::addLoadingLines(brls::Box* panel, const std::string& waitingText)
 {
-    const auto& pal = akira::app::views::active();
+    const auto& pal = app::views::active();
 
     auto* box = new brls::Box();
     box->setAxis(brls::Axis::COLUMN);
@@ -532,7 +532,7 @@ void LibraryView::dropLoadingLines()
 
 void LibraryView::renderSnapshot(const Snapshot& snapshot)
 {
-    const auto& pal = akira::app::views::active();
+    const auto& pal = app::views::active();
     const Status& status = snapshot.status;
 
     canPairState = status.canPair;
@@ -586,14 +586,14 @@ void LibraryView::renderSnapshot(const Snapshot& snapshot)
     {
         statusChipLabel->setText(chipText);
         statusChipLabel->setTextColor(chipColor);
-        statusChip->setBackgroundColor(akira::app::views::withAlpha(chipColor, 0x2e));
+        statusChip->setBackgroundColor(app::views::withAlpha(chipColor, 0x2e));
     }
 
     (void)pal;
 
     if (!snapshot.hasCatalog || snapshot.catalog.games.empty())
     {
-        akira::log::info("CloudLib: renderSnapshot -> STATE (avail={} hasCatalog={} games={})",
+        log::info("CloudLib: renderSnapshot -> STATE (avail={} hasCatalog={} games={})",
             static_cast<int>(status.availability), snapshot.hasCatalog, snapshot.catalog.games.size());
         grid->setVisibility(brls::Visibility::GONE);
         grid->clearData();
@@ -605,7 +605,7 @@ void LibraryView::renderSnapshot(const Snapshot& snapshot)
         return;
     }
 
-    akira::log::info("CloudLib: renderSnapshot -> CATALOG ({} games)", snapshot.catalog.games.size());
+    log::info("CloudLib: renderSnapshot -> CATALOG ({} games)", snapshot.catalog.games.size());
 
     bool refocusGrid = false;
     for (brls::View* f = brls::Application::getCurrentFocus(); f; f = f->getParent())
@@ -630,7 +630,7 @@ void LibraryView::renderSnapshot(const Snapshot& snapshot)
 
 void LibraryView::showState(const Snapshot& snapshot)
 {
-    const auto& pal = akira::app::views::active();
+    const auto& pal = app::views::active();
     const Status& st = snapshot.status;
 
     bool refocus = false;
@@ -762,7 +762,7 @@ void LibraryView::scheduleUnlock()
     brls::delay(static_cast<long>(wait), [this, guard, scheduled]() {
         if (!*guard || scheduled != unlockGeneration)
             return;
-        akira::log::info("CloudLib: a scheduled release is due, reloading the library");
+        log::info("CloudLib: a scheduled release is due, reloading the library");
         refresh(true);
     });
 }
@@ -795,7 +795,7 @@ auto LibraryView::platformTitle(PlatformFilter platform) -> std::string
 
 void LibraryView::styleChip(brls::Button* chip, bool selected)
 {
-    const auto& pal = akira::app::views::active();
+    const auto& pal = app::views::active();
     chip->setStyle(&brls::BUTTONSTYLE_BORDERLESS);
     chip->setCornerRadius(16);
     chip->setHeight(36);
@@ -803,7 +803,7 @@ void LibraryView::styleChip(brls::Button* chip, bool selected)
     chip->setPaddingRight(14);
     chip->setFontSize(16);
     chip->setTextColor(selected ? pal.accent : pal.textMuted);
-    chip->setBackgroundColor(selected ? akira::app::views::withAlpha(pal.accent, 0x40) : pal.surface);
+    chip->setBackgroundColor(selected ? app::views::withAlpha(pal.accent, 0x40) : pal.surface);
 }
 
 void LibraryView::rebuildFilterControls()
@@ -893,13 +893,13 @@ void LibraryView::applyFilter()
     if (countLabel)
     {
         countLabel->setVisibility(listed == 0 ? brls::Visibility::GONE : brls::Visibility::VISIBLE);
-        countLabel->setTextColor(akira::app::views::active().textDim);
+        countLabel->setTextColor(app::views::active().textDim);
         countLabel->setText(filtered.size() != listed
             ? brls::getStr("akira/cloud/count_filtered", filtered.size(), listed)
             : brls::getStr("akira/cloud/count_all", listed));
     }
 
-    akira::log::info("CloudLib: applyFilter tab={} platform={} q='{}' -> {}/{} games",
+    log::info("CloudLib: applyFilter tab={} platform={} q='{}' -> {}/{} games",
         LibraryListing::key(listing.filter()), static_cast<int>(listing.platform()), listing.query(),
         filtered.size(), listed);
 
@@ -1036,12 +1036,12 @@ void LibraryView::showAddGameDialog(const Game& game)
      */
     if (!game.conceptUrl.empty())
         msg += "\n\n" + brls::getStr("akira/cloud/add_game_store", game.conceptUrl);
-    akira::app::views::QrCodeView::openDialog(game.conceptUrl, msg);
+    app::views::QrCodeView::openDialog(game.conceptUrl, msg);
 }
 
 void LibraryView::openSignIn()
 {
-    brls::Application::pushActivity(new brls::Activity(new akira::accounts::views::QrSignInView()));
+    brls::Application::pushActivity(new brls::Activity(new accounts::views::QrSignInView()));
 }
 
 void LibraryView::openDetail(const Game& game)
@@ -1049,4 +1049,4 @@ void LibraryView::openDetail(const Game& game)
     brls::Application::pushActivity(new brls::Activity(new GameDetailView(game, listing.listed())));
 }
 
-} // namespace cloud
+} // namespace akira::cloud::views

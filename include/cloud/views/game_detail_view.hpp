@@ -17,7 +17,7 @@
 #include "cloud/models.hpp"
 #include "cloud/service.hpp"
 
-namespace cloud {
+namespace akira::cloud::views {
 
 class GameDetailView : public brls::Box {
 public:
@@ -125,6 +125,6 @@ private:
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 };
 
-} // namespace cloud
+} // namespace akira::cloud::views
 
 #endif // AKIRA_CLOUD_GAME_DETAIL_VIEW_HPP

@@ -13,7 +13,7 @@
 #include "cloud/service.hpp"
 #include "app/views/vendored/switchfin/recycling_grid.hpp"
 
-namespace cloud {
+namespace akira::cloud::views {
 
 class LibraryView : public brls::Box {
 public:
@@ -69,9 +69,9 @@ private:
     brls::Label* countLabel = nullptr;
     bool canPairState = false;
     bool checkingState = false;
-    akira::app::views::RecyclingGrid* grid = nullptr;
+    app::views::RecyclingGrid* grid = nullptr;
     brls::Box* stateBox = nullptr;
-    akira::app::views::RecyclingGridDataSource* dataSource = nullptr;
+    app::views::RecyclingGridDataSource* dataSource = nullptr;
 
     struct LoadingLines {
         brls::Box* box = nullptr;
@@ -89,6 +89,6 @@ private:
     uint64_t generation = 0;
 };
 
-} // namespace cloud
+} // namespace akira::cloud::views
 
 #endif // AKIRA_CLOUD_LIBRARY_VIEW_HPP

@@ -8,7 +8,7 @@
 
 #include "cloud/models.hpp"
 
-namespace cloud {
+namespace akira::cloud {
 
 class CardCheck {
 public:
@@ -93,6 +93,6 @@ private:
     bool launchChecks = false;
 };
 
-} // namespace cloud
+} // namespace akira::cloud
 
 #endif // AKIRA_CLOUD_GAME_ACTIONS_HPP

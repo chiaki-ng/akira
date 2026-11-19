@@ -195,8 +195,8 @@ uint32_t configKeyToChiakiButton(const std::string& key) {
     return 0;
 }
 
-std::vector<cloud::Game> readShortcuts(const toml::array* arr) {
-    std::vector<cloud::Game> out;
+std::vector<akira::cloud::Game> readShortcuts(const toml::array* arr) {
+    std::vector<akira::cloud::Game> out;
     if (!arr)
         return out;
 
@@ -204,7 +204,7 @@ std::vector<cloud::Game> readShortcuts(const toml::array* arr) {
         const auto* t = node.as_table();
         if (!t) continue;
 
-        cloud::Game g;
+        akira::cloud::Game g;
         g.productId = (*t)["product_id"].value<std::string>().value_or("");
         g.name = (*t)["name"].value<std::string>().value_or("");
         if (g.productId.empty() || g.name.empty()) continue;
@@ -227,9 +227,9 @@ std::vector<cloud::Game> readShortcuts(const toml::array* arr) {
     return out;
 }
 
-toml::array shortcutsToToml(const std::vector<cloud::Game>& shortcuts) {
+toml::array shortcutsToToml(const std::vector<akira::cloud::Game>& shortcuts) {
     toml::array arr;
-    for (const cloud::Game& g : shortcuts) {
+    for (const akira::cloud::Game& g : shortcuts) {
         toml::table t;
         t.insert("product_id", g.productId);
         t.insert("name", g.name);
@@ -251,8 +251,8 @@ toml::array shortcutsToToml(const std::vector<cloud::Game>& shortcuts) {
     return arr;
 }
 
-std::vector<cloud::Datacenter> readDatacenters(const toml::array* arr) {
-    std::vector<cloud::Datacenter> out;
+std::vector<akira::cloud::Datacenter> readDatacenters(const toml::array* arr) {
+    std::vector<akira::cloud::Datacenter> out;
     if (!arr)
         return out;
 
@@ -260,7 +260,7 @@ std::vector<cloud::Datacenter> readDatacenters(const toml::array* arr) {
         const auto* t = node.as_table();
         if (!t) continue;
 
-        cloud::Datacenter dc;
+        akira::cloud::Datacenter dc;
         dc.name = (*t)["name"].value<std::string>().value_or("");
         if (dc.name.empty()) continue;
 
@@ -285,9 +285,9 @@ std::vector<cloud::Datacenter> readDatacenters(const toml::array* arr) {
     return out;
 }
 
-toml::array datacentersToToml(const std::vector<cloud::Datacenter>& datacenters) {
+toml::array datacentersToToml(const std::vector<akira::cloud::Datacenter>& datacenters) {
     toml::array arr;
-    for (const cloud::Datacenter& dc : datacenters) {
+    for (const akira::cloud::Datacenter& dc : datacenters) {
         toml::table t;
         t.insert("name", dc.name);
         t.insert("rtt", dc.rttMs);
@@ -1663,12 +1663,12 @@ void SettingsManager::setCloudFsrEnabled(bool pscloud, bool enabled) {
         cloudFsrEnabledPsnow = enabled;
 }
 
-std::vector<cloud::Datacenter> SettingsManager::getCloudDatacenters(bool pscloud) const {
+std::vector<akira::cloud::Datacenter> SettingsManager::getCloudDatacenters(bool pscloud) const {
     std::lock_guard<std::mutex> lock(datacenterMutex);
     return pscloud ? cloudDatacentersPscloud : cloudDatacentersPsnow;
 }
 
-void SettingsManager::setCloudDatacenters(bool pscloud, std::vector<cloud::Datacenter> datacenters) {
+void SettingsManager::setCloudDatacenters(bool pscloud, std::vector<akira::cloud::Datacenter> datacenters) {
     std::lock_guard<std::mutex> lock(datacenterMutex);
     if (pscloud)
         cloudDatacentersPscloud = std::move(datacenters);
@@ -1692,13 +1692,13 @@ void SettingsManager::setCloudFilter(std::string filter) {
     cloudFilter = std::move(filter);
 }
 
-const std::vector<cloud::Game>& SettingsManager::getCloudShortcuts() const {
-    static const std::vector<cloud::Game> none;
+const std::vector<akira::cloud::Game>& SettingsManager::getCloudShortcuts() const {
+    static const std::vector<akira::cloud::Game> none;
     const akira::accounts::Profile* p = getActiveProfile();
     return p ? p->cloudShortcuts : none;
 }
 
-void SettingsManager::setCloudShortcuts(std::vector<cloud::Game> shortcuts) {
+void SettingsManager::setCloudShortcuts(std::vector<akira::cloud::Game> shortcuts) {
     ensureActiveProfile()->cloudShortcuts = std::move(shortcuts);
 }
 

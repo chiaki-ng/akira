@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-namespace cloud {
+namespace akira::cloud {
 
 class FetchFailure {
 public:
@@ -150,6 +150,6 @@ private:
     std::optional<FetchProgress> current;
 };
 
-} // namespace cloud
+} // namespace akira::cloud
 
 #endif // AKIRA_CLOUD_FETCH_PROGRESS_HPP

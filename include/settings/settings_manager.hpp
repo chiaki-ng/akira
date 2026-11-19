@@ -130,8 +130,8 @@ private:
     bool cloudFsrEnabledPsnow = false;
     std::string cloudDuid;
     mutable std::mutex datacenterMutex;
-    std::vector<cloud::Datacenter> cloudDatacentersPscloud;
-    std::vector<cloud::Datacenter> cloudDatacentersPsnow;
+    std::vector<akira::cloud::Datacenter> cloudDatacentersPscloud;
+    std::vector<akira::cloud::Datacenter> cloudDatacentersPsnow;
     int cloudSortState = 0;
 
     std::string cloudFilter;
@@ -338,15 +338,15 @@ public:
     void setCloudVideoResolution(bool pscloud, int value);
     bool getCloudFsrEnabled(bool pscloud) const;
     void setCloudFsrEnabled(bool pscloud, bool enabled);
-    std::vector<cloud::Datacenter> getCloudDatacenters(bool pscloud) const;
-    void setCloudDatacenters(bool pscloud, std::vector<cloud::Datacenter> datacenters);
+    std::vector<akira::cloud::Datacenter> getCloudDatacenters(bool pscloud) const;
+    void setCloudDatacenters(bool pscloud, std::vector<akira::cloud::Datacenter> datacenters);
     int getCloudSortState() const;
     void setCloudSortState(int value);
 
     const std::string& getCloudFilter() const;
     void setCloudFilter(std::string filter);
-    const std::vector<cloud::Game>& getCloudShortcuts() const;
-    void setCloudShortcuts(std::vector<cloud::Game> shortcuts);
+    const std::vector<akira::cloud::Game>& getCloudShortcuts() const;
+    void setCloudShortcuts(std::vector<akira::cloud::Game> shortcuts);
     VideoResolution getVpnVideoResolution() const;
     void setVpnVideoResolution(VideoResolution value);
     VideoFps getVpnVideoFPS() const;

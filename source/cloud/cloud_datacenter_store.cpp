@@ -4,7 +4,7 @@
 #include <chrono>
 #include <utility>
 
-namespace akira {
+namespace akira::cloud {
 
 using libchiaking::unexpected;
 using libchiaking::play::DatacenterName;
@@ -18,7 +18,7 @@ auto CloudDatacenterStore::load(ServiceGeneration service)
     -> libchiaking::Expected<std::vector<Measurement>, Error>
 {
     std::vector<Measurement> measurements;
-    for (const cloud::Datacenter& datacenter : settings.getCloudDatacenters(pscloud(service))) {
+    for (const Datacenter& datacenter : settings.getCloudDatacenters(pscloud(service))) {
         auto name = DatacenterName::parse(datacenter.name);
         if (!name || !datacenter.measured)
             continue;
@@ -43,10 +43,10 @@ auto CloudDatacenterStore::load(ServiceGeneration service)
 auto CloudDatacenterStore::save(ServiceGeneration service, std::span<const Measurement> measurements)
     -> libchiaking::Expected<void, Error>
 {
-    std::vector<cloud::Datacenter> datacenters;
+    std::vector<Datacenter> datacenters;
     datacenters.reserve(measurements.size());
     for (const Measurement& measurement : measurements) {
-        cloud::Datacenter datacenter;
+        Datacenter datacenter;
         datacenter.name = measurement.name().text();
         datacenter.rttMs = static_cast<int>(measurement.round_trip().count());
         for (const auto sample : measurement.probe().samples)

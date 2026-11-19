@@ -1,6 +1,6 @@
 #include "cloud/start_steps.hpp"
 
-namespace cloud {
+namespace akira::cloud {
 
 bool StartSteps::advance(Step step)
 {
@@ -31,4 +31,4 @@ auto StartSteps::mark(Step step) const -> Mark
     return phase == Phase::Failed ? Mark::Failed : Mark::Running;
 }
 
-} // namespace cloud
+} // namespace akira::cloud

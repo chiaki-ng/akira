@@ -8,7 +8,7 @@
 
 #include <string>
 
-namespace cloud {
+namespace akira::cloud {
 
 CloudConnectTask::CloudConnectTask(const Game& game)
     : game(game)
@@ -41,7 +41,7 @@ std::string CloudConnectTask::title() const
     return brls::getStr("akira/connection/connecting_to", game.name);
 }
 
-void CloudConnectTask::start(akira::play::views::ConnectSink& s)
+void CloudConnectTask::start(play::views::ConnectSink& s)
 {
     cancel();
     auto state = std::make_shared<CallbackState>();
@@ -79,7 +79,7 @@ void CloudConnectTask::handOver(const std::shared_ptr<CallbackState>& state, std
     if (state->stop.stop_requested() || !state->sink)
         return;
 
-    auto host = std::make_shared<akira::consoles::Host>(launch->name());
+    auto host = std::make_shared<consoles::Host>(launch->name());
     host->setCloudLaunch(*launch);
     state->sink->succeeded(host.get(), host);
 }
@@ -93,4 +93,4 @@ void CloudConnectTask::cancel()
     callbackState->sink = nullptr;
 }
 
-} // namespace cloud
+} // namespace akira::cloud
