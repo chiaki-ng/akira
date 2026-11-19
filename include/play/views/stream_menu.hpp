@@ -1,6 +1,7 @@
 #ifndef AKIRA_STREAM_MENU_HPP
 #define AKIRA_STREAM_MENU_HPP
 
+#include "play/stream_controls.hpp"
 #include "play/stream_stats.hpp"
 #include "play/views/stream_card.hpp"
 #include <borealis.hpp>
@@ -39,11 +40,7 @@ private:
     void buildCards();
     void registerNavigation();
 
-    void moveSelection(int delta);
-    void moveOption(int delta);
-    void enterPanel();
-    void leavePanel();
-    void fire();
+    void apply(StreamControls::Action action);
     void dismiss();
 
     StreamCard* selected() const;
@@ -74,16 +71,10 @@ private:
         int index = 0;
     };
 
+    StreamControls controls;
     std::vector<std::unique_ptr<StreamCard>> cards;
-    size_t selection = 0;
-    int optionCursor = -1;
-    bool inPanel = false;
-    bool sleepAvailable = true;
-    bool playersAvailable = true;
     std::string consoleName = "PlayStation";
     bool consolePs5 = false;
-
-    StatsOverlayMode statsMode = StatsOverlayMode::Off;
 
     CardTheme theme;
     float railY = 0.0f;

@@ -3,6 +3,7 @@
 #include "app/view_services.hpp"
 #include "play/views/stream_cards.hpp"
 #include "play/session.hpp"
+#include "play/stream_summary.hpp"
 #include "app/views/glass.hpp"
 #include "app/views/theme.hpp"
 
@@ -133,14 +134,9 @@ void StreamMenu::handleTap(float px, float py)
     {
         if (inside(px, py, r.x, r.y, r.w, r.h))
         {
-            StreamCard* card = selected();
-            if (!card)
+            if (!selected())
                 return;
-            inPanel = true;
-            optionCursor = r.index;
-            card->chooseOption(r.index);
-            if (card->closesMenu())
-                dismiss();
+            apply(controls.tapOption(r.index));
             return;
         }
     }
@@ -155,24 +151,7 @@ void StreamMenu::handleTap(float px, float py)
             return;
 
         pulse(index);
-
-        if (cards[index]->isInstant())
-        {
-            selection = index;
-            cards[index]->activate();
-            if (cards[index]->closesMenu())
-                dismiss();
-            return;
-        }
-
-        if (selection != index)
-        {
-            selection = index;
-            optionCursor = -1;
-        }
-        inPanel = true;
-        if (optionCursor < 0)
-            optionCursor = cards[index]->optionIndex() >= 0 ? cards[index]->optionIndex() : 0;
+        apply(controls.tapControl(index));
         return;
     }
 
@@ -184,158 +163,104 @@ void StreamMenu::buildCards()
 {
     cards.clear();
 
-    cards.push_back(std::make_unique<PowerCard>(sleepAvailable, [this](bool sleep) {
-        if (onDisconnect)
-            onDisconnect(sleep);
-    }));
-
-    cards.push_back(std::make_unique<StatsCard>(statsMode, [this](StatsOverlayMode m) {
-        statsMode = m;
-        if (onStatsToggle)
-            onStatsToggle(m);
-    }));
-
-    cards.push_back(std::make_unique<PadCard>([this]() {
-        if (onButtonMapping)
-            onButtonMapping();
-    }));
-
-    if (onPlayers) {
-        cards.push_back(std::make_unique<PlayersCard>(playersAvailable, [this]() {
-            if (onPlayers)
-                onPlayers();
-        }));
+    const auto& shown = controls.controls();
+    for (size_t i = 0; i < shown.size(); i++)
+    {
+        switch (shown[i])
+        {
+            case StreamControls::Control::Power:
+                cards.push_back(std::make_unique<PowerCard>(controls.offersSleep(), [this](bool sleep) {
+                    if (onDisconnect)
+                        onDisconnect(sleep);
+                }));
+                break;
+            case StreamControls::Control::Stats:
+                cards.push_back(std::make_unique<StatsCard>(controls.stats(), [this](StatsOverlayMode m) {
+                    if (onStatsToggle)
+                        onStatsToggle(m);
+                }));
+                break;
+            case StreamControls::Control::Pad:
+                cards.push_back(std::make_unique<PadCard>([this]() {
+                    if (onButtonMapping)
+                        onButtonMapping();
+                }));
+                break;
+            case StreamControls::Control::Players:
+                cards.push_back(std::make_unique<PlayersCard>(controls.available(i), [this]() {
+                    if (onPlayers)
+                        onPlayers();
+                }));
+                break;
+            case StreamControls::Control::Motion:
+                cards.push_back(std::make_unique<MotionCard>([this]() {
+                    if (onGyroReset)
+                        onGyroReset();
+                }));
+                break;
+        }
     }
-
-    cards.push_back(std::make_unique<MotionCard>([this]() {
-        if (onGyroReset)
-            onGyroReset();
-    }));
 }
 
 void StreamMenu::registerNavigation()
 {
     this->registerAction("", brls::ControllerButton::BUTTON_NAV_LEFT, [this](brls::View*) {
-        if (inPanel)
-            moveOption(-1);
+        if (controls.inPanel())
+            controls.moveOption(-1);
         else
-            moveSelection(-1);
+            controls.moveSelection(-1);
         return true;
     }, true, true, brls::SOUND_FOCUS_SIDEBAR);
 
     this->registerAction("", brls::ControllerButton::BUTTON_NAV_RIGHT, [this](brls::View*) {
-        if (inPanel)
-            moveOption(1);
+        if (controls.inPanel())
+            controls.moveOption(1);
         else
-            moveSelection(1);
+            controls.moveSelection(1);
         return true;
     }, true, true, brls::SOUND_FOCUS_SIDEBAR);
 
     this->registerAction("", brls::ControllerButton::BUTTON_NAV_UP, [this](brls::View*) {
-        enterPanel();
+        controls.enterPanel();
         return true;
     }, true, false, brls::SOUND_FOCUS_CHANGE);
 
     this->registerAction("", brls::ControllerButton::BUTTON_NAV_DOWN, [this](brls::View*) {
-        leavePanel();
+        controls.leavePanel();
         return true;
     }, true, false, brls::SOUND_FOCUS_CHANGE);
 
     this->registerAction("", brls::ControllerButton::BUTTON_A, [this](brls::View*) {
-        fire();
+        apply(controls.fire());
         return true;
     }, false, false, brls::SOUND_CLICK);
 
     this->registerAction("", brls::ControllerButton::BUTTON_B, [this](brls::View*) {
-        if (inPanel)
-        {
-            leavePanel();
-            return true;
-        }
-        dismiss();
+        if (controls.back())
+            dismiss();
         return true;
     }, false, false, brls::SOUND_BACK);
 }
 
 StreamCard* StreamMenu::selected() const
 {
-    if (cards.empty() || selection >= cards.size())
+    if (cards.empty() || controls.selection() >= cards.size())
         return nullptr;
-    return cards[selection].get();
+    return cards[controls.selection()].get();
 }
 
-void StreamMenu::moveSelection(int delta)
+void StreamMenu::apply(StreamControls::Action action)
 {
-    if (cards.empty())
+    if (action.kind == StreamControls::Action::Kind::None || action.control >= cards.size())
         return;
 
-    int n = (int)cards.size();
-    int i = (int)selection;
-    for (int step = 0; step < n; step++)
-    {
-        i = (i + delta + n) % n;
-        if (cards[i]->available())
-            break;
-    }
-    selection = (size_t)i;
-    optionCursor = -1;
-}
+    if (action.kind == StreamControls::Action::Kind::Choose)
+        cards[action.control]->chooseOption(action.option);
+    else
+        cards[action.control]->activate();
 
-void StreamMenu::moveOption(int delta)
-{
-    StreamCard* card = selected();
-    if (!card)
-        return;
-
-    int n = card->optionCount();
-    if (n <= 0)
-        return;
-
-    if (optionCursor < 0)
-        optionCursor = card->optionIndex() >= 0 ? card->optionIndex() : 0;
-
-    optionCursor = (optionCursor + delta + n) % n;
-}
-
-void StreamMenu::enterPanel()
-{
-    StreamCard* card = selected();
-    if (!card || card->optionCount() <= 0)
-        return;
-
-    inPanel = true;
-    if (optionCursor < 0)
-        optionCursor = card->optionIndex() >= 0 ? card->optionIndex() : 0;
-}
-
-void StreamMenu::leavePanel()
-{
-    inPanel = false;
-}
-
-void StreamMenu::fire()
-{
-    StreamCard* card = selected();
-    if (!card || !card->available())
-        return;
-
-    if (inPanel && card->optionCount() > 0)
-    {
-        card->chooseOption(optionCursor < 0 ? 0 : optionCursor);
-        if (card->closesMenu())
-            dismiss();
-        return;
-    }
-
-    if (card->isInstant())
-    {
-        card->activate();
-        if (card->closesMenu())
-            dismiss();
-        return;
-    }
-
-    enterPanel();
+    if (action.dismiss)
+        dismiss();
 }
 
 void StreamMenu::dismiss()
@@ -380,24 +305,26 @@ void StreamMenu::setOnButtonMapping(std::function<void()> callback)
 void StreamMenu::setOnPlayers(std::function<void()> callback)
 {
     onPlayers = std::move(callback);
+    if (onPlayers)
+        controls.offerPlayers();
     buildCards();
 }
 
 void StreamMenu::setStatsMode(StatsOverlayMode mode)
 {
-    statsMode = mode;
+    controls.showStats(mode);
     buildCards();
 }
 
 void StreamMenu::setSleepAvailable(bool available)
 {
-    sleepAvailable = available;
+    controls.offerSleep(available);
     buildCards();
 }
 
 void StreamMenu::setPlayersAvailable(bool available)
 {
-    playersAvailable = available;
+    controls.enablePlayers(available);
     buildCards();
 }
 
@@ -555,10 +482,11 @@ void StreamMenu::drawIdentity(NVGcontext* vg, float x, float y, float e, const a
     float dotR = 3.0f * s;
     float my = cy + 7.0f * s;
 
+    const StreamSummary summary(st);
     NVGcolor health = p.success;
-    if (st.packet_loss_percent >= 2.0f)
+    if (summary.health() == StreamSummary::Health::Poor)
         health = p.danger;
-    else if (st.packet_loss_percent >= 0.5f)
+    else if (summary.health() == StreamSummary::Health::Fair)
         health = p.warning;
 
     nvgBeginPath(vg);
@@ -566,10 +494,7 @@ void StreamMenu::drawIdentity(NVGcontext* vg, float x, float y, float e, const a
     nvgFillColor(vg, fade(health, e));
     nvgFill(vg);
 
-    uint64_t mins = st.stream_duration_seconds / 60;
-    uint64_t secs = st.stream_duration_seconds % 60;
-    int shownH = st.video_height > 0 ? st.video_height : st.requested_height;
-    std::string meta = std::format("{}p{} \xc2\xb7 {}m{:02}s", shownH, st.requested_fps, mins, secs);
+    const std::string meta = summary.meta();
 
     nvgFontSize(vg, 12.5f * s);
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
@@ -583,12 +508,12 @@ void StreamMenu::drawRail(NVGcontext* vg, float x, float y, float lift, float dt
     float s = theme.s;
     float step = (CARD_SIZE + CARD_GAP) * s;
 
-    float targetSelX = x + (float)selection * step;
+    float targetSelX = x + (float)controls.selection() * step;
     if (selX < 0.0f)
         selX = targetSelX;
     selX = approach(selX, targetSelX, 24.0f, dt);
 
-    if (!inPanel)
+    if (!controls.inPanel())
     {
         float size = CARD_SIZE * s;
         float r = CARD_RADIUS * s;
@@ -606,7 +531,7 @@ void StreamMenu::drawRail(NVGcontext* vg, float x, float y, float lift, float dt
         float cy = y + lift + (1.0f - ce) * CARD_RISE * s;
         float cx = x + (float)i * step;
 
-        drawCard(vg, cards[i].get(), cx, cy, i == selection, ce, i, p);
+        drawCard(vg, cards[i].get(), cx, cy, i == controls.selection(), ce, i, p);
 
         if (cards[i]->available())
             cardHits.push_back({ cx - 6.0f * s, cy - 6.0f * s,
@@ -871,7 +796,7 @@ void StreamMenu::drawOptions(NVGcontext* vg, float x, float y, float w)
         float bh = 34.0f * s;
 
         bool isActive = (i == active);
-        bool isCursor = inPanel && i == optionCursor;
+        bool isCursor = controls.inPanel() && i == controls.optionCursor();
 
         if (isCursor)
         {
@@ -906,7 +831,7 @@ void StreamMenu::drawHints(NVGcontext* vg, float right, float y, float e,
     struct Hint { const char* glyph; std::string text; };
     std::vector<Hint> hints;
 
-    if (inPanel)
+    if (controls.inPanel())
     {
         hints.push_back({ "A", "akira/stream_menu/hint_select"_i18n });
         hints.push_back({ "B", "akira/stream_menu/hint_back"_i18n });
