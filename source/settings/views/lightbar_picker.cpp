@@ -10,13 +10,7 @@ namespace akira::settings::views
 
 using namespace brls::literals;
 
-namespace {
-
-constexpr float kFieldHeight = 150.0f;
-constexpr float kStripHeight = 26.0f;
-constexpr float kGap         = 12.0f;
-
-void HsvToRgb(float h, float s, float v,
+void LightbarPicker::HsvToRgb(float h, float s, float v,
               std::uint8_t* r, std::uint8_t* g, std::uint8_t* b)
 {
     const float c = v * s;
@@ -36,7 +30,7 @@ void HsvToRgb(float h, float s, float v,
     *b = (std::uint8_t)std::lround((bf + m) * 255.0f);
 }
 
-void RgbToHsv(std::uint8_t r, std::uint8_t g, std::uint8_t b,
+void LightbarPicker::RgbToHsv(std::uint8_t r, std::uint8_t g, std::uint8_t b,
               float* h, float* s, float* v)
 {
     const float rf = r / 255.0f, gf = g / 255.0f, bf = b / 255.0f;
@@ -54,8 +48,6 @@ void RgbToHsv(std::uint8_t r, std::uint8_t g, std::uint8_t b,
 
     if (*h < 0.0f) *h += 360.0f;
 }
-
-} // namespace
 
 LightbarPicker::LightbarPicker(std::uint8_t r, std::uint8_t g, std::uint8_t b)
 {

@@ -488,7 +488,7 @@ void SettingsPadView::store()
     services->store.save();
 }
 
-static void ReopenWhenSettled(const akira::platform::PadDescription& pad, int attempts_left)
+void SettingsPadView::ReopenWhenSettled(const akira::platform::PadDescription& pad, int attempts_left)
 {
     if (brls::Application::isInputBlocks() && attempts_left > 0) {
         brls::delay(16, [pad, attempts_left]() { ReopenWhenSettled(pad, attempts_left - 1); });

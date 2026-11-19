@@ -23,6 +23,15 @@ public:
     }
 
 private:
+    static constexpr float kFieldHeight = 150.0f;
+    static constexpr float kStripHeight = 26.0f;
+    static constexpr float kGap         = 12.0f;
+
+    static void HsvToRgb(float h, float s, float v,
+                         std::uint8_t* r, std::uint8_t* g, std::uint8_t* b);
+    static void RgbToHsv(std::uint8_t r, std::uint8_t g, std::uint8_t b,
+                         float* h, float* s, float* v);
+
     void emit();
     void moveHue(float delta);
     void moveField(float ds, float dv);

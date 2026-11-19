@@ -26,6 +26,7 @@ public:
 private:
     static brls::Box* makeCard();
     static brls::Label* makeHeading(const std::string& text);
+    static void ReopenWhenSettled(const akira::platform::PadDescription& pad, int attempts_left);
 
     void buildHeader();
     void buildOutputRows();
