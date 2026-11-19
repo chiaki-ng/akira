@@ -13,7 +13,7 @@
 #include <poll.h>
 #include <sys/socket.h>
 
-namespace akira::pair {
+namespace akira::consoles {
 
 namespace {
 
@@ -142,7 +142,7 @@ PairAdvertiser::~PairAdvertiser() {
 
 void PairAdvertiser::start(int port) {
     stop();
-    auto started = libchiaking::platform::Thread::start(akira::ChiakiCore::current().threading(), "pair-advertiser",
+    auto started = libchiaking::platform::Thread::start(ChiakiCore::current().threading(), "pair-advertiser",
         libchiaking::platform::ThreadRole::discovery_service,
         [this, port](libchiaking::platform::StopToken stop) { run(port, stop); });
     if (started)

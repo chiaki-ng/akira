@@ -234,7 +234,7 @@ std::string MetaText(int player, const CouchSeat& seat)
     }
 }
 
-std::string WithAccount(const std::string& text, const Host* host, const Connection* connection, uint8_t slot)
+std::string WithAccount(const std::string& text, const consoles::Host* host, const Connection* connection, uint8_t slot)
 {
     if (!host || !host->isPS5())
         return text;
@@ -252,7 +252,7 @@ std::string WithAccount(const std::string& text, const Host* host, const Connect
 
 } // namespace
 
-PlayersPanelView::PlayersPanelView(Host* host, std::weak_ptr<Connection> connection, akira::platform::extended::ExtendedPadProvider* input,
+PlayersPanelView::PlayersPanelView(consoles::Host* host, std::weak_ptr<Connection> connection, akira::platform::extended::ExtendedPadProvider* input,
                                    bool claimImmediately)
     : m_host(host)
     , m_connection(std::move(connection))

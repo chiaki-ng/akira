@@ -300,7 +300,7 @@ void ProfileSwitcherView::selectProfile(int64_t id) {
     settings->setActiveProfileId(id);
     settings->writeFile();
     TrophyManager::getInstance()->onActiveProfileChanged();
-    HostListTab::notifyActiveProfileChanged();
+    akira::consoles::views::HostListTab::notifyActiveProfileChanged();
 
     if (card)
         card->refresh();
@@ -331,7 +331,7 @@ void ProfileSwitcherView::confirmRemoveProfile(int64_t id, const std::string& la
         }
         settings->writeFile();
         TrophyManager::getInstance()->onActiveProfileChanged();
-        HostListTab::notifyActiveProfileChanged();
+        akira::consoles::views::HostListTab::notifyActiveProfileChanged();
 
         /*
          * Removing the last profile leaves nothing to configure, and the settings frame

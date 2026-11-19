@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <string>
 
-using namespace akira::discovery;
+using namespace akira::consoles;
 
 namespace {
 

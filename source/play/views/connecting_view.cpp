@@ -197,7 +197,7 @@ bool ConnectingView::cancelled() const
     return wasCancelled.load();
 }
 
-void ConnectingView::succeeded(Host* host, std::shared_ptr<Host> owner)
+void ConnectingView::succeeded(consoles::Host* host, std::shared_ptr<consoles::Host> owner)
 {
     if (settled.exchange(true))
         return;

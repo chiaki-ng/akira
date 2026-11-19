@@ -59,7 +59,7 @@ void SettingsPowerUserView::initHideAccountNameToggle() {
         [this](bool isOn) {
             settings->setHideAccountName(isOn);
             settings->writeFile();
-            HostListTab::notifyAccountNameDisplayChanged();
+            akira::consoles::views::HostListTab::notifyAccountNameDisplayChanged();
         }
     );
 }

@@ -15,8 +15,9 @@
 #include <cstdio>
 #include <string>
 
+namespace akira::consoles::views {
+
 using namespace brls::literals;
-using namespace akira::pair;
 
 namespace {
 
@@ -78,7 +79,7 @@ PairView::PairView(bool createProfile) : createProfile(createProfile) {
     setFocusable(true);
 
     listenPort = SettingsManager::getInstance()->getCompanionPort();
-    const auto& palette = akira::app::views::active();
+    const auto& palette = app::views::active();
     std::string ip = PairListener::localIpv4();
     if (addrIpLabel) {
         addrIpLabel->setText(ip.empty() ? "-" : ip);
@@ -176,7 +177,7 @@ void PairView::onEvent(ListenerEvent event) {
 void PairView::applyCredentials(const PairedCredentials& creds, bool createProfile) {
     SettingsManager* settings = SettingsManager::getInstance();
 
-    akira::log::info("Pair push: create={} active={} onlineId={} accountId={} npsso={} refresh={} mobile={}",
+    log::info("Pair push: create={} active={} onlineId={} accountId={} npsso={} refresh={} mobile={}",
         createProfile, settings->getActiveProfileId(), !creds.onlineId.empty(),
         !creds.accountId.empty(), !creds.npsso.empty(), !creds.refreshToken.empty(),
         creds.hasMobile);
@@ -196,7 +197,7 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
      * normal - are the ones that would silently leak requests or silently block them.
      */
     if (profile && profile->legacy) {
-        akira::log::warning("Rejecting pair: profile {} is legacy", profile->id);
+        log::warning("Rejecting pair: profile {} is legacy", profile->id);
         brls::Application::notify("akira/pair/mode_mismatch"_i18n);
         return;
     }
@@ -209,7 +210,7 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
      */
     if (profile && !creds.accountId.empty() && !profile->accountId.empty()
         && profile->accountId != creds.accountId) {
-        akira::log::warning("Pair changes the account id on profile {}", profile->id);
+        log::warning("Pair changes the account id on profile {}", profile->id);
         brls::Application::notify("akira/pair/account_changed"_i18n);
     }
 
@@ -222,9 +223,9 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
     settings->writeFile();
     settings->logProfileCensus("pair-after");
 
-    auto* accounts = akira::ChiakiCore::current().accounts();
+    auto* accounts = ChiakiCore::current().accounts();
     if (!accounts || creds.npsso.empty()) {
-        akira::log::warning("Pair push carried no usable NPSSO, nothing to sign in with");
+        log::warning("Pair push carried no usable NPSSO, nothing to sign in with");
         brls::Application::notify(brls::getStr("akira/hosts/token_refresh_failed", "NPSSO"));
         return;
     }
@@ -233,13 +234,13 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
     accounts->signIn(profileId, creds.npsso, creds.duid,
         [profileId](psn::SignInOutcome outcome, const psn::Accounts::User& user) {
             if (outcome != psn::SignInOutcome::SignedIn || !user) {
-                akira::log::warning("Pair push sign-in for profile {} ended without a user", profileId);
+                log::warning("Pair push sign-in for profile {} ended without a user", profileId);
                 if (outcome != psn::SignInOutcome::Superseded)
                     brls::Application::notify(brls::getStr("akira/hosts/token_refresh_failed", "PSN"));
                 return;
             }
             adoptSignedInUser(profileId, user);
-            akira::log::info("Signed in to PSN from the pairing push");
+            log::info("Signed in to PSN from the pairing push");
         });
 }
 
@@ -263,4 +264,6 @@ void PairView::adoptSignedInUser(int64_t profileId, const psn::Accounts::User& u
     cloud::Service::instance().refreshActiveProfile(true);
 #endif
     HostListTab::notifyActiveProfileChanged();
+}
+
 }

@@ -18,6 +18,8 @@
 
 class SettingsManager;
 
+namespace akira::consoles {
+
 class DiscoveryManager {
 public:
     struct RemoteRefreshResult {
@@ -111,7 +113,7 @@ private:
     brls::Event<bool>::Subscription focusSubscription;
     bool focusSubscribed = false;
     bool resumeAfterPause = false;
-    akira::app::BackgroundWork::Subscription backgroundSubscription;
+    app::BackgroundWork::Subscription backgroundSubscription;
 
     HostDiscoveredCallback onHostDiscovered;
     HostsChangedCallback onHostsChanged;
@@ -130,5 +132,7 @@ private:
     uint64_t remoteRefreshReadyAtMicroseconds = 0;
     libchiaking::platform::Thread remoteThread;
 };
+
+}
 
 #endif // AKIRA_DISCOVERY_MANAGER_HPP

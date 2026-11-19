@@ -21,6 +21,8 @@
 // Forward declarations
 class SettingsManager;
 
+namespace akira::consoles {
+
 // Registration error codes
 enum HostRegisterError {
     HOST_REGISTER_OK = 0,
@@ -38,7 +40,7 @@ enum class HostType {
 };
 
 class Host {
-    friend class SettingsManager;
+    friend class ::SettingsManager;
     friend class DiscoveryManager;
 
 public:
@@ -203,5 +205,7 @@ public:
     void removeRegistrationsForProfile(int64_t profileId);
     int64_t getConsoleId() const { return consoleId; }
 };
+
+}
 
 #endif // AKIRA_HOST_HPP

@@ -15,7 +15,9 @@
 
 #include <libchiaking/play.hpp>
 
+namespace akira::consoles {
 class Host;
+}
 
 namespace cloud {
 class CloudLaunch;
@@ -78,7 +80,7 @@ public:
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;
 
-    static auto preferencesFor(Host& host, SettingsManager& settings) -> std::optional<libchiaking::play::Preferences>;
+    static auto preferencesFor(consoles::Host& host, SettingsManager& settings) -> std::optional<libchiaking::play::Preferences>;
     static auto cloudPreferencesFor(const cloud::CloudLaunch& launch, SettingsManager& settings)
         -> std::optional<libchiaking::play::Preferences>;
     static auto consoleStarter(std::shared_ptr<libchiaking::consoles::Console> console,

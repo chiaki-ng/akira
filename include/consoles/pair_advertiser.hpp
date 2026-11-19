@@ -3,7 +3,7 @@
 
 #include <libchiaking/platform/platform.hpp>
 
-namespace akira::pair {
+namespace akira::consoles {
 
 class PairAdvertiser {
 public:

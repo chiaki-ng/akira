@@ -13,6 +13,8 @@
 #endif
 #include "consoles/views/add_host_tab.hpp"
 
+namespace akira::consoles::views {
+
 class HostItemView;
 
 class HostListTab : public brls::Box {
@@ -71,5 +73,7 @@ private:
     static bool isActive;
     static bool connectionActive;
 };
+
+}
 
 #endif // AKIRA_HOST_LIST_TAB_HPP

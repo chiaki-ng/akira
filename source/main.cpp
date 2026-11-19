@@ -419,7 +419,7 @@ public:
     void onResume() override
     {
         brls::Activity::onResume();
-        HostListTab::refreshRailsIfActive();
+        akira::consoles::views::HostListTab::refreshRailsIfActive();
     }
 
     void onContentAvailable() override
@@ -471,7 +471,7 @@ public:
                             discoveryStatusTimer.setCallback([this]() {
                                 if (!discoveryStatusLabel)
                                     return;
-                                DiscoveryManager::SweepStatus st = DiscoveryManager::getInstance()->getSweepStatus();
+                                akira::consoles::DiscoveryManager::SweepStatus st = akira::consoles::DiscoveryManager::getInstance()->getSweepStatus();
                                 std::string text;
                                 if (!st.serviceRunning) {
                                     text = "akira/app/discovery_off"_i18n;
@@ -635,16 +635,16 @@ int main(int argc, char* argv[])
     AppletType appletType = appletGetAppletType();
     akira::log::info("Applet type: {} ({})", appletTypeToString(appletType), static_cast<int>(appletType));
 
-    brls::Application::registerXMLView("HostListTab", HostListTab::create);
+    brls::Application::registerXMLView("HostListTab", akira::consoles::views::HostListTab::create);
     brls::Application::registerXMLView("PsnGatedBox", PsnGatedBox::create);
     brls::Application::registerXMLView("RecyclingGrid", akira::app::views::RecyclingGrid::create);
     brls::Application::registerXMLView("TrophyListTab", TrophyListTab::create);
-    brls::Application::registerXMLView("AddHostTab", AddHostTab::create);
+    brls::Application::registerXMLView("AddHostTab", akira::consoles::views::AddHostTab::create);
     brls::Application::registerXMLView("BuildInfoTab", akira::app::views::BuildInfoTab::create);
     brls::Application::registerXMLView("ConfigViewTab", ConfigViewTab::create);
     brls::Application::registerXMLView("NetworkUtilitiesTab", NetworkUtilitiesTab::create);
     brls::Application::registerXMLView("StreamView", StreamView::create);
-    brls::Application::registerXMLView("EnterPinView", EnterPinView::create);
+    brls::Application::registerXMLView("EnterPinView", akira::consoles::views::EnterPinView::create);
 
     platform.prepareVideo();
 
@@ -678,7 +678,7 @@ int main(int argc, char* argv[])
 
     akira::log::info("Application exiting");
 
-    DiscoveryManager::getInstance()->setServiceEnabled(false);
+    akira::consoles::DiscoveryManager::getInstance()->setServiceEnabled(false);
     for (auto& [name, host] : *settings->getHostsMap())
     {
         if (host)

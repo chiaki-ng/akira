@@ -22,7 +22,7 @@ SettingsDebugView::SettingsDebugView() {
     initDebugFfmpegLogToggle();
 
     openDiscoveryLogBtn->registerClickAction([](brls::View*) {
-        brls::Application::pushActivity(new brls::Activity(new DiscoveryLogView()));
+        brls::Application::pushActivity(new brls::Activity(new akira::consoles::views::DiscoveryLogView()));
         return true;
     });
 }

@@ -79,7 +79,7 @@ void CloudConnectTask::handOver(const std::shared_ptr<CallbackState>& state, std
     if (state->stop.stop_requested() || !state->sink)
         return;
 
-    auto host = std::make_shared<Host>(launch->name());
+    auto host = std::make_shared<akira::consoles::Host>(launch->name());
     host->setCloudLaunch(*launch);
     state->sink->succeeded(host.get(), host);
 }

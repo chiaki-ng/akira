@@ -113,7 +113,7 @@ SettingsDeveloperView::SettingsDeveloperView() {
         [this](bool isOn) {
             settings->setDevFakeHosts(isOn);
             settings->writeFile();
-            HostListTab::notifyActiveProfileChanged();
+            akira::consoles::views::HostListTab::notifyActiveProfileChanged();
         });
 
     using libchiaking::play::DeveloperTuning;

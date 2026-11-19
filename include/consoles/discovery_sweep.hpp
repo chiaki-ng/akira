@@ -9,7 +9,7 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
-namespace akira::discovery {
+namespace akira::consoles {
 
 inline uint32_t prefixMask(int prefix)
 {
@@ -121,6 +121,6 @@ inline int sweepChunkCount(int totalTargets, int chunkSize)
     return (totalTargets + chunkSize - 1) / chunkSize;
 }
 
-} // namespace akira::discovery
+} // namespace akira::consoles
 
 #endif // AKIRA_DISCOVERY_SWEEP_HPP

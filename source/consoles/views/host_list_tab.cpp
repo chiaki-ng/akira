@@ -22,7 +22,6 @@
 #include "app/views/shared_view_holder.hpp"
 
 #include <borealis/core/i18n.hpp>
-using namespace brls::literals;
 
 #include <ctime>
 #include <functional>
@@ -33,6 +32,10 @@ using namespace brls::literals;
 #include <atomic>
 #include <future>
 #include <chrono>
+
+namespace akira::consoles::views {
+
+using namespace brls::literals;
 
 static const brls::ButtonStyle BUTTONSTYLE_BLUE = {
     .shadowType              = brls::ShadowType::GENERIC,
@@ -99,7 +102,7 @@ public:
 
 private:
     bool showStages;
-    akira::ui::LogPane logPane;
+    ui::LogPane logPane;
 };
 
 static void setAutoRegStage(int index, int total) {
@@ -180,13 +183,13 @@ public:
         this->registerAction("akira/hosts/options"_i18n, brls::ControllerButton::BUTTON_Y,
             [this](brls::View*) { openContextMenu(); return true; }, false);
 
-        akira::app::views::motion::liftOnFocus(this, focusAnim);
+        app::views::motion::liftOnFocus(this, focusAnim);
 
         updateState();
     }
 
     void playEntrance(int delayMs) {
-        akira::app::views::motion::fadeIn(this, entranceAnim, delayMs, 300);
+        app::views::motion::fadeIn(this, entranceAnim, delayMs, 300);
     }
 
     void updateState() {
@@ -199,46 +202,46 @@ public:
         NVGcolor typeColor;
         if (host->isRemote()) {
             typeText = "akira/hosts/remote"_i18n;
-            typeColor = akira::app::views::active().accentStrong;
+            typeColor = app::views::active().accentStrong;
         } else if (host->isManual()) {
             typeText = "akira/hosts/manual"_i18n;
-            typeColor = akira::app::views::active().media;
+            typeColor = app::views::active().media;
         } else if (host->isAuto()) {
             typeText = "akira/hosts/auto"_i18n;
-            typeColor = akira::app::views::active().accent;
+            typeColor = app::views::active().accent;
         } else {
             typeText = "akira/hosts/local"_i18n;
-            typeColor = akira::app::views::active().textMuted;
+            typeColor = app::views::active().textMuted;
         }
         typeLabel->setText(typeText);
         typeLabel->setTextColor(typeColor);
-        typePill->setBackgroundColor(akira::app::views::withAlpha(typeColor, 0x2e));
+        typePill->setBackgroundColor(app::views::withAlpha(typeColor, 0x2e));
 
         std::string pillText;
-        NVGcolor fg = akira::app::views::active().textMuted;
+        NVGcolor fg = app::views::active().textMuted;
         bool dim = true;
         if (offersLink()) {
             pillText = "akira/hosts/link"_i18n;
-            fg = akira::app::views::active().accent;
+            fg = app::views::active().accent;
         } else if (host->usesInternetPairing()) {
             pillText = "akira/hosts/ready"_i18n;
-            fg = akira::app::views::active().success;
+            fg = app::views::active().success;
             dim = false;
         } else if (!host->hasRpKey() && (host->isDiscovered() || host->canPairOverInternet())) {
             pillText = "akira/hosts/register"_i18n;
-            fg = akira::app::views::active().accent;
+            fg = app::views::active().accent;
         } else if (host->isStandby() && host->hasRpKey()) {
             pillText = "akira/hosts/standby"_i18n;
         } else if ((host->hasRpKey() && host->isReady()) || (host->isRemote() && host->hasRpKey())) {
             pillText = "akira/hosts/ready"_i18n;
-            fg = akira::app::views::active().success;
+            fg = app::views::active().success;
             dim = false;
         } else {
             pillText = host->getStateString();
         }
         statusLabel->setText(pillText);
         statusLabel->setTextColor(fg);
-        statusPill->setBackgroundColor(akira::app::views::withAlpha(fg, 0x2e));
+        statusPill->setBackgroundColor(app::views::withAlpha(fg, 0x2e));
 
         int wantDim = dim ? 1 : 0;
         if (wantDim != lastDim) {
@@ -247,7 +250,7 @@ public:
                 consoleImg->setAlpha(target);
                 dimAnim.reset(target);
             } else {
-                akira::app::views::motion::animate(dimAnim, dimAnim.getValue(), target, 260,
+                app::views::motion::animate(dimAnim, dimAnim.getValue(), target, 260,
                     brls::EasingFunction::quadraticOut,
                     [this](float v) { consoleImg->setAlpha(v); });
             }
@@ -264,7 +267,7 @@ public:
         else if (!host->hasRpKey() && (host->isDiscovered() || host->canPairOverInternet())) doRegister();
         else if (host->isStandby() && host->hasRpKey() && !host->isRemote()) doWake();
         else if (host->hasRpKey()) doConnect();
-        else akira::log::warning("No primary action for {} (remote={}, needsLink={}, discovered={}, rpkey={}, canAuto={})",
+        else log::warning("No primary action for {} (remote={}, needsLink={}, discovered={}, rpkey={}, canAuto={})",
             host->getHostName(), host->isRemote(), host->needsLink(), host->isDiscovered(), host->hasRpKey(), host->canPairOverInternet());
     }
 
@@ -316,7 +319,7 @@ private:
     }
 
     void doWake() {
-            akira::log::info("Wake {}", host->getHostName());
+            log::info("Wake {}", host->getHostName());
 
             if (host->wake()) {
                 brls::Application::notify(brls::getStr("akira/hosts/wake_sent", host->getHostName()));
@@ -330,11 +333,11 @@ private:
                 return;
             }
 
-            akira::log::info("Register button clicked for {}", host->getHostName());
+            log::info("Register button clicked for {}", host->getHostName());
 
             auto* settings = SettingsManager::getInstance();
-            auto* accounts = akira::ChiakiCore::current().accounts();
-            akira::log::info("Register {}: remoteDuid='{}' signedIn={} hasAccountId={} canAuto={}",
+            auto* accounts = ChiakiCore::current().accounts();
+            log::info("Register {}: remoteDuid='{}' signedIn={} hasAccountId={} canAuto={}",
                 host->getHostName(), host->getRemoteDuid(),
                 accounts && accounts->state() == psn::SessionState::Valid,
                 !settings->getPsnAccountId(host).empty(), host->canPairOverInternet());
@@ -393,7 +396,7 @@ private:
         pinView->setOnCancel([hostPtr]() {
             hostPtr->cancelRegistration();
             HostListTab::isRegistering = false;
-            akira::log::info("PIN entry cancelled");
+            log::info("PIN entry cancelled");
         });
         pinView->setOnPinEntered([hostPtr](const std::string& pin) {
             HostListTab::isRegistering = true;
@@ -567,7 +570,7 @@ private:
     }
 
     void doLink() {
-            akira::log::info("Link button clicked for {}", host->getHostName());
+            log::info("Link button clicked for {}", host->getHostName());
 
             std::vector<std::string> hostNames;
             std::vector<Host*> hostPtrs;
@@ -694,19 +697,19 @@ private:
 
     void doDelete() {
             std::string hostName = host->getHostName();
-            akira::log::info("Delete button clicked for {}", hostName);
+            log::info("Delete button clicked for {}", hostName);
 
             auto* dialog = new brls::Dialog(brls::getStr("akira/hosts/delete_confirm", hostName));
             dialog->addButton("akira/common/cancel"_i18n, []() {});
             dialog->addButton("akira/common/delete"_i18n, [hostName]() {
                 auto* settings = SettingsManager::getInstance();
-                auto& core = akira::ChiakiCore::current();
+                auto& core = ChiakiCore::current();
                 auto* accounts = core.accounts();
                 auto hostIt = settings->getHostsMap()->find(hostName);
                 if (accounts && hostIt != settings->getHostsMap()->end() && hostIt->second->getConsole()) {
                     if (const auto user = accounts->activeUser()) {
                         if (!core.chiaki().consoles().unpair(user->account_id(), *hostIt->second->getConsole()))
-                            akira::log::error("Could not forget the pairing with {}", hostName);
+                            log::error("Could not forget the pairing with {}", hostName);
                     }
                 }
                 settings->removeActiveProfileRegistration(hostName);
@@ -750,14 +753,14 @@ public:
         this->setMarginBottom(14);
         this->setBackgroundColor(brls::Application::getTheme().getColor("color/card"));
         this->setCornerRadius(14);
-        this->setBorderColor(akira::app::views::withAlpha(akira::app::views::active().accent, 0x66));
+        this->setBorderColor(app::views::withAlpha(app::views::active().accent, 0x66));
         this->setBorderThickness(2);
         this->setFocusable(true);
 
         auto* plus = new brls::Label();
         plus->setText("+");
         plus->setFontSize(64);
-        plus->setTextColor(akira::app::views::active().accent);
+        plus->setTextColor(app::views::active().accent);
         plus->setMarginBottom(6);
         this->addView(plus);
 
@@ -765,14 +768,14 @@ public:
         label->setText("akira/add_host/add_console"_i18n);
         label->setFontSize(22);
         label->setHorizontalAlign(brls::HorizontalAlign::CENTER);
-        label->setTextColor(akira::app::views::active().textMuted);
+        label->setTextColor(app::views::active().textMuted);
         this->addView(label);
 
         this->registerClickAction([](brls::View*) {
             openAddHostFlow();
             return true;
         });
-        akira::app::views::motion::liftOnFocus(this, focusAnim);
+        app::views::motion::liftOnFocus(this, focusAnim);
     }
 
 private:
@@ -790,14 +793,14 @@ public:
         this->setPadding(20);
         this->setBackgroundColor(brls::Application::getTheme().getColor("color/card"));
         this->setCornerRadius(14);
-        this->setBorderColor(akira::app::views::withAlpha(akira::app::views::active().accent, 0x66));
+        this->setBorderColor(app::views::withAlpha(app::views::active().accent, 0x66));
         this->setBorderThickness(2);
         this->setFocusable(true);
 
         auto* glyph = new brls::Label();
         glyph->setText("\xEE\xA1\x93");
         glyph->setFontSize(64);
-        glyph->setTextColor(akira::app::views::active().accent);
+        glyph->setTextColor(app::views::active().accent);
         glyph->setMarginBottom(10);
         this->addView(glyph);
 
@@ -805,14 +808,14 @@ public:
         label->setText("akira/hosts/setup_account"_i18n);
         label->setFontSize(22);
         label->setHorizontalAlign(brls::HorizontalAlign::CENTER);
-        label->setTextColor(akira::app::views::active().text);
+        label->setTextColor(app::views::active().text);
         this->addView(label);
 
         auto* hint = new brls::Label();
         hint->setText("akira/hosts/setup_account_hint"_i18n);
         hint->setFontSize(15);
         hint->setHorizontalAlign(brls::HorizontalAlign::CENTER);
-        hint->setTextColor(akira::app::views::active().textMuted);
+        hint->setTextColor(app::views::active().textMuted);
         hint->setMarginTop(6);
         this->addView(hint);
 
@@ -820,7 +823,7 @@ public:
             brls::Application::pushActivity(new brls::Activity(new ProfileSetupView()));
             return true;
         });
-        akira::app::views::motion::liftOnFocus(this, focusAnim);
+        app::views::motion::liftOnFocus(this, focusAnim);
     }
 
 private:
@@ -833,7 +836,7 @@ public:
     CloudCard()
     {
         cloud::Snapshot snapshot = cloud::Service::instance().snapshotForActiveProfile();
-        const auto& pal = akira::app::views::active();
+        const auto& pal = app::views::active();
 
         this->setAxis(brls::Axis::COLUMN);
         this->setAlignItems(brls::AlignItems::CENTER);
@@ -901,11 +904,11 @@ public:
         }
 
         this->setBackgroundColor(active
-            ? akira::app::views::withAlpha(pal.accentStrong, 0x24)
+            ? app::views::withAlpha(pal.accentStrong, 0x24)
             : pal.surface);
         if (active)
         {
-            this->setBorderColor(akira::app::views::withAlpha(pal.accent, 0x55));
+            this->setBorderColor(app::views::withAlpha(pal.accent, 0x55));
             this->setBorderThickness(1);
         }
 
@@ -935,7 +938,7 @@ public:
         pill->setPaddingRight(11);
         pill->setPaddingTop(2);
         pill->setPaddingBottom(3);
-        pill->setBackgroundColor(akira::app::views::withAlpha(pillColor, 0x2e));
+        pill->setBackgroundColor(app::views::withAlpha(pillColor, 0x2e));
         pill->setShrink(0);
         auto* pillLabel = new brls::Label();
         pillLabel->setText(pillText);
@@ -970,13 +973,13 @@ public:
             }
 
             auto* frame = new brls::AppletFrame(new cloud::LibraryView());
-            akira::app::views::decorateAkiraHeader(frame);
-            akira::app::views::registerAkiraTabActions(frame);
+            app::views::decorateAkiraHeader(frame);
+            app::views::registerAkiraTabActions(frame);
             brls::Application::pushActivity(new brls::Activity(frame));
             return true;
         });
 
-        akira::app::views::motion::liftOnFocus(this, focusAnim);
+        app::views::motion::liftOnFocus(this, focusAnim);
     }
 
 private:
@@ -994,21 +997,21 @@ HostListTab::HostListTab() {
 
     discovery->setOnHostDiscovered([](Host* host) {
         if (!host) {
-            akira::log::warning("onHostDiscovered: host is null");
+            log::warning("onHostDiscovered: host is null");
             return;
         }
-        akira::log::info("onHostDiscovered: isActive={}, currentInstance={}",
+        log::info("onHostDiscovered: isActive={}, currentInstance={}",
             HostListTab::isActive ? "true" : "false",
             HostListTab::currentInstance ? "valid" : "null");
         if (!HostListTab::isActive || HostListTab::connectionActive) {
-            akira::log::info("onHostDiscovered: suspended, skipping {}", host->getHostName());
+            log::info("onHostDiscovered: suspended, skipping {}", host->getHostName());
             return;
         }
         if (!HostListTab::currentInstance) {
-            akira::log::warning("onHostDiscovered: currentInstance is null");
+            log::warning("onHostDiscovered: currentInstance is null");
             return;
         }
-        akira::log::info("Host discovered/updated: {}", host->getHostName());
+        log::info("Host discovered/updated: {}", host->getHostName());
         HostListTab::currentInstance->updateHostItem(host);
     });
 
@@ -1163,7 +1166,7 @@ void HostListTab::connectToHost(Host* host) {
     if (!host || HostListTab::isConnecting)
         return;
 
-    akira::log::info("Connect to {}", host->getHostName());
+    log::info("Connect to {}", host->getHostName());
 
     auto* settings = SettingsManager::getInstance();
     bool isPS5 = host->isPS5();
@@ -1172,7 +1175,7 @@ void HostListTab::connectToHost(Host* host) {
     std::string onlineId = settings->getPsnOnlineId(host);
 
     if (host->isPsnRemotePlayDisabled()) {
-        akira::log::warning("Connect {}: PSN reports remote play disabled for this account",
+        log::warning("Connect {}: PSN reports remote play disabled for this account",
             host->getHostName());
         brls::Application::notify("akira/connection/fail_rp_disabled"_i18n);
     }
@@ -1212,7 +1215,7 @@ void HostListTab::initFindRemoteButton() {
 
     findRemoteGate.attach(
         findRemoteBtn,
-        akira::app::views::active().accent,
+        app::views::active().accent,
         "akira/hosts/find_remote"_i18n,
         "akira/hosts/find_remote_busy"_i18n,
         "akira/hosts/find_remote_wait",
@@ -1224,7 +1227,7 @@ void HostListTab::initFindRemoteButton() {
             return true;
         }
 
-        auto* accounts = akira::ChiakiCore::current().accounts();
+        auto* accounts = ChiakiCore::current().accounts();
         const psn::SessionState state = accounts ? accounts->state() : psn::SessionState::NotLinked;
         if (state == psn::SessionState::NotLinked) {
             brls::Application::notify("akira/hosts/no_psn_token"_i18n);
@@ -1272,7 +1275,7 @@ HostListTab::~HostListTab() {
 void HostListTab::willAppear(bool resetState) {
     Box::willAppear(resetState);
     isActive = true;
-    akira::log::debug("HostListTab::willAppear - resuming discovery callbacks");
+    log::debug("HostListTab::willAppear - resuming discovery callbacks");
     findRemoteGate.start();
     if (profileChip) profileChip->refresh();
 #if AKIRA_CLOUD
@@ -1294,7 +1297,7 @@ void HostListTab::willAppear(bool resetState) {
 void HostListTab::willDisappear(bool resetState) {
     Box::willDisappear(resetState);
     isActive = false;
-    akira::log::debug("HostListTab::willDisappear - pausing discovery callbacks");
+    log::debug("HostListTab::willDisappear - pausing discovery callbacks");
     findRemoteGate.stop();
 }
 
@@ -1318,7 +1321,7 @@ void HostListTab::refreshRailsIfActive() {
         bool underHome = false;
         for (brls::View* v = f; v; v = v->getParent())
             if (v == currentInstance) { underHome = true; break; }
-        akira::log::info("refreshRailsIfActive: focus={} isActive={} underHome={} stack={}",
+        log::info("refreshRailsIfActive: focus={} isActive={} underHome={} stack={}",
             f ? f->describe() : std::string("null"),
             currentInstance->isActive ? "yes" : "no",
             underHome ? "yes" : "no",
@@ -1368,10 +1371,10 @@ void HostListTab::notifyAccountNameDisplayChanged() {
 }
 
 void HostListTab::syncHostList() {
-    akira::log::debug("Syncing host list...");
+    log::debug("Syncing host list...");
 
     if (!hostContainer) {
-        akira::log::error("syncHostList: hostContainer is null");
+        log::error("syncHostList: hostContainer is null");
         return;
     }
     brls::View* focused = brls::Application::getCurrentFocus();
@@ -1411,7 +1414,7 @@ void HostListTab::syncHostList() {
     if (hostsMap && !noProfile) {
         for (auto& [name, host] : *hostsMap) {
             if (!host) {
-                akira::log::error("Null host in hosts map for key: {}", name);
+                log::error("Null host in hosts map for key: {}", name);
                 continue;
             }
             if (!host->hasRpKey() && !host->isDiscovered() && !host->isManual())
@@ -1515,7 +1518,7 @@ void HostListTab::syncHostList() {
         }
     }
 
-    akira::log::debug("Host list sync complete, {} hosts", hostItems.size());
+    log::debug("Host list sync complete, {} hosts", hostItems.size());
 }
 
 void HostListTab::updateHostItem(Host* host) {
@@ -1524,9 +1527,11 @@ void HostListTab::updateHostItem(Host* host) {
     auto it = hostItems.find(host);
     if (it != hostItems.end()) {
         it->second->updateState();
-        akira::log::debug("Updated host item: {}", host->getHostName());
+        log::debug("Updated host item: {}", host->getHostName());
     } else {
-        akira::log::debug("Host not found in items, syncing: {}", host->getHostName());
+        log::debug("Host not found in items, syncing: {}", host->getHostName());
         syncHostList();
     }
+}
+
 }

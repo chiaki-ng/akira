@@ -12,6 +12,8 @@
 #include "consoles/pair_listener.hpp"
 #include "accounts/accounts.hpp"
 
+namespace akira::consoles::views {
+
 class PairView : public brls::Box {
 public:
     explicit PairView(bool createProfile = false);
@@ -32,8 +34,8 @@ private:
     brls::Label* statusLabel = nullptr;
     brls::Button* closeBtn = nullptr;
 
-    akira::pair::PairListener listener;
-    akira::pair::PairAdvertiser advertiser;
+    PairListener listener;
+    PairAdvertiser advertiser;
     std::shared_ptr<std::atomic<bool>> alive = std::make_shared<std::atomic<bool>>(true);
     int listenPort = 0;
     bool createProfile = false;
@@ -43,8 +45,10 @@ private:
     bool counting = false;
 
     void startListening();
-    void onEvent(akira::pair::ListenerEvent event);
-    static void applyCredentials(const akira::pair::PairedCredentials& creds, bool createProfile);
+    void onEvent(ListenerEvent event);
+    static void applyCredentials(const PairedCredentials& creds, bool createProfile);
 };
+
+}
 
 #endif

@@ -102,7 +102,7 @@ namespace
 
 
 
-StreamView::StreamView(Host* host, std::shared_ptr<Host> hostOwner)
+StreamView::StreamView(akira::consoles::Host* host, std::shared_ptr<akira::consoles::Host> hostOwner)
     : host(host)
     , hostOwner(std::move(hostOwner))
 {
@@ -861,7 +861,7 @@ void StreamView::onSeatPasscodeNeeded(uint8_t slot, bool retry)
     couchPasscodeDialogOpen = true;
 
     auto weak = weak_from_this();
-    auto* pinView = new EnterPinView(host, PinViewType::CouchPasscode, retry);
+    auto* pinView = new akira::consoles::views::EnterPinView(host, akira::consoles::views::PinViewType::CouchPasscode, retry);
 
     pinView->setOnPinEntered([weak, slot](const std::string& pin) {
         akira::log::info("Couch passcode entered for player {}", slot + 1);
@@ -927,11 +927,11 @@ void StreamView::onLoginPinNeeded(bool pinIncorrect)
         }
     }
 
-    Host* hostPtr = host;
+    akira::consoles::Host* hostPtr = host;
     SettingsManager* settingsPtr = settings;
     auto weak = weak_from_this();
 
-    auto* pinView = new EnterPinView(hostPtr, PinViewType::Login, pinIncorrect);
+    auto* pinView = new akira::consoles::views::EnterPinView(hostPtr, akira::consoles::views::PinViewType::Login, pinIncorrect);
 
     pinView->setOnPinEntered([weak, hostPtr, settingsPtr](const std::string& pin) {
         akira::log::info("Login PIN entered, sending to session");

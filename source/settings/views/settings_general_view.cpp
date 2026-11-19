@@ -189,7 +189,7 @@ static std::string joinSubnets(const std::vector<std::string>& v) {
 }
 
 static void restartDiscovery() {
-    DiscoveryManager* dm = DiscoveryManager::getInstance();
+    akira::consoles::DiscoveryManager* dm = akira::consoles::DiscoveryManager::getInstance();
     if (dm->isServiceEnabled()) {
         dm->setServiceEnabled(false);
         dm->setServiceEnabled(true);
@@ -208,7 +208,7 @@ void SettingsGeneralView::scheduleSubnetsRebuild() {
 void SettingsGeneralView::rebuildSubnetsUI() {
     subnetsBox->clearViews();
 
-    std::string localCidr = DiscoveryManager::getInstance()->getLocalSubnetCidr();
+    std::string localCidr = akira::consoles::DiscoveryManager::getInstance()->getLocalSubnetCidr();
     if (!localCidr.empty()) {
         auto* defaultRow = new brls::Box();
         defaultRow->setAxis(brls::Axis::ROW);
@@ -313,7 +313,7 @@ void SettingsGeneralView::promptAddSubnet() {
         [this](std::string text) {
             if (text.empty())
                 return;
-            if (!akira::discovery::isValidSweepCidr(text)) {
+            if (!akira::consoles::isValidSweepCidr(text)) {
                 brls::sync([]() {
                     auto* dialog = new brls::Dialog("akira/settings/subnet_invalid"_i18n);
                     dialog->addButton("akira/common/ok"_i18n, [dialog]() { dialog->close(); });
@@ -321,7 +321,7 @@ void SettingsGeneralView::promptAddSubnet() {
                 });
                 return;
             }
-            std::string normalized = akira::discovery::normalizeSweepCidr(text);
+            std::string normalized = akira::consoles::normalizeSweepCidr(text);
             std::vector<std::string> subnets = splitSubnets(settings->getDiscoverySubnets());
             if (std::find(subnets.begin(), subnets.end(), normalized) != subnets.end())
                 return;

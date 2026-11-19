@@ -8,7 +8,7 @@
 #include <span>
 #include <utility>
 
-namespace akira::pair {
+namespace akira::consoles {
 
 namespace {
 

@@ -57,8 +57,8 @@ std::vector<uint8_t> buildSealed(const uint8_t* desktopPub, const uint8_t* iv,
     const char magic[4] = {'A', 'K', 'P', 'R'};
     s.insert(s.end(), magic, magic + 4);
     s.push_back(1);
-    s.insert(s.end(), desktopPub, desktopPub + pair::kPubKeyLen);
-    s.insert(s.end(), iv, iv + pair::kIvLen);
+    s.insert(s.end(), desktopPub, desktopPub + consoles::kPubKeyLen);
+    s.insert(s.end(), iv, iv + consoles::kIvLen);
     uint32_t n = static_cast<uint32_t>(ct.size());
     s.push_back(static_cast<uint8_t>(n >> 24));
     s.push_back(static_cast<uint8_t>(n >> 16));
@@ -66,7 +66,7 @@ std::vector<uint8_t> buildSealed(const uint8_t* desktopPub, const uint8_t* iv,
     s.push_back(static_cast<uint8_t>(n));
     s.insert(s.end(), ct.begin(), ct.end());
     if (mac != nullptr)
-        s.insert(s.end(), mac, mac + pair::kMacLen);
+        s.insert(s.end(), mac, mac + consoles::kMacLen);
     return s;
 }
 
@@ -124,99 +124,99 @@ TEST(pair_crypto_kat_matches_go_vector)
 {
     FixedP256Key switchKey{std::vector<uint8_t>(32, 0x11)};
     std::vector<uint8_t> desktopPub = hexToBytes(kDesktopPubHex);
-    std::vector<uint8_t> saltNonce(pair::kSaltNonceLen, 0x33);
-    std::vector<uint8_t> iv(pair::kIvLen, 0x44);
+    std::vector<uint8_t> saltNonce(consoles::kSaltNonceLen, 0x33);
+    std::vector<uint8_t> iv(consoles::kIvLen, 0x44);
     std::vector<uint8_t> payload(kPayload, kPayload + std::strlen(kPayload));
 
-    uint8_t shared[pair::kSharedLen];
-    CHECK(pair::KeyExchange::ecdhShared(switchKey, desktopPub.data(), shared));
-    CHECK_EQ(bytesToHex(shared, pair::kSharedLen), std::string(kSharedHex));
+    uint8_t shared[consoles::kSharedLen];
+    CHECK(consoles::KeyExchange::ecdhShared(switchKey, desktopPub.data(), shared));
+    CHECK_EQ(bytesToHex(shared, consoles::kSharedLen), std::string(kSharedHex));
 
-    uint8_t keyEnc[pair::kKeyLen], keyMac[pair::kKeyLen];
-    pair::deriveKeys(shared, saltNonce.data(), saltNonce.size(), kCode, keyEnc, keyMac);
-    CHECK_EQ(bytesToHex(keyEnc, pair::kKeyLen), std::string(kKeyEncHex));
-    CHECK_EQ(bytesToHex(keyMac, pair::kKeyLen), std::string(kKeyMacHex));
+    uint8_t keyEnc[consoles::kKeyLen], keyMac[consoles::kKeyLen];
+    consoles::deriveKeys(shared, saltNonce.data(), saltNonce.size(), kCode, keyEnc, keyMac);
+    CHECK_EQ(bytesToHex(keyEnc, consoles::kKeyLen), std::string(kKeyEncHex));
+    CHECK_EQ(bytesToHex(keyMac, consoles::kKeyLen), std::string(kKeyMacHex));
 
     std::vector<uint8_t> ct(payload.size());
-    pair::aes256CtrXor(keyEnc, iv.data(), payload.data(), ct.data(), payload.size());
+    consoles::aes256CtrXor(keyEnc, iv.data(), payload.data(), ct.data(), payload.size());
     CHECK_EQ(vecHex(ct), std::string(kCtHex));
 
     std::vector<uint8_t> prefix = buildSealed(desktopPub.data(), iv.data(), ct, nullptr);
-    uint8_t mac[pair::kMacLen];
-    pair::hmacSha256(keyMac, pair::kKeyLen, prefix.data(), prefix.size(), mac);
-    CHECK_EQ(bytesToHex(mac, pair::kMacLen), std::string(kMacHex));
+    uint8_t mac[consoles::kMacLen];
+    consoles::hmacSha256(keyMac, consoles::kKeyLen, prefix.data(), prefix.size(), mac);
+    CHECK_EQ(bytesToHex(mac, consoles::kMacLen), std::string(kMacHex));
 }
 
 TEST(pair_crypto_open_interops_with_go_sealed)
 {
     FixedP256Key switchKey{std::vector<uint8_t>(32, 0x11)};
     std::vector<uint8_t> desktopPub = hexToBytes(kDesktopPubHex);
-    std::vector<uint8_t> iv(pair::kIvLen, 0x44);
+    std::vector<uint8_t> iv(consoles::kIvLen, 0x44);
     std::vector<uint8_t> ct = hexToBytes(kCtHex);
     std::vector<uint8_t> mac = hexToBytes(kMacHex);
     std::string payload(kPayload);
 
-    pair::Hello hello;
-    std::memset(hello.switchPub, 0, pair::kPubKeyLen);
-    std::memset(hello.saltNonce, 0x33, pair::kSaltNonceLen);
+    consoles::Hello hello;
+    std::memset(hello.switchPub, 0, consoles::kPubKeyLen);
+    std::memset(hello.saltNonce, 0x33, consoles::kSaltNonceLen);
 
     std::vector<uint8_t> sealed = buildSealed(desktopPub.data(), iv.data(), ct, mac.data());
 
-    pair::KeyExchange exchange{openssl, entropy};
+    consoles::KeyExchange exchange{openssl, entropy};
     std::vector<uint8_t> out;
-    pair::OpenResult r = exchange.openSealed(hello, switchKey, sealed.data(), sealed.size(), kCode, out);
-    CHECK(r == pair::OpenResult::Ok);
+    consoles::OpenResult r = exchange.openSealed(hello, switchKey, sealed.data(), sealed.size(), kCode, out);
+    CHECK(r == consoles::OpenResult::Ok);
     CHECK_EQ(std::string(out.begin(), out.end()), payload);
 
     std::vector<uint8_t> out2;
-    pair::OpenResult wrong = exchange.openSealed(hello, switchKey, sealed.data(), sealed.size(), "0000", out2);
-    CHECK(wrong == pair::OpenResult::BadMac);
+    consoles::OpenResult wrong = exchange.openSealed(hello, switchKey, sealed.data(), sealed.size(), "0000", out2);
+    CHECK(wrong == consoles::OpenResult::BadMac);
 
     std::vector<uint8_t> tampered = sealed;
     tampered[90] ^= 0x01;
     std::vector<uint8_t> out3;
-    pair::OpenResult t = exchange.openSealed(hello, switchKey, tampered.data(), tampered.size(), kCode, out3);
-    CHECK(t == pair::OpenResult::BadMac);
+    consoles::OpenResult t = exchange.openSealed(hello, switchKey, tampered.data(), tampered.size(), kCode, out3);
+    CHECK(t == consoles::OpenResult::BadMac);
 }
 
 TEST(pair_crypto_generated_keys_round_trip)
 {
-    pair::KeyExchange exchange{openssl, entropy};
-    pair::Hello hello;
+    consoles::KeyExchange exchange{openssl, entropy};
+    consoles::Hello hello;
     auto switchKey = exchange.makeHello(hello);
     CHECK(switchKey != nullptr);
 
-    uint8_t desktopPub[pair::kPubKeyLen];
+    uint8_t desktopPub[consoles::kPubKeyLen];
     auto desktopKey = exchange.generateKeypair(desktopPub);
     CHECK(desktopKey != nullptr);
 
-    uint8_t shared[pair::kSharedLen];
-    CHECK(pair::KeyExchange::ecdhShared(*desktopKey, hello.switchPub, shared));
+    uint8_t shared[consoles::kSharedLen];
+    CHECK(consoles::KeyExchange::ecdhShared(*desktopKey, hello.switchPub, shared));
 
-    uint8_t sharedRev[pair::kSharedLen];
-    CHECK(pair::KeyExchange::ecdhShared(*switchKey, desktopPub, sharedRev));
-    CHECK_EQ(bytesToHex(shared, pair::kSharedLen), bytesToHex(sharedRev, pair::kSharedLen));
+    uint8_t sharedRev[consoles::kSharedLen];
+    CHECK(consoles::KeyExchange::ecdhShared(*switchKey, desktopPub, sharedRev));
+    CHECK_EQ(bytesToHex(shared, consoles::kSharedLen), bytesToHex(sharedRev, consoles::kSharedLen));
 
-    uint8_t keyEnc[pair::kKeyLen], keyMac[pair::kKeyLen];
-    pair::deriveKeys(shared, hello.saltNonce, pair::kSaltNonceLen, "1234", keyEnc, keyMac);
+    uint8_t keyEnc[consoles::kKeyLen], keyMac[consoles::kKeyLen];
+    consoles::deriveKeys(shared, hello.saltNonce, consoles::kSaltNonceLen, "1234", keyEnc, keyMac);
 
-    uint8_t iv[pair::kIvLen];
+    uint8_t iv[consoles::kIvLen];
     CHECK(entropy.fill_bytes(std::as_writable_bytes(std::span{iv})).has_value());
     std::string payload("resume-on-console credentials blob");
     std::vector<uint8_t> ct(payload.size());
-    pair::aes256CtrXor(keyEnc, iv, reinterpret_cast<const uint8_t*>(payload.data()), ct.data(), payload.size());
+    consoles::aes256CtrXor(keyEnc, iv, reinterpret_cast<const uint8_t*>(payload.data()), ct.data(), payload.size());
 
     std::vector<uint8_t> prefix = buildSealed(desktopPub, iv, ct, nullptr);
-    uint8_t mac[pair::kMacLen];
-    pair::hmacSha256(keyMac, pair::kKeyLen, prefix.data(), prefix.size(), mac);
+    uint8_t mac[consoles::kMacLen];
+    consoles::hmacSha256(keyMac, consoles::kKeyLen, prefix.data(), prefix.size(), mac);
     std::vector<uint8_t> sealed = buildSealed(desktopPub, iv, ct, mac);
 
     std::vector<uint8_t> out;
-    pair::OpenResult r = exchange.openSealed(hello, *switchKey, sealed.data(), sealed.size(), "1234", out);
-    CHECK(r == pair::OpenResult::Ok);
+    consoles::OpenResult r = exchange.openSealed(hello, *switchKey, sealed.data(), sealed.size(), "1234", out);
+    CHECK(r == consoles::OpenResult::Ok);
     CHECK_EQ(std::string(out.begin(), out.end()), payload);
 
     std::vector<uint8_t> out2;
-    pair::OpenResult wrong = exchange.openSealed(hello, *switchKey, sealed.data(), sealed.size(), "9999", out2);
-    CHECK(wrong == pair::OpenResult::BadMac);
+    consoles::OpenResult wrong = exchange.openSealed(hello, *switchKey, sealed.data(), sealed.size(), "9999", out2);
+    CHECK(wrong == consoles::OpenResult::BadMac);
 }

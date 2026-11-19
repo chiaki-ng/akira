@@ -61,7 +61,7 @@ void ProfileSetupView::buildOptions() {
               "akira/profile_setup/companion_note"_i18n,
               [createProfile]() {
                   brls::Application::pushActivity(
-                      new brls::Activity(new PairView(createProfile)));
+                      new brls::Activity(new akira::consoles::views::PairView(createProfile)));
               });
 
     addOption("\xEE\xA0\x8C",

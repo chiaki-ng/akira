@@ -32,7 +32,7 @@ class StreamView : public brls::Box,
                    public akira::platform::StreamControlsHost,
                    public std::enable_shared_from_this<StreamView> {
 public:
-    explicit StreamView(Host* host, std::shared_ptr<Host> hostOwner = {});
+    explicit StreamView(akira::consoles::Host* host, std::shared_ptr<akira::consoles::Host> hostOwner = {});
     ~StreamView() override;
 
     void adoptConnectionLog(akira::ConnectionLog log);
@@ -54,7 +54,7 @@ public:
 private:
     Session* controlsSession() override { return session; }
     std::shared_ptr<akira::stream::Connection> controlsConnection() override { return connection; }
-    Host* controlsHost() override { return host; }
+    akira::consoles::Host* controlsHost() override { return host; }
     bool controlsMenuOpen() const override { return menuOpen; }
     bool prepareController() override;
     void continueStart() override { startStream(); }
@@ -63,8 +63,8 @@ private:
     void resumeAfterUi() override { resumeStreamAfterUi(); }
 
     std::unique_ptr<akira::platform::StreamControlsProvider> controls;
-    Host* host = nullptr;
-    std::shared_ptr<Host> hostOwner;
+    akira::consoles::Host* host = nullptr;
+    std::shared_ptr<akira::consoles::Host> hostOwner;
     akira::app::BackgroundWork::Pause backgroundPause;
     Session* session = nullptr;
     std::shared_ptr<akira::stream::Connection> connection;

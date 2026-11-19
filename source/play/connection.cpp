@@ -52,7 +52,7 @@ Connection::~Connection()
     ending.reset();
 }
 
-auto Connection::preferencesFor(Host& host, SettingsManager& settings) -> std::optional<play::Preferences>
+auto Connection::preferencesFor(consoles::Host& host, SettingsManager& settings) -> std::optional<play::Preferences>
 {
     const bool vpn = !host.isRemote() && WireGuardManager::instance().isConnected();
     uint32_t height = static_cast<uint32_t>(SettingsManager::resolutionToInt(

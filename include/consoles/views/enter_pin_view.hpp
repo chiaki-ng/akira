@@ -6,6 +6,8 @@
 
 #include "consoles/host.hpp"
 
+namespace akira::consoles::views {
+
 enum class PinViewType {
     Registration,
     Login,
@@ -43,5 +45,7 @@ private:
     int getMaxPinLength() const;
     std::string getTitle() const;
 };
+
+}
 
 #endif // AKIRA_ENTER_PIN_VIEW_HPP

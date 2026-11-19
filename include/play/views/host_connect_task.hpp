@@ -10,7 +10,9 @@
 
 #include "play/views/connect_task.hpp"
 
+namespace akira::consoles {
 class Host;
+}
 
 namespace akira::views {
 
@@ -25,7 +27,7 @@ namespace akira::views {
  */
 class HostConnectTask : public ConnectTask {
 public:
-    explicit HostConnectTask(Host* host);
+    explicit HostConnectTask(consoles::Host* host);
     ~HostConnectTask() override;
 
     std::string title() const override;
@@ -35,7 +37,7 @@ public:
     void cancel() override;
 
 private:
-    Host* host = nullptr;
+    consoles::Host* host = nullptr;
     ConnectSink* sink = nullptr;
 
     std::atomic<bool> running{false};

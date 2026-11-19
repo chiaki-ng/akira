@@ -10,7 +10,9 @@
 #include <string>
 #include <vector>
 
+namespace akira::consoles {
 class Host;
+}
 namespace akira::platform::extended { class ExtendedPadProvider; }
 
 namespace akira::stream {
@@ -23,7 +25,7 @@ namespace akira::platform::couch
 class PlayersPanelView : public brls::Box
 {
 public:
-    PlayersPanelView(Host* host, std::weak_ptr<akira::stream::Connection> connection, akira::platform::extended::ExtendedPadProvider* input,
+    PlayersPanelView(consoles::Host* host, std::weak_ptr<akira::stream::Connection> connection, akira::platform::extended::ExtendedPadProvider* input,
                      bool claimImmediately = false);
     ~PlayersPanelView() override;
 
@@ -59,7 +61,7 @@ private:
     const char* deviceLabelFor(HidNpadIdType npad) const;
     int rosterCount() const;
 
-    Host*          m_host    = nullptr;
+    consoles::Host*          m_host    = nullptr;
     std::weak_ptr<akira::stream::Connection> m_connection;
     akira::platform::extended::ExtendedPadProvider* m_input = nullptr;
     brls::Box*     m_panel   = nullptr;

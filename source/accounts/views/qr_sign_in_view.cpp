@@ -147,7 +147,7 @@ void QrSignInView::onSignedIn(psn::SignInOutcome outcome, const psn::Accounts::U
         return;
     }
 
-    PairView::adoptSignedInUser(profile->id, user);
+    akira::consoles::views::PairView::adoptSignedInUser(profile->id, user);
     akira::log::info("Signed in to PSN with a QR code");
     brls::Application::notify(brls::getStr("akira/qr_sign_in/signed_in_fmt", user->online_id()));
     brls::Application::popActivity();

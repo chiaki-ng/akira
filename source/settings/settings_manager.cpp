@@ -366,19 +366,19 @@ bool SettingsManager::fileExists(const char* path) {
     return (stat(path, &buffer) == 0);
 }
 
-std::map<std::string, std::unique_ptr<Host>>* SettingsManager::getHostsMap() {
+std::map<std::string, std::unique_ptr<akira::consoles::Host>>* SettingsManager::getHostsMap() {
     return &hosts;
 }
 
-Host* SettingsManager::getOrCreateHost(const std::string& hostName) {
+akira::consoles::Host* SettingsManager::getOrCreateHost(const std::string& hostName) {
     bool created = false;
 
     if (hosts.find(hostName) == hosts.end()) {
-        hosts[hostName] = std::make_unique<Host>(hostName);
+        hosts[hostName] = std::make_unique<akira::consoles::Host>(hostName);
         created = true;
     }
 
-    Host* host = hosts.at(hostName).get();
+    akira::consoles::Host* host = hosts.at(hostName).get();
 
     if (created && host->consoleId == 0) {
         host->consoleId = nextConsoleId++;
@@ -413,7 +413,7 @@ void SettingsManager::renameHost(const std::string& oldName, const std::string& 
     hosts[newName] = std::move(host);
 }
 
-Host* SettingsManager::findHostByDuid(const std::string& duid) {
+akira::consoles::Host* SettingsManager::findHostByDuid(const std::string& duid) {
     if (duid.empty()) {
         return nullptr;
     }
@@ -794,7 +794,7 @@ void SettingsManager::parseTomlFile() {
                 std::string nickname = (*ct)["nickname"].value<std::string>().value_or("");
                 if (nickname.empty()) continue;
 
-                Host* host = getOrCreateHost(nickname);
+                akira::consoles::Host* host = getOrCreateHost(nickname);
                 host->inConfig = true;
                 host->hostName = nickname;
                 host->serverNickname = (*ct)["server_nickname"].value<std::string>().value_or("");
@@ -803,7 +803,7 @@ void SettingsManager::parseTomlFile() {
                     nextConsoleId = host->consoleId + 1;
 
                 if (auto val = (*ct)["host_type"].value<int64_t>())
-                    host->hostType = static_cast<HostType>(*val);
+                    host->hostType = static_cast<akira::consoles::HostType>(*val);
                 if (auto val = (*ct)["host_addr"].value<std::string>())
                     host->hostAddr = *val;
                 if (auto val = (*ct)["target"].value<int64_t>())
@@ -828,7 +828,7 @@ void SettingsManager::parseTomlFile() {
                 if (!rt) continue;
 
                 int64_t consoleId = (*rt)["console_id"].value<int64_t>().value_or(0);
-                Host* host = nullptr;
+                akira::consoles::Host* host = nullptr;
                 for (auto& [n, h] : hosts) {
                     if (h && h->consoleId == consoleId) { host = h.get(); break; }
                 }
@@ -914,7 +914,7 @@ void SettingsManager::parseLegacyFile() {
 
     std::string line;
     std::string value;
-    Host* currentHost = nullptr;
+    akira::consoles::Host* currentHost = nullptr;
     bool rpKeySet = false, rpRegistKeySet = false, rpKeyTypeSet = false;
     std::array<std::byte, libchiaking::consoles::PairingKeys::registration_key_size> legacyRegistKey{};
     std::array<std::byte, libchiaking::consoles::PairingKeys::remote_play_key_size> legacyKey{};
@@ -928,20 +928,20 @@ void SettingsManager::parseLegacyFile() {
                 break;
             case ConfigItem::HostName: {
                 std::string cleanName = value;
-                HostType migratedType = HostType::Discovered;
+                akira::consoles::HostType migratedType = akira::consoles::HostType::Discovered;
                 if (value.length() > 9 && value.substr(value.length() - 9) == " (Remote)") {
                     cleanName = value;
-                    migratedType = HostType::Remote;
+                    migratedType = akira::consoles::HostType::Remote;
                 } else if (value.rfind("[Manual] ", 0) == 0) {
                     cleanName = value.substr(9);
-                    migratedType = HostType::Manual;
+                    migratedType = akira::consoles::HostType::Manual;
                 } else if (value.rfind("[Auto] ", 0) == 0) {
                     cleanName = value.substr(7);
-                    migratedType = HostType::Auto;
+                    migratedType = akira::consoles::HostType::Auto;
                 }
                 if (cleanName != value && hosts.find(cleanName) != hosts.end()) {
-                    Host* existing = hosts[cleanName].get();
-                    if (existing->hostType == HostType::Manual && migratedType != HostType::Manual) {
+                    akira::consoles::Host* existing = hosts[cleanName].get();
+                    if (existing->hostType == akira::consoles::HostType::Manual && migratedType != akira::consoles::HostType::Manual) {
                         akira::log::info("Skipping {} - Manual host {} already exists", value, cleanName);
                         currentHost = nullptr;
                         break;
@@ -1015,7 +1015,7 @@ void SettingsManager::parseLegacyFile() {
             if (auto keys = libchiaking::consoles::PairingKeys::create(legacyRegistKey, legacyKey, legacyKeyType)) {
                 const int64_t profileId = ensureActiveProfile()->id;
                 currentHost->removeRegistrationsForProfile(profileId);
-                currentHost->legacyRegistrations.push_back(Registration{profileId, std::move(*keys)});
+                currentHost->legacyRegistrations.push_back(akira::consoles::Registration{profileId, std::move(*keys)});
             }
             rpKeySet = rpRegistKeySet = rpKeyTypeSet = false;
         }
@@ -1288,7 +1288,7 @@ toml::table SettingsManager::ownedSettings() {
             if (host->pinnedTakionVersion) ct.insert("takion_version", static_cast<int64_t>(*host->pinnedTakionVersion));
             consolesArr.push_back(ct);
 
-            for (const Registration& reg : host->legacyRegistrations) {
+            for (const akira::consoles::Registration& reg : host->legacyRegistrations) {
                 toml::table rt;
                 rt.insert("console_id", host->consoleId);
                 rt.insert("profile_id", reg.profileId);
@@ -1498,19 +1498,19 @@ bool SettingsManager::isValidHostAddress(const std::string& addr) {
     return isValidIPv4(addr) || isValidFQDN(addr);
 }
 
-std::string SettingsManager::getHostName(Host* host) {
+std::string SettingsManager::getHostName(akira::consoles::Host* host) {
     if (host) return host->getHostName();
     akira::log::error("Cannot getHostName from nullptr");
     return "";
 }
 
-std::string SettingsManager::getHostAddr(Host* host) {
+std::string SettingsManager::getHostAddr(akira::consoles::Host* host) {
     if (host) return host->getHostAddr();
     akira::log::error("Cannot getHostAddr from nullptr");
     return "";
 }
 
-void SettingsManager::setHostAddr(Host* host, const std::string& addr) {
+void SettingsManager::setHostAddr(akira::consoles::Host* host, const std::string& addr) {
     if (host) {
         host->hostAddr = addr;
     } else {
@@ -1518,40 +1518,40 @@ void SettingsManager::setHostAddr(Host* host, const std::string& addr) {
     }
 }
 
-void SettingsManager::setDiscovered(Host* host, bool value) {
+void SettingsManager::setDiscovered(akira::consoles::Host* host, bool value) {
     if (host) {
         host->discovered = value;
     }
 }
 
-std::string SettingsManager::getPsnOnlineId(Host* host) {
+std::string SettingsManager::getPsnOnlineId(akira::consoles::Host* host) {
     (void)host;
     const Profile* ap = getActiveProfile();
     return ap ? ap->onlineId : "";
 }
 
-void SettingsManager::setPsnOnlineId(Host* host, const std::string& id) {
+void SettingsManager::setPsnOnlineId(akira::consoles::Host* host, const std::string& id) {
     (void)host;
     ensureActiveProfile()->onlineId = id;
 }
 
-std::string SettingsManager::getPsnAccountId(Host* host) {
+std::string SettingsManager::getPsnAccountId(akira::consoles::Host* host) {
     (void)host;
     const Profile* ap = getActiveProfile();
     return ap ? ap->accountId : "";
 }
 
-void SettingsManager::setPsnAccountId(Host* host, const std::string& id) {
+void SettingsManager::setPsnAccountId(akira::consoles::Host* host, const std::string& id) {
     (void)host;
     ensureActiveProfile()->accountId = id;
 }
 
-std::string SettingsManager::getConsolePIN(Host* host) {
+std::string SettingsManager::getConsolePIN(akira::consoles::Host* host) {
     if (host) return host->consolePIN;
     return "";
 }
 
-void SettingsManager::setConsolePIN(Host* host, const std::string& pin) {
+void SettingsManager::setConsolePIN(akira::consoles::Host* host, const std::string& pin) {
     if (host) {
         host->consolePIN = pin;
     } else {
@@ -1559,7 +1559,7 @@ void SettingsManager::setConsolePIN(Host* host, const std::string& pin) {
     }
 }
 
-VideoResolution SettingsManager::getVideoResolution(Host* host) {
+VideoResolution SettingsManager::getVideoResolution(akira::consoles::Host* host) {
     if (host && host->isRemote()) return remoteVideoResolution;
     return localVideoResolution;
 }
@@ -1580,7 +1580,7 @@ void SettingsManager::setRemoteVideoResolution(VideoResolution value) {
     remoteVideoResolution = value;
 }
 
-VideoFps SettingsManager::getVideoFPS(Host* host) {
+VideoFps SettingsManager::getVideoFPS(akira::consoles::Host* host) {
     if (host && host->isRemote()) return remoteVideoFPS;
     return localVideoFPS;
 }
@@ -1601,7 +1601,7 @@ void SettingsManager::setRemoteVideoFPS(VideoFps value) {
     remoteVideoFPS = value;
 }
 
-int SettingsManager::getVideoBitrate(Host* host) const {
+int SettingsManager::getVideoBitrate(akira::consoles::Host* host) const {
     if (host && host->isRemote()) return remoteVideoBitrate;
     return localVideoBitrate;
 }
@@ -1718,7 +1718,7 @@ void SettingsManager::setVpnVideoFPS(VideoFps value) {
     vpnVideoFPS = value;
 }
 
-HapticPreset SettingsManager::getHaptic(Host* host) {
+HapticPreset SettingsManager::getHaptic(akira::consoles::Host* host) {
     if (!host) return globalHaptic;
     if (host->haptic < 0) return globalHaptic;
     switch (host->haptic) {
@@ -1729,7 +1729,7 @@ HapticPreset SettingsManager::getHaptic(Host* host) {
     }
 }
 
-void SettingsManager::setHaptic(Host* host, HapticPreset value) {
+void SettingsManager::setHaptic(akira::consoles::Host* host, HapticPreset value) {
     if (host) {
         host->haptic = static_cast<int>(value);
     } else {
@@ -1737,7 +1737,7 @@ void SettingsManager::setHaptic(Host* host, HapticPreset value) {
     }
 }
 
-void SettingsManager::setHaptic(Host* host, const std::string& value) {
+void SettingsManager::setHaptic(akira::consoles::Host* host, const std::string& value) {
     HapticPreset preset = HapticPreset::Disabled;
     if (value == "1") preset = HapticPreset::Weak;
     else if (value == "2") preset = HapticPreset::Strong;
@@ -1827,7 +1827,7 @@ int64_t SettingsManager::targetOf(const std::optional<libchiaking::consoles::Fir
     return 0;
 }
 
-std::optional<Registration> SettingsManager::registrationOf(const toml::table& row) {
+std::optional<akira::consoles::Registration> SettingsManager::registrationOf(const toml::table& row) {
     std::array<std::byte, libchiaking::consoles::PairingKeys::registration_key_size> registKey{};
     std::array<std::byte, libchiaking::consoles::PairingKeys::remote_play_key_size> key{};
     const bool decoded =
@@ -1841,10 +1841,10 @@ std::optional<Registration> SettingsManager::registrationOf(const toml::table& r
     libchiaking::memory::secure_zero(std::span<std::byte>{key});
     if (!keys)
         return std::nullopt;
-    return Registration{row["profile_id"].value_or(int64_t{0}), std::move(*keys)};
+    return akira::consoles::Registration{row["profile_id"].value_or(int64_t{0}), std::move(*keys)};
 }
 
-bool SettingsManager::adoptLegacyRegistrations(Host& host) {
+bool SettingsManager::adoptLegacyRegistrations(akira::consoles::Host& host) {
     namespace consoles = libchiaking::consoles;
     if (!host.hardwareId || host.legacyRegistrations.empty())
         return false;
@@ -1862,7 +1862,7 @@ bool SettingsManager::adoptLegacyRegistrations(Host& host) {
     std::vector<consoles::SavedPairing> adopted;
     {
         std::lock_guard<std::recursive_mutex> lock(profileMutex);
-        for (const Registration& reg : host.legacyRegistrations) {
+        for (const akira::consoles::Registration& reg : host.legacyRegistrations) {
             const Profile* profile = findProfile(reg.profileId);
             const auto account = profile ? libchiaking::AccountId::from_base64(profile->accountId) : std::nullopt;
             if (!account)

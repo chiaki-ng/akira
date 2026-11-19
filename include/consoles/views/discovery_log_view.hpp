@@ -4,6 +4,8 @@
 #include <borealis.hpp>
 #include <cstdint>
 
+namespace akira::consoles::views {
+
 class DiscoveryLogView : public brls::Box {
 public:
     DiscoveryLogView();
@@ -32,5 +34,7 @@ private:
 
     void refreshLog();
 };
+
+}
 
 #endif // AKIRA_DISCOVERY_LOG_VIEW_HPP

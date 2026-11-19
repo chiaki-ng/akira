@@ -12,7 +12,7 @@
 
 class SettingsManager;
 
-namespace akira {
+namespace akira::consoles {
 
 class PairingStore final : public libchiaking::consoles::ConsoleStore {
 public:

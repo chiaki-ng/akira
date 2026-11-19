@@ -6,7 +6,9 @@
 
 #include "play/views/connection_stage.hpp"
 
+namespace akira::consoles {
 class Host;
+}
 
 namespace akira::views {
 
@@ -31,7 +33,7 @@ public:
      * provisioned for this attempt and has to be kept alive by whoever streams
      * it. StreamView takes exactly this pair.
      */
-    virtual void succeeded(Host* host, std::shared_ptr<Host> owner) = 0;
+    virtual void succeeded(consoles::Host* host, std::shared_ptr<consoles::Host> owner) = 0;
 
     virtual void failed(const std::string& error) = 0;
 

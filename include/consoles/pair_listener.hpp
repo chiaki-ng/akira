@@ -7,7 +7,7 @@
 
 #include <libchiaking/platform/platform.hpp>
 
-namespace akira::pair {
+namespace akira::consoles {
 
 enum class ListenerEvent {
     Listening,

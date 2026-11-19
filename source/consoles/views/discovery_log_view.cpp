@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+namespace akira::consoles::views {
+
 using namespace brls::literals;
 
 DiscoveryLogView::DiscoveryLogView()
@@ -90,7 +92,7 @@ void DiscoveryLogView::refreshLog()
     if (logContainer->getChildren().empty()) {
         auto* label = new brls::Label();
         label->setFontSize(16);
-        label->setTextColor(akira::app::views::active().textMuted);
+        label->setTextColor(app::views::active().textMuted);
         logContainer->addView(label);
     }
 
@@ -113,4 +115,6 @@ void DiscoveryLogView::draw(NVGcontext* vg, float x, float y, float width, float
             scrollFrame->setContentOffsetY(-(contentHeight - frameHeight), false);
         needsScrollToBottom = false;
     }
+}
+
 }

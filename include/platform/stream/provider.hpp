@@ -2,7 +2,9 @@
 
 #include <memory>
 
+namespace akira::consoles {
 class Host;
+}
 class Session;
 class StreamMenu;
 
@@ -21,7 +23,7 @@ public:
 
     virtual Session* controlsSession() = 0;
     virtual std::shared_ptr<stream::Connection> controlsConnection() = 0;
-    virtual Host* controlsHost() = 0;
+    virtual consoles::Host* controlsHost() = 0;
     virtual bool controlsMenuOpen() const = 0;
 
     virtual bool prepareController() = 0;

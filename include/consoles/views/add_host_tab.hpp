@@ -5,6 +5,8 @@
 
 #include "settings/settings_manager.hpp"
 
+namespace akira::consoles::views {
+
 class AddHostTab : public brls::Box {
 public:
     AddHostTab();
@@ -22,5 +24,7 @@ private:
 
     void onSaveClicked();
 };
+
+}
 
 #endif // AKIRA_ADD_HOST_TAB_HPP

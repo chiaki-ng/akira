@@ -26,7 +26,9 @@
 #include "network/ipv4_address.hpp"
 #include "play/renderer_kind.hpp"
 
+namespace akira::consoles {
 class Host;
+}
 
 namespace akira {
 class CoreLog;
@@ -94,7 +96,7 @@ private:
     static constexpr const char* LEGACY_CONFIG_FILE = "sdmc:/switch/akira/akira.conf";
 
     akira::CoreLog* coreLog = nullptr;
-    std::map<std::string, std::unique_ptr<Host>> hosts;
+    std::map<std::string, std::unique_ptr<akira::consoles::Host>> hosts;
 
     // Global settings (defaults)
     VideoResolution localVideoResolution = VideoResolution::P720;
@@ -206,7 +208,7 @@ private:
     bool swipeRightEnabled = true;
 
     akira::SignInStore signInStore{*this};
-    akira::PairingStore pairingStore{*this};
+    akira::consoles::PairingStore pairingStore{*this};
     toml::table owned;
 
     toml::table ownedSettings();
@@ -217,7 +219,7 @@ private:
     void backupConfig(int64_t version);
     static std::optional<libchiaking::consoles::Firmware> firmwareFromTarget(int64_t target);
     static int64_t targetOf(const std::optional<libchiaking::consoles::Firmware>& firmware);
-    static std::optional<Registration> registrationOf(const toml::table& row);
+    static std::optional<akira::consoles::Registration> registrationOf(const toml::table& row);
     static bool fileExists(const char* path);
     void updateChiakiLogMask();
 
@@ -229,7 +231,7 @@ public:
     void setCoreLog(akira::CoreLog* log);
     void ensureCloudDuid(libchiaking::platform::SecureRandomProvider& random);
     akira::SignInStore& signIns() { return signInStore; }
-    akira::PairingStore& pairings() { return pairingStore; }
+    akira::consoles::PairingStore& pairings() { return pairingStore; }
 
     void parseFile();
     int writeFile();
@@ -238,12 +240,12 @@ public:
     static std::atomic<uint64_t> writeSeq;
     void ensureConfigDir();
 
-    std::map<std::string, std::unique_ptr<Host>>* getHostsMap();
-    Host* getOrCreateHost(const std::string& hostName);
-    Host* findHostByDuid(const std::string& duid);
+    std::map<std::string, std::unique_ptr<akira::consoles::Host>>* getHostsMap();
+    akira::consoles::Host* getOrCreateHost(const std::string& hostName);
+    akira::consoles::Host* findHostByDuid(const std::string& duid);
     void removeHost(const std::string& hostName);
     void removeActiveProfileRegistration(const std::string& hostName);
-    bool adoptLegacyRegistrations(Host& host);
+    bool adoptLegacyRegistrations(akira::consoles::Host& host);
     void renameHost(const std::string& oldName, const std::string& newName);
 
     static std::string resolutionToString(VideoResolution resolution);
@@ -262,16 +264,16 @@ public:
     static bool isValidFQDN(const std::string& addr);
     static bool isValidHostAddress(const std::string& addr);
 
-    std::string getHostName(Host* host);
-    std::string getHostAddr(Host* host);
-    void setHostAddr(Host* host, const std::string& addr);
-    void setDiscovered(Host* host, bool value);
+    std::string getHostName(akira::consoles::Host* host);
+    std::string getHostAddr(akira::consoles::Host* host);
+    void setHostAddr(akira::consoles::Host* host, const std::string& addr);
+    void setDiscovered(akira::consoles::Host* host, bool value);
 
-    std::string getPsnOnlineId(Host* host);
-    void setPsnOnlineId(Host* host, const std::string& id);
+    std::string getPsnOnlineId(akira::consoles::Host* host);
+    void setPsnOnlineId(akira::consoles::Host* host, const std::string& id);
 
-    std::string getPsnAccountId(Host* host);
-    void setPsnAccountId(Host* host, const std::string& id);
+    std::string getPsnAccountId(akira::consoles::Host* host);
+    void setPsnAccountId(akira::consoles::Host* host, const std::string& id);
 
 
     const std::string& getCloudDuid() const { return cloudDuid; }
@@ -308,22 +310,22 @@ public:
      */
     void refreshLegacyGate();
 
-    std::string getConsolePIN(Host* host);
-    void setConsolePIN(Host* host, const std::string& pin);
+    std::string getConsolePIN(akira::consoles::Host* host);
+    void setConsolePIN(akira::consoles::Host* host, const std::string& pin);
 
-    VideoResolution getVideoResolution(Host* host);
+    VideoResolution getVideoResolution(akira::consoles::Host* host);
     VideoResolution getLocalVideoResolution() const;
     void setLocalVideoResolution(VideoResolution value);
     VideoResolution getRemoteVideoResolution() const;
     void setRemoteVideoResolution(VideoResolution value);
 
-    VideoFps getVideoFPS(Host* host);
+    VideoFps getVideoFPS(akira::consoles::Host* host);
     VideoFps getLocalVideoFPS() const;
     void setLocalVideoFPS(VideoFps value);
     VideoFps getRemoteVideoFPS() const;
     void setRemoteVideoFPS(VideoFps value);
 
-    int getVideoBitrate(Host* host) const;
+    int getVideoBitrate(akira::consoles::Host* host) const;
     int getLocalVideoBitrate() const;
     void setLocalVideoBitrate(int value);
     int getRemoteVideoBitrate() const;
@@ -350,9 +352,9 @@ public:
     VideoFps getVpnVideoFPS() const;
     void setVpnVideoFPS(VideoFps value);
 
-    HapticPreset getHaptic(Host* host);
-    void setHaptic(Host* host, HapticPreset value);
-    void setHaptic(Host* host, const std::string& value);
+    HapticPreset getHaptic(akira::consoles::Host* host);
+    void setHaptic(akira::consoles::Host* host, HapticPreset value);
+    void setHaptic(akira::consoles::Host* host, const std::string& value);
 
     bool getDirectRumbleInStream() const;
     void setDirectRumbleInStream(bool value);

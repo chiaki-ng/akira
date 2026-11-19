@@ -126,7 +126,7 @@ void SettingsAccountView::initAuthSection() {
             settings->setPsnAccountId(nullptr, text);
             settings->writeFile();
             if (profileSwitcher) profileSwitcher->refresh();
-            HostListTab::notifyActiveProfileChanged();
+            akira::consoles::views::HostListTab::notifyActiveProfileChanged();
             akira::log::info("PSN Account ID set");
         },
         "akira/settings/psn_account_id_placeholder"_i18n,
@@ -144,7 +144,7 @@ void SettingsAccountView::initAuthSection() {
             settings->setPsnOnlineId(nullptr, text);
             settings->writeFile();
             if (profileSwitcher) profileSwitcher->refresh();
-            HostListTab::notifyActiveProfileChanged();
+            akira::consoles::views::HostListTab::notifyActiveProfileChanged();
             akira::log::info("PSN Online ID set");
         },
         "",

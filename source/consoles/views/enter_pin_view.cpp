@@ -4,6 +4,9 @@
 #include "log/log.hpp"
 
 #include <borealis/core/i18n.hpp>
+
+namespace akira::consoles::views {
+
 using namespace brls::literals;
 
 EnterPinView::EnterPinView(Host* host, PinViewType type, bool isError)
@@ -14,7 +17,7 @@ EnterPinView::EnterPinView(Host* host, PinViewType type, bool isError)
     setFocusable(true);
 
     this->registerAction("Back", brls::ControllerButton::BUTTON_B, [this](brls::View* view) {
-        akira::log::info("EnterPinView: Back pressed");
+        log::info("EnterPinView: Back pressed");
         closePinView();
         return true;
     });
@@ -88,7 +91,7 @@ void EnterPinView::showPinDialog()
             }
             this->pin = pinStr;
 
-            akira::log::info("PIN entered: {}", pin);
+            log::info("PIN entered: {}", pin);
 
             if (onPinEntered)
             {
@@ -105,7 +108,7 @@ void EnterPinView::showPinDialog()
 
     if (!success)
     {
-        akira::log::info("Keyboard cancelled, closing PIN view");
+        log::info("Keyboard cancelled, closing PIN view");
         // Need to release the token we retained above
         ASYNC_RELEASE
         if (onCancel)
@@ -118,7 +121,7 @@ void EnterPinView::showPinDialog()
 
 void EnterPinView::closePinView()
 {
-    akira::log::info("EnterPinView: closePinView called");
+    log::info("EnterPinView: closePinView called");
     if (onCancel)
     {
         onCancel();
@@ -132,16 +135,16 @@ void EnterPinView::draw(NVGcontext* vg, float x, float y, float width, float hei
 {
     nvgBeginPath(vg);
     nvgRect(vg, x, y, width, height);
-    nvgFillColor(vg, akira::app::views::withAlpha(akira::app::views::active().background, 240));
+    nvgFillColor(vg, app::views::withAlpha(app::views::active().background, 240));
     nvgFill(vg);
 
     nvgFontSize(vg, 24);
-    nvgFillColor(vg, akira::app::views::active().text);
+    nvgFillColor(vg, app::views::active().text);
     nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
     nvgText(vg, x + width / 2, y + height / 2 - 20, getTitle().c_str(), nullptr);
 
     nvgFontSize(vg, 16);
-    nvgFillColor(vg, akira::app::views::active().textMuted);
+    nvgFillColor(vg, app::views::active().textMuted);
     std::string instruction = "akira/pin/press_a"_i18n;
     nvgText(vg, x + width / 2, y + height / 2 + 20, instruction.c_str(), nullptr);
 
@@ -154,4 +157,6 @@ void EnterPinView::draw(NVGcontext* vg, float x, float y, float width, float hei
             showPinDialog();
         });
     }
+}
+
 }

@@ -141,7 +141,7 @@ void NetworkUtilitiesTab::onWgConnectClicked() {
                 return;
             isWgConnecting = false;
             if (success)
-                DiscoveryManager::getInstance()->restartSearch();
+                akira::consoles::DiscoveryManager::getInstance()->restartSearch();
             updateWireGuardStatus();
         });
     });
@@ -149,7 +149,7 @@ void NetworkUtilitiesTab::onWgConnectClicked() {
 
 void NetworkUtilitiesTab::onWgDisconnectClicked() {
     WireGuardManager::instance().disconnect();
-    DiscoveryManager::getInstance()->restartSearch();
+    akira::consoles::DiscoveryManager::getInstance()->restartSearch();
     updateWireGuardStatus();
 }
 

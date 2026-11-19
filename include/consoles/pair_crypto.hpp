@@ -9,7 +9,7 @@
 
 #include <libchiaking/platform/platform.hpp>
 
-namespace akira::pair {
+namespace akira::consoles {
 
 constexpr std::size_t kPubKeyLen = 64;
 constexpr std::size_t kSharedLen = 32;

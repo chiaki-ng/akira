@@ -21,7 +21,7 @@
 
 #include <json-c/json.h>
 
-namespace akira::pair {
+namespace akira::consoles {
 
 namespace {
 
@@ -137,7 +137,7 @@ void PairListener::start(int port, const std::string& code, EventCallback onEven
     stop();
     onEvent_ = std::move(onEvent);
     onImport_ = std::move(onImport);
-    auto started = libchiaking::platform::Thread::start(akira::ChiakiCore::current().threading(), "pair-listener",
+    auto started = libchiaking::platform::Thread::start(ChiakiCore::current().threading(), "pair-listener",
         libchiaking::platform::ThreadRole::unspecified,
         [this, port, code](libchiaking::platform::StopToken stop) { run(port, code, stop); });
     if (!started) {

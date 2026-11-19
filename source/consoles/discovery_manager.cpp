@@ -19,6 +19,8 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
+namespace akira::consoles {
+
 static std::mutex g_discoveryLogMutex;
 static std::deque<std::string> g_discoveryLogLines;
 static std::atomic<uint64_t> g_discoveryLogVersion{0};
@@ -64,7 +66,7 @@ DiscoveryManager* DiscoveryManager::getInstance()
 DiscoveryManager::DiscoveryManager()
 {
     settings = SettingsManager::getInstance();
-    backgroundSubscription = akira::app::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
+    backgroundSubscription = app::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
 }
 
 void DiscoveryManager::followBackgroundWork(bool paused)
@@ -74,7 +76,7 @@ void DiscoveryManager::followBackgroundWork(bool paused)
         const bool wasEnabled = serviceEnabled;
         if (wasEnabled)
         {
-            akira::log::info("Discovery: paused for the stream");
+            log::info("Discovery: paused for the stream");
             setServiceEnabled(false);
         }
         resumeAfterPause = wasEnabled;
@@ -82,7 +84,7 @@ void DiscoveryManager::followBackgroundWork(bool paused)
     }
     if (std::exchange(resumeAfterPause, false))
     {
-        akira::log::info("Discovery: resumed after the stream");
+        log::info("Discovery: resumed after the stream");
         setServiceEnabled(true);
     }
 }
@@ -96,7 +98,7 @@ void DiscoveryManager::ensureFocusSubscription()
         if (!focused || !serviceEnabled)
             return;
 
-        akira::log::info("Discovery: applet back in focus, restarting the search on fresh sockets");
+        log::info("Discovery: applet back in focus, restarting the search on fresh sockets");
         setServiceEnabled(false);
         setServiceEnabled(true);
     });
@@ -105,17 +107,17 @@ void DiscoveryManager::ensureFocusSubscription()
 
 void DiscoveryManager::setServiceEnabled(bool enable)
 {
-    akira::log::info("DiscoveryManager::setServiceEnabled({})", enable);
+    log::info("DiscoveryManager::setServiceEnabled({})", enable);
 
     if (serviceEnabled == enable)
     {
-        akira::log::info("Discovery service already in requested state");
+        log::info("Discovery service already in requested state");
         return;
     }
 
-    if (enable && akira::app::BackgroundWork::paused())
+    if (enable && app::BackgroundWork::paused())
     {
-        akira::log::info("Discovery: held until the stream ends");
+        log::info("Discovery: held until the stream ends");
         resumeAfterPause = true;
         return;
     }
@@ -129,9 +131,9 @@ void DiscoveryManager::setServiceEnabled(bool enable)
         return;
     }
 
-    if (!akira::ChiakiCore::current().opened())
+    if (!ChiakiCore::current().opened())
     {
-        akira::log::error("Discovery: the core is not open, nothing to search with");
+        log::error("Discovery: the core is not open, nothing to search with");
         return;
     }
 
@@ -143,7 +145,7 @@ void DiscoveryManager::setServiceEnabled(bool enable)
 
 void DiscoveryManager::linkSavedConsoles()
 {
-    auto& known = akira::ChiakiCore::current().chiaki().consoles();
+    auto& known = ChiakiCore::current().chiaki().consoles();
     auto* hostsMap = settings->getHostsMap();
     bool changed = false;
 
@@ -192,12 +194,12 @@ auto DiscoveryManager::searchRanges() -> consoles::SearchRanges
         const auto subnet = consoles::Subnet::parse(token);
         if (!subnet)
         {
-            akira::log::warning("Discovery: ignoring subnet {}", token);
+            log::warning("Discovery: ignoring subnet {}", token);
             continue;
         }
         if (localSubnet && *subnet == *localSubnet)
         {
-            akira::log::info("Discovery: subnet {} is local, covered by broadcast", token);
+            log::info("Discovery: subnet {} is local, covered by broadcast", token);
             continue;
         }
         cidrs.push_back(subnet->text());
@@ -217,11 +219,11 @@ auto DiscoveryManager::searchRanges() -> consoles::SearchRanges
         if (wireGuard.tunnels(text))
         {
             tunnelled.push_back(text + "/32");
-            akira::log::info("Discovery: added manual unicast target {} through the WireGuard tunnel", text);
+            log::info("Discovery: added manual unicast target {} through the WireGuard tunnel", text);
         }
         else
         {
-            akira::log::info("Discovery: added manual unicast target {}", text);
+            log::info("Discovery: added manual unicast target {}", text);
         }
     }
 
@@ -230,13 +232,13 @@ auto DiscoveryManager::searchRanges() -> consoles::SearchRanges
         const std::string text = platform::to_string(address);
         cidrs.push_back(text + "/32");
         tunnelled.push_back(text + "/32");
-        akira::log::info("Discovery: added WireGuard host {} through the tunnel", text);
+        log::info("Discovery: added WireGuard host {} through the tunnel", text);
     }
 
     auto ranges = consoles::SearchRanges::parse(cidrs, true);
     if (!ranges)
     {
-        akira::log::error("Discovery: the extra subnets are not searchable (reason {}), broadcasting only",
+        log::error("Discovery: the extra subnets are not searchable (reason {}), broadcasting only",
             static_cast<int>(ranges.error()));
         return consoles::SearchRanges{};
     }
@@ -246,7 +248,7 @@ auto DiscoveryManager::searchRanges() -> consoles::SearchRanges
     const auto tunnel = wireGuard.discoveryNetwork();
     if (!tunnel.network())
     {
-        akira::log::error("Discovery: WireGuard has no tunnel network; its hosts are probed on the local network");
+        log::error("Discovery: WireGuard has no tunnel network; its hosts are probed on the local network");
         return std::move(ranges).value();
     }
     auto searched = std::move(ranges).value();
@@ -258,7 +260,7 @@ auto DiscoveryManager::searchRanges() -> consoles::SearchRanges
         auto routed = searched.over(subnet, tunnel);
         if (!routed)
         {
-            akira::log::error("Discovery: {} cannot be probed through the tunnel (reason {})", subnet.text(),
+            log::error("Discovery: {} cannot be probed through the tunnel (reason {})", subnet.text(),
                 static_cast<int>(routed.error()));
             continue;
         }
@@ -288,24 +290,24 @@ void DiscoveryManager::startSearch()
             sweep.subnets.push_back(subnet.text());
     }
 
-    auto& core = akira::ChiakiCore::current();
+    auto& core = ChiakiCore::current();
     auto started = platform::Thread::start(core.threading(), "discovery", platform::ThreadRole::discovery,
         [this, ranges = std::move(ranges), generation, &core](platform::StopToken stop) {
             Lookout lookout{*this, generation};
             const auto searched = core.chiaki().consoles().find_on_my_network(ranges, lookout, stop);
             if (!searched)
-                akira::log::error("Discovery: the search ended (reason {})", static_cast<int>(searched.error()));
+                log::error("Discovery: the search ended (reason {})", static_cast<int>(searched.error()));
         });
     if (!started)
     {
-        akira::log::error("Discovery: the search thread could not start");
+        log::error("Discovery: the search thread could not start");
         serviceEnabled = false;
         std::lock_guard<std::mutex> lock(sweepMutex);
         sweep.serviceRunning = false;
         return;
     }
     searchThread = std::move(started).value();
-    akira::log::info("Discovery: searching");
+    log::info("Discovery: searching");
 }
 
 void DiscoveryManager::stopSearch()
@@ -372,12 +374,12 @@ void DiscoveryManager::applyView(uint64_t generation, const SeenNetwork& seen)
 
     if (adopted)
     {
-        auto remembered = akira::ChiakiCore::current().chiaki().consoles().remember_saved();
+        auto remembered = ChiakiCore::current().chiaki().consoles().remember_saved();
         if (remembered)
-            akira::log::info("Discovery: adopted saved registrations, {} console(s) remembered",
+            log::info("Discovery: adopted saved registrations, {} console(s) remembered",
                 remembered->consoles.size());
         else
-            akira::log::error("Discovery: adopted registrations could not be remembered");
+            log::error("Discovery: adopted registrations could not be remembered");
     }
 
     reconcile(seen);
@@ -453,7 +455,7 @@ psn::ActionStatus DiscoveryManager::getRemoteRefreshStatus() const
     std::lock_guard<std::mutex> lock(remoteRefreshMutex);
     if (remoteRefreshInFlight)
         return psn::ActionStatus{psn::ActionState::Busy, 0};
-    const uint64_t now = akira::ChiakiCore::current().clock().now_microseconds();
+    const uint64_t now = ChiakiCore::current().clock().now_microseconds();
     if (now < remoteRefreshReadyAtMicroseconds)
         return psn::ActionStatus{psn::ActionState::CoolingDown,
             static_cast<int>((remoteRefreshReadyAtMicroseconds - now + 999'999) / 1'000'000)};
@@ -462,7 +464,7 @@ psn::ActionStatus DiscoveryManager::getRemoteRefreshStatus() const
 
 void DiscoveryManager::refreshRemoteDevices(RemoteRefreshCallback onComplete, bool userInitiated)
 {
-    akira::log::info("DiscoveryManager::refreshRemoteDevices() called");
+    log::info("DiscoveryManager::refreshRemoteDevices() called");
 
     uint64_t generation = 0;
     {
@@ -476,7 +478,7 @@ void DiscoveryManager::refreshRemoteDevices(RemoteRefreshCallback onComplete, bo
 
         if (remoteRefreshInFlight)
         {
-            akira::log::info("Remote device refresh already running, joining in-flight request");
+            log::info("Remote device refresh already running, joining in-flight request");
             return;
         }
 
@@ -484,7 +486,7 @@ void DiscoveryManager::refreshRemoteDevices(RemoteRefreshCallback onComplete, bo
         generation = ++remoteGeneration;
     }
 
-    auto& core = akira::ChiakiCore::current();
+    auto& core = ChiakiCore::current();
     if (!core.opened())
     {
         finishRemoteRefresh(generation, {false, "core unavailable"});
@@ -504,18 +506,18 @@ void DiscoveryManager::refreshRemoteDevices(RemoteRefreshCallback onComplete, bo
 
 void DiscoveryManager::runRemoteRefresh(const platform::StopToken& stop, uint64_t generation)
 {
-    auto& core = akira::ChiakiCore::current();
+    auto& core = ChiakiCore::current();
     auto* accounts = core.accounts();
     if (settings->isLegacyProfileActive() || !accounts)
     {
-        akira::log::info("Legacy profile: skipping PSN remote device discovery");
+        log::info("Legacy profile: skipping PSN remote device discovery");
         finishRemoteRefresh(generation, {true, ""});
         return;
     }
 
     if (!accounts->staySignedIn(stop))
     {
-        akira::log::warning("Cannot discover remote devices: the PSN sign-in is not usable");
+        log::warning("Cannot discover remote devices: the PSN sign-in is not usable");
         finishRemoteRefresh(generation, {false, "PSN sign-in expired"});
         return;
     }
@@ -527,11 +529,11 @@ void DiscoveryManager::runRemoteRefresh(const platform::StopToken& stop, uint64_
         return;
     }
 
-    akira::log::info("Querying PSN for remote devices...");
+    log::info("Querying PSN for remote devices...");
     auto listed = core.chiaki().consoles().consoles_on_account(*user, consoles::Generation::ps5, stop);
     if (!listed)
     {
-        akira::log::error("Failed to list PS5 devices (reason {})", static_cast<int>(listed.error().reason));
+        log::error("Failed to list PS5 devices (reason {})", static_cast<int>(listed.error().reason));
         finishRemoteRefresh(generation, {false, std::format("PSN refused the console list ({})",
             listed.error().http_status)});
         return;
@@ -540,7 +542,7 @@ void DiscoveryManager::runRemoteRefresh(const platform::StopToken& stop, uint64_
     std::vector<SeenAccount> seen;
     for (const auto& console : *listed)
         seen.push_back({console.name(), console.device_uid().text(), console.generation(), console.remote_play_enabled()});
-    akira::log::info("Found {} PS5 remote device(s)", seen.size());
+    log::info("Found {} PS5 remote device(s)", seen.size());
 
     brls::sync([this, generation, seen = std::move(seen)]() { applyAccountConsoles(generation, seen); });
     finishRemoteRefresh(generation, {true, ""});
@@ -601,7 +603,7 @@ void DiscoveryManager::processMainPs4Remote()
                 onHostsChanged();
         }
 
-        akira::log::info("No registered PS4 for the active profile; hiding main PS4 remote host");
+        log::info("No registered PS4 for the active profile; hiding main PS4 remote host");
         return;
     }
 
@@ -625,7 +627,7 @@ void DiscoveryManager::processMainPs4Remote()
 
 void DiscoveryManager::processRemoteDevice(const SeenAccount& device)
 {
-    akira::log::info("Remote device: name='{}', uid='{}', type={}, remoteplay={}",
+    log::info("Remote device: name='{}', uid='{}', type={}, remoteplay={}",
         device.name, device.deviceUid,
         device.generation == consoles::Generation::ps5 ? "PS5" : "PS4",
         device.remotePlayEnabled ? "enabled" : "disabled");
@@ -640,7 +642,7 @@ void DiscoveryManager::processRemoteDevice(const SeenAccount& device)
 
     if (!device.remotePlayEnabled)
     {
-        akira::log::info("Skipping device '{}' - remote play not enabled", device.name);
+        log::info("Skipping device '{}' - remote play not enabled", device.name);
         return;
     }
 
@@ -652,7 +654,7 @@ void DiscoveryManager::processRemoteDevice(const SeenAccount& device)
         if (localHost->getRemoteDuid().empty())
         {
             localHost->setRemoteDuid(device.deviceUid);
-            akira::log::info("Updated local host '{}' with remote DUID", device.name);
+            log::info("Updated local host '{}' with remote DUID", device.name);
         }
     }
 
@@ -670,7 +672,7 @@ void DiscoveryManager::processRemoteDevice(const SeenAccount& device)
     else if (!host->hasRpKey())
     {
         host->setNeedsLink(true);
-        akira::log::info("Remote device '{}' needs linking to a local host", device.name);
+        log::info("Remote device '{}' needs linking to a local host", device.name);
     }
     else
     {
@@ -697,7 +699,7 @@ void DiscoveryManager::finishRemoteRefresh(uint64_t generation, const RemoteRefr
 
         if (remoteRefreshUserRequested)
         {
-            remoteRefreshReadyAtMicroseconds = akira::ChiakiCore::current().clock().now_microseconds() +
+            remoteRefreshReadyAtMicroseconds = ChiakiCore::current().clock().now_microseconds() +
                 static_cast<uint64_t>(result.success ? PSN_REMOTE_COOLDOWN_S : PSN_FAILED_COOLDOWN_S) * 1'000'000;
             remoteRefreshUserRequested = false;
         }
@@ -753,4 +755,6 @@ std::string DiscoveryManager::getLocalSubnetCidr()
         return "";
 
     return std::string(buf) + "/" + std::to_string(prefix);
+}
+
 }

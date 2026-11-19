@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <string>
 
-namespace akira {
+namespace akira::consoles {
 
 using libchiaking::unexpected;
 using libchiaking::consoles::ConsoleName;

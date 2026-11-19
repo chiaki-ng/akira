@@ -19,7 +19,9 @@
 
 #include "play/views/connect_task.hpp"
 
+namespace akira::consoles {
 class Host;
+}
 
 namespace akira::views {
 
@@ -60,7 +62,7 @@ public:
     /* ConnectSink */
     void progress(ConnectionStage stage) override;
     void progressStep(int index, int total, const std::string& label) override;
-    void succeeded(Host* host, std::shared_ptr<Host> owner) override;
+    void succeeded(consoles::Host* host, std::shared_ptr<consoles::Host> owner) override;
     void failed(const std::string& error) override;
     bool cancelled() const override;
 

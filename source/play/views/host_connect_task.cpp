@@ -13,7 +13,7 @@ using namespace brls::literals;
 
 namespace akira::views {
 
-HostConnectTask::HostConnectTask(Host* host)
+HostConnectTask::HostConnectTask(consoles::Host* host)
     : host(host)
 {
 }
