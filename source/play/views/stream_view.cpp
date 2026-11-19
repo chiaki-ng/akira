@@ -1,6 +1,7 @@
 #include "play/views/stream_view.hpp"
 #include "play/lazy_session.hpp"
 #include "app/view_services.hpp"
+#include "play/stream_launcher.hpp"
 #include "play/stream_preferences.hpp"
 #include "play/views/stream_nav.hpp"
 #include "platform/pads/pad.hpp"
@@ -202,87 +203,29 @@ void StreamView::startStream()
     }
 }
 
-RumbleProfile StreamView::activePadProfile()
-{
-    return app::ViewServices::current().platform.pads().primaryRumbleProfile();
-}
-
 void StreamView::openConnection()
 {
-    namespace play = libchiaking::play;
+    auto& services = app::ViewServices::current();
+    StreamLauncher launcher(*session, services.platform, services.preferences, services.accounts,
+        services.dispatcher, services.core);
+    auto opened = launcher.open(*host, hostOwner, shared_from_this(), handover, route().context());
+    handover = libchiaking::play::ConsoleHandover::fresh;
+    if (!opened)
+        throw app::Exception(failureText(opened.error()));
+    connection = std::move(*opened);
+}
 
-    auto* accounts = app::ViewServices::current().core.accounts();
-    auto player = accounts ? accounts->activeUser() : nullptr;
-    const auto& console = host->getConsole();
-    Connection::Starter starter;
-    int width = 0;
-    int height = 0;
-    int fps = 60;
-    int bitrate = 0;
-    bool hevc = false;
-    if (const auto* launch = host->cloudLaunch()) {
-        auto preferences = app::ViewServices::current().preferences.forCloud(*launch);
-        if (!preferences)
-            throw app::Exception("akira/connection/fail_generic"_i18n);
-        const auto picture = preferences->picture.on_cloud(launch->service());
-        width = static_cast<int>(picture.width());
-        height = static_cast<int>(picture.height());
-        fps = static_cast<int>(picture.fps());
-        bitrate = static_cast<int>(picture.bitrate_kbps());
-        hevc = picture.codec() != libchiaking::media::VideoCodec::h264;
-        starter = [owner = hostOwner, launch, preferences = *preferences, &core = services->core](
-                      libchiaking::media::MediaSink& sink, play::SessionEvents& events,
-                      const libchiaking::platform::StopToken&) -> Connection::Started {
-            return launch->start(core, preferences, sink, events);
-        };
-    } else {
-        if (!player || !console)
-            throw app::Exception("akira/connection/fail_regist"_i18n);
-        auto preferences = app::ViewServices::current().preferences.forConsole(*host);
-        if (!preferences)
-            throw app::Exception("akira/connection/fail_generic"_i18n);
-        preferences->handover = handover;
-        const auto picture = preferences->picture.on_console(console->generation());
-        width = static_cast<int>(picture.width());
-        height = static_cast<int>(picture.height());
-        fps = static_cast<int>(picture.fps());
-        bitrate = static_cast<int>(picture.bitrate_kbps());
-        hevc = picture.codec() != libchiaking::media::VideoCodec::h264;
-        starter = Connection::consoleStarter(console, player, *preferences,
-            host->isRemote() ? libchiaking::consoles::Route::internet : libchiaking::consoles::Route::home);
+std::string StreamView::failureText(StreamLauncher::Failure failure)
+{
+    switch (failure)
+    {
+        case StreamLauncher::Failure::NotRegistered: return "akira/connection/fail_regist"_i18n;
+        case StreamLauncher::Failure::NoPreferences: return "akira/connection/fail_generic"_i18n;
+        case StreamLauncher::Failure::Codec:         return "Failed to initiate libav codec";
+        case StreamLauncher::Failure::Video:         return "Failed to initiate video";
+        case StreamLauncher::Failure::Worker:        return "akira/connection/failed_create_thread"_i18n;
     }
-    handover = play::ConsoleHandover::fresh;
-
-    log::info("StreamView: requesting {}x{} at {} fps, {} kbps, {}", width, height, fps, bitrate,
-                       hevc ? "HEVC" : "H.264");
-    session->setRequestedProfile(width, height, fps, bitrate, hevc);
-
-    const RumbleProfile padProfile = activePadProfile();
-    session->setRumbleStrength(padProfile.rumble_source == RumbleSource::Off
-                                   ? 0.0f
-                                   : padProfile.strength);
-    session->setRumbleSource(padProfile.rumble_source);
-    session->setHapticIntensity(padProfile.haptic_intensity);
-    session->setHapticBase(HapticBaseForIntensity(padProfile.haptic_intensity));
-    session->setRumbleFreqs(padProfile.freq_low, padProfile.freq_high);
-    session->setEnvelopeAttack(padProfile.envelope_attack);
-    session->setEnvelopeDecay(padProfile.envelope_decay);
-    session->setRumbleCeiling(padProfile.ceiling);
-
-    if (!session->InitAVCodec(hevc, host->isPS5(), width, height))
-        throw app::Exception("Failed to initiate libav codec");
-    if (!session->InitVideo(width, height))
-        throw app::Exception("Failed to initiate video");
-
-    session->setConnectionContext(route().context());
-
-    std::shared_ptr<ConnectionListener> self = shared_from_this();
-    connection = std::make_shared<Connection>(*session, self, host->isPS5(),
-        app::ViewServices::current().platform, services->accounts, services->dispatcher, services->core);
-    if (!connection->open(std::move(starter))) {
-        connection.reset();
-        throw app::Exception("akira/connection/failed_create_thread"_i18n);
-    }
+    return "akira/connection/fail_generic"_i18n;
 }
 
 void StreamView::stopStream()

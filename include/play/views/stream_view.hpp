@@ -30,6 +30,7 @@
 #include "play/views/couch_seat_controls.hpp"
 #include "play/views/stream_controls_host.hpp"
 #include "play/session.hpp"
+#include "play/stream_launcher.hpp"
 #include "play/stream_route.hpp"
 #include "app/view_services.hpp"
 
@@ -123,8 +124,8 @@ private:
     void onSeatRefused(uint8_t slot, const libchiaking::play::SeatRefusal& refusal) override;
     void onSeatDropped(uint8_t slot) override;
 
-    static RumbleProfile activePadProfile();
     void openConnection();
+    static std::string failureText(StreamLauncher::Failure failure);
     void pauseStreamForUi();
     void resumeStreamAfterUi();
 
