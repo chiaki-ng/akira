@@ -8,6 +8,8 @@
 
 namespace akira::network::views {
 
+// Borealis dismisses a Dialog before invoking its button callback. Disable
+// the actual A/touch action until the deadline, not merely the button style.
 class DnsWarningDialog final : public brls::Dialog {
 public:
     explicit DnsWarningDialog(std::string message);
