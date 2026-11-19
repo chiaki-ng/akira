@@ -29,8 +29,6 @@ else()
         video/viddec
         video/software
         video/vulkan
-        video/deko3d
-        video/drako3d
         display/per_mode
         updates/none
         stats/none
@@ -38,6 +36,9 @@ else()
         haptics/hid
         feedback/hid
         pad_settings/hid)
+    if (AKIRA_SHELL STREQUAL "borealis")
+        list(APPEND AKIRA_PLATFORM_BACKENDS video/deko3d video/drako3d)
+    endif()
 endif()
 
 list(FILTER MAIN_SRC EXCLUDE REGEX "/source/platform/(factories|video|display|updates|stats|pads|haptics|feedback|pad_settings)/")

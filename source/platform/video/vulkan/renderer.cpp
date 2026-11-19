@@ -6,6 +6,8 @@
 #include "play/stream_state.hpp"
 #include "network/wireguard_manager.hpp"
 
+#include <switch.h>
+
 #include <algorithm>
 #include <cstring>
 #include <bit>

@@ -111,10 +111,12 @@ if (AKIRA_SHELL STREQUAL "arisa")
     set(AKIRA_SHELL_SRC ${MAIN_SRC})
     list(FILTER AKIRA_SHELL_SRC INCLUDE REGEX "/source/app/arisa/")
     list(FILTER MAIN_SRC EXCLUDE REGEX "/source/app/arisa/")
-    list(APPEND MAIN_SRC
-        ${BOREALIS_LIBRARY}/lib/extern/nanovg/deko3d/framework/CMemPool.cpp
-        ${BOREALIS_LIBRARY}/lib/extern/nanovg/deko3d/framework/CShader.cpp
-        ${BOREALIS_LIBRARY}/lib/extern/nanovg/deko3d/framework/CIntrusiveTree.cpp)
+    if (AKIRA_PLATFORM_NX)
+        list(APPEND MAIN_SRC
+            ${BOREALIS_LIBRARY}/lib/extern/nanovg/deko3d/framework/CMemPool.cpp
+            ${BOREALIS_LIBRARY}/lib/extern/nanovg/deko3d/framework/CShader.cpp
+            ${BOREALIS_LIBRARY}/lib/extern/nanovg/deko3d/framework/CIntrusiveTree.cpp)
+    endif()
 else()
     list(FILTER MAIN_SRC EXCLUDE REGEX "/source/app/arisa/")
 
@@ -216,9 +218,12 @@ endif()
 if (AKIRA_VIDEO_PROVIDER STREQUAL "deko3d")
     include(deko3d_shaders)
 endif()
-if (USE_DRAKO3D)
+set(AKIRA_DRAKO3D OFF)
+if (USE_DRAKO3D AND AKIRA_SHELL STREQUAL "borealis")
+    set(AKIRA_DRAKO3D ON)
     include(drako3d_shaders)
 endif()
+target_compile_definitions(${AKIRA_TARGET} PRIVATE AKIRA_DRAKO3D=$<BOOL:${AKIRA_DRAKO3D}>)
 
 # SDL2 depends on EGL/OpenGL libraries on Switch
 if (AKIRA_PLATFORM_NX)

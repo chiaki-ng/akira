@@ -3,7 +3,11 @@
 #include <cstdint>
 #include <memory>
 
+#if defined(__SWITCH2__)
+#include <drako3d.hpp>
+#else
 #include <deko3d.hpp>
+#endif
 
 class CMemPool;
 
