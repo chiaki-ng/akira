@@ -12,7 +12,7 @@
 
 #include "network/net_wrappers.hpp"
 
-namespace akira::net {
+namespace akira::network {
 
 std::uint16_t DnsClient::nextId()
 {
@@ -181,4 +181,4 @@ const char* DnsClient::stepName(Step step)
     return "unknown";
 }
 
-} // namespace akira::net
+} // namespace akira::network

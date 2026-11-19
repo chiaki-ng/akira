@@ -4,6 +4,8 @@
 #include <netdb.h>
 #include <unistd.h>
 
+namespace akira::network {
+
 struct AddrInfoGuard {
     addrinfo* info = nullptr;
     AddrInfoGuard() = default;
@@ -23,5 +25,7 @@ struct SocketGuard {
     operator int() { return fd; }
     int release() { int f = fd; fd = -1; return f; }
 };
+
+}
 
 #endif // AKIRA_NET_WRAPPERS_HPP

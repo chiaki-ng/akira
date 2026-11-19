@@ -982,7 +982,7 @@ void Deko3dRenderer::rebuildOverlayText()
     uint64_t mins = m_stats.stream_duration_seconds / 60;
     uint64_t secs = m_stats.stream_duration_seconds % 60;
 
-    auto& wg = WireGuardManager::instance();
+    auto& wg = network::WireGuardManager::instance();
 
     m_ov.fps = std::format("{:.1f}", m_render_fps);
     m_ov.rate = std::format("{:.1f}", m_stats.measured_bitrate_mbps);

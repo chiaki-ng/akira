@@ -169,7 +169,7 @@ libchiaking::consoles::HomeNetwork Host::homeNetwork() const
 {
     if (isRemote() || isCloud())
         return {};
-    return WireGuardManager::instance().homeNetwork(getHostAddr());
+    return network::WireGuardManager::instance().homeNetwork(getHostAddr());
 }
 
 HostRegisterError Host::registerHost(int pin, PairingCallback done)

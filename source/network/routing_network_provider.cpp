@@ -9,7 +9,7 @@
 
 #include "network/tunnel_stack.hpp"
 
-namespace akira::net {
+namespace akira::network {
 
 namespace platform = libchiaking::platform;
 using libchiaking::Expected;

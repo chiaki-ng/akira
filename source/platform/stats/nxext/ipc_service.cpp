@@ -150,7 +150,7 @@ Result IpcStatsService::ServiceHandler(void* userdata, const IpcServerRequest* r
 
             out->ghash_mode = 1;
 
-            auto& wg = WireGuardManager::instance();
+            auto& wg = network::WireGuardManager::instance();
             out->vpn_connected = wg.isConnected() ? 1 : 0;
             memset(out->vpn_ip, 0, sizeof(out->vpn_ip));
             if (wg.isConnected())

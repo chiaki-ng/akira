@@ -153,7 +153,7 @@ void PairListener::stop() {
 }
 
 void PairListener::run(int port, const std::string& code, const libchiaking::platform::StopToken& stop) {
-    SocketGuard listenSock(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
+    network::SocketGuard listenSock(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
     if (listenSock < 0) {
         if (onEvent_) onEvent_(ListenerEvent::Error);
         return;
@@ -207,7 +207,7 @@ void PairListener::run(int port, const std::string& code, const libchiaking::pla
         if (client < 0)
             continue;
 
-        SocketGuard clientSock(client);
+        network::SocketGuard clientSock(client);
         int clientFlags = fcntl(clientSock, F_GETFL, 0);
         fcntl(clientSock, F_SETFL, clientFlags & ~O_NONBLOCK);
         struct timeval ctv = {5, 0};

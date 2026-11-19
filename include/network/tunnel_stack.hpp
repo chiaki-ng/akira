@@ -17,7 +17,7 @@ extern "C" {
 #include <wireguard.h>
 }
 
-namespace akira::net {
+namespace akira::network {
 
 class TunnelStack : public std::enable_shared_from_this<TunnelStack> {
     struct Private {

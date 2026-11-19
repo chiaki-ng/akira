@@ -32,10 +32,10 @@ ProfileSetupView::ProfileSetupView(bool createProfile, bool firstRun)
         });
     this->registerAction("akira/settings/set_dns"_i18n, brls::ControllerButton::BUTTON_Y,
         [](brls::View*) {
-            CustomDnsPrompt::open([]() {
+            network::views::CustomDnsPrompt::open([]() {
                 const auto servers = SettingsManager::getInstance()->getCustomDnsServers();
                 const std::string shown = servers.empty() ? "akira/settings/custom_dns_system"_i18n
-                                                          : net::CustomDns::formatServers(servers);
+                                                          : network::CustomDns::formatServers(servers);
                 brls::Application::notify(brls::getStr("akira/settings/custom_dns_saved", shown));
             });
             return true;

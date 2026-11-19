@@ -11,7 +11,7 @@
 
 #include "network/ipv4_address.hpp"
 
-namespace akira::net {
+namespace akira::network {
 
 class DnsClient {
 public:
@@ -60,6 +60,6 @@ private:
     std::chrono::milliseconds m_timeout;
 };
 
-} // namespace akira::net
+} // namespace akira::network
 
 #endif // AKIRA_DNS_CLIENT_HPP

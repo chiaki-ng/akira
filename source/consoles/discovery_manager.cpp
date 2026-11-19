@@ -205,7 +205,7 @@ auto DiscoveryManager::searchRanges() -> consoles::SearchRanges
         cidrs.push_back(subnet->text());
     }
 
-    auto& wireGuard = WireGuardManager::instance();
+    auto& wireGuard = network::WireGuardManager::instance();
     std::vector<std::string> tunnelled;
     for (auto& [name, host] : *settings->getHostsMap())
     {

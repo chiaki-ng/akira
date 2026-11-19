@@ -659,7 +659,7 @@ void SettingsManager::parseTomlFile() {
         if (auto val = config["network"]["discovery_subnets"].value<std::string>())
             discoverySubnets = *val;
         if (auto val = config["network"]["custom_dns"].value<std::string>()) {
-            if (auto servers = akira::net::CustomDns::parseServers(*val))
+            if (auto servers = akira::network::CustomDns::parseServers(*val))
                 setCustomDnsServers(std::move(*servers));
             else
                 akira::log::warning("Ignoring invalid network.custom_dns \"{}\"", *val);
@@ -1127,7 +1127,7 @@ toml::table SettingsManager::ownedSettings() {
         network.insert("port_guessing_count", portGuessingCount);
         network.insert("port_guessing_socks", portGuessingSocks);
         if (!discoverySubnets.empty()) network.insert("discovery_subnets", discoverySubnets);
-        if (!customDnsServers.empty()) network.insert("custom_dns", akira::net::CustomDns::formatServers(customDnsServers));
+        if (!customDnsServers.empty()) network.insert("custom_dns", akira::network::CustomDns::formatServers(customDnsServers));
         network.insert("companion_port", companionPort);
         config.insert("network", std::move(network));
     }
@@ -2216,13 +2216,13 @@ void SettingsManager::setDevUpdateServer(const std::string& server) {
     devUpdateServer = server;
 }
 
-std::vector<akira::net::Ipv4Address> SettingsManager::getCustomDnsServers() const {
+std::vector<akira::network::Ipv4Address> SettingsManager::getCustomDnsServers() const {
     return customDnsServers;
 }
 
-void SettingsManager::setCustomDnsServers(std::vector<akira::net::Ipv4Address> servers) {
+void SettingsManager::setCustomDnsServers(std::vector<akira::network::Ipv4Address> servers) {
     customDnsServers = std::move(servers);
-    akira::net::CustomDns::instance().configure(customDnsServers);
+    akira::network::CustomDns::instance().configure(customDnsServers);
 }
 
 int SettingsManager::getMinBitrateForResolution(VideoResolution res) const {

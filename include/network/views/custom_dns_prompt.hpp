@@ -3,6 +3,8 @@
 
 #include <functional>
 
+namespace akira::network::views {
+
 class CustomDnsPrompt {
 public:
     static void open(std::function<void()> onSaved);
@@ -10,5 +12,7 @@ public:
 private:
     static void reject();
 };
+
+}
 
 #endif

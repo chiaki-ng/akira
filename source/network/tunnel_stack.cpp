@@ -13,7 +13,7 @@
 
 #include <wg_netif.h>
 
-namespace akira::net {
+namespace akira::network {
 
 namespace platform = libchiaking::platform;
 using libchiaking::unexpected;

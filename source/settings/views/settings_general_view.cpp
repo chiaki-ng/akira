@@ -301,11 +301,11 @@ void SettingsGeneralView::initCustomDnsCell() {
 void SettingsGeneralView::refreshCustomDnsCell() {
     const auto servers = settings->getCustomDnsServers();
     customDnsCell->setDetailText(servers.empty() ? "akira/settings/custom_dns_system"_i18n
-                                                 : akira::net::CustomDns::formatServers(servers));
+                                                 : akira::network::CustomDns::formatServers(servers));
 }
 
 void SettingsGeneralView::promptCustomDns() {
-    CustomDnsPrompt::open([this]() { refreshCustomDnsCell(); });
+    akira::network::views::CustomDnsPrompt::open([this]() { refreshCustomDnsCell(); });
 }
 
 void SettingsGeneralView::promptAddSubnet() {

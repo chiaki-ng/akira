@@ -159,7 +159,7 @@ void PairAdvertiser::run(int port, const libchiaking::platform::StopToken& stop)
     if (addr == 0)
         return;
 
-    SocketGuard sock(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
+    network::SocketGuard sock(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
     if (sock < 0)
         return;
 

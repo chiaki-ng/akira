@@ -158,7 +158,7 @@ private:
     int64_t lastUpdateCheck = 0;
     std::string updateInstallPath;
     std::string devUpdateServer;
-    std::vector<akira::net::Ipv4Address> customDnsServers;
+    std::vector<akira::network::Ipv4Address> customDnsServers;
     GyroSource globalGyroSource = GyroSource::Auto;
     bool sleepOnExit = false;
     bool requestIdrOnFecFailure = true;
@@ -427,8 +427,8 @@ public:
     void setUpdateInstallPath(const std::string& path);
     std::string getDevUpdateServer() const;
     void setDevUpdateServer(const std::string& server);
-    std::vector<akira::net::Ipv4Address> getCustomDnsServers() const;
-    void setCustomDnsServers(std::vector<akira::net::Ipv4Address> servers);
+    std::vector<akira::network::Ipv4Address> getCustomDnsServers() const;
+    void setCustomDnsServers(std::vector<akira::network::Ipv4Address> servers);
     int getMinBitrateForResolution(VideoResolution res) const;
 
 

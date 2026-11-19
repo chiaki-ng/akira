@@ -5,6 +5,8 @@
 #include <vector>
 #include <cstdint>
 
+namespace akira::network {
+
 enum class NATType {
     Unknown,
     OpenInternet,
@@ -57,5 +59,7 @@ private:
     static FilteringType detectFiltering();
     static FilteringType testFilteringWithServer(const std::string& server);
 };
+
+}
 
 #endif

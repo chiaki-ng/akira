@@ -11,7 +11,7 @@
 #include "network/dns_client.hpp"
 #include "network/ipv4_address.hpp"
 
-namespace akira::net {
+namespace akira::network {
 
 inline constexpr std::array<const char*, 3> SonyDnsDomains = {
     "auth.api.sonyentertainmentnetwork.com",
@@ -86,6 +86,6 @@ inline int secondsUntilDnsWarningOk(int64_t elapsedMilliseconds)
 // are queried. It makes no HTTP requests and sends no account data.
 SonyDnsReport checkSonyDnsAtStartup();
 
-} // namespace akira::net
+} // namespace akira::network
 
 #endif // AKIRA_SONY_DNS_CHECKER_HPP

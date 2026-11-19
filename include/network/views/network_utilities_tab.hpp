@@ -8,6 +8,8 @@
 #include "network/stun_client.hpp"
 #include "app/views/theme.hpp"
 
+namespace akira::network::views {
+
 class NetworkUtilitiesTab : public brls::Box {
 public:
     NetworkUtilitiesTab();
@@ -32,7 +34,7 @@ private:
     void displayResult(const StunResult& result);
     void clearResults();
     void addResultRow(const std::string& label, const std::string& value,
-                      NVGcolor valueColor = akira::app::views::active().textMuted);
+                      NVGcolor valueColor = app::views::active().textMuted);
     void addCompatibilityTable();
 
     void initWireGuardUI();
@@ -40,5 +42,7 @@ private:
     void onWgConnectClicked();
     void onWgDisconnectClicked();
 };
+
+}
 
 #endif

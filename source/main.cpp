@@ -121,7 +121,7 @@ class DelayedDnsWarningDialog final : public brls::Dialog {
     int remainingSeconds() const {
         const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - openedAt).count();
-        return akira::net::secondsUntilDnsWarningOk(elapsed);
+        return akira::network::secondsUntilDnsWarningOk(elapsed);
     }
 
     void updateCountdown() {
@@ -166,20 +166,20 @@ static void startSonyDnsStartupCheck() {
         return;
 
     brls::async([] {
-        const auto report = akira::net::checkSonyDnsAtStartup();
+        const auto report = akira::network::checkSonyDnsAtStartup();
         if (!report.failed())
             return;
 
         std::string failedDomain;
         std::string failedServer;
         // Prefer a concrete poisoned DNS answer over an ambiguous timeout.
-        for (const auto verdict : {akira::net::DnsVerdict::Blocked,
-                                   akira::net::DnsVerdict::Inconclusive}) {
+        for (const auto verdict : {akira::network::DnsVerdict::Blocked,
+                                   akira::network::DnsVerdict::Inconclusive}) {
             for (const auto& server : report.servers) {
                 for (size_t i = 0; i < server.domains.size(); ++i) {
                     if (server.domains[i] != verdict)
                         continue;
-                    failedDomain = akira::net::SonyDnsDomains[i];
+                    failedDomain = akira::network::SonyDnsDomains[i];
                     failedServer = server.address;
                     break;
                 }
@@ -642,7 +642,7 @@ int main(int argc, char* argv[])
     brls::Application::registerXMLView("AddHostTab", akira::consoles::views::AddHostTab::create);
     brls::Application::registerXMLView("BuildInfoTab", akira::app::views::BuildInfoTab::create);
     brls::Application::registerXMLView("ConfigViewTab", ConfigViewTab::create);
-    brls::Application::registerXMLView("NetworkUtilitiesTab", NetworkUtilitiesTab::create);
+    brls::Application::registerXMLView("NetworkUtilitiesTab", akira::network::views::NetworkUtilitiesTab::create);
     brls::Application::registerXMLView("StreamView", akira::play::views::StreamView::create);
     brls::Application::registerXMLView("EnterPinView", akira::consoles::views::EnterPinView::create);
 
@@ -690,7 +690,7 @@ int main(int argc, char* argv[])
 
     HttpPool::instance().stop();
 
-    WireGuardManager::instance().disconnect();
+    akira::network::WireGuardManager::instance().disconnect();
 
     core.reset();
 

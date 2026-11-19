@@ -138,7 +138,7 @@ void SettingsFrameView::buildMenus() {
     menus.push_back({"akira/settings/menu_debug"_i18n, {{"", []() -> brls::Box* { return new SettingsDebugView(); }}}});
     menus.push_back({"akira/settings/menu_build_info"_i18n, {{"", []() -> brls::Box* { return new akira::app::views::BuildInfoTab(); }}}});
     menus.push_back({"akira/settings/menu_config"_i18n, {{"", []() -> brls::Box* { return new ConfigViewTab(); }}}});
-    menus.push_back({"akira/settings/menu_network"_i18n, {{"", []() -> brls::Box* { return new NetworkUtilitiesTab(); }}}});
+    menus.push_back({"akira/settings/menu_network"_i18n, {{"", []() -> brls::Box* { return new akira::network::views::NetworkUtilitiesTab(); }}}});
 
     if (SettingsManager::getInstance()->getPowerUserMenuUnlocked()) {
         menus.push_back({"akira/settings/menu_power_user"_i18n, {{"", []() -> brls::Box* { return new SettingsPowerUserView(); }}}});

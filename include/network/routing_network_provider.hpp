@@ -8,7 +8,7 @@
 
 #include <libchiaking/platform/platform.hpp>
 
-namespace akira::net {
+namespace akira::network {
 
 class TunnelStack;
 

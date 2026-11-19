@@ -21,7 +21,7 @@
 #include "network/dns_client.hpp"
 #include "network/ipv4_address.hpp"
 
-namespace akira::net {
+namespace akira::network {
 
 class CustomDns {
 public:
@@ -85,6 +85,6 @@ private:
     DnsClient m_client{std::chrono::milliseconds(1000)};
 };
 
-} // namespace akira::net
+} // namespace akira::network
 
 #endif // AKIRA_CUSTOM_DNS_HPP

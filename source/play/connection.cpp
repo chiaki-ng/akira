@@ -54,7 +54,7 @@ Connection::~Connection()
 
 auto Connection::preferencesFor(consoles::Host& host, SettingsManager& settings) -> std::optional<play::Preferences>
 {
-    const bool vpn = !host.isRemote() && WireGuardManager::instance().isConnected();
+    const bool vpn = !host.isRemote() && network::WireGuardManager::instance().isConnected();
     uint32_t height = static_cast<uint32_t>(SettingsManager::resolutionToInt(
         vpn ? settings.getVpnVideoResolution() : settings.getVideoResolution(&host)));
     const auto fps = static_cast<uint32_t>(SettingsManager::fpsToInt(

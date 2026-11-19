@@ -9,7 +9,7 @@
 #include <string>
 #include <string_view>
 
-namespace akira::net {
+namespace akira::network {
 
 class Ipv4Address {
 public:
@@ -45,6 +45,6 @@ private:
     std::uint32_t m_value;
 };
 
-} // namespace akira::net
+} // namespace akira::network
 
 #endif // AKIRA_IPV4_ADDRESS_HPP

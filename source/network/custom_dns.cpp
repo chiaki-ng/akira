@@ -6,7 +6,7 @@
 #include <charconv>
 #include <ranges>
 
-namespace akira::net {
+namespace akira::network {
 
 CustomDns& CustomDns::instance()
 {
@@ -52,7 +52,7 @@ void CustomDns::configure(std::vector<Ipv4Address> servers)
         return;
     m_servers = std::move(servers);
     m_cache.clear();
-    akira::log::info("[NET] PlayStation names resolve in akira through {}{}",
+    log::info("[NET] PlayStation names resolve in akira through {}{}",
         formatServers(m_servers.empty() ? std::span<const Ipv4Address>(DefaultServers) : std::span<const Ipv4Address>(m_servers)),
         m_servers.empty() ? " (built-in)" : "");
 }
@@ -109,7 +109,7 @@ std::expected<std::vector<Ipv4Address>, int> CustomDns::resolve(const std::strin
     for (const Ipv4Address& server : resolvers()) {
         auto answer = m_client.queryA(server, name);
         if (!answer) {
-            akira::log::warning("[NET] custom DNS {} via {} failed: {} errno={}", name, server.toString(),
+            log::warning("[NET] custom DNS {} via {} failed: {} errno={}", name, server.toString(),
                 DnsClient::stepName(answer.error().step), answer.error().osErrno);
             if (answer.error().step == DnsClient::Step::NoSuchName) {
                 error = EAI_NONAME;
@@ -202,4 +202,4 @@ bool CustomDns::freeaddrinfo(addrinfo* list)
     return m_owned.erase(list) > 0;
 }
 
-} // namespace akira::net
+} // namespace akira::network

@@ -16,6 +16,8 @@ extern "C" {
 #include <wireguard.h>
 }
 
+namespace akira::network {
+
 class WireGuardManager {
 public:
     static WireGuardManager& instance();
@@ -42,7 +44,7 @@ private:
 
     bool parseConfigFile(const std::string& path, WgConfig& config);
     std::string parseValue(const std::string& line);
-    auto routesFor(const std::string& consoleAddress) const -> std::vector<akira::net::RoutingNetworkProvider::Prefix>;
+    auto routesFor(const std::string& consoleAddress) const -> std::vector<RoutingNetworkProvider::Prefix>;
 
     WgTunnel* tunnel = nullptr;
     WgConfig config = {};
@@ -51,9 +53,11 @@ private:
     std::atomic<bool> connected{false};
     std::string lastError;
     std::string tunnelIP;
-    std::vector<akira::net::RoutingNetworkProvider::Prefix> allowedIps;
-    std::shared_ptr<akira::net::TunnelStack> stack;
+    std::vector<RoutingNetworkProvider::Prefix> allowedIps;
+    std::shared_ptr<TunnelStack> stack;
     mutable std::mutex mutex;
 };
+
+}
 
 #endif
