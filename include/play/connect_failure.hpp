@@ -2,9 +2,7 @@
 
 #include <cstdint>
 
-#include <libchiaking/detail/play/outcome.hpp>
-#include <libchiaking/detail/play/seats.hpp>
-#include <libchiaking/detail/play/start_refusal.hpp>
+#include <libchiaking/play_types.hpp>
 
 #include "play/connection_stage.hpp"
 

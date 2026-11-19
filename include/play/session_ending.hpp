@@ -1,6 +1,6 @@
 #pragma once
 
-#include <libchiaking/detail/play/outcome.hpp>
+#include <libchiaking/play_types.hpp>
 
 namespace akira::play {
 

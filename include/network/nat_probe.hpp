@@ -1,8 +1,7 @@
 #pragma once
 
-#include <libchiaking/detail/expected.hpp>
-#include <libchiaking/detail/play/nat_type.hpp>
-#include <libchiaking/platform/runtime/stop_token.hpp>
+#include <libchiaking/platform/platform.hpp>
+#include <libchiaking/play_types.hpp>
 
 namespace akira::play {
 class ChiakiCore;

@@ -4,7 +4,7 @@
 #include <mutex>
 #include <string>
 
-#include <libchiaking/detail/play/session_events.hpp>
+#include <libchiaking/play_types.hpp>
 
 #include "play/connection_stage.hpp"
 

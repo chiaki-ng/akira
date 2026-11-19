@@ -2,8 +2,7 @@
 
 #include <optional>
 
-#include <libchiaking/detail/expected.hpp>
-#include <libchiaking/detail/play/nat_type.hpp>
+#include <libchiaking/play_types.hpp>
 
 namespace akira::network {
 

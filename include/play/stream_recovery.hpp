@@ -3,7 +3,7 @@
 #include <optional>
 #include <string>
 
-#include <libchiaking/detail/play/session.hpp>
+#include <libchiaking/play_types.hpp>
 
 namespace akira::play {
 
