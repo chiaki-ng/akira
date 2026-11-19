@@ -6,7 +6,7 @@
 #include <libchiaking/users_types.hpp>
 #include <toml++/toml.hpp>
 
-namespace akira {
+namespace akira::accounts {
 
 class ProfileTables {
 public:

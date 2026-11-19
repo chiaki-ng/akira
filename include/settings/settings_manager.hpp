@@ -103,7 +103,7 @@ private:
     VideoResolution remoteVideoResolution = VideoResolution::P720;
     VideoFps localVideoFPS = VideoFps::Fps60;
     VideoFps remoteVideoFPS = VideoFps::Fps60;
-    std::vector<Profile> profiles;
+    std::vector<akira::accounts::Profile> profiles;
     int64_t activeProfileId = 0;
     int64_t nextProfileId = 1;
     mutable std::recursive_mutex profileMutex;
@@ -207,7 +207,7 @@ private:
     bool swipeLeftEnabled = true;
     bool swipeRightEnabled = true;
 
-    akira::SignInStore signInStore{*this};
+    akira::accounts::SignInStore signInStore{*this};
     akira::consoles::PairingStore pairingStore{*this};
     toml::table owned;
 
@@ -230,7 +230,7 @@ public:
 
     void setCoreLog(akira::CoreLog* log);
     void ensureCloudDuid(libchiaking::platform::SecureRandomProvider& random);
-    akira::SignInStore& signIns() { return signInStore; }
+    akira::accounts::SignInStore& signIns() { return signInStore; }
     akira::consoles::PairingStore& pairings() { return pairingStore; }
 
     void parseFile();
@@ -278,21 +278,21 @@ public:
 
     const std::string& getCloudDuid() const { return cloudDuid; }
 
-    const std::vector<Profile>& getProfiles() const;
-    std::vector<Profile> profilesSnapshot() const;
-    Profile* findProfile(int64_t id);
-    const Profile* findProfile(int64_t id) const;
-    Profile* getActiveProfile();
-    const Profile* getActiveProfile() const;
-    Profile* ensureActiveProfile();
+    const std::vector<akira::accounts::Profile>& getProfiles() const;
+    std::vector<akira::accounts::Profile> profilesSnapshot() const;
+    akira::accounts::Profile* findProfile(int64_t id);
+    const akira::accounts::Profile* findProfile(int64_t id) const;
+    akira::accounts::Profile* getActiveProfile();
+    const akira::accounts::Profile* getActiveProfile() const;
+    akira::accounts::Profile* ensureActiveProfile();
     int64_t getActiveProfileId() const;
     void setActiveProfileId(int64_t id);
     void logProfileCensus(const char* stage);
-    bool readProfile(int64_t id, const std::function<void(const Profile&)>& fn) const;
-    bool updateProfile(int64_t id, const std::function<void(Profile&)>& fn);
+    bool readProfile(int64_t id, const std::function<void(const akira::accounts::Profile&)>& fn) const;
+    bool updateProfile(int64_t id, const std::function<void(akira::accounts::Profile&)>& fn);
     bool getActiveProfileTrophiesEnabled() const;
     void setActiveProfileTrophiesEnabled(bool enabled);
-    int64_t addProfile(const Profile& profile);
+    int64_t addProfile(const akira::accounts::Profile& profile);
     void removeProfile(int64_t id);
 
     /*

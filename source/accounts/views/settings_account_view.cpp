@@ -16,6 +16,8 @@
 #include <iomanip>
 #include <sstream>
 
+namespace akira::accounts::views {
+
 using namespace brls::literals;
 
 static const brls::ButtonStyle BUTTONSTYLE_BLUE = {
@@ -126,8 +128,8 @@ void SettingsAccountView::initAuthSection() {
             settings->setPsnAccountId(nullptr, text);
             settings->writeFile();
             if (profileSwitcher) profileSwitcher->refresh();
-            akira::consoles::views::HostListTab::notifyActiveProfileChanged();
-            akira::log::info("PSN Account ID set");
+            consoles::views::HostListTab::notifyActiveProfileChanged();
+            log::info("PSN Account ID set");
         },
         "akira/settings/psn_account_id_placeholder"_i18n,
         "akira/settings/psn_account_id_hint"_i18n
@@ -144,8 +146,8 @@ void SettingsAccountView::initAuthSection() {
             settings->setPsnOnlineId(nullptr, text);
             settings->writeFile();
             if (profileSwitcher) profileSwitcher->refresh();
-            akira::consoles::views::HostListTab::notifyActiveProfileChanged();
-            akira::log::info("PSN Online ID set");
+            consoles::views::HostListTab::notifyActiveProfileChanged();
+            log::info("PSN Online ID set");
         },
         "",
         ""
@@ -160,7 +162,7 @@ void SettingsAccountView::initAuthSection() {
             if (port > 0 && port <= 65535) {
                 settings->setCompanionPort(port);
                 settings->writeFile();
-                akira::log::info("Companion port set to {}", port);
+                log::info("Companion port set to {}", port);
             } else {
                 brls::Application::notify("akira/settings/invalid_port"_i18n);
             }
@@ -180,13 +182,13 @@ void SettingsAccountView::initAuthSection() {
 
     refreshTokenGate.attach(
         refreshTokenBtn,
-        akira::app::views::active().success,
+        app::views::active().success,
         "akira/settings/refresh_token_btn"_i18n,
         "akira/settings/refresh_token_busy"_i18n,
         "akira/settings/refresh_token_wait",
         []() {
-            auto* accounts = akira::play::ChiakiCore::current().accounts();
-            return accounts ? accounts->refreshStatus() : psn::ActionStatus{};
+            auto* accounts = play::ChiakiCore::current().accounts();
+            return accounts ? accounts->refreshStatus() : ActionStatus{};
         }
     );
 
@@ -195,8 +197,8 @@ void SettingsAccountView::initAuthSection() {
             return true;
         }
 
-        auto* accounts = akira::play::ChiakiCore::current().accounts();
-        if (!accounts || accounts->state() == psn::SessionState::NotLinked) {
+        auto* accounts = play::ChiakiCore::current().accounts();
+        if (!accounts || accounts->state() == SessionState::NotLinked) {
             brls::Application::notify("akira/settings/no_refresh_token"_i18n);
             return true;
         }
@@ -216,7 +218,7 @@ void SettingsAccountView::initAuthSection() {
     });
 
     clearPsnBtn->setStyle(&BUTTONSTYLE_BLUE);
-    clearPsnBtn->setBackgroundColor(akira::app::views::active().accent);
+    clearPsnBtn->setBackgroundColor(app::views::active().accent);
 
     clearPsnBtn->registerClickAction([this](brls::View* view) {
         auto* dialog = new brls::Dialog("akira/settings/clear_psn_confirm"_i18n);
@@ -227,7 +229,7 @@ void SettingsAccountView::initAuthSection() {
 
         dialog->addButton("akira/settings/clear_all"_i18n, [this, dialog]() {
             dialog->close();
-            if (auto* accounts = akira::play::ChiakiCore::current().accounts())
+            if (auto* accounts = play::ChiakiCore::current().accounts())
                 accounts->forget(settings->getPsnAccountId(nullptr));
             updateCredentialsDisplay();
             brls::Application::notify("akira/settings/psn_data_cleared"_i18n);
@@ -285,8 +287,8 @@ void SettingsAccountView::updateCredentialsDisplay() {
     psnAccountIdInput->setValue(maskNames ? settings->maskAccountName(accountId) : accountId);
     psnOnlineIdInput->setValue(maskNames ? settings->maskAccountName(onlineId) : onlineId);
 
-    auto* accounts = akira::play::ChiakiCore::current().accounts();
-    const psn::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
+    auto* accounts = play::ChiakiCore::current().accounts();
+    const Accounts::User user = accounts ? accounts->activeUser() : nullptr;
     const std::vector<libchiaking::users::HeldCredential> held =
         user ? user->held_credentials() : std::vector<libchiaking::users::HeldCredential>{};
 
@@ -308,7 +310,7 @@ void SettingsAccountView::updateCredentialsDisplay() {
     credDuidCell->setDetailText(censorString(settings->getCloudDuid()));
 }
 
-std::string SettingsAccountView::secretText(const psn::Accounts::User& user, CredentialKind kind) {
+std::string SettingsAccountView::secretText(const Accounts::User& user, CredentialKind kind) {
     if (!user)
         return "akira/common/not_set"_i18n;
     const auto secret = user->reveal(kind);
@@ -332,4 +334,6 @@ std::string SettingsAccountView::expiryText(const std::vector<libchiaking::users
     return found->state == libchiaking::users::HeldCredential::State::expired
         ? oss.str() + "akira/settings/expired_suffix"_i18n
         : oss.str();
+}
+
 }

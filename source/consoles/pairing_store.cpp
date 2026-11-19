@@ -99,7 +99,7 @@ void PairingStore::read(const toml::table& config)
             }
         }
     }
-    ProfileTables::each(config, [&loadedPairings](libchiaking::AccountId account, const toml::table& profile) {
+    accounts::ProfileTables::each(config, [&loadedPairings](libchiaking::AccountId account, const toml::table& profile) {
         const auto* array = profile["pairings"].as_array();
         if (!array)
             return;
@@ -123,7 +123,7 @@ void PairingStore::write(toml::table& config) const
         consoleRows.push_back(rowOf(console));
     if (!consoleRows.empty())
         config.insert("paired_consoles", std::move(consoleRows));
-    ProfileTables::each(config, [this](libchiaking::AccountId account, toml::table& profile) {
+    accounts::ProfileTables::each(config, [this](libchiaking::AccountId account, toml::table& profile) {
         toml::array owned;
         for (const SavedPairing& pairing : pairings) {
             if (pairing.account == account)

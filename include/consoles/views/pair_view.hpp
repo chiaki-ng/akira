@@ -24,7 +24,7 @@ public:
 
     brls::View* getDefaultFocus() override { return this; }
     static brls::View* create();
-    static void adoptSignedInUser(int64_t profileId, const psn::Accounts::User& user);
+    static void adoptSignedInUser(int64_t profileId, const accounts::Accounts::User& user);
 
 private:
     brls::Label* codeLabel = nullptr;

@@ -9,6 +9,8 @@
 #include "settings/settings_manager.hpp"
 #include "accounts/views/profile_card_view.hpp"
 
+namespace akira::accounts::views {
+
 class ProfileSwitcherView : public brls::Box {
 public:
     ProfileSwitcherView();
@@ -39,5 +41,7 @@ private:
     bool expanded = false;
     brls::Animatable heightAnim{0.0f};
 };
+
+}
 
 #endif // AKIRA_PROFILE_SWITCHER_VIEW_HPP

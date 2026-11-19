@@ -6,6 +6,8 @@
 
 #include "settings/settings_manager.hpp"
 
+namespace akira::accounts::views {
+
 class ProfileCardView : public brls::Box {
 public:
     ProfileCardView();
@@ -34,5 +36,7 @@ private:
     SettingsManager* settings = nullptr;
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 };
+
+}
 
 #endif // AKIRA_PROFILE_CARD_VIEW_HPP

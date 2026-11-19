@@ -105,7 +105,7 @@ void ConnectingView::setupAndStart()
     SettingsManager* settings = SettingsManager::getInstance();
     if (settings->getHideAccountName())
     {
-        for (const Profile& profile : settings->getProfiles())
+        for (const accounts::Profile& profile : settings->getProfiles())
         {
             logMasks.emplace_back(profile.onlineId, settings->maskAccountName(profile.onlineId));
             logMasks.emplace_back(profile.accountId, settings->maskAccountName(profile.accountId));

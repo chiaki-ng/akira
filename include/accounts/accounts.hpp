@@ -15,7 +15,7 @@
 
 class SettingsManager;
 
-namespace psn {
+namespace akira::accounts {
 
 enum class ActionState {
     Ready,
@@ -102,7 +102,7 @@ private:
     std::shared_ptr<Shared> shared;
     libchiaking::platform::Thread signInThread;
     libchiaking::platform::Thread keepAliveThread;
-    akira::app::BackgroundWork::Subscription backgroundSubscription;
+    app::BackgroundWork::Subscription backgroundSubscription;
 };
 
 }

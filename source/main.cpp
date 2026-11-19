@@ -379,7 +379,7 @@ void akiraOpenTrophies()
 void akiraOpenSettings()
 {
     if (SettingsManager::getInstance()->getProfiles().empty()) {
-        auto* setupFrame = new brls::AppletFrame(new ProfileSetupView(false, true));
+        auto* setupFrame = new brls::AppletFrame(new akira::accounts::views::ProfileSetupView(false, true));
         akira::app::views::decorateAkiraHeader(setupFrame);
         brls::Application::pushActivity(new brls::Activity(setupFrame));
         return;
@@ -636,7 +636,7 @@ int main(int argc, char* argv[])
     akira::log::info("Applet type: {} ({})", appletTypeToString(appletType), static_cast<int>(appletType));
 
     brls::Application::registerXMLView("HostListTab", akira::consoles::views::HostListTab::create);
-    brls::Application::registerXMLView("PsnGatedBox", PsnGatedBox::create);
+    brls::Application::registerXMLView("PsnGatedBox", akira::accounts::views::PsnGatedBox::create);
     brls::Application::registerXMLView("RecyclingGrid", akira::app::views::RecyclingGrid::create);
     brls::Application::registerXMLView("TrophyListTab", TrophyListTab::create);
     brls::Application::registerXMLView("AddHostTab", akira::consoles::views::AddHostTab::create);

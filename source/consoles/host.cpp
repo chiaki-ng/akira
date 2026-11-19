@@ -87,7 +87,7 @@ bool Host::needsAccountId() const
 
 bool Host::hasRpKey() const
 {
-    const Profile* profile = settings ? settings->getActiveProfile() : nullptr;
+    const accounts::Profile* profile = settings ? settings->getActiveProfile() : nullptr;
     if (!profile)
         return false;
     if (hasLegacyRegistration(profile->id))
@@ -266,7 +266,7 @@ bool Host::canPairOverInternet() const
     if (settings->isLegacyProfileActive())
         return false;
     auto* accounts = play::ChiakiCore::current().accounts();
-    if (!accounts || accounts->state() != psn::SessionState::Valid)
+    if (!accounts || accounts->state() != accounts::SessionState::Valid)
         return false;
     return !settings->getPsnAccountId(const_cast<Host*>(this)).empty();
 }
@@ -406,7 +406,7 @@ void Host::finishPairing(PairingOutcome outcome, std::shared_ptr<libchiaking::co
         linkConsole(paired);
         firmware = paired->firmware();
         serverNickname = paired->name();
-        if (const Profile* profile = settings->getActiveProfile())
+        if (const accounts::Profile* profile = settings->getActiveProfile())
             removeRegistrationsForProfile(profile->id);
         log::info("Register Success {}", hostName);
     }

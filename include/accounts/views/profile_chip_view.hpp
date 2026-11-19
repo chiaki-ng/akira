@@ -6,6 +6,8 @@
 
 #include "settings/settings_manager.hpp"
 
+namespace akira::accounts::views {
+
 class ProfileChipView : public brls::Box {
 public:
     ProfileChipView();
@@ -26,5 +28,7 @@ private:
     SettingsManager* settings = nullptr;
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 };
+
+}
 
 #endif // AKIRA_PROFILE_CHIP_VIEW_HPP

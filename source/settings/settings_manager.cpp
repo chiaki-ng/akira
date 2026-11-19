@@ -766,7 +766,7 @@ void SettingsManager::parseTomlFile() {
                 auto* pt = elem.as_table();
                 if (!pt) continue;
 
-                Profile profile;
+                akira::accounts::Profile profile;
                 profile.id = (*pt)["profile_id"].value<int64_t>().value_or(0);
                 if (profile.id <= 0) continue;
 
@@ -1249,7 +1249,7 @@ toml::table SettingsManager::ownedSettings() {
     {
         std::lock_guard<std::recursive_mutex> profileLock(profileMutex);
         toml::array profilesArr;
-        for (const Profile& p : profiles) {
+        for (const akira::accounts::Profile& p : profiles) {
             toml::table pt;
             pt.insert("profile_id", p.id);
             if (!p.onlineId.empty()) pt.insert("online_id", p.onlineId);
@@ -1526,7 +1526,7 @@ void SettingsManager::setDiscovered(akira::consoles::Host* host, bool value) {
 
 std::string SettingsManager::getPsnOnlineId(akira::consoles::Host* host) {
     (void)host;
-    const Profile* ap = getActiveProfile();
+    const akira::accounts::Profile* ap = getActiveProfile();
     return ap ? ap->onlineId : "";
 }
 
@@ -1537,7 +1537,7 @@ void SettingsManager::setPsnOnlineId(akira::consoles::Host* host, const std::str
 
 std::string SettingsManager::getPsnAccountId(akira::consoles::Host* host) {
     (void)host;
-    const Profile* ap = getActiveProfile();
+    const akira::accounts::Profile* ap = getActiveProfile();
     return ap ? ap->accountId : "";
 }
 
@@ -1694,7 +1694,7 @@ void SettingsManager::setCloudFilter(std::string filter) {
 
 const std::vector<cloud::Game>& SettingsManager::getCloudShortcuts() const {
     static const std::vector<cloud::Game> none;
-    const Profile* p = getActiveProfile();
+    const akira::accounts::Profile* p = getActiveProfile();
     return p ? p->cloudShortcuts : none;
 }
 
@@ -1863,7 +1863,7 @@ bool SettingsManager::adoptLegacyRegistrations(akira::consoles::Host& host) {
     {
         std::lock_guard<std::recursive_mutex> lock(profileMutex);
         for (const akira::consoles::Registration& reg : host.legacyRegistrations) {
-            const Profile* profile = findProfile(reg.profileId);
+            const akira::accounts::Profile* profile = findProfile(reg.profileId);
             const auto account = profile ? libchiaking::AccountId::from_base64(profile->accountId) : std::nullopt;
             if (!account)
                 continue;
@@ -1910,39 +1910,39 @@ void SettingsManager::setCompanionPort(int port) {
     }
 }
 
-const std::vector<Profile>& SettingsManager::getProfiles() const {
+const std::vector<akira::accounts::Profile>& SettingsManager::getProfiles() const {
     return profiles;
 }
 
-std::vector<Profile> SettingsManager::profilesSnapshot() const {
+std::vector<akira::accounts::Profile> SettingsManager::profilesSnapshot() const {
     std::lock_guard<std::recursive_mutex> lock(profileMutex);
     return profiles;
 }
 
-Profile* SettingsManager::findProfile(int64_t id) {
-    for (Profile& p : profiles)
+akira::accounts::Profile* SettingsManager::findProfile(int64_t id) {
+    for (akira::accounts::Profile& p : profiles)
         if (p.id == id) return &p;
     return nullptr;
 }
 
-const Profile* SettingsManager::findProfile(int64_t id) const {
-    for (const Profile& p : profiles)
+const akira::accounts::Profile* SettingsManager::findProfile(int64_t id) const {
+    for (const akira::accounts::Profile& p : profiles)
         if (p.id == id) return &p;
     return nullptr;
 }
 
-Profile* SettingsManager::getActiveProfile() {
+akira::accounts::Profile* SettingsManager::getActiveProfile() {
     return findProfile(activeProfileId);
 }
 
-const Profile* SettingsManager::getActiveProfile() const {
+const akira::accounts::Profile* SettingsManager::getActiveProfile() const {
     return findProfile(activeProfileId);
 }
 
-Profile* SettingsManager::ensureActiveProfile() {
-    if (Profile* p = getActiveProfile())
+akira::accounts::Profile* SettingsManager::ensureActiveProfile() {
+    if (akira::accounts::Profile* p = getActiveProfile())
         return p;
-    Profile np;
+    akira::accounts::Profile np;
     int64_t id = addProfile(np);
     activeProfileId = id;
     return findProfile(id);
@@ -1954,8 +1954,8 @@ int64_t SettingsManager::getActiveProfileId() const {
 
 void SettingsManager::setActiveProfileId(int64_t id) {
     if (activeProfileId != id) {
-        const Profile* from = findProfile(activeProfileId);
-        const Profile* to = findProfile(id);
+        const akira::accounts::Profile* from = findProfile(activeProfileId);
+        const akira::accounts::Profile* to = findProfile(id);
         akira::log::info("Active profile {} ({}) -> {} ({})",
             activeProfileId, from ? from->label() : std::string("<none>"),
             id, to ? to->label() : std::string("<none>"));
@@ -1967,26 +1967,26 @@ void SettingsManager::setActiveProfileId(int64_t id) {
 void SettingsManager::logProfileCensus(const char* stage) {
     akira::log::info("Profile census [{}]: active={} count={}",
         stage, activeProfileId, profiles.size());
-    for (const Profile& p : profiles) {
+    for (const akira::accounts::Profile& p : profiles) {
         akira::log::info("  profile id={} label='{}' legacy={} account={} shortcuts={}",
             p.id, p.label(), p.legacy, !p.accountId.empty(), p.cloudShortcuts.size());
     }
 }
 
 bool SettingsManager::getActiveProfileTrophiesEnabled() const {
-    const Profile* p = getActiveProfile();
+    const akira::accounts::Profile* p = getActiveProfile();
     return p ? p->trophiesEnabled : true;
 }
 
 void SettingsManager::setActiveProfileTrophiesEnabled(bool enabled) {
-    Profile* p = getActiveProfile();
+    akira::accounts::Profile* p = getActiveProfile();
     if (p)
         p->trophiesEnabled = enabled;
 }
 
-int64_t SettingsManager::addProfile(const Profile& profile) {
+int64_t SettingsManager::addProfile(const akira::accounts::Profile& profile) {
     std::lock_guard<std::recursive_mutex> lock(profileMutex);
-    Profile copy = profile;
+    akira::accounts::Profile copy = profile;
     copy.id = nextProfileId++;
     profiles.push_back(copy);
     return copy.id;
@@ -1994,7 +1994,7 @@ int64_t SettingsManager::addProfile(const Profile& profile) {
 
 void SettingsManager::removeProfile(int64_t id) {
     std::lock_guard<std::recursive_mutex> lock(profileMutex);
-    std::erase_if(profiles, [id](const Profile& p) { return p.id == id; });
+    std::erase_if(profiles, [id](const akira::accounts::Profile& p) { return p.id == id; });
     if (activeProfileId == id)
         activeProfileId = profiles.empty() ? 0 : profiles.front().id;
 
@@ -2012,7 +2012,7 @@ void SettingsManager::removeProfile(int64_t id) {
 }
 
 bool SettingsManager::isLegacyProfileActive() const {
-    const Profile* p = getActiveProfile();
+    const akira::accounts::Profile* p = getActiveProfile();
     return p && p->legacy;
 }
 
@@ -2021,9 +2021,9 @@ void SettingsManager::refreshLegacyGate() {
 }
 
 bool SettingsManager::readProfile(int64_t id,
-                                  const std::function<void(const Profile&)>& fn) const {
+                                  const std::function<void(const akira::accounts::Profile&)>& fn) const {
     std::lock_guard<std::recursive_mutex> lock(profileMutex);
-    const Profile* p = findProfile(id);
+    const akira::accounts::Profile* p = findProfile(id);
     if (!p)
         return false;
     fn(*p);
@@ -2031,9 +2031,9 @@ bool SettingsManager::readProfile(int64_t id,
 }
 
 bool SettingsManager::updateProfile(int64_t id,
-                                    const std::function<void(Profile&)>& fn) {
+                                    const std::function<void(akira::accounts::Profile&)>& fn) {
     std::lock_guard<std::recursive_mutex> lock(profileMutex);
-    Profile* p = findProfile(id);
+    akira::accounts::Profile* p = findProfile(id);
     if (!p)
         return false;
     fn(*p);

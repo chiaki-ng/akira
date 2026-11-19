@@ -1041,7 +1041,7 @@ void LibraryView::showAddGameDialog(const Game& game)
 
 void LibraryView::openSignIn()
 {
-    brls::Application::pushActivity(new brls::Activity(new QrSignInView()));
+    brls::Application::pushActivity(new brls::Activity(new akira::accounts::views::QrSignInView()));
 }
 
 void LibraryView::openDetail(const Game& game)

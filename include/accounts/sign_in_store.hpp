@@ -11,7 +11,7 @@
 
 class SettingsManager;
 
-namespace akira {
+namespace akira::accounts {
 
 class SignInStore final : public libchiaking::users::CredentialStore {
 public:

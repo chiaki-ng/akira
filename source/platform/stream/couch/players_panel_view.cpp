@@ -240,7 +240,7 @@ std::string WithAccount(const std::string& text, const consoles::Host* host, con
         return text;
     std::string account;
     if (slot == 0) {
-        if (const Profile* active = SettingsManager::getInstance()->getActiveProfile(); active && !active->accountId.empty())
+        if (const accounts::Profile* active = SettingsManager::getInstance()->getActiveProfile(); active && !active->accountId.empty())
             account = active->label();
     } else if (connection) {
         account = connection->couchSeat(slot).accountLabel;
@@ -639,14 +639,14 @@ void PlayersPanelView::loadProfileAvatar(int64_t profileId, const std::string& a
                 return;
 
             SettingsManager* settings = SettingsManager::getInstance();
-            if (Profile* saved = settings->findProfile(profileId); saved && saved->avatarUrl != url)
+            if (accounts::Profile* saved = settings->findProfile(profileId); saved && saved->avatarUrl != url)
             {
                 saved->avatarUrl = url;
                 settings->writeFile();
             }
             loadProfileAvatarUrl(profileId, url, image);
         },
-        [](psn::Status, const std::string&) {});
+        [](accounts::Status, const std::string&) {});
 }
 
 void PlayersPanelView::populatePicker()

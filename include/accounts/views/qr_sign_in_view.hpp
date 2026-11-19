@@ -10,6 +10,8 @@
 
 #include "accounts/accounts.hpp"
 
+namespace akira::accounts::views {
+
 class QrSignInView : public brls::Box {
 public:
     explicit QrSignInView(bool createProfile = false);
@@ -25,7 +27,7 @@ public:
 private:
     void start();
     void onProgress(const libchiaking::users::QrSignInState& state);
-    void onSignedIn(psn::SignInOutcome outcome, const psn::Accounts::User& user);
+    void onSignedIn(SignInOutcome outcome, const Accounts::User& user);
     void showCode(std::string_view approvalUrl);
     void clearCode();
     void showStatus(const std::string& text, NVGcolor color);
@@ -47,5 +49,7 @@ private:
     std::optional<std::chrono::steady_clock::time_point> deadline;
     int lastShownSecond = -1;
 };
+
+}
 
 #endif

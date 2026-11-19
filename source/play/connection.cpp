@@ -308,7 +308,7 @@ bool Connection::addPlayer(uint8_t slot, std::optional<int64_t> profileId)
     std::string label;
     if (ps5)
     {
-        const Profile* profile = profileId ? settings->findProfile(*profileId) : nullptr;
+        const accounts::Profile* profile = profileId ? settings->findProfile(*profileId) : nullptr;
         if (!profile)
             return false;
         account = libchiaking::AccountId::from_base64(profile->accountId);
@@ -395,7 +395,7 @@ auto Connection::couchProfileChoices(uint8_t slot) const -> std::vector<CouchPro
         return choices;
 
     const int64_t activeProfileId = settings->getActiveProfileId();
-    for (const Profile& profile : settings->getProfiles())
+    for (const accounts::Profile& profile : settings->getProfiles())
     {
         if (profile.id == activeProfileId || profile.accountId.empty())
             continue;

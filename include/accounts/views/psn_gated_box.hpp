@@ -7,6 +7,8 @@
 
 #include "accounts/accounts.hpp"
 
+namespace akira::accounts::views {
+
 class PsnGatedBox : public brls::Box {
 public:
     PsnGatedBox();
@@ -20,15 +22,17 @@ public:
     static void evaluateAll();
 
 private:
-    void applyState(psn::SessionState state);
+    void applyState(SessionState state);
 
     brls::Label* placeholder = nullptr;
     bool gateOpen = true;
     bool applied = false;
-    psn::SessionState appliedState = psn::SessionState::Valid;
+    SessionState appliedState = SessionState::Valid;
 
     static std::unordered_set<PsnGatedBox*> liveBoxes;
     static bool observerInstalled;
 };
+
+}
 
 #endif // AKIRA_PSN_GATED_BOX_HPP

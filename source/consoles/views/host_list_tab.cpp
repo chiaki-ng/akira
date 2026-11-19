@@ -339,7 +339,7 @@ private:
             auto* accounts = play::ChiakiCore::current().accounts();
             log::info("Register {}: remoteDuid='{}' signedIn={} hasAccountId={} canAuto={}",
                 host->getHostName(), host->getRemoteDuid(),
-                accounts && accounts->state() == psn::SessionState::Valid,
+                accounts && accounts->state() == accounts::SessionState::Valid,
                 !settings->getPsnAccountId(host).empty(), host->canPairOverInternet());
             bool needsAccountId = host->needsAccountId();
             std::string accountId = settings->getPsnAccountId(host);
@@ -820,7 +820,7 @@ public:
         this->addView(hint);
 
         this->registerClickAction([](brls::View*) {
-            brls::Application::pushActivity(new brls::Activity(new ProfileSetupView()));
+            brls::Application::pushActivity(new brls::Activity(new accounts::views::ProfileSetupView()));
             return true;
         });
         app::views::motion::liftOnFocus(this, focusAnim);
@@ -963,12 +963,12 @@ public:
         this->registerClickAction([snapshot](brls::View*) {
             if (snapshot.status.canPair && snapshot.status.degraded)
             {
-                brls::Application::pushActivity(new brls::Activity(new QrSignInView()));
+                brls::Application::pushActivity(new brls::Activity(new accounts::views::QrSignInView()));
                 return true;
             }
             if (snapshot.status.canPair && !snapshot.status.canBrowse)
             {
-                brls::Application::pushActivity(new brls::Activity(new ProfileSetupView()));
+                brls::Application::pushActivity(new brls::Activity(new accounts::views::ProfileSetupView()));
                 return true;
             }
 
@@ -1027,7 +1027,7 @@ HostListTab::HostListTab() {
 
     initFindRemoteButton();
 
-    profileChip = new ProfileChipView();
+    profileChip = new accounts::views::ProfileChipView();
     chipSlot->addView(profileChip);
     profileChip->registerClickAction([this](brls::View*) {
         const auto& profiles = settings->getProfiles();
@@ -1068,7 +1068,7 @@ HostListTab::HostListTab() {
                 s->setActiveProfileId(ids[sel]);
                 s->writeFile();
                 TrophyManager::getInstance()->onActiveProfileChanged();
-                brls::sync([] { QrSignInView::openIfSignInExpired(); });
+                brls::sync([] { accounts::views::QrSignInView::openIfSignInExpired(); });
 #if AKIRA_CLOUD
                 cloud::Service::instance().refreshActiveProfile(false,
                     [](const cloud::Snapshot&) {
@@ -1228,8 +1228,8 @@ void HostListTab::initFindRemoteButton() {
         }
 
         auto* accounts = play::ChiakiCore::current().accounts();
-        const psn::SessionState state = accounts ? accounts->state() : psn::SessionState::NotLinked;
-        if (state == psn::SessionState::NotLinked) {
+        const accounts::SessionState state = accounts ? accounts->state() : accounts::SessionState::NotLinked;
+        if (state == accounts::SessionState::NotLinked) {
             brls::Application::notify("akira/hosts/no_psn_token"_i18n);
             return true;
         }
@@ -1248,7 +1248,7 @@ void HostListTab::initFindRemoteButton() {
             }
         };
 
-        if (state == psn::SessionState::Valid) {
+        if (state == accounts::SessionState::Valid) {
             brls::Application::notify("akira/hosts/finding_remote"_i18n);
         } else {
             brls::Application::notify("akira/hosts/token_expired_refreshing"_i18n);

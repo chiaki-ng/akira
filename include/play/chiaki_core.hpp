@@ -42,7 +42,7 @@ public:
     auto opened() const noexcept -> bool { return chiakiNg.has_value(); }
     auto missing() const noexcept -> std::optional<Missing>;
     auto chiaki() -> libchiaking::ChiakiNg&;
-    auto accounts() noexcept -> psn::Accounts* { return psnAccounts ? &*psnAccounts : nullptr; }
+    auto accounts() noexcept -> accounts::Accounts* { return psnAccounts ? &*psnAccounts : nullptr; }
 
 private:
     static auto transportSettings() noexcept -> libchiaking::platform::HttpTransportSettings;
@@ -65,7 +65,7 @@ private:
     libchiaking::platform::DefaultStorageProvider recordStore;
     CloudDatacenterStore datacenters;
     libchiaking::Expected<libchiaking::ChiakiNg, Missing> chiakiNg;
-    std::optional<psn::Accounts> psnAccounts;
+    std::optional<accounts::Accounts> psnAccounts;
 };
 
 }

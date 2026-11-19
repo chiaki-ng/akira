@@ -8,13 +8,15 @@
 #include "consoles/views/pair_view.hpp"
 #include "accounts/views/qr_sign_in_view.hpp"
 
+namespace akira::accounts::views {
+
 using namespace brls::literals;
 
 ProfileSetupView::ProfileSetupView(bool createProfile, bool firstRun)
     : m_create_profile(createProfile), m_first_run(firstRun) {
     this->inflateFromXMLRes("xml/views/profile_setup.xml");
 
-    const auto& palette = akira::app::views::active();
+    const auto& palette = app::views::active();
 
     if (glyph) {
         glyph->setText("\xEE\xA1\x93");
@@ -33,7 +35,7 @@ ProfileSetupView::ProfileSetupView(bool createProfile, bool firstRun)
             CustomDnsPrompt::open([]() {
                 const auto servers = SettingsManager::getInstance()->getCustomDnsServers();
                 const std::string shown = servers.empty() ? "akira/settings/custom_dns_system"_i18n
-                                                          : akira::net::CustomDns::formatServers(servers);
+                                                          : net::CustomDns::formatServers(servers);
                 brls::Application::notify(brls::getStr("akira/settings/custom_dns_saved", shown));
             });
             return true;
@@ -41,7 +43,7 @@ ProfileSetupView::ProfileSetupView(bool createProfile, bool firstRun)
 }
 
 void ProfileSetupView::buildOptions() {
-    const auto& palette = akira::app::views::active();
+    const auto& palette = app::views::active();
     const bool createProfile = m_create_profile;
 
     addOption("\xEE\x8C\xAC",
@@ -61,7 +63,7 @@ void ProfileSetupView::buildOptions() {
               "akira/profile_setup/companion_note"_i18n,
               [createProfile]() {
                   brls::Application::pushActivity(
-                      new brls::Activity(new akira::consoles::views::PairView(createProfile)));
+                      new brls::Activity(new consoles::views::PairView(createProfile)));
               });
 
     addOption("\xEE\xA0\x8C",
@@ -82,7 +84,7 @@ void ProfileSetupView::addOption(const std::string& glyphText, const std::string
     if (!options)
         return;
 
-    const auto& palette = akira::app::views::active();
+    const auto& palette = app::views::active();
 
     auto* card = new brls::Box(brls::Axis::COLUMN);
     card->setWidth(brls::View::AUTO);
@@ -151,4 +153,6 @@ void ProfileSetupView::willAppear(bool resetState) {
 
 brls::View* ProfileSetupView::getDefaultFocus() {
     return m_first_option ? m_first_option->getDefaultFocus() : brls::Box::getDefaultFocus();
+}
+
 }

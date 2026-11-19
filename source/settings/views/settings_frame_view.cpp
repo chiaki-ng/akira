@@ -129,7 +129,7 @@ void SettingsFrameView::onActiveProfileChanged() {
 void SettingsFrameView::buildMenus() {
     menus.clear();
 
-    menus.push_back({"akira/settings/menu_account"_i18n, {{"", []() -> brls::Box* { return new SettingsAccountView(); }}}});
+    menus.push_back({"akira/settings/menu_account"_i18n, {{"", []() -> brls::Box* { return new akira::accounts::views::SettingsAccountView(); }}}});
     menus.push_back({"akira/settings/menu_general"_i18n, {{"", []() -> brls::Box* { return new SettingsGeneralView(); }}}});
     for (auto& menu : akira::platform::PlatformFactory::instance().updates().settingsMenus())
         menus.push_back({std::move(menu.title), {{"", std::move(menu.create)}}});

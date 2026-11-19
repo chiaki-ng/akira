@@ -116,7 +116,7 @@ public:
 
 private:
     BRLS_BIND(akira::app::views::RecyclingGrid, grid, "trophies/grid");
-    BRLS_BIND(PsnGatedBox, gate, "trophies/gate");
+    BRLS_BIND(akira::accounts::views::PsnGatedBox, gate, "trophies/gate");
     BRLS_BIND(brls::Button, sortBtn, "trophies/sortBtn");
     BRLS_BIND(brls::Button, filterBtn, "trophies/filterBtn");
     BRLS_BIND(brls::Button, forceRefreshBtn, "trophies/forceRefreshBtn");
@@ -135,7 +135,7 @@ private:
     bool haveSummary = false;
     TrophyGridDataSource* currentDataSource = nullptr;
 
-    PsnActionButton forceRefreshGate;
+    akira::accounts::views::PsnActionButton forceRefreshGate;
 
     std::vector<TrophyManager::Title> titles;
     brls::RepeatingTimer statusTimer;

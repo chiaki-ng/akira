@@ -5,6 +5,8 @@
 
 #include <string>
 
+namespace akira::accounts::views {
+
 class LegacyProfileView : public brls::Box {
 public:
     LegacyProfileView();
@@ -30,5 +32,7 @@ private:
     BRLS_BIND(brls::Box, fields, "legacy/fields");
     BRLS_BIND(brls::Button, createBtn, "legacy/createBtn");
 };
+
+}
 
 #endif // AKIRA_LEGACY_PROFILE_VIEW_HPP

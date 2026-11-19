@@ -10,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace psn {
+namespace akira::accounts {
 
 namespace platform = libchiaking::platform;
 using libchiaking::users::DeviceId;
@@ -53,8 +53,8 @@ Accounts::Accounts(libchiaking::ChiakiNg& chiaki, SettingsManager& settings,
     if (started)
         keepAliveThread = std::move(started).value();
     else
-        akira::log::error("PSN keep-alive thread could not start");
-    backgroundSubscription = akira::app::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
+        log::error("PSN keep-alive thread could not start");
+    backgroundSubscription = app::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
 }
 
 void Accounts::followBackgroundWork(bool paused)
@@ -69,7 +69,7 @@ void Accounts::followBackgroundWork(bool paused)
         }
     }
     if (renew) {
-        akira::log::info("PSN keep-alive: renewing after the stream");
+        log::info("PSN keep-alive: renewing after the stream");
         shared->wake.notify_all();
     }
 }
@@ -110,7 +110,7 @@ auto Accounts::activeUser() -> User
 
     auto added = chiaki.users().add_home_user(*account, name);
     if (!added) {
-        akira::log::error("PSN: legacy profile {} could not be added as a home user", name);
+        log::error("PSN: legacy profile {} could not be added as a home user", name);
         return nullptr;
     }
     return std::move(added).value();
@@ -181,7 +181,7 @@ void Accounts::signIn(int64_t profileId, std::string_view npsso, std::string_vie
         return;
     }
 
-    akira::log::info("PSN: signing in profile {}", profileId);
+    log::info("PSN: signing in profile {}", profileId);
     auto work = [this, seed = std::make_shared<libchiaking::users::Npsso>(seed.clone()),
                  device = std::make_shared<DeviceId>(std::move(*device)), correlation = correlationId(),
                  deliver](platform::StopToken stop) {
@@ -192,7 +192,7 @@ void Accounts::signIn(int64_t profileId, std::string_view npsso, std::string_vie
             return;
         }
         const auto& error = signedIn.error();
-        akira::log::warning("PSN: sign-in failed at {}: {} ({})", error.step(), error.name(), error.cause());
+        log::warning("PSN: sign-in failed at {}: {} ({})", error.step(), error.name(), error.cause());
         deliver(outcomeOf(error), nullptr);
     };
     startSignInThread("psn-sign-in", std::move(work), deliver);
@@ -224,7 +224,7 @@ void Accounts::signInWithQr(QrProgress progress, SignedInCallback done)
         });
     };
 
-    akira::log::info("PSN: signing in with a QR code");
+    log::info("PSN: signing in with a QR code");
     auto work = [this, device = std::make_shared<DeviceId>(std::move(*device)), correlation = correlationId(),
                  report = std::move(report), deliver](platform::StopToken stop) {
         auto signedIn = chiaki.users().sign_in_with_qr(*device, correlation, stop, report);
@@ -234,7 +234,7 @@ void Accounts::signInWithQr(QrProgress progress, SignedInCallback done)
             return;
         }
         const auto& error = signedIn.error();
-        akira::log::warning("PSN: QR sign-in failed at {}: {} ({})", error.step(), error.name(), error.cause());
+        log::warning("PSN: QR sign-in failed at {}: {} ({})", error.step(), error.name(), error.cause());
         deliver(outcomeOf(error), nullptr);
     };
     startSignInThread("psn-qr-sign-in", std::move(work), deliver);
@@ -330,7 +330,7 @@ void Accounts::forget(std::string_view base64Account)
     if (!account)
         return;
     if (!chiaki.sign_out(*account))
-        akira::log::warning("PSN: the saved sign-in could not be deleted");
+        log::warning("PSN: the saved sign-in could not be deleted");
     notifyStateChanged();
 }
 
@@ -342,7 +342,7 @@ auto Accounts::base64Of(libchiaking::AccountId account) -> std::string
 
 void Accounts::keepAlive(const platform::StopToken& stop)
 {
-    akira::log::info("PSN keep-alive: started");
+    log::info("PSN keep-alive: started");
     bool first = true;
     while (!stop.stop_requested()) {
         if (!first) {
@@ -405,13 +405,13 @@ void Accounts::keepAlive(const platform::StopToken& stop)
             });
         }
     }
-    akira::log::info("PSN keep-alive: stopped");
+    log::info("PSN keep-alive: stopped");
 }
 
 auto Accounts::keepEveryoneSignedIn(const platform::StopToken& stop) -> bool
 {
     if (settings.isLegacyProfileActive()) {
-        akira::log::debug("PSN keep-alive: legacy profile active, nothing to renew");
+        log::debug("PSN keep-alive: legacy profile active, nothing to renew");
         return true;
     }
 
@@ -422,16 +422,16 @@ auto Accounts::keepEveryoneSignedIn(const platform::StopToken& stop) -> bool
         if (!user->has_psn_account() || user->sign_in_state() == SignInState::signed_out)
             continue;
         if (user->sign_in_state() == SignInState::expired) {
-            akira::log::debug("PSN keep-alive: {} needs a new sign-in, not retrying", user->online_id());
+            log::debug("PSN keep-alive: {} needs a new sign-in, not retrying", user->online_id());
             continue;
         }
         const auto renewed = user->stay_signed_in(stop);
         if (!renewed) {
-            akira::log::warning("PSN keep-alive: {} could not be renewed (reason {})", user->online_id(),
+            log::warning("PSN keep-alive: {} could not be renewed (reason {})", user->online_id(),
                 static_cast<int>(renewed.error().reason));
             ok = false;
         } else if (*renewed != SignInState::signed_in) {
-            akira::log::warning("PSN keep-alive: {} needs a new sign-in", user->online_id());
+            log::warning("PSN keep-alive: {} needs a new sign-in", user->online_id());
             ok = false;
         }
     }

@@ -122,7 +122,7 @@ private:
     BRLS_BIND(brls::Button, filterBtn, "detail/filterBtn");
     BRLS_BIND(brls::Button, refreshBtn, "detail/refreshBtn");
     BRLS_BIND(akira::app::views::RecyclingGrid, list, "detail/list");
-    BRLS_BIND(PsnGatedBox, gate, "detail/gate");
+    BRLS_BIND(akira::accounts::views::PsnGatedBox, gate, "detail/gate");
 
     void load(bool forceRefresh);
     void applyDetail(const TrophyManager::TitleTrophies& detail);
@@ -135,7 +135,7 @@ private:
     TrophyManager::Title title;
     std::vector<libchiaking::trophies::TrophyGroup> groups;
     std::vector<libchiaking::trophies::Trophy> trophies;
-    PsnActionButton refreshGate;
+    akira::accounts::views::PsnActionButton refreshGate;
 
     size_t selectedGroup = 0;
     static TrophySort sortMode;

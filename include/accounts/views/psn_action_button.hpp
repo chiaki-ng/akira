@@ -8,9 +8,11 @@
 
 #include "accounts/accounts.hpp"
 
+namespace akira::accounts::views {
+
 class PsnActionButton {
 public:
-    using StatusProvider = std::function<psn::ActionStatus()>;
+    using StatusProvider = std::function<ActionStatus()>;
 
     void attach(brls::Button* button, NVGcolor readyColor, std::string readyLabel,
                 std::string busyLabel, std::string waitLabelKey, StatusProvider provider);
@@ -32,9 +34,11 @@ private:
     StatusProvider provider;
 
     brls::RepeatingTimer timer;
-    psn::ActionState appliedState = psn::ActionState::Ready;
+    ActionState appliedState = ActionState::Ready;
     int appliedSeconds = -1;
     bool applied = false;
 };
+
+}
 
 #endif // AKIRA_PSN_ACTION_BUTTON_HPP

@@ -3,7 +3,7 @@
 
 #include <string>
 
-namespace psn {
+namespace akira::accounts {
 
 enum class Status {
     Ok,
@@ -35,6 +35,6 @@ struct Error {
     bool ok() const { return status == Status::Ok; }
 };
 
-} // namespace psn
+} // namespace akira::accounts
 
 #endif // AKIRA_PSN_STATUS_HPP

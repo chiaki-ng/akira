@@ -11,6 +11,8 @@
 
 #include <format>
 
+namespace akira::accounts::views {
+
 using namespace brls::literals;
 using libchiaking::users::QrSignInState;
 using libchiaking::users::QrSignInStep;
@@ -19,7 +21,7 @@ using libchiaking::users::SignInErrorKind;
 QrSignInView::QrSignInView(bool createProfile) : createProfile(createProfile) {
     this->inflateFromXMLRes("xml/views/qr_sign_in.xml");
 
-    const auto& palette = akira::app::views::active();
+    const auto& palette = app::views::active();
 
     if (auto* card = dynamic_cast<brls::Box*>(this->getView("qr_sign_in/card"))) {
         card->setBackgroundColor(palette.surface);
@@ -56,15 +58,15 @@ QrSignInView::QrSignInView(bool createProfile) : createProfile(createProfile) {
 }
 
 QrSignInView::~QrSignInView() {
-    if (auto* accounts = akira::play::ChiakiCore::current().accounts())
+    if (auto* accounts = play::ChiakiCore::current().accounts())
         accounts->cancelSignIn();
 }
 
 void QrSignInView::openIfSignInExpired() {
-    auto* accounts = akira::play::ChiakiCore::current().accounts();
-    if (!accounts || accounts->state() != psn::SessionState::Expired)
+    auto* accounts = play::ChiakiCore::current().accounts();
+    if (!accounts || accounts->state() != SessionState::Expired)
         return;
-    akira::log::info("PSN sign-in for the active profile has expired; asking for a new one");
+    log::info("PSN sign-in for the active profile has expired; asking for a new one");
     brls::Application::pushActivity(new brls::Activity(new QrSignInView()));
 }
 
@@ -84,19 +86,19 @@ void QrSignInView::start() {
             brls::Application::giveFocus(closeButton);
     }
 
-    auto* accounts = akira::play::ChiakiCore::current().accounts();
+    auto* accounts = play::ChiakiCore::current().accounts();
     if (!accounts) {
         showFailure("akira/qr_sign_in/status_failed"_i18n);
         return;
     }
-    showStatus("akira/qr_sign_in/status_preparing"_i18n, akira::app::views::active().textMuted);
+    showStatus("akira/qr_sign_in/status_preparing"_i18n, app::views::active().textMuted);
     accounts->signInWithQr(
         [this](const QrSignInState& state) { onProgress(state); },
-        [this](psn::SignInOutcome outcome, const psn::Accounts::User& user) { onSignedIn(outcome, user); });
+        [this](SignInOutcome outcome, const Accounts::User& user) { onSignedIn(outcome, user); });
 }
 
 void QrSignInView::onProgress(const QrSignInState& state) {
-    const auto& palette = akira::app::views::active();
+    const auto& palette = app::views::active();
     switch (state.step()) {
         case QrSignInStep::preparing:
             clearCode();
@@ -126,10 +128,10 @@ void QrSignInView::onProgress(const QrSignInState& state) {
     }
 }
 
-void QrSignInView::onSignedIn(psn::SignInOutcome outcome, const psn::Accounts::User& user) {
-    if (outcome != psn::SignInOutcome::SignedIn || !user) {
-        akira::log::warning("QR sign-in ended without a user");
-        if (!failureShown && outcome != psn::SignInOutcome::Superseded)
+void QrSignInView::onSignedIn(SignInOutcome outcome, const Accounts::User& user) {
+    if (outcome != SignInOutcome::SignedIn || !user) {
+        log::warning("QR sign-in ended without a user");
+        if (!failureShown && outcome != SignInOutcome::Superseded)
             showFailure("akira/qr_sign_in/status_failed"_i18n);
         return;
     }
@@ -142,13 +144,13 @@ void QrSignInView::onSignedIn(psn::SignInOutcome outcome, const psn::Accounts::U
     if (!profile)
         return;
     if (profile->legacy) {
-        akira::log::warning("Rejecting QR sign-in: profile {} is legacy", profile->id);
+        log::warning("Rejecting QR sign-in: profile {} is legacy", profile->id);
         showFailure("akira/pair/mode_mismatch"_i18n);
         return;
     }
 
-    akira::consoles::views::PairView::adoptSignedInUser(profile->id, user);
-    akira::log::info("Signed in to PSN with a QR code");
+    consoles::views::PairView::adoptSignedInUser(profile->id, user);
+    log::info("Signed in to PSN with a QR code");
     brls::Application::notify(brls::getStr("akira/qr_sign_in/signed_in_fmt", user->online_id()));
     brls::Application::popActivity();
 }
@@ -157,7 +159,7 @@ void QrSignInView::showCode(std::string_view approvalUrl) {
     if (tile) {
         if (qrView)
             tile->removeView(qrView);
-        qrView = akira::app::views::QrCodeView::make(approvalUrl, qrSide);
+        qrView = app::views::QrCodeView::make(approvalUrl, qrSide);
         if (qrView) {
             tile->setBackgroundColor(nvgRGB(255, 255, 255));
             if (placeholder)
@@ -168,7 +170,7 @@ void QrSignInView::showCode(std::string_view approvalUrl) {
 }
 
 void QrSignInView::clearCode() {
-    const auto& palette = akira::app::views::active();
+    const auto& palette = app::views::active();
     deadline.reset();
     if (tile) {
         if (qrView)
@@ -191,7 +193,7 @@ void QrSignInView::showStatus(const std::string& text, NVGcolor color) {
 
 void QrSignInView::showFailure(const std::string& text) {
     failureShown = true;
-    showStatus(text, akira::app::views::active().danger);
+    showStatus(text, app::views::active().danger);
     if (placeholder)
         placeholder->setText("akira/qr_sign_in/placeholder_failed"_i18n);
     if (retryButton) {
@@ -235,4 +237,6 @@ auto QrSignInView::failureKey(SignInErrorKind kind) -> const char* {
         default:
             return "akira/qr_sign_in/status_failed";
     }
+}
+
 }

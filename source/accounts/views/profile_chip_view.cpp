@@ -5,6 +5,8 @@
 #include "app/views/theme.hpp"
 #include "trophies/trophy_manager.hpp"
 
+namespace akira::accounts::views {
+
 using namespace brls::literals;
 
 #if AKIRA_CLOUD
@@ -44,7 +46,7 @@ ProfileChipView::ProfileChipView() {
     this->inflateFromXMLRes("xml/profile_chip.xml");
     settings = SettingsManager::getInstance();
 
-    const auto& pal = akira::app::views::active();
+    const auto& pal = app::views::active();
 
     this->setAlignItems(brls::AlignItems::CENTER);
     this->setBackgroundColor(brls::Application::getTheme()["color/card"]);
@@ -54,7 +56,7 @@ ProfileChipView::ProfileChipView() {
     avatar->setCornerRadius(20);
 
     nameLabel->setTextColor(pal.text);
-    plusBadge->setBackgroundColor(akira::app::views::withAlpha(pal.gold, 0x33));
+    plusBadge->setBackgroundColor(app::views::withAlpha(pal.gold, 0x33));
     plusLabel->setTextColor(pal.gold);
     tagBox->setBorderColor(pal.surfaceLine);
     tagLabel->setTextColor(pal.textMuted);
@@ -69,7 +71,7 @@ ProfileChipView::~ProfileChipView() {
 
 void ProfileChipView::refresh() {
 #if AKIRA_CLOUD
-    const auto& pal = akira::app::views::active();
+    const auto& pal = app::views::active();
 #endif
     const Profile* p = settings->getActiveProfile();
 
@@ -161,5 +163,7 @@ void ProfileChipView::refresh() {
                         avatar->setImageFromMem(bytes.data(), static_cast<int>(bytes.size()));
                 });
         },
-        [](psn::Status, const std::string&) {});
+        [](Status, const std::string&) {});
+}
+
 }

@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <format>
 
+namespace akira::accounts::views {
+
 using namespace brls::literals;
 
 #if AKIRA_CLOUD
@@ -48,23 +50,23 @@ ProfileCardView::ProfileCardView() {
     settings = SettingsManager::getInstance();
 
     this->setAlignItems(brls::AlignItems::CENTER);
-    this->setBackgroundColor(akira::app::views::active().surface);
+    this->setBackgroundColor(app::views::active().surface);
 
     avatar->setScalingType(brls::ImageScalingType::FILL);
-    avatar->setBackgroundColor(akira::app::views::active().surfaceElevated);
+    avatar->setBackgroundColor(app::views::active().surfaceElevated);
     avatar->setCornerRadius(50);
 
-    track->setBackgroundColor(akira::app::views::active().surfaceLine);
-    progress->setColor(akira::app::views::active().accentStrong);
+    track->setBackgroundColor(app::views::active().surfaceLine);
+    progress->setColor(app::views::active().accentStrong);
     progress->setCornerRadius(3);
 
-    plusLabel->setTextColor(akira::app::views::active().warning);
-    statusLabel->setTextColor(akira::app::views::active().textMuted);
-    levelLabel->setTextColor(akira::app::views::active().textMuted);
-    platLabel->setTextColor(akira::app::views::active().text);
-    goldLabel->setTextColor(akira::app::views::active().text);
-    silverLabel->setTextColor(akira::app::views::active().text);
-    bronzeLabel->setTextColor(akira::app::views::active().text);
+    plusLabel->setTextColor(app::views::active().warning);
+    statusLabel->setTextColor(app::views::active().textMuted);
+    levelLabel->setTextColor(app::views::active().textMuted);
+    platLabel->setTextColor(app::views::active().text);
+    goldLabel->setTextColor(app::views::active().text);
+    silverLabel->setTextColor(app::views::active().text);
+    bronzeLabel->setTextColor(app::views::active().text);
 
     platImg->setImageFromRes("img/trophy/platinum.png");
     goldImg->setImageFromRes("img/trophy/gold.png");
@@ -147,7 +149,7 @@ void ProfileCardView::refresh() {
                         avatar->setImageFromMem(bytes.data(), static_cast<int>(bytes.size()));
                 });
         },
-        [](psn::Status, const std::string&) {});
+        [](Status, const std::string&) {});
 
     TrophyManager::getInstance()->fetchSummary(false,
         [this, guard](const TrophyManager::Summary& summary) {
@@ -170,5 +172,7 @@ void ProfileCardView::refresh() {
             silverImg->setAlpha(summary.earned.silver > 0 ? 1.0f : 0.4f);
             bronzeImg->setAlpha(summary.earned.bronze > 0 ? 1.0f : 0.4f);
         },
-        [](psn::Status, const std::string&) {});
+        [](Status, const std::string&) {});
+}
+
 }

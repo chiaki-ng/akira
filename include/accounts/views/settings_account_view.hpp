@@ -12,6 +12,8 @@
 #include "accounts/views/psn_action_button.hpp"
 #include "accounts/views/profile_switcher_view.hpp"
 
+namespace akira::accounts::views {
+
 class SettingsAccountView : public brls::Box {
 public:
     SettingsAccountView();
@@ -54,8 +56,10 @@ private:
     std::string censorString(const std::string& str);
 
     using CredentialKind = libchiaking::users::CredentialKind;
-    std::string secretText(const psn::Accounts::User& user, CredentialKind kind);
+    std::string secretText(const Accounts::User& user, CredentialKind kind);
     static std::string expiryText(const std::vector<libchiaking::users::HeldCredential>& held, CredentialKind kind);
 };
+
+}
 
 #endif // AKIRA_SETTINGS_ACCOUNT_VIEW_HPP

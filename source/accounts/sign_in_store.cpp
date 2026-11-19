@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-namespace akira {
+namespace akira::accounts {
 
 using libchiaking::unexpected;
 using libchiaking::users::AccountContext;

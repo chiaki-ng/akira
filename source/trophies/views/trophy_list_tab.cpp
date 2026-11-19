@@ -567,7 +567,7 @@ TrophyListTab::TrophyListTab()
         "akira/trophies/force_refresh_wait",
         [this]() {
             if (loading)
-                return psn::ActionStatus{psn::ActionState::Busy, 0};
+                return akira::accounts::ActionStatus{akira::accounts::ActionState::Busy, 0};
 
             return TrophyManager::getInstance()->forceRefreshStatus();
         }
@@ -835,9 +835,9 @@ void TrophyListTab::load(bool forceRefresh)
             if (currentInstance)
                 currentInstance->applySummary(summary);
         },
-        [](psn::Status status, const std::string& message) {
+        [](akira::accounts::Status status, const std::string& message) {
             akira::log::warning("Trophy grid: summary unavailable [{}] {}",
-                psn::statusName(status), message);
+                akira::accounts::statusName(status), message);
             if (currentInstance)
                 currentInstance->statusLabel->setText("akira/trophies/summary_unavailable"_i18n);
         });
@@ -850,7 +850,7 @@ void TrophyListTab::load(bool forceRefresh)
             currentInstance->loading = false;
             currentInstance->applyTitles(titles);
         },
-        [](psn::Status status, const std::string& message) {
+        [](akira::accounts::Status status, const std::string& message) {
             if (!currentInstance)
                 return;
 
@@ -859,14 +859,14 @@ void TrophyListTab::load(bool forceRefresh)
             const char* key = "akira/trophies/error_generic";
             switch (status)
             {
-                case psn::Status::NotLinked: key = "akira/trophies/error_not_linked"; break;
-                case psn::Status::SessionExpired: key = "akira/trophies/error_session_expired"; break;
-                case psn::Status::Offline: key = "akira/trophies/error_offline"; break;
-                case psn::Status::RateLimited: key = "akira/trophies/error_rate_limited"; break;
+                case akira::accounts::Status::NotLinked: key = "akira/trophies/error_not_linked"; break;
+                case akira::accounts::Status::SessionExpired: key = "akira/trophies/error_session_expired"; break;
+                case akira::accounts::Status::Offline: key = "akira/trophies/error_offline"; break;
+                case akira::accounts::Status::RateLimited: key = "akira/trophies/error_rate_limited"; break;
                 default: break;
             }
 
-            akira::log::error("Trophy grid: load failed [{}] {}", psn::statusName(status), message);
+            akira::log::error("Trophy grid: load failed [{}] {}", akira::accounts::statusName(status), message);
 
             if (currentInstance->titles.empty())
                 currentInstance->grid->setError(brls::getStr(key));

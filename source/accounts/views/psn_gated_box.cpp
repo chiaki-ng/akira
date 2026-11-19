@@ -3,6 +3,8 @@
 #include "play/chiaki_core.hpp"
 #include "log/log.hpp"
 
+namespace akira::accounts::views {
+
 using namespace brls::literals;
 
 std::unordered_set<PsnGatedBox*> PsnGatedBox::liveBoxes;
@@ -14,7 +16,7 @@ PsnGatedBox::PsnGatedBox()
 
     placeholder = new brls::Label();
     placeholder->setFontSize(18);
-    placeholder->setTextColor(akira::app::views::active().textDim);
+    placeholder->setTextColor(app::views::active().textDim);
     placeholder->setHorizontalAlign(brls::HorizontalAlign::CENTER);
     placeholder->setVerticalAlign(brls::VerticalAlign::CENTER);
     placeholder->setVisibility(brls::Visibility::GONE);
@@ -25,7 +27,7 @@ PsnGatedBox::PsnGatedBox()
     if (!observerInstalled)
     {
         observerInstalled = true;
-        if (auto* accounts = akira::play::ChiakiCore::current().accounts()) {
+        if (auto* accounts = play::ChiakiCore::current().accounts()) {
             accounts->setStateObserver([]() {
                 brls::sync([]() { PsnGatedBox::evaluateAll(); });
             });
@@ -51,12 +53,12 @@ void PsnGatedBox::evaluateAll()
 
 bool PsnGatedBox::evaluate()
 {
-    auto* accounts = akira::play::ChiakiCore::current().accounts();
-    applyState(accounts ? accounts->state() : psn::SessionState::NotLinked);
+    auto* accounts = play::ChiakiCore::current().accounts();
+    applyState(accounts ? accounts->state() : SessionState::NotLinked);
     return gateOpen;
 }
 
-void PsnGatedBox::applyState(psn::SessionState state)
+void PsnGatedBox::applyState(SessionState state)
 {
     if (applied && state == appliedState)
         return;
@@ -64,7 +66,7 @@ void PsnGatedBox::applyState(psn::SessionState state)
     applied = true;
     appliedState = state;
 
-    bool open = state != psn::SessionState::NotLinked;
+    bool open = state != SessionState::NotLinked;
     gateOpen = open;
 
     for (brls::View* child : this->getChildren())
@@ -88,5 +90,7 @@ void PsnGatedBox::applyState(psn::SessionState state)
     placeholder->setText("akira/trophies/no_psn_token"_i18n);
     placeholder->setVisibility(brls::Visibility::VISIBLE);
 
-    akira::log::info("PSN gate closed: no account linked");
+    log::info("PSN gate closed: no account linked");
+}
+
 }

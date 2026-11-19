@@ -93,7 +93,7 @@ auto Service::catalogOf() -> catalog::Catalog&
 
 auto Service::activeUser() const -> User
 {
-    psn::Accounts* accounts = akira::play::ChiakiCore::current().accounts();
+    akira::accounts::Accounts* accounts = akira::play::ChiakiCore::current().accounts();
     User user = accounts ? accounts->activeUser() : nullptr;
     return user && user->has_psn_account() ? user : nullptr;
 }
@@ -413,7 +413,7 @@ Snapshot Service::snapshotOf(const FetchFailure& failure)
 
 Snapshot Service::snapshotForActiveProfile() const
 {
-    const Profile* profile = settings->getActiveProfile();
+    const akira::accounts::Profile* profile = settings->getActiveProfile();
     if (!profile)
         return defaultSnapshotForProfile(false, false);
 
@@ -427,7 +427,7 @@ Snapshot Service::snapshotForActiveProfile() const
 
 void Service::markActiveProfileDirty()
 {
-    const Profile* profile = settings->getActiveProfile();
+    const akira::accounts::Profile* profile = settings->getActiveProfile();
     if (!profile)
         return;
 
@@ -439,7 +439,7 @@ void Service::markActiveProfileDirty()
 
 void Service::clearCatalogCache()
 {
-    const Profile* profile = settings->getActiveProfile();
+    const akira::accounts::Profile* profile = settings->getActiveProfile();
     if (!profile)
         return;
 
@@ -456,7 +456,7 @@ void Service::refreshInBackground()
 {
     if (!akira::play::ChiakiCore::current().opened())
         return;
-    if (const Profile* profile = settings->getActiveProfile())
+    if (const akira::accounts::Profile* profile = settings->getActiveProfile())
     {
         std::lock_guard<std::mutex> lock(mutex);
         const auto it = entries.find(profile->id);
@@ -481,7 +481,7 @@ void Service::refreshActiveProfile(bool force, SnapshotCallback onDone, FetchCal
         }
     }
 
-    const Profile* profile = settings->getActiveProfile();
+    const akira::accounts::Profile* profile = settings->getActiveProfile();
     if (!profile)
     {
         Snapshot snapshot = defaultSnapshotForProfile(false, false);
@@ -820,7 +820,7 @@ void Service::replaceGame(int64_t profileId, const Game& game)
 
 void Service::refreshTitle(const Game& game, const platform::StopToken& stop, TitleCallback onDone)
 {
-    const Profile* profile = settings->getActiveProfile();
+    const akira::accounts::Profile* profile = settings->getActiveProfile();
     User user = profile && signedIn() ? activeUser() : nullptr;
     const auto product = catalog::ProductId::parse(game.productId);
     if (!user || !product)
@@ -869,7 +869,7 @@ void Service::clearForLaunch(const Game& game, const platform::StopToken& stop, 
         return;
     }
 
-    const Profile* profile = settings->getActiveProfile();
+    const akira::accounts::Profile* profile = settings->getActiveProfile();
     User user = profile && akira::play::ChiakiCore::current().opened() ? activeUser() : nullptr;
     if (!user)
     {

@@ -57,7 +57,7 @@ public:
     SweepStatus getSweepStatus();
 
     void refreshRemoteDevices(RemoteRefreshCallback onComplete = nullptr, bool userInitiated = false);
-    psn::ActionStatus getRemoteRefreshStatus() const;
+    accounts::ActionStatus getRemoteRefreshStatus() const;
 
 private:
     struct SeenNetwork {

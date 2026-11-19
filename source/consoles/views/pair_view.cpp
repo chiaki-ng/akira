@@ -184,12 +184,12 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
     settings->logProfileCensus("pair-before");
 
     if (createProfile || !settings->getActiveProfile()) {
-        Profile fresh;
+        accounts::Profile fresh;
         int64_t id = settings->addProfile(fresh);
         settings->setActiveProfileId(id);
     }
 
-    Profile* profile = settings->getActiveProfile();
+    accounts::Profile* profile = settings->getActiveProfile();
 
     /*
      * Switching an existing profile between modes is not supported: delete it and add a
@@ -232,10 +232,10 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
 
     const int64_t profileId = settings->getActiveProfileId();
     accounts->signIn(profileId, creds.npsso, creds.duid,
-        [profileId](psn::SignInOutcome outcome, const psn::Accounts::User& user) {
-            if (outcome != psn::SignInOutcome::SignedIn || !user) {
+        [profileId](accounts::SignInOutcome outcome, const accounts::Accounts::User& user) {
+            if (outcome != accounts::SignInOutcome::SignedIn || !user) {
                 log::warning("Pair push sign-in for profile {} ended without a user", profileId);
-                if (outcome != psn::SignInOutcome::Superseded)
+                if (outcome != accounts::SignInOutcome::Superseded)
                     brls::Application::notify(brls::getStr("akira/hosts/token_refresh_failed", "PSN"));
                 return;
             }
@@ -244,10 +244,10 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
         });
 }
 
-void PairView::adoptSignedInUser(int64_t profileId, const psn::Accounts::User& user) {
+void PairView::adoptSignedInUser(int64_t profileId, const accounts::Accounts::User& user) {
     SettingsManager* settings = SettingsManager::getInstance();
-    settings->updateProfile(profileId, [&user](Profile& profile) {
-        profile.accountId = psn::Accounts::base64Of(user->account_id());
+    settings->updateProfile(profileId, [&user](accounts::Profile& profile) {
+        profile.accountId = accounts::Accounts::base64Of(user->account_id());
         profile.onlineId = user->online_id();
     });
     settings->refreshLegacyGate();

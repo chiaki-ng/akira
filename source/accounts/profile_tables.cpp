@@ -2,7 +2,7 @@
 
 #include <string_view>
 
-namespace akira {
+namespace akira::accounts {
 
 auto ProfileTables::accountOf(const toml::table& profile) -> std::optional<Account>
 {

@@ -450,16 +450,16 @@ DiscoveryManager::SweepStatus DiscoveryManager::getSweepStatus()
     return status;
 }
 
-psn::ActionStatus DiscoveryManager::getRemoteRefreshStatus() const
+accounts::ActionStatus DiscoveryManager::getRemoteRefreshStatus() const
 {
     std::lock_guard<std::mutex> lock(remoteRefreshMutex);
     if (remoteRefreshInFlight)
-        return psn::ActionStatus{psn::ActionState::Busy, 0};
+        return accounts::ActionStatus{accounts::ActionState::Busy, 0};
     const uint64_t now = play::ChiakiCore::current().clock().now_microseconds();
     if (now < remoteRefreshReadyAtMicroseconds)
-        return psn::ActionStatus{psn::ActionState::CoolingDown,
+        return accounts::ActionStatus{accounts::ActionState::CoolingDown,
             static_cast<int>((remoteRefreshReadyAtMicroseconds - now + 999'999) / 1'000'000)};
-    return psn::ActionStatus{};
+    return accounts::ActionStatus{};
 }
 
 void DiscoveryManager::refreshRemoteDevices(RemoteRefreshCallback onComplete, bool userInitiated)

@@ -47,7 +47,7 @@ private:
     BRLS_BIND(brls::Box, railSlot, "host/railSlot");
     BRLS_BIND(brls::Button, findRemoteBtn, "host/findRemoteBtn");
 
-    ProfileChipView* profileChip = nullptr;
+    accounts::views::ProfileChipView* profileChip = nullptr;
 #if AKIRA_CLOUD
     CloudShortcutsRail* shortcutsRail = nullptr;
 #endif
@@ -58,7 +58,7 @@ private:
 
     static void connectToHost(Host* host);
 
-    PsnActionButton findRemoteGate;
+    accounts::views::PsnActionButton findRemoteGate;
 
     SettingsManager* settings = nullptr;
     DiscoveryManager* discovery = nullptr;

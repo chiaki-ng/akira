@@ -7,6 +7,8 @@
 
 #include "cloud/models.hpp"
 
+namespace akira::accounts {
+
 struct Profile {
     int64_t id = 0;
 
@@ -33,5 +35,7 @@ struct Profile {
         return "";
     }
 };
+
+}
 
 #endif // AKIRA_PROFILE_HPP

@@ -85,7 +85,7 @@ const char* TrophyManager::reasonName(Unanswered::Reason reason)
     return "unknown";
 }
 
-psn::Error TrophyManager::failureOf(const Unanswered& cause)
+akira::accounts::Error TrophyManager::failureOf(const Unanswered& cause)
 {
     std::string message = cause.http_status != 0
         ? std::format("{} (HTTP {})", reasonName(cause.reason), cause.http_status)
@@ -94,29 +94,29 @@ psn::Error TrophyManager::failureOf(const Unanswered& cause)
     switch (cause.reason)
     {
         case Unanswered::Reason::signed_out:
-            return {psn::Status::NotLinked, message};
+            return {akira::accounts::Status::NotLinked, message};
         case Unanswered::Reason::sign_in_expired:
         case Unanswered::Reason::store_access_lapsed:
         case Unanswered::Reason::remote_play_access_missing:
-            return {psn::Status::SessionExpired, message};
+            return {akira::accounts::Status::SessionExpired, message};
         case Unanswered::Reason::rate_limited:
-            return {psn::Status::RateLimited, message};
+            return {akira::accounts::Status::RateLimited, message};
         case Unanswered::Reason::unavailable:
-            return {cause.http_status == 0 ? psn::Status::Offline : psn::Status::ServerError, message};
+            return {cause.http_status == 0 ? akira::accounts::Status::Offline : akira::accounts::Status::ServerError, message};
         case Unanswered::Reason::cancelled:
         case Unanswered::Reason::rejected:
         case Unanswered::Reason::malformed:
         case Unanswered::Reason::old_service_refused:
             break;
     }
-    return {psn::Status::ServerError, message};
+    return {akira::accounts::Status::ServerError, message};
 }
 
 void TrophyManager::deliverNotLinked(const ErrorCallback& onError)
 {
     brls::sync([onError]() {
         if (onError)
-            onError(psn::Status::NotLinked, "PSN account not linked");
+            onError(akira::accounts::Status::NotLinked, "PSN account not linked");
     });
 }
 
@@ -130,7 +130,7 @@ auto TrophyManager::catalog() -> catalog::Catalog&
     return akira::play::ChiakiCore::current().chiaki().catalog();
 }
 
-auto TrophyManager::requestFor(psn::Accounts::User user) -> Request
+auto TrophyManager::requestFor(akira::accounts::Accounts::User user) -> Request
 {
     std::lock_guard<std::mutex> lock(mutex);
     return Request{std::move(user), generation, stopSource->token()};
@@ -138,8 +138,8 @@ auto TrophyManager::requestFor(psn::Accounts::User user) -> Request
 
 auto TrophyManager::begin() -> std::optional<Request>
 {
-    psn::Accounts* accounts = akira::play::ChiakiCore::current().accounts();
-    psn::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
+    akira::accounts::Accounts* accounts = akira::play::ChiakiCore::current().accounts();
+    akira::accounts::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
     if (!user || !user->has_psn_account())
         return std::nullopt;
     return requestFor(std::move(user));
@@ -172,8 +172,8 @@ void TrophyManager::deliverFailure(const Request& request, const Unanswered& cau
     if (cause.is_cancelled() || !current(request))
         return;
 
-    const psn::Error error = failureOf(cause);
-    akira::log::error("Trophy: {} failed with {} ({})", what, psn::statusName(error.status), error.message);
+    const akira::accounts::Error error = failureOf(cause);
+    akira::log::error("Trophy: {} failed with {} ({})", what, akira::accounts::statusName(error.status), error.message);
 
     const uint64_t asked = request.generation;
     brls::sync([this, asked, error, onError = std::move(onError)]() {
@@ -237,13 +237,13 @@ int64_t TrophyManager::librarySavedAtSeconds() const
     return librarySavedAt;
 }
 
-psn::ActionStatus TrophyManager::forceRefreshStatus(const std::string& scope)
+akira::accounts::ActionStatus TrophyManager::forceRefreshStatus(const std::string& scope)
 {
     std::lock_guard<std::mutex> lock(mutex);
 
     auto entry = forcedAt.find(scope);
     if (entry == forcedAt.end() || entry->second <= 0)
-        return {psn::ActionState::Ready, 0};
+        return {akira::accounts::ActionState::Ready, 0};
 
     const int64_t now = nowSeconds();
     if (entry->second > now)
@@ -251,9 +251,9 @@ psn::ActionStatus TrophyManager::forceRefreshStatus(const std::string& scope)
 
     const int64_t readyAt = entry->second + static_cast<int64_t>(FORCE_REFRESH_COOLDOWN_MINUTES) * 60;
     if (readyAt <= now)
-        return {psn::ActionState::Ready, 0};
+        return {akira::accounts::ActionState::Ready, 0};
 
-    return {psn::ActionState::CoolingDown, static_cast<int>(readyAt - now)};
+    return {akira::accounts::ActionState::CoolingDown, static_cast<int>(readyAt - now)};
 }
 
 void TrophyManager::recordForcedRefresh(const std::string& scope)
@@ -462,7 +462,7 @@ void TrophyManager::fetchProfileForAccount(const std::string& accountId,
 {
     akira::play::ChiakiCore& core = akira::play::ChiakiCore::current();
     const auto account = libchiaking::AccountId::from_base64(accountId);
-    psn::Accounts::User user = core.opened() && account ? core.chiaki().users().find(*account) : nullptr;
+    akira::accounts::Accounts::User user = core.opened() && account ? core.chiaki().users().find(*account) : nullptr;
     if (!user || !user->has_psn_account())
     {
         deliverNotLinked(onError);
@@ -808,9 +808,9 @@ void TrophyManager::runStaleCheck()
             if (summaryObserver)
                 summaryObserver(summary);
         },
-        [](psn::Status status, const std::string& message) {
+        [](akira::accounts::Status status, const std::string& message) {
             akira::log::warning("Trophy: background summary refresh failed [{}] {}",
-                psn::statusName(status), message);
+                akira::accounts::statusName(status), message);
         });
 
     fetchLibrary(false,
@@ -818,9 +818,9 @@ void TrophyManager::runStaleCheck()
             if (libraryObserver)
                 libraryObserver(titles);
         },
-        [](psn::Status status, const std::string& message) {
+        [](akira::accounts::Status status, const std::string& message) {
             akira::log::warning("Trophy: background library refresh failed [{}] {}",
-                psn::statusName(status), message);
+                akira::accounts::statusName(status), message);
         });
 }
 

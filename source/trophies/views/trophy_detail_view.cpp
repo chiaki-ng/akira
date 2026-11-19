@@ -624,7 +624,7 @@ TrophyDetailView::TrophyDetailView(const TrophyManager::Title& title)
         "akira/trophies/force_refresh_wait",
         [this]() {
             if (loading)
-                return psn::ActionStatus{psn::ActionState::Busy, 0};
+                return akira::accounts::ActionStatus{akira::accounts::ActionState::Busy, 0};
 
             return TrophyManager::getInstance()->forceRefreshStatus(this->title.id.text());
         }
@@ -697,7 +697,7 @@ void TrophyDetailView::load(bool forceRefresh)
                 currentInstance->applyDetail(loaded);
             }
         },
-        [](psn::Status status, const std::string& message) {
+        [](akira::accounts::Status status, const std::string& message) {
             if (!currentInstance)
                 return;
 
@@ -706,17 +706,17 @@ void TrophyDetailView::load(bool forceRefresh)
             const char* key = "akira/trophies/error_generic";
             switch (status)
             {
-                case psn::Status::NotLinked: key = "akira/trophies/error_not_linked"; break;
-                case psn::Status::SessionExpired: key = "akira/trophies/error_session_expired"; break;
-                case psn::Status::Offline: key = "akira/trophies/error_offline"; break;
-                case psn::Status::RateLimited: key = "akira/trophies/error_rate_limited"; break;
+                case akira::accounts::Status::NotLinked: key = "akira/trophies/error_not_linked"; break;
+                case akira::accounts::Status::SessionExpired: key = "akira/trophies/error_session_expired"; break;
+                case akira::accounts::Status::Offline: key = "akira/trophies/error_offline"; break;
+                case akira::accounts::Status::RateLimited: key = "akira/trophies/error_rate_limited"; break;
                 default: break;
             }
 
             currentInstance->subtitleLabel->setText(brls::getStr(key));
             currentInstance->list->setError(brls::getStr(key));
 
-            akira::log::error("Trophy detail: load failed [{}] {}", psn::statusName(status), message);
+            akira::log::error("Trophy detail: load failed [{}] {}", akira::accounts::statusName(status), message);
         });
 }
 

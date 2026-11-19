@@ -3,6 +3,8 @@
 
 #include <format>
 
+namespace akira::accounts::views {
+
 static constexpr brls::Time PSN_ACTION_TICK_MS = 250;
 
 void PsnActionButton::attach(brls::Button* button, NVGcolor readyColor, std::string readyLabel,
@@ -40,7 +42,7 @@ std::string PsnActionButton::formatWait(int seconds)
 
 bool PsnActionButton::isReady() const
 {
-    return provider && provider().state == psn::ActionState::Ready;
+    return provider && provider().state == ActionState::Ready;
 }
 
 void PsnActionButton::start()
@@ -59,7 +61,7 @@ void PsnActionButton::apply()
     if (!button || !provider)
         return;
 
-    psn::ActionStatus status = provider();
+    ActionStatus status = provider();
 
     if (applied && status.state == appliedState && status.secondsRemaining == appliedSeconds)
         return;
@@ -70,25 +72,27 @@ void PsnActionButton::apply()
 
     switch (status.state)
     {
-        case psn::ActionState::Ready:
+        case ActionState::Ready:
             button->setText(readyLabel);
             button->setState(brls::ButtonState::ENABLED);
             button->setTextColor(brls::Application::getTheme()["brls/button/primary_enabled_text"]);
             button->setBackgroundColor(readyColor);
             break;
 
-        case psn::ActionState::Busy:
+        case ActionState::Busy:
             button->setText(busyLabel);
             button->setState(brls::ButtonState::DISABLED);
-            button->setTextColor(akira::app::views::active().textDim);
-            button->setBackgroundColor(akira::app::views::active().surface);
+            button->setTextColor(app::views::active().textDim);
+            button->setBackgroundColor(app::views::active().surface);
             break;
 
-        case psn::ActionState::CoolingDown:
+        case ActionState::CoolingDown:
             button->setText(brls::getStr(waitLabelKey, formatWait(status.secondsRemaining)));
             button->setState(brls::ButtonState::DISABLED);
-            button->setTextColor(akira::app::views::active().textDim);
-            button->setBackgroundColor(akira::app::views::active().surface);
+            button->setTextColor(app::views::active().textDim);
+            button->setBackgroundColor(app::views::active().surface);
             break;
     }
+}
+
 }
