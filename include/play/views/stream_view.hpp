@@ -27,7 +27,8 @@
 #include "play/paused_frame.hpp"
 #include "play/rumble_profile.hpp"
 #include "play/connection.hpp"
-#include "platform/stream/provider.hpp"
+#include "play/views/couch_seat_controls.hpp"
+#include "play/views/stream_controls_host.hpp"
 #include "play/session.hpp"
 #include "play/stream_route.hpp"
 #include "app/view_services.hpp"
@@ -36,7 +37,7 @@ namespace akira::play::views {
 
 class StreamView : public brls::Box,
                    public ConnectionListener,
-                   public akira::platform::StreamControlsHost,
+                   public StreamControlsHost,
                    public std::enable_shared_from_this<StreamView> {
 public:
     explicit StreamView(consoles::Host* host, std::shared_ptr<consoles::Host> hostOwner = {});
@@ -69,7 +70,7 @@ private:
     void pauseForUi() override { pauseStreamForUi(); }
     void resumeAfterUi() override { resumeStreamAfterUi(); }
 
-    std::unique_ptr<akira::platform::StreamControlsProvider> controls;
+    std::unique_ptr<CouchSeatControls> controls;
     consoles::Host* host = nullptr;
     std::shared_ptr<consoles::Host> hostOwner;
     app::BackgroundWork::Pause backgroundPause;

@@ -7,13 +7,13 @@
 #include <functional>
 #include <vector>
 
-#include "platform/pads/extended/pad_path.hpp"
+#include "platform/pads/pad.hpp"
 
 namespace akira::play {
 class InputManager;
 }
 
-namespace akira::platform::couch
+namespace akira::play::views
 {
 
 class ControllerPickerView : public brls::Box {

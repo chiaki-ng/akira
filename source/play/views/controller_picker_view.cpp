@@ -1,18 +1,18 @@
-#include "platform/stream/couch/controller_picker_view.hpp"
+#include "play/views/controller_picker_view.hpp"
 #include "log/log.hpp"
 
 #include <string>
 #include <vector>
 
-#include "platform/stream/couch/battery_pips.hpp"
-#include "platform/stream/couch/pad_art.hpp"
+#include "play/views/battery_pips.hpp"
+#include "play/views/pad_art.hpp"
 
 #include "app/views/glass.hpp"
 #include "app/views/theme.hpp"
 
 #include <borealis/core/i18n.hpp>
 
-namespace akira::platform::couch
+namespace akira::play::views
 {
 
 using namespace brls::literals;
@@ -279,7 +279,7 @@ void ControllerPickerView::buildCards()
         card->setCornerRadius(18);
 
         auto* art = new brls::Image();
-        art->setImageFromRes(akira::platform::couch::PadArtPath(m_pads[i]));
+        art->setImageFromRes(PadArtPath(m_pads[i]));
         art->setScalingType(brls::ImageScalingType::FIT);
         art->setWidth(artW);
         art->setHeight(artH);
@@ -310,7 +310,7 @@ void ControllerPickerView::buildCards()
         card->addView(chips);
 
         if (m_pads[i].caps.battery) {
-            const bool split = akira::platform::couch::PadHasTwoBatteries(m_pads[i]);
+            const bool split = PadHasTwoBatteries(m_pads[i]);
             card->addView(new BatteryPips(m_pads[i].npad, split, split ? 78 : 44, 18));
         }
 

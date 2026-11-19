@@ -1,29 +1,29 @@
-#include "platform/stream/couch/provider.hpp"
+#include "play/views/couch_seat_controls.hpp"
 #include "log/log.hpp"
 
 #include <borealis.hpp>
 
 #include "consoles/host.hpp"
-#include "platform/pads/extended/provider.hpp"
 #include "play/connection.hpp"
-#include "platform/stream/couch/controller_picker_view.hpp"
-#include "platform/stream/couch/players_panel_view.hpp"
+#include "play/couch_seats.hpp"
+#include "play/views/controller_picker_view.hpp"
+#include "play/views/players_panel_view.hpp"
 #include "play/views/stream_menu.hpp"
 
 using namespace brls::literals;
 
-namespace akira::platform::couch
+namespace akira::play::views
 {
 
-CouchStreamControlsProvider::CouchStreamControlsProvider(extended::ExtendedPadProvider& pads,
-    PlayersPanelView::Profiles profiles, std::weak_ptr<StreamControlsHost> host)
+CouchSeatControls::CouchSeatControls(CouchSeats& pads, PlayersPanelView::Profiles profiles,
+    std::weak_ptr<StreamControlsHost> host)
     : m_pads(pads)
     , m_profiles(profiles)
     , m_host(std::move(host))
 {
 }
 
-void CouchStreamControlsProvider::attach()
+void CouchSeatControls::attach()
 {
     auto weak = m_host;
     m_pads.setOnPadArrived([this, weak](HidNpadIdType npad) {
@@ -43,7 +43,7 @@ void CouchStreamControlsProvider::attach()
     });
 }
 
-bool CouchStreamControlsProvider::beforeStart()
+bool CouchSeatControls::beforeStart()
 {
     if (m_pad_choice_done)
         return false;
@@ -63,7 +63,7 @@ bool CouchStreamControlsProvider::beforeStart()
     return true;
 }
 
-void CouchStreamControlsProvider::waitForPads(int attempt)
+void CouchSeatControls::waitForPads(int attempt)
 {
     constexpr int kMaxAttempts = 20;
     constexpr int kIntervalMs  = 100;
@@ -74,9 +74,7 @@ void CouchStreamControlsProvider::waitForPads(int attempt)
         return;
     }
 
-    const auto availability = m_pads.extendedInput().availability();
-    const bool backendUsable =
-        availability == extended::ExtendedInputManager::Availability::Available;
+    const bool backendUsable = m_pads.backendAvailable();
 
     if (!backendUsable) {
         log::info("PadChoice: no backend to wait for, deciding now");
@@ -108,7 +106,7 @@ void CouchStreamControlsProvider::waitForPads(int attempt)
     });
 }
 
-void CouchStreamControlsProvider::finishPadChoice()
+void CouchSeatControls::finishPadChoice()
 {
     m_pad_choice_done = true;
 
@@ -122,23 +120,7 @@ void CouchStreamControlsProvider::finishPadChoice()
 
     auto pads = m_pads.describePads();
 
-    {
-        AkiraInputDeviceList devices{};
-        if (m_pads.extendedInput().listDevices(&devices)) {
-            log::info("PadChoice: backend lists {} device(s)", devices.count);
-            for (uint8_t i = 0; i < devices.count && i < AKIRA_INPUT_MAX_LISTED_DEVICES; i++) {
-                const AkiraInputDeviceInfo& d = devices.devices[i];
-                log::info(
-                    "PadChoice:   {:04x}:{:04x} report=0x{:02x} flags=0x{:02x}{}{}{}",
-                    d.vendor_id, d.product_id, d.report_id, d.flags,
-                    (d.flags & AkiraInputDevice_Identified) ? " identified" : "",
-                    (d.flags & AkiraInputDevice_Reporting)  ? " reporting"  : "",
-                    (d.flags & AkiraInputDevice_Claimed)    ? " claimed"    : "");
-            }
-        } else {
-            log::warning("PadChoice: listDevices failed");
-        }
-    }
+    m_pads.logBackendDevices();
 
     for (const auto& pad : pads) {
         log::info("PadChoice: npad {} {} [{}{}]",
@@ -193,16 +175,16 @@ void CouchStreamControlsProvider::finishPadChoice()
                                     brls::TransitionAnimation::NONE);
 }
 
-void CouchStreamControlsProvider::abandonStart()
+void CouchSeatControls::abandonStart()
 {
     m_pad_choice_done = false;
     if (auto view = m_host.lock())
         view->abandonStart();
 }
 
-void CouchStreamControlsProvider::streaming()
+void CouchSeatControls::streaming()
 {
-    if (m_pads.extendedInput().consumeDegradedNotice())
+    if (m_pads.consumeDegradedNotice())
     {
         brls::sync([]() {
             brls::Application::notify("akira/settings/analog_triggers_degraded"_i18n);
@@ -210,7 +192,7 @@ void CouchStreamControlsProvider::streaming()
     }
 }
 
-void CouchStreamControlsProvider::decorateMenu(play::views::StreamMenu& menu)
+void CouchSeatControls::decorateMenu(StreamMenu& menu)
 {
     auto view = m_host.lock();
     if (!view)
@@ -232,7 +214,7 @@ void CouchStreamControlsProvider::decorateMenu(play::views::StreamMenu& menu)
     });
 }
 
-void CouchStreamControlsProvider::onPadArrived(HidNpadIdType npad)
+void CouchSeatControls::onPadArrived(HidNpadIdType npad)
 {
     auto view = m_host.lock();
     if (!view)
@@ -291,7 +273,7 @@ void CouchStreamControlsProvider::onPadArrived(HidNpadIdType npad)
     dialog->open();
 }
 
-void CouchStreamControlsProvider::openCouchClaim()
+void CouchSeatControls::openCouchClaim()
 {
     auto view = m_host.lock();
     if (!view)
@@ -315,7 +297,7 @@ void CouchStreamControlsProvider::openCouchClaim()
     brls::Application::pushActivity(new brls::Activity(panel), brls::TransitionAnimation::NONE);
 }
 
-void CouchStreamControlsProvider::openPrimaryControllerPicker()
+void CouchSeatControls::openPrimaryControllerPicker()
 {
     auto view = m_host.lock();
     if (!view)

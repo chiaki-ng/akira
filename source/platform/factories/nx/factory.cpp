@@ -6,7 +6,6 @@
 #include "platform/video/nvtegra/decoder.hpp"
 #include "platform/video/uam/shader_source.hpp"
 #include "platform/pad_settings/extended/provider.hpp"
-#include "platform/stream/couch/provider.hpp"
 
 namespace akira::platform
 {
@@ -61,14 +60,6 @@ std::unique_ptr<HapticsProvider> NxPlatformFactory::createHaptics()
 std::unique_ptr<FeedbackProvider> NxPlatformFactory::createFeedback(play::HapticManager& haptics)
 {
     return std::make_unique<extended::ExtendedFeedbackProvider>(m_pads, haptics);
-}
-
-std::unique_ptr<StreamControlsProvider> NxPlatformFactory::createStreamControls(std::weak_ptr<StreamControlsHost> host)
-{
-    return std::make_unique<couch::CouchStreamControlsProvider>(m_pads,
-        couch::PlayersPanelView::Profiles{ .accounts = m_services.accounts, .app = m_services.app,
-            .store = m_services.store, .trophies = m_services.trophies },
-        std::move(host));
 }
 
 std::unique_ptr<PadSettingsProvider> NxPlatformFactory::createPadSettings(const platform::PadDescription& pad)

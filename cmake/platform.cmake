@@ -20,8 +20,7 @@ if (AKIRA_PLATFORM_NX)
         pads/extended
         haptics/extended
         feedback/extended
-        pad_settings/extended
-        stream/couch)
+        pad_settings/extended)
 else()
     set(AKIRA_PLATFORM_DIR ounce)
     set(AKIRA_VIDEO_PROVIDER vulkan)
@@ -38,11 +37,10 @@ else()
         pads/hid
         haptics/hid
         feedback/hid
-        pad_settings/hid
-        stream/single)
+        pad_settings/hid)
 endif()
 
-list(FILTER MAIN_SRC EXCLUDE REGEX "/source/platform/(factories|video|display|updates|stats|pads|haptics|feedback|pad_settings|stream)/")
+list(FILTER MAIN_SRC EXCLUDE REGEX "/source/platform/(factories|video|display|updates|stats|pads|haptics|feedback|pad_settings)/")
 foreach (backend IN LISTS AKIRA_PLATFORM_BACKENDS)
     file(GLOB_RECURSE AKIRA_BACKEND_SOURCES CONFIGURE_DEPENDS
         ${CMAKE_CURRENT_SOURCE_DIR}/source/platform/${backend}/*.cpp

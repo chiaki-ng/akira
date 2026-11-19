@@ -1,4 +1,4 @@
-#include "platform/stream/couch/players_panel_view.hpp"
+#include "play/views/players_panel_view.hpp"
 #include "log/log.hpp"
 
 #include <algorithm>
@@ -12,11 +12,11 @@
 #include "settings/settings_store.hpp"
 #include "trophies/trophy_manager.hpp"
 #include "play/connection.hpp"
-#include "platform/pads/extended/provider.hpp"
+#include "play/couch_seats.hpp"
 #include "app/views/glass.hpp"
 #include "app/views/theme.hpp"
 
-namespace akira::platform::couch
+namespace akira::play::views
 {
 
 using akira::platform::PadDescription;
@@ -256,7 +256,7 @@ std::string WithAccount(const std::string& text, const consoles::Host* host, con
 } // namespace
 
 PlayersPanelView::PlayersPanelView(Profiles profiles, consoles::Host* host, std::weak_ptr<Connection> connection,
-                                   akira::platform::extended::ExtendedPadProvider* input, bool claimImmediately)
+                                   CouchSeats* input, bool claimImmediately)
     : m_profiles(profiles)
     , m_host(host)
     , m_connection(std::move(connection))
@@ -908,15 +908,15 @@ void PlayersPanelView::leaveSlot(HidNpadIdType npad)
 
     const uint8_t slot = m_input->CouchPadIndexForController(npad);
 
-    if (slot != akira::platform::extended::ExtendedPadProvider::kNoCouchSlot && slot != 0) {
+    if (slot != CouchSeats::kNoCouchSlot && slot != 0) {
         uint8_t addr[6];
         if (m_input->couchSlotOutputTarget(slot, addr, nullptr, nullptr))
-            m_input->extendedInput().unregisterCouchOutput(addr);
+            m_input->unregisterCouchOutput(addr);
     }
 
     m_input->couchLeave(npad);
     const auto connection = m_connection.lock();
-    if (connection && slot != akira::platform::extended::ExtendedPadProvider::kNoCouchSlot && slot != 0)
+    if (connection && slot != CouchSeats::kNoCouchSlot && slot != 0)
         connection->removePlayer(slot);
 
     rebuild(true);

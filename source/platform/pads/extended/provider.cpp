@@ -208,6 +208,40 @@ std::vector<platform::PadDescription> ExtendedPadProvider::describePadsLocked()
     return akira::platform::extended::DescribePads(m_extended);
 }
 
+bool ExtendedPadProvider::backendAvailable() const
+{
+    return m_extended.availability() == ExtendedInputManager::Availability::Available;
+}
+
+void ExtendedPadProvider::logBackendDevices()
+{
+    AkiraInputDeviceList devices{};
+    if (m_extended.listDevices(&devices)) {
+        log::info("PadChoice: backend lists {} device(s)", devices.count);
+        for (uint8_t i = 0; i < devices.count && i < AKIRA_INPUT_MAX_LISTED_DEVICES; i++) {
+            const AkiraInputDeviceInfo& d = devices.devices[i];
+            log::info(
+                "PadChoice:   {:04x}:{:04x} report=0x{:02x} flags=0x{:02x}{}{}{}",
+                d.vendor_id, d.product_id, d.report_id, d.flags,
+                (d.flags & AkiraInputDevice_Identified) ? " identified" : "",
+                (d.flags & AkiraInputDevice_Reporting)  ? " reporting"  : "",
+                (d.flags & AkiraInputDevice_Claimed)    ? " claimed"    : "");
+        }
+    } else {
+        log::warning("PadChoice: listDevices failed");
+    }
+}
+
+bool ExtendedPadProvider::consumeDegradedNotice()
+{
+    return m_extended.consumeDegradedNotice();
+}
+
+void ExtendedPadProvider::unregisterCouchOutput(const uint8_t* bt_addr)
+{
+    m_extended.unregisterCouchOutput(bt_addr);
+}
+
 void ExtendedPadProvider::selectNpad(HidNpadIdType npad)
 {
     std::lock_guard<std::mutex> lock(mutex());

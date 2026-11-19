@@ -1,6 +1,6 @@
-#include "platform/stream/couch/battery_pips.hpp"
+#include "play/views/battery_pips.hpp"
 
-namespace akira::platform::couch
+namespace akira::play::views
 {
 
 BatteryPips::BatteryPips(HidNpadIdType npad, bool split, float width, float height)

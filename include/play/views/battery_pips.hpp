@@ -4,7 +4,7 @@
 #include <borealis.hpp>
 #include <switch.h>
 
-namespace akira::platform::couch
+namespace akira::play::views
 {
 
 class BatteryPips : public brls::View {

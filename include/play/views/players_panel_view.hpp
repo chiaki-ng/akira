@@ -13,10 +13,10 @@
 namespace akira::consoles {
 class Host;
 }
-namespace akira::platform::extended { class ExtendedPadProvider; }
 
 namespace akira::play {
 class Connection;
+class CouchSeats;
 }
 
 namespace akira::accounts {
@@ -35,7 +35,7 @@ namespace akira::trophies {
 class TrophyManager;
 }
 
-namespace akira::platform::couch
+namespace akira::play::views
 {
 
 class PlayersPanelView : public brls::Box
@@ -50,7 +50,7 @@ public:
     };
 
     PlayersPanelView(Profiles profiles, consoles::Host* host, std::weak_ptr<play::Connection> connection,
-                     akira::platform::extended::ExtendedPadProvider* input, bool claimImmediately = false);
+                     CouchSeats* input, bool claimImmediately = false);
     ~PlayersPanelView() override;
 
     void draw(NVGcontext* vg, float x, float y, float width, float height,
@@ -88,7 +88,7 @@ private:
     Profiles                 m_profiles;
     consoles::Host*          m_host    = nullptr;
     std::weak_ptr<play::Connection> m_connection;
-    akira::platform::extended::ExtendedPadProvider* m_input = nullptr;
+    CouchSeats* m_input = nullptr;
     brls::Box*     m_panel   = nullptr;
     brls::Box*     m_slots   = nullptr;
     brls::Label*   m_title   = nullptr;

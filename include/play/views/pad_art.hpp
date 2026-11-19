@@ -3,7 +3,7 @@
 
 #include "platform/pads/pad.hpp"
 
-namespace akira::platform::couch {
+namespace akira::play::views {
 
 inline const char* PadArtPath(const platform::PadDescription& pad)
 {
@@ -34,6 +34,6 @@ inline bool PadHasTwoBatteries(const platform::PadDescription& pad)
     return pad.kind == platform::PadPathKind::JoyCon;
 }
 
-} // namespace akira::platform::couch
+} // namespace akira::play::views
 
 #endif // AKIRA_INPUT_PAD_ART_HPP

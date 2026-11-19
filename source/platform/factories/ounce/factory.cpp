@@ -12,7 +12,6 @@
 #include "platform/video/drako3d/provider.hpp"
 #include "platform/video/vulkan/provider.hpp"
 #include "platform/pad_settings/hid/provider.hpp"
-#include "platform/stream/single/provider.hpp"
 
 namespace akira::platform
 {
@@ -82,11 +81,6 @@ std::unique_ptr<HapticsProvider> OuncePlatformFactory::createHaptics()
 std::unique_ptr<FeedbackProvider> OuncePlatformFactory::createFeedback(play::HapticManager& haptics)
 {
     return std::make_unique<hid::HidFeedbackProvider>(haptics);
-}
-
-std::unique_ptr<StreamControlsProvider> OuncePlatformFactory::createStreamControls(std::weak_ptr<StreamControlsHost> host)
-{
-    return std::make_unique<single::SingleStreamControlsProvider>(std::move(host));
 }
 
 std::unique_ptr<PadSettingsProvider> OuncePlatformFactory::createPadSettings(const platform::PadDescription& pad)

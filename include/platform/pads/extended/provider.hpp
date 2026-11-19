@@ -11,6 +11,7 @@
 #include <switch.h>
 
 #include "platform/pads/extended/controller_timing.hpp"
+#include "play/couch_seats.hpp"
 #include "play/sample_cadence.hpp"
 #include "platform/pads/extended/extended_input_manager.hpp"
 #include "platform/pads/extended/pad_path.hpp"
@@ -37,11 +38,9 @@ struct PadPathInfo {
     bool switchNative = true;
 };
 
-class ExtendedPadProvider final : public PadProvider
+class ExtendedPadProvider final : public PadProvider, public play::CouchSeats
 {
 public:
-    static constexpr uint8_t kNoCouchSlot = 0xff;
-
     explicit ExtendedPadProvider(const play::ControllerSettings& controllers);
 
     void open() override;
@@ -57,26 +56,27 @@ public:
     void fillStreamStats(play::StreamStats& stats) override;
 
     uint8_t couchJoin(HidNpadIdType npad);
-    void couchLeave(HidNpadIdType npad);
-    std::map<HidNpadIdType, uint8_t> couchRoster() const;
+    void couchLeave(HidNpadIdType npad) override;
+    std::map<HidNpadIdType, uint8_t> couchRoster() const override;
     uint8_t couchPadCount() const;
 
-    uint8_t CouchPadIndexForController(HidNpadIdType npad);
+    uint8_t CouchPadIndexForController(HidNpadIdType npad) override;
 
-    bool couchSlotOutputTarget(uint8_t slot, uint8_t out_addr[6], uint16_t* vendor_id, uint16_t* product_id);
+    bool couchSlotOutputTarget(uint8_t slot, uint8_t out_addr[6], uint16_t* vendor_id, uint16_t* product_id) override;
+    void unregisterCouchOutput(const uint8_t* bt_addr) override;
 
-    void beginCouchJoin();
-    void cancelCouchJoin();
-    void tickCouchClaim();
+    void beginCouchJoin() override;
+    void cancelCouchJoin() override;
+    void tickCouchClaim() override;
     bool couchClaimActive() const;
-    float couchClaimProgress() const;
-    void setOnCouchJoined(std::function<void(HidNpadIdType, uint8_t)> cb);
-    void setOnCouchDisconnected(std::function<void(HidNpadIdType, uint8_t)> cb);
-    void setOnPadArrived(std::function<void(HidNpadIdType)> cb);
+    float couchClaimProgress() const override;
+    void setOnCouchJoined(std::function<void(HidNpadIdType, uint8_t)> cb) override;
+    void setOnCouchDisconnected(std::function<void(HidNpadIdType, uint8_t)> cb) override;
+    void setOnPadArrived(std::function<void(HidNpadIdType)> cb) override;
     void promptControllerSetup();
-    bool isClaimableNpad(HidNpadIdType npad) const;
-    HidNpadIdType boundNpad() const;
-    void resolvePadArrival();
+    bool isClaimableNpad(HidNpadIdType npad) const override;
+    HidNpadIdType boundNpad() const override;
+    void resolvePadArrival() override;
 
     void setPath(std::unique_ptr<PadPath> path);
     PadPathInfo pathInfo() const;
@@ -86,9 +86,13 @@ public:
     void sendEffectIntensity(uint8_t vibration, uint8_t trigger);
     void sendLightbar(uint8_t red, uint8_t green, uint8_t blue);
 
-    void selectNpad(HidNpadIdType npad);
+    void selectNpad(HidNpadIdType npad) override;
 
-    std::vector<platform::PadDescription> describePads();
+    std::vector<platform::PadDescription> describePads() override;
+
+    bool backendAvailable() const override;
+    void logBackendDevices() override;
+    bool consumeDegradedNotice() override;
 
     ExtendedInputManager& extendedInput() { return m_extended; }
 

@@ -5,19 +5,14 @@
 namespace akira::consoles {
 class Host;
 }
-namespace akira::play {
-class Session;
-}
-namespace akira::play::views {
-class StreamMenu;
-}
 
 namespace akira::play
 {
 class Connection;
+class Session;
 }
 
-namespace akira::platform
+namespace akira::play::views
 {
 
 class StreamControlsHost
@@ -35,17 +30,6 @@ public:
     virtual void abandonStart() = 0;
     virtual void pauseForUi() = 0;
     virtual void resumeAfterUi() = 0;
-};
-
-class StreamControlsProvider
-{
-public:
-    virtual ~StreamControlsProvider() = default;
-
-    virtual void attach() = 0;
-    virtual bool beforeStart() = 0;
-    virtual void streaming() = 0;
-    virtual void decorateMenu(play::views::StreamMenu& menu) = 0;
 };
 
 }

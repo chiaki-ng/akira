@@ -55,8 +55,14 @@ void StreamView::setupCallbacks()
 
     session->getInputManager()->setTargetPS5(host->isPS5());
 
-    controls = app::ViewServices::current().platform.createStreamControls(weak_from_this());
-    controls->attach();
+    if (auto& services = app::ViewServices::current();
+        services.platform.supplies(akira::platform::PlatformCapability::couch_seats)) {
+        controls = std::make_unique<CouchSeatControls>(*services.platform.couchSeats(),
+            PlayersPanelView::Profiles{ .accounts = services.accounts, .app = services.appSettings,
+                .store = services.store, .trophies = services.trophies },
+            weak_from_this());
+        controls->attach();
+    }
 
     exitSubscription = brls::Application::getExitEvent()->subscribe([weak]() {
         if (auto self = weak.lock()) {

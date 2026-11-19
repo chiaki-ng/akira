@@ -274,11 +274,7 @@ void App::startServices()
         .controllers = controllers,
         .developer = developer,
         .app = appSettings,
-        .accounts = accountSettings,
-        .store = store,
         .wireGuard = *wireGuard,
-        .http = *http,
-        .trophies = *trophies,
     });
     discovery.emplace(hosts, store, networkSettings, developer, accountSettings, *wireGuard);
     preferences.emplace(stream, cloudSettings, networkSettings, developer, *factory, *wireGuard);
