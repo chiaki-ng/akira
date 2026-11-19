@@ -42,6 +42,8 @@ class ExtendedPadProvider final : public PadProvider
 public:
     static constexpr uint8_t kNoCouchSlot = 0xff;
 
+    explicit ExtendedPadProvider(const play::ControllerSettings& controllers);
+
     void open() override;
     void close() override;
     input::Pad* acquire(Callbacks& callbacks) override;
@@ -109,6 +111,7 @@ private:
 
     uint64_t couchNpadMask() const;
 
+    const play::ControllerSettings& m_controllers;
     ExtendedInputManager m_extended;
 
     std::unique_ptr<PadPath> m_path;

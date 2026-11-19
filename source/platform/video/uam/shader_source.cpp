@@ -8,13 +8,14 @@
 
 #include <uam.h>
 
-#include "settings/settings_manager.hpp"
+#include "play/stream_settings.hpp"
 
 namespace akira::platform::uam
 {
 
-UamShaderSource::UamShaderSource(std::string directory)
+UamShaderSource::UamShaderSource(std::string directory, const play::StreamSettings& stream)
     : m_directory(std::move(directory))
+    , m_stream(stream)
 {
     uam_init();
 }
@@ -73,7 +74,7 @@ std::string UamShaderSource::injectDefines(std::string source, const std::string
     return source;
 }
 
-std::string UamShaderSource::fragmentDefines(const deko3d::VideoFragmentVariant& variant)
+std::string UamShaderSource::fragmentDefines(const deko3d::VideoFragmentVariant& variant) const
 {
     std::string defines;
     if (variant.fsrEasu)
@@ -84,7 +85,7 @@ std::string UamShaderSource::fragmentDefines(const deko3d::VideoFragmentVariant&
         defines += "#define FSR_PASS\n";
     if (variant.dithering)
         defines += std::format("#define DITHER_NOISE\n#define DITHER_STRENGTH {:.1f}\n",
-            settings::SettingsManager::getInstance()->stream().ditheringStrength());
+            m_stream.ditheringStrength());
     return defines;
 }
 

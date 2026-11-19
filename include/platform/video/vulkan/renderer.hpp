@@ -28,13 +28,25 @@
 #include <borealis/platforms/switch/switch_video_vk.hpp>
 #include <nanovg/vk_renderer.hpp>
 
+namespace akira::network
+{
+class WireGuardManager;
+}
+
+namespace akira::play
+{
+class StreamSettings;
+class StreamState;
+}
+
 namespace akira::platform::vulkan
 {
 
 class VulkanRenderer final : public VideoRenderer
 {
 public:
-    VulkanRenderer();
+    VulkanRenderer(play::StreamSettings& stream, const play::StreamState& streamState,
+        const network::WireGuardManager& wireGuard);
     ~VulkanRenderer() override;
     VulkanRenderer(const VulkanRenderer&) = delete;
     VulkanRenderer& operator=(const VulkanRenderer&) = delete;
@@ -385,7 +397,7 @@ private:
         VkImageLayout newLayout, VkPipelineStageFlags2 srcStage, VkAccessFlags2 srcAccess, VkPipelineStageFlags2 dstStage,
         VkAccessFlags2 dstAccess);
     static void setViewport(VkCommandBuffer cmd, VkExtent2D extent);
-    static FsrConfig fsrConfig(int inputWidth, int inputHeight, VkExtent2D display);
+    FsrConfig fsrConfig(int inputWidth, int inputHeight, VkExtent2D display) const;
 
     static VkShaderStageFlags pushStages(Program program);
 
@@ -466,6 +478,9 @@ private:
     void overlayOrigin(float w, float h, float& ox, float& oy);
     void updateOverlayPlacement();
 
+    play::StreamSettings& m_stream;
+    const play::StreamState& m_stream_state;
+    const network::WireGuardManager& m_wire_guard;
     std::atomic<bool> m_initialized{false};
     std::atomic<bool> m_paused{false};
     std::atomic<bool> m_dithering_enabled{false};

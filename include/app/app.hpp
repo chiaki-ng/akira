@@ -2,6 +2,7 @@
 
 #include <cstdarg>
 #include <functional>
+#include <memory>
 #include <optional>
 
 #include <switch.h>
@@ -12,6 +13,7 @@
 #include "cloud/service.hpp"
 #endif
 #include "consoles/discovery_manager.hpp"
+#include "platform/factory.hpp"
 #include "play/chiaki_core.hpp"
 #include "play/lazy_session.hpp"
 #include "play/stream_preferences.hpp"
@@ -53,6 +55,7 @@ private:
 #if AKIRA_CLOUD
     std::optional<cloud::Service> cloud;
 #endif
+    std::unique_ptr<platform::PlatformFactory> factory;
     std::optional<consoles::DiscoveryManager> discovery;
     std::optional<play::StreamPreferences> preferences;
     std::optional<play::LazySession> session;

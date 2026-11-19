@@ -1,4 +1,5 @@
 #include "settings/views/settings_pad_view.hpp"
+#include "app/view_services.hpp"
 
 #include <vector>
 
@@ -37,7 +38,7 @@ SettingsPadView::SettingsPadView(const akira::input::PadDescription& pad)
 {
     settings = SettingsManager::getInstance();
 
-    m_platform = akira::platform::PlatformFactory::instance().createPadSettings(pad);
+    m_platform = app::ViewServices::current().platform.createPadSettings(pad);
     m_key = m_platform->rumbleKey(settings->controllers());
 
     settings->controllers().seedRumbleProfile(m_key);

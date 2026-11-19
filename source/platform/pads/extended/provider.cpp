@@ -4,7 +4,7 @@
 
 #include <algorithm>
 
-#include "settings/settings_manager.hpp"
+#include "play/controller_settings.hpp"
 #include "platform/pads/extended/ps_output.hpp"
 #include "play/input_manager.hpp"
 #include "play/stream_stats.hpp"
@@ -12,9 +12,15 @@
 namespace akira::platform::extended
 {
 
+ExtendedPadProvider::ExtendedPadProvider(const play::ControllerSettings& controllers)
+    : m_controllers(controllers)
+    , m_extended(controllers)
+{
+}
+
 void ExtendedPadProvider::open()
 {
-    setPathLocked(akira::platform::extended::DefaultPadPath(m_extended));
+    setPathLocked(akira::platform::extended::DefaultPadPath(m_extended, m_controllers));
 
     m_extended.initializeOptional();
 
@@ -25,7 +31,7 @@ void ExtendedPadProvider::open()
         for (const auto& desc : describePadsLocked()) {
             if (desc.npad != wanted)
                 continue;
-            auto path = akira::platform::extended::MakePath(desc, m_extended);
+            auto path = akira::platform::extended::MakePath(desc, m_extended, m_controllers);
             if (path) {
                 m_bound_npad = wanted;
                 setPathLocked(std::move(path));
@@ -71,16 +77,15 @@ std::vector<input::PadDescription> ExtendedPadProvider::scanPads() const
 
 play::RumbleProfile ExtendedPadProvider::primaryRumbleProfile() const
 {
-    auto* settings = settings::SettingsManager::getInstance();
     const std::vector<input::PadDescription> pads = scanPads();
     if (pads.empty())
-        return settings->controllers().rumbleProfile(play::kRumbleKeyDefault);
+        return m_controllers.rumbleProfile(play::kRumbleKeyDefault);
 
     const input::PadDescription& pad = pads.front();
     const bool switchNative = pad.kind == input::PadPathKind::JoyCon
                            || pad.kind == input::PadPathKind::SwitchPro;
 
-    return akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(settings->controllers(), pad.vendor_id, pad.product_id,
+    return akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(m_controllers, pad.vendor_id, pad.product_id,
                                           pad.has_address ? pad.bt_addr : nullptr,
                                           switchNative,
                                           pad.kind == input::PadPathKind::JoyCon);
@@ -211,7 +216,7 @@ void ExtendedPadProvider::selectNpad(HidNpadIdType npad)
         if (desc.npad != npad)
             continue;
 
-        auto path = akira::platform::extended::MakePath(desc, m_extended);
+        auto path = akira::platform::extended::MakePath(desc, m_extended, m_controllers);
         if (!path)
             break;
 
@@ -223,7 +228,7 @@ void ExtendedPadProvider::selectNpad(HidNpadIdType npad)
     }
 
     log::warning("InputManager: npad {} no longer present, falling back to default", (int)npad);
-    setPathLocked(akira::platform::extended::DefaultPadPath(m_extended));
+    setPathLocked(akira::platform::extended::DefaultPadPath(m_extended, m_controllers));
 }
 
 void ExtendedPadProvider::retryPathIdentification()
@@ -266,7 +271,7 @@ void ExtendedPadProvider::retryPathIdentification()
         if (m_bound_npad != kNoNpad && desc.npad != m_bound_npad)
             continue;
 
-        auto path = akira::platform::extended::MakePath(desc, m_extended);
+        auto path = akira::platform::extended::MakePath(desc, m_extended, m_controllers);
         if (!path)
             continue;
 
@@ -296,13 +301,13 @@ void ExtendedPadProvider::reconcilePathDriver()
             continue;
 
         const akira::platform::extended::PadDriver driver =
-            akira::platform::extended::ResolvePadDriver(desc, m_extended);
+            akira::platform::extended::ResolvePadDriver(desc, m_extended, m_controllers);
         const bool native_now = m_path->nativeRumble();
 
         if ((driver == akira::platform::extended::PadDriver::Akira) == native_now)
             return;
 
-        auto path = akira::platform::extended::MakePath(desc, m_extended);
+        auto path = akira::platform::extended::MakePath(desc, m_extended, m_controllers);
         if (!path)
             return;
 
@@ -486,7 +491,7 @@ void ExtendedPadProvider::readSecondaryPads(play::InputManager& input, std::span
 
         auto& cached = m_secondary_paths[npad];
         if (!cached)
-            cached = akira::platform::extended::MakePath(*found, m_extended);
+            cached = akira::platform::extended::MakePath(*found, m_extended, m_controllers);
         if (!cached)
             continue;
         cached->poll();

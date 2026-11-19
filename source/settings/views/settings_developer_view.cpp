@@ -1,4 +1,5 @@
 #include "settings/views/settings_developer_view.hpp"
+#include "app/view_services.hpp"
 #include "log/log_files.hpp"
 #include "consoles/views/host_list_tab.hpp"
 #include "log/views/log_browser_view.hpp"
@@ -137,7 +138,7 @@ SettingsDeveloperView::SettingsDeveloperView() {
     takionPsNowSelector->setVisibility(brls::Visibility::GONE);
 #endif
 
-    if (auto& platform = akira::platform::PlatformFactory::instance(); platform.supplies(akira::platform::PlatformCapability::self_update))
+    if (auto& platform = app::ViewServices::current().platform; platform.supplies(akira::platform::PlatformCapability::self_update))
         platform.updates().initSimulateRow(*simulateUpdateCell);
     else
         simulateUpdateCell->setVisibility(brls::Visibility::GONE);

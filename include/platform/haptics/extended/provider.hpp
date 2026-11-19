@@ -8,6 +8,16 @@
 #include "platform/haptics/provider.hpp"
 
 
+namespace akira::play
+{
+class ControllerSettings;
+}
+
+namespace akira::settings
+{
+class DeveloperSettings;
+}
+
 namespace akira::platform::extended
 {
 
@@ -16,7 +26,8 @@ class ExtendedPadProvider;
 class ExtendedHapticsProvider final : public HapticsProvider
 {
 public:
-    explicit ExtendedHapticsProvider(ExtendedPadProvider& pads);
+    ExtendedHapticsProvider(ExtendedPadProvider& pads, const play::ControllerSettings& controllers,
+        const settings::DeveloperSettings& developer);
 
     play::RumbleSource effectiveSource(play::RumbleSource configured) const override;
     void prepare(play::HapticManager& haptics) override;
@@ -33,6 +44,8 @@ private:
     static constexpr std::uint32_t kNativeHapticLogInterval = 60;
 
     ExtendedPadProvider& m_pads;
+    const play::ControllerSettings& m_controllers;
+    const settings::DeveloperSettings& m_developer;
 
     std::uint64_t m_profile_generation = 0;
     float m_native_env_left = 0.0f;

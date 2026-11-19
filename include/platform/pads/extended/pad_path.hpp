@@ -13,6 +13,10 @@
 #include "platform/pads/extended/pad_output_state.hpp"
 
 
+namespace akira::play {
+class ControllerSettings;
+}
+
 namespace akira::platform::extended {
 
 class ExtendedInputManager;
@@ -49,17 +53,19 @@ public:
 };
 
 PadDriverState ResolvePadDriverState(const input::PadDescription& desc,
-                                     ExtendedInputManager& extended);
+                                     ExtendedInputManager& extended, const play::ControllerSettings& controllers);
 
-PadDriver ResolvePadDriver(const input::PadDescription& desc, ExtendedInputManager& extended);
+PadDriver ResolvePadDriver(const input::PadDescription& desc, ExtendedInputManager& extended,
+                           const play::ControllerSettings& controllers);
 
 std::vector<input::PadDescription> DescribePads(ExtendedInputManager& extended);
 
 std::vector<input::PadDescription> DescribePads();
 
-std::unique_ptr<PadPath> MakePath(const input::PadDescription& desc, ExtendedInputManager& extended);
+std::unique_ptr<PadPath> MakePath(const input::PadDescription& desc, ExtendedInputManager& extended,
+                                  const play::ControllerSettings& controllers);
 
-std::unique_ptr<PadPath> DefaultPadPath(ExtendedInputManager& extended);
+std::unique_ptr<PadPath> DefaultPadPath(ExtendedInputManager& extended, const play::ControllerSettings& controllers);
 
 } // namespace akira::platform::extended
 

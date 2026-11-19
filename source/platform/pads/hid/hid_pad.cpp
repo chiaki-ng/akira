@@ -5,12 +5,13 @@
 
 #include <borealis.hpp>
 
-#include "settings/settings_manager.hpp"
+#include "play/controller_settings.hpp"
 
 namespace akira::platform::hid
 {
 
-HidPad::HidPad()
+HidPad::HidPad(const play::ControllerSettings& controllers)
+    : m_controllers(controllers)
 {
     padInitializeDefault(&m_pad);
     padUpdate(&m_pad);
@@ -66,7 +67,7 @@ std::optional<HidSixAxisSensorState> HidPad::readGyro()
     const bool leftConnected  = attrib & HidNpadAttribute_IsLeftConnected;
     const bool rightConnected = attrib & HidNpadAttribute_IsRightConnected;
 
-    switch (settings::SettingsManager::getInstance()->controllers().gyroSource()) {
+    switch (m_controllers.gyroSource()) {
         case play::GyroSource::Left:
             return leftConnected ? readSixAxis(m_sixaxis[JoyDualLeft]) : std::nullopt;
         case play::GyroSource::Right:

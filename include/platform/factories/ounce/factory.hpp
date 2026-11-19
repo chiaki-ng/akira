@@ -17,7 +17,9 @@ namespace akira::platform
 class OuncePlatformFactory final : public PlatformFactory
 {
 public:
-    OuncePlatformFactory() = default;
+    static constexpr PlatformCapability Capabilities = PlatformCapability::fsr_4k;
+
+    explicit OuncePlatformFactory(PlatformServices services);
 
     PlatformInfo info() const noexcept override;
     std::span<const char* const> helpFiles() const override;
@@ -38,6 +40,7 @@ public:
 private:
     static brls::SwitchPlatform& switchPlatform();
 
+    PlatformServices m_services;
     per_mode::PerModeDisplayProvider m_display;
     none::NoUpdateProvider m_updates;
     none::NoStatsProvider m_stats;

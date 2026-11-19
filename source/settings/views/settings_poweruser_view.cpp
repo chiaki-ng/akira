@@ -20,7 +20,7 @@ SettingsPowerUserView::SettingsPowerUserView() {
     settings = SettingsManager::getInstance();
 
     initUnlockBitrateMaxToggle();
-    if (auto& platform = akira::platform::PlatformFactory::instance(); platform.supplies(akira::platform::PlatformCapability::stats_export))
+    if (auto& platform = app::ViewServices::current().platform; platform.supplies(akira::platform::PlatformCapability::stats_export))
         platform.stats().initToggle(*ipcStatsToggle);
     else
         ipcStatsToggle->setVisibility(brls::Visibility::GONE);

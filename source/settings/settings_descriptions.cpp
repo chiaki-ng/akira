@@ -40,14 +40,13 @@ static void mergeHelpFile(const std::string& path, std::unordered_map<std::strin
     }
 }
 
-static const std::unordered_map<std::string, SettingDescription>& table()
+static const std::unordered_map<std::string, SettingDescription>& table(akira::platform::PlatformFactory& platform)
 {
-    static const std::unordered_map<std::string, SettingDescription> t = []() {
+    static const std::unordered_map<std::string, SettingDescription> t = [&platform]() {
         std::unordered_map<std::string, SettingDescription> m;
 
         std::string locale = brls::Application::getLocale();
 
-        auto& platform = akira::platform::PlatformFactory::instance();
         for (const auto& names : {std::span<const char* const>(kHelpFiles),
                                   platform.helpFiles(), platform.updates().helpFiles()}) {
             for (const char* name : names) {
@@ -61,9 +60,9 @@ static const std::unordered_map<std::string, SettingDescription>& table()
     return t;
 }
 
-bool lookupSettingDescription(const std::string& id, SettingDescription& out)
+bool lookupSettingDescription(platform::PlatformFactory& platform, const std::string& id, SettingDescription& out)
 {
-    const auto& t = table();
+    const auto& t = table(platform);
     auto it = t.find(id);
     if (it == t.end())
         return false;

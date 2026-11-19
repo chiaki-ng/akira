@@ -3,6 +3,10 @@
 
 #include <string>
 
+namespace akira::platform {
+class PlatformFactory;
+}
+
 namespace akira::settings {
 
 struct SettingDescription {
@@ -11,7 +15,7 @@ struct SettingDescription {
     std::string image;
 };
 
-bool lookupSettingDescription(const std::string& id, SettingDescription& out);
+bool lookupSettingDescription(platform::PlatformFactory& platform, const std::string& id, SettingDescription& out);
 
 }
 

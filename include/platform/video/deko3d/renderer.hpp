@@ -26,13 +26,23 @@
 #include "platform/video/deko3d/frame.hpp"
 #include "platform/video/deko3d/shader_source.hpp"
 
+namespace akira::network {
+class WireGuardManager;
+}
+
+namespace akira::play {
+class StreamSettings;
+class StreamState;
+}
+
 namespace akira::platform::deko3d
 {
 
 class Deko3dRenderer : public VideoRenderer
 {
 public:
-    Deko3dRenderer(std::unique_ptr<ShaderSource> shaders, std::string decoderLabel);
+    Deko3dRenderer(std::unique_ptr<ShaderSource> shaders, std::string decoderLabel, play::StreamSettings& stream,
+        const play::StreamState& streamState, const network::WireGuardManager& wireGuard);
     ~Deko3dRenderer() override;
     Deko3dRenderer(const Deko3dRenderer&) = delete;
     Deko3dRenderer& operator=(const Deko3dRenderer&) = delete;
@@ -75,6 +85,9 @@ public:
 private:
     std::unique_ptr<ShaderSource> m_shaders;
     std::string m_decoder_label;
+    play::StreamSettings& m_stream;
+    const play::StreamState& m_stream_state;
+    const network::WireGuardManager& m_wire_guard;
     std::atomic<bool> m_paused{false};
     std::optional<CMemPool> m_pool_code;
     std::optional<CMemPool> m_pool_data;

@@ -5,6 +5,11 @@
 #include <functional>
 #include <string>
 
+namespace akira::app
+{
+class AppSettings;
+}
+
 namespace akira::platform::github
 {
 
@@ -24,11 +29,14 @@ struct UpdateInfo {
 
 class UpdateManager {
 public:
-    static UpdateManager& getInstance();
+    explicit UpdateManager(const app::AppSettings& app);
+
+    UpdateManager(const UpdateManager&) = delete;
+    UpdateManager& operator=(const UpdateManager&) = delete;
 
     static int compareSemver(const std::string& a, const std::string& b);
 
-    static void setSelfPath(const std::string& path);
+    void setSelfPath(const std::string& path);
     std::string resolveInstallPath() const;
 
     UpdateInfo checkForUpdate(const std::string& channel);
@@ -41,7 +49,8 @@ public:
     bool applyDownloaded(const std::string& tempPath, std::string& outError);
 
 private:
-    UpdateManager() = default;
+    const app::AppSettings& appSettings;
+    std::string selfPath;
 };
 
 }

@@ -1,14 +1,19 @@
 #include "platform/pads/hid/provider.hpp"
 
-#include "settings/settings_manager.hpp"
+#include "play/controller_settings.hpp"
 #include "platform/pad_settings/hid/provider.hpp"
 
 namespace akira::platform::hid
 {
 
+HidPadProvider::HidPadProvider(const play::ControllerSettings& controllers)
+    : m_controllers(controllers)
+{
+}
+
 void HidPadProvider::open()
 {
-    m_pad.emplace();
+    m_pad.emplace(m_controllers);
 }
 
 void HidPadProvider::close()
@@ -28,12 +33,11 @@ input::Pad* HidPadProvider::current()
 
 play::RumbleProfile HidPadProvider::primaryRumbleProfile() const
 {
-    auto* settings = settings::SettingsManager::getInstance();
     const std::vector<input::PadDescription> pads = scanPads();
     if (pads.empty())
-        return settings->controllers().rumbleProfile(play::kRumbleKeyDefault);
-    return settings->controllers().rumbleProfile(
-        HidPadSettingsProvider::resolveKey(settings->controllers(), pads.front().kind == input::PadPathKind::JoyCon));
+        return m_controllers.rumbleProfile(play::kRumbleKeyDefault);
+    return m_controllers.rumbleProfile(
+        HidPadSettingsProvider::resolveKey(m_controllers, pads.front().kind == input::PadPathKind::JoyCon));
 }
 
 std::vector<input::PadDescription> HidPadProvider::scanPads() const

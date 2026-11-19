@@ -13,7 +13,8 @@
 
 #include <borealis.hpp>
 
-#include "settings/settings_manager.hpp"
+#include "play/stream_settings.hpp"
+#include "settings/settings_store.hpp"
 
 extern "C"
 {
@@ -26,13 +27,12 @@ using namespace brls::literals;
 namespace akira::platform::software
 {
 
-void HevcDecoder::addSetting(brls::Box& group)
+void HevcDecoder::addSetting(brls::Box& group, play::StreamSettings& stream, settings::SettingsStore& store)
 {
-    auto* settings = settings::SettingsManager::getInstance();
     auto* cell = new brls::BooleanCell();
-    cell->init("akira/settings/software_hevc"_i18n, settings->stream().softwareHevc(), [settings](bool isOn) {
-        settings->stream().setSoftwareHevc(isOn);
-        settings->store().save();
+    cell->init("akira/settings/software_hevc"_i18n, stream.softwareHevc(), [&stream, &store](bool isOn) {
+        stream.setSoftwareHevc(isOn);
+        store.save();
         log::info("Software HEVC set to {}", isOn ? "on" : "off");
     });
     cell->setId("settings/softwareHevc");

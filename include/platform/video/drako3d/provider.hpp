@@ -5,13 +5,23 @@
 
 #include "platform/video/deko3d/provider.hpp"
 
+namespace akira::settings
+{
+
+class DeveloperSettings;
+class SettingsStore;
+
+}
+
 namespace akira::platform::drako3d
 {
 
 class Drako3dVideoProvider final : public VideoProvider
 {
 public:
-    Drako3dVideoProvider();
+    Drako3dVideoProvider(play::StreamSettings& stream, const play::StreamState& streamState,
+        settings::SettingsStore& store, const settings::DeveloperSettings& developer,
+        const network::WireGuardManager& wireGuard);
     Drako3dVideoProvider(const Drako3dVideoProvider&) = delete;
     Drako3dVideoProvider& operator=(const Drako3dVideoProvider&) = delete;
 
@@ -37,6 +47,8 @@ public:
 private:
     static constexpr std::string_view ShaderDirectory = "romfs:/shaders/drako3d";
 
+    play::StreamSettings& m_stream;
+    settings::SettingsStore& m_store;
     deko3d::Deko3dVideoProvider m_deko3d;
 };
 

@@ -13,6 +13,11 @@
 #include "platform/pads/extended/pad_output_state.hpp"
 #include "platform/pads/extended/ps_output.hpp"
 
+namespace akira::play
+{
+class ControllerSettings;
+}
+
 namespace akira::platform::extended
 {
 
@@ -27,7 +32,7 @@ public:
         Failed,
     };
 
-    ExtendedInputManager() = default;
+    explicit ExtendedInputManager(const play::ControllerSettings& controllers);
     ~ExtendedInputManager();
 
     ExtendedInputManager(const ExtendedInputManager&) = delete;
@@ -44,12 +49,12 @@ public:
     static bool writeOutputReportOnce(const uint8_t* address, const uint8_t* data, uint16_t length);
 
     static void setDirectStreamAllowed(bool allowed);
-    static bool directStreamAllowed();
+    static bool directStreamAllowed(const play::ControllerSettings& controllers);
 
     akira::platform::extended::PadOutputState outputState() const;
 
-    static void refreshDirectGates(uint16_t vendor_id, uint16_t product_id,
-                                   const uint8_t* address);
+    static void refreshDirectGates(const play::ControllerSettings& controllers, uint16_t vendor_id,
+                                   uint16_t product_id, const uint8_t* address);
 
     static bool outputOwnershipRefused()
     {
@@ -63,23 +68,24 @@ public:
         return s_backend_released.load(std::memory_order_acquire);
     }
     static void setDirectHapticsAllowed(bool allowed);
-    static bool directHapticsAllowed();
+    static bool directHapticsAllowed(const play::ControllerSettings& controllers);
 
     static bool probeAudio(const uint8_t* address, AkiraInputAudioProbe* out);
     static bool readRawReportOnce(AkiraInputRawReport* out);
-    static std::string describeDirectState();
+    static std::string describeDirectState(const play::ControllerSettings& controllers);
 
     static bool probeDirectWrite(const uint8_t* address, uint8_t method,
                                  const uint8_t* frame, uint16_t length,
                                  uint32_t* out_rc, uint32_t* out_init_rc);
 
 private:
-    static void loadDirectGatesOnce();
+    static void loadDirectGatesOnce(const play::ControllerSettings& controllers);
     static std::atomic<bool> s_direct_stream_allowed;
     static std::atomic<bool> s_direct_haptics_allowed;
 
 
     bool                     m_direct_gate_logged = false;
+    const play::ControllerSettings& m_controllers;
 
 public:
 

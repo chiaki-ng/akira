@@ -10,6 +10,7 @@
 #include "platform/haptics/provider.hpp"
 #include "platform/pad_settings/provider.hpp"
 #include "platform/pads/provider.hpp"
+#include "platform/platform_services.hpp"
 #include "platform/stats/provider.hpp"
 #include "platform/stream/provider.hpp"
 #include "platform/updates/provider.hpp"
@@ -26,7 +27,8 @@ namespace akira::platform
 class PlatformFactory
 {
 public:
-    static PlatformFactory& instance();
+    static std::unique_ptr<PlatformFactory> create(PlatformServices services);
+    static PlatformCapability fixedCapabilities() noexcept;
 
     virtual ~PlatformFactory() = default;
 

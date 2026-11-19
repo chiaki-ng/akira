@@ -11,6 +11,8 @@ namespace akira::platform::hid
 class HidPadProvider final : public PadProvider
 {
 public:
+    explicit HidPadProvider(const play::ControllerSettings& controllers);
+
     void open() override;
     void close() override;
     input::Pad* acquire(Callbacks& callbacks) override;
@@ -23,6 +25,7 @@ public:
     void fillStreamStats(play::StreamStats&) override {}
 
 private:
+    const play::ControllerSettings& m_controllers;
     std::optional<HidPad> m_pad;
 };
 

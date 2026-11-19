@@ -9,6 +9,15 @@
 #include "platform/video/deko3d/shader_source.hpp"
 #include "platform/video/provider.hpp"
 
+namespace akira::network {
+class WireGuardManager;
+}
+
+namespace akira::play {
+class StreamSettings;
+class StreamState;
+}
+
 namespace akira::platform::deko3d
 {
 
@@ -27,7 +36,14 @@ public:
         DecoderFactory make;
     };
 
-    Deko3dVideoProvider(const char* name, DecoderChoice decoder, ShaderFactory makeShaders,
+    struct Presentation
+    {
+        play::StreamSettings& stream;
+        const play::StreamState& streamState;
+        const network::WireGuardManager& wireGuard;
+    };
+
+    Deko3dVideoProvider(const char* name, Presentation presentation, DecoderChoice decoder, ShaderFactory makeShaders,
         std::optional<DecoderChoice> hevcDecoder = std::nullopt);
     ~Deko3dVideoProvider() override;
     Deko3dVideoProvider(const Deko3dVideoProvider&) = delete;
@@ -51,6 +67,7 @@ private:
     const DecoderChoice& active() const { return m_hevc_active ? *m_hevc_decoder : m_primary_decoder; }
 
     const char* m_name;
+    Presentation m_presentation;
     DecoderChoice m_primary_decoder;
     std::optional<DecoderChoice> m_hevc_decoder;
     ShaderFactory m_make_shaders;

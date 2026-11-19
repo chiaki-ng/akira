@@ -18,6 +18,29 @@ class HevcDecoder;
 
 }
 
+namespace akira::network
+{
+
+class WireGuardManager;
+
+}
+
+namespace akira::play
+{
+
+class StreamSettings;
+class StreamState;
+
+}
+
+namespace akira::settings
+{
+
+class DeveloperSettings;
+class SettingsStore;
+
+}
+
 namespace akira::platform::vulkan
 {
 
@@ -26,7 +49,9 @@ class VulkanRenderer;
 class VulkanVideoProvider final : public VideoProvider
 {
 public:
-    VulkanVideoProvider();
+    VulkanVideoProvider(play::StreamSettings& stream, const play::StreamState& streamState,
+        settings::SettingsStore& store, const settings::DeveloperSettings& developer,
+        const network::WireGuardManager& wireGuard);
     ~VulkanVideoProvider() override;
     VulkanVideoProvider(const VulkanVideoProvider&) = delete;
     VulkanVideoProvider& operator=(const VulkanVideoProvider&) = delete;
@@ -46,6 +71,11 @@ public:
     void release() override;
 
 private:
+    play::StreamSettings& m_stream;
+    const play::StreamState& m_stream_state;
+    settings::SettingsStore& m_store;
+    const settings::DeveloperSettings& m_developer;
+    const network::WireGuardManager& m_wire_guard;
     std::unique_ptr<akira::platform::viddec::ViddecDecoder> m_decoder;
     std::unique_ptr<akira::platform::software::HevcDecoder> m_software;
     std::unique_ptr<VulkanRenderer> m_renderer;

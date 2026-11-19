@@ -16,7 +16,7 @@ extern "C" {
 
 #include <borealis/extern/nlohmann/json.hpp>
 
-#include "settings/settings_manager.hpp"
+#include "app/app_settings.hpp"
 #include "app/version.hpp"
 #include "util/curl_wrappers.hpp"
 #include "util/http.hpp"
@@ -32,8 +32,6 @@ constexpr const char* kReleasesUrl =
     "https://api.github.com/repos/chiaki-ng/akira/releases?per_page=30";
 
 constexpr const char* kDefaultInstallPath = "sdmc:/switch/akira/akira.nro";
-
-std::string g_selfPath;
 
 struct ProgressCtx {
     const UpdateManager::ProgressCallback* cb;
@@ -68,9 +66,9 @@ bool endsWithNro(const std::string& p) {
 
 }
 
-UpdateManager& UpdateManager::getInstance() {
-    static UpdateManager instance;
-    return instance;
+UpdateManager::UpdateManager(const app::AppSettings& app)
+    : appSettings(app)
+{
 }
 
 int UpdateManager::compareSemver(const std::string& aStr, const std::string& bStr) {
@@ -163,19 +161,19 @@ UpdateInfo UpdateManager::checkForUpdate(const std::string& channel) {
 }
 
 void UpdateManager::setSelfPath(const std::string& path) {
-    g_selfPath = path;
+    selfPath = path;
 }
 
 std::string UpdateManager::resolveInstallPath() const {
-    if (endsWithNro(g_selfPath)) {
-        if (g_selfPath.rfind("sdmc:", 0) == 0)
-            return g_selfPath;
-        if (!g_selfPath.empty() && g_selfPath[0] == '/')
-            return "sdmc:" + g_selfPath;
-        return g_selfPath;
+    if (endsWithNro(selfPath)) {
+        if (selfPath.rfind("sdmc:", 0) == 0)
+            return selfPath;
+        if (!selfPath.empty() && selfPath[0] == '/')
+            return "sdmc:" + selfPath;
+        return selfPath;
     }
 
-    std::string configured = settings::SettingsManager::getInstance()->app().updateInstallPath();
+    std::string configured = appSettings.updateInstallPath();
     if (!configured.empty())
         return configured;
 
@@ -302,7 +300,7 @@ bool UpdateManager::verify(const std::string& path, const std::string& expectedS
 bool UpdateManager::applyDownloaded(const std::string& tempPath, std::string& outError) {
     std::string target = resolveInstallPath();
     std::string bak = target + ".bak";
-    log::info("Update apply: self='{}' target='{}' temp='{}'", g_selfPath, target, tempPath);
+    log::info("Update apply: self='{}' target='{}' temp='{}'", selfPath, target, tempPath);
 
     bool hadTarget = false;
     if (FILE* t = std::fopen(target.c_str(), "rb")) {

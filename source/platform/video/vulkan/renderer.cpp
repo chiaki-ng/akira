@@ -2,7 +2,8 @@
 #include "platform/video/vulkan/decoder_output.hpp"
 #include "log/log.hpp"
 
-#include "settings/settings_manager.hpp"
+#include "play/stream_settings.hpp"
+#include "play/stream_state.hpp"
 #include "network/wireguard_manager.hpp"
 #include "app/views/theme.hpp"
 
@@ -139,7 +140,13 @@ VulkanRenderer::OverlayContext::~OverlayContext()
         nvg::VkRenderer::deleteContext(m_vg);
 }
 
-VulkanRenderer::VulkanRenderer() = default;
+VulkanRenderer::VulkanRenderer(play::StreamSettings& stream, const play::StreamState& streamState,
+    const network::WireGuardManager& wireGuard)
+    : m_stream(stream)
+    , m_stream_state(streamState)
+    , m_wire_guard(wireGuard)
+{
+}
 
 VulkanRenderer::~VulkanRenderer()
 {
@@ -371,13 +378,12 @@ VkShaderStageFlags VulkanRenderer::pushStages(Program program)
         : VkShaderStageFlags{VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT};
 }
 
-VulkanRenderer::FsrConfig VulkanRenderer::fsrConfig(int inputWidth, int inputHeight, VkExtent2D display)
+VulkanRenderer::FsrConfig VulkanRenderer::fsrConfig(int inputWidth, int inputHeight, VkExtent2D display) const
 {
-    auto* settings = settings::SettingsManager::getInstance();
     FsrConfig config{
-        .rcas = settings->stream().rcasEnabled(),
-        .dithering = settings->stream().ditheringEnabled(),
-        .sharpness = settings->stream().rcasSharpness(),
+        .rcas = m_stream.rcasEnabled(),
+        .dithering = m_stream.ditheringEnabled(),
+        .sharpness = m_stream.rcasSharpness(),
         .inputWidth = inputWidth,
         .inputHeight = inputHeight,
         .display = display,
@@ -385,9 +391,9 @@ VulkanRenderer::FsrConfig VulkanRenderer::fsrConfig(int inputWidth, int inputHei
 
     const int displayWidth = static_cast<int>(display.width);
     const int displayHeight = static_cast<int>(display.height);
-    const int targetH = settings->streamState().easuTargetHeight();
+    const int targetH = m_stream_state.easuTargetHeight();
     const int targetW = (targetH * 16) / 9;
-    if (settings->streamState().easuEnabled() && targetH > 0 && (inputWidth < targetW || inputHeight < targetH))
+    if (m_stream_state.easuEnabled() && targetH > 0 && (inputWidth < targetW || inputHeight < targetH))
     {
         config.easu = true;
         config.targetWidth = targetW;
@@ -437,15 +443,15 @@ bool VulkanRenderer::initialize(int frame_width, int frame_height)
     if (!queryCapabilities() || !createSharedObjects())
         return false;
 
-    const float saved_x = settings::SettingsManager::getInstance()->stream().statsOverlayX();
-    const float saved_y = settings::SettingsManager::getInstance()->stream().statsOverlayY();
+    const float saved_x = m_stream.statsOverlayX();
+    const float saved_y = m_stream.statsOverlayY();
     if (saved_x >= 0.0f && saved_y >= 0.0f)
     {
         m_overlay_norm_x.store(saved_x, std::memory_order_relaxed);
         m_overlay_norm_y.store(saved_y, std::memory_order_relaxed);
     }
 
-    m_dithering_enabled.store(settings::SettingsManager::getInstance()->stream().ditheringEnabled(), std::memory_order_relaxed);
+    m_dithering_enabled.store(m_stream.ditheringEnabled(), std::memory_order_relaxed);
     m_initialized.store(true, std::memory_order_release);
     log::info("VulkanRenderer: initialized (dithering={})", m_dithering_enabled.load());
     return true;
@@ -1254,7 +1260,7 @@ std::optional<VulkanRenderer::Pipeline> VulkanRenderer::createPipeline(const Pip
 
     const std::array<std::uint32_t, 2> constants{
         key.dithering ? VK_TRUE : VK_FALSE,
-        std::bit_cast<std::uint32_t>(settings::SettingsManager::getInstance()->stream().ditheringStrength()),
+        std::bit_cast<std::uint32_t>(m_stream.ditheringStrength()),
     };
     const std::array entries{
         VkSpecializationMapEntry{ 0, 0, sizeof(std::uint32_t) },
@@ -1527,11 +1533,10 @@ void VulkanRenderer::renderVideo()
             width, height);
         if (m_fsr)
             retire(Retired{ .fsr = std::move(m_fsr) });
-        auto* settings = settings::SettingsManager::getInstance();
-        const int targetH = settings->streamState().easuTargetHeight();
+        const int targetH = m_stream_state.easuTargetHeight();
         const int targetW = (targetH * 16) / 9;
-        const bool easuNeeded = settings->streamState().easuEnabled() && targetH > 0 && (width < targetW || height < targetH);
-        m_fsr_pending = easuNeeded || settings->stream().rcasEnabled();
+        const bool easuNeeded = m_stream_state.easuEnabled() && targetH > 0 && (width < targetW || height < targetH);
+        m_fsr_pending = easuNeeded || m_stream.rcasEnabled();
         m_configured_width = width;
         m_configured_height = height;
         publishFsrSummary(nullptr);
@@ -1896,7 +1901,7 @@ void VulkanRenderer::rebuildOverlayText()
     uint64_t mins = m_stats.stream_duration_seconds / 60;
     uint64_t secs = m_stats.stream_duration_seconds % 60;
 
-    auto& wg = network::WireGuardManager::instance();
+    const auto& wg = m_wire_guard;
 
     m_ov.fps = std::format("{:.1f}", m_render_fps.load(std::memory_order_relaxed));
     m_ov.rate = std::format("{:.1f}", m_stats.measured_bitrate_mbps);
@@ -2338,7 +2343,7 @@ void VulkanRenderer::overlayTouchEnd()
     if (sw <= 0.0f || sh <= 0.0f)
         return;
 
-    settings::SettingsManager::getInstance()->stream().setStatsOverlayPosition(
+    m_stream.setStatsOverlayPosition(
         m_overlay_x.load(std::memory_order_relaxed) / sw,
         m_overlay_y.load(std::memory_order_relaxed) / sh);
     m_overlay_pos_dirty.store(true, std::memory_order_relaxed);

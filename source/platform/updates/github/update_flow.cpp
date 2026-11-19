@@ -11,7 +11,9 @@
 #include <memory>
 #include <string>
 
-#include "settings/settings_manager.hpp"
+#include "app/app_settings.hpp"
+#include "settings/developer_settings.hpp"
+#include "settings/settings_store.hpp"
 #include "app/version.hpp"
 #include "util/http_pool.hpp"
 #include "play/views/progress_ring.hpp"
@@ -22,42 +24,45 @@ using namespace brls::literals;
 namespace akira::platform::github
 {
 
-void UpdateFlow::checkOnLaunch() {
-    settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-    if (!settings->app().autoCheckUpdates())
+UpdateFlow::UpdateFlow(Services services)
+    : services(services)
+{
+}
+
+void UpdateFlow::checkOnLaunch() const {
+    if (!services.app.autoCheckUpdates())
         return;
     if (app::version::isDev())
         return;
 
     int64_t now = static_cast<int64_t>(std::time(nullptr));
-    int64_t last = settings->app().lastUpdateCheck();
+    int64_t last = services.app.lastUpdateCheck();
     if (last != 0 && now - last < 86400)
         return;
 
-    settings->app().setLastUpdateCheck(now);
-    settings->store().save();
+    services.app.setLastUpdateCheck(now);
+    services.store.save();
 
-    std::string channel = settings->app().updateChannel();
+    std::string channel = services.app.updateChannel();
 
-    HttpPool::instance().submit([channel](HttpSession&) {
-        UpdateInfo info = UpdateManager::getInstance().checkForUpdate(channel);
+    services.http.submit([this, channel](HttpSession&) {
+        UpdateInfo info = services.manager.checkForUpdate(channel);
         if (!info.error.empty() || !info.available)
             return;
-        brls::sync([info]() { UpdateFlow::promptUpdate(info); });
+        brls::sync([this, info]() { promptUpdate(info); });
     });
 }
 
-void UpdateFlow::simulate() {
-    settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-    std::string initial = settings->developer().updateServer();
+void UpdateFlow::simulate() const {
+    std::string initial = services.developer.updateServer();
 
     brls::Application::getImeManager()->openForText(
-        [settings](std::string text) {
+        [this](std::string text) {
             if (text.empty())
                 return;
 
-            settings->developer().setUpdateServer(text);
-            settings->store().save();
+            services.developer.setUpdateServer(text);
+            services.store.save();
 
             std::string base = text;
             if (base.rfind("http://", 0) != 0 && base.rfind("https://", 0) != 0)
@@ -65,7 +70,7 @@ void UpdateFlow::simulate() {
 
             UpdateInfo info;
             info.available = true;
-            info.channel = settings->app().updateChannel();
+            info.channel = services.app.updateChannel();
             info.version = "9.9.9";
             info.tag = "v9.9.9";
             info.notes = "Developer-simulated update from " + base;
@@ -73,25 +78,25 @@ void UpdateFlow::simulate() {
             info.sha256Url = base + "/SHA256SUMS";
             info.size = 0;
 
-            UpdateFlow::promptUpdate(info);
+            promptUpdate(info);
         },
         "akira/settings/simulate_update"_i18n,
         "akira/settings/dev_update_server_hint"_i18n,
         64, initial, 0);
 }
 
-static void showUpdateError(const std::string& message) {
+void UpdateFlow::showUpdateError(const std::string& message) {
     auto* dialog = new brls::Dialog(message);
     dialog->addButton("akira/common/ok"_i18n, [dialog]() { dialog->close(); });
     dialog->open();
 }
 
-void UpdateFlow::promptUpdate(const UpdateInfo& info) {
+void UpdateFlow::promptUpdate(const UpdateInfo& info) const {
     std::string self = app::version::semver();
     auto* dialog = new brls::Dialog(brls::getStr("akira/update/prompt_body", info.version, self));
 
-    dialog->addButton("akira/update/update_now"_i18n, [dialog, info]() {
-        dialog->close([info]() { UpdateFlow::startDownload(info); });
+    dialog->addButton("akira/update/update_now"_i18n, [this, dialog, info]() {
+        dialog->close([this, info]() { startDownload(info); });
     });
     dialog->addButton("akira/update/later"_i18n, [dialog]() {
         dialog->close();
@@ -100,7 +105,7 @@ void UpdateFlow::promptUpdate(const UpdateInfo& info) {
     dialog->open();
 }
 
-void UpdateFlow::startDownload(const UpdateInfo& info) {
+void UpdateFlow::startDownload(const UpdateInfo& info) const {
     auto* content = new brls::Box();
     content->setAxis(brls::Axis::COLUMN);
     content->setJustifyContent(brls::JustifyContent::CENTER);
@@ -128,8 +133,8 @@ void UpdateFlow::startDownload(const UpdateInfo& info) {
     });
     dialog->open();
 
-    HttpPool::instance().submit([info, dialog, ring, label, canceled, dismissed](HttpSession&) {
-        UpdateManager& mgr = UpdateManager::getInstance();
+    services.http.submit([this, info, dialog, ring, label, canceled, dismissed](HttpSession&) {
+        UpdateManager& mgr = services.manager;
 
         auto finish = [dialog, dismissed](std::function<void()> then) {
             brls::sync([dialog, dismissed, then]() {
@@ -186,9 +191,9 @@ void UpdateFlow::startDownload(const UpdateInfo& info) {
             return;
         }
 
-        finish([tmp]() {
+        finish([this, tmp]() {
             std::string err;
-            if (UpdateManager::getInstance().applyDownloaded(tmp, err))
+            if (services.manager.applyDownloaded(tmp, err))
                 play::views::quitApp(true, "akira/update/installed_relaunch"_i18n);
             else
                 showUpdateError("akira/update/install_failed"_i18n + std::string("\n") + err);

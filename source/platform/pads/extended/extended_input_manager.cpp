@@ -9,7 +9,7 @@
 
 #include <mutex>
 
-#include "settings/settings_manager.hpp"
+#include "play/controller_settings.hpp"
 #include "play/chiaki_core.hpp"
 #include "platform/pads/extended/pad_path.hpp"
 #include "platform/pads/extended/ps_output.hpp"
@@ -226,10 +226,10 @@ bool ExtendedInputManager::readRawReportOnce(AkiraInputRawReport* out)
     return R_SUCCEEDED(rc);
 }
 
-std::string ExtendedInputManager::describeDirectState()
+std::string ExtendedInputManager::describeDirectState(const play::ControllerSettings& controllers)
 {
-    return std::string(directStreamAllowed()  ? "stream toggle: ON"  : "stream toggle: OFF")
-         + (directHapticsAllowed() ? ",  haptics: on" : ",  haptics: off");
+    return std::string(directStreamAllowed(controllers)  ? "stream toggle: ON"  : "stream toggle: OFF")
+         + (directHapticsAllowed(controllers) ? ",  haptics: on" : ",  haptics: off");
 }
 
 bool ExtendedInputManager::backendDirectOutputEnabled()
@@ -307,6 +307,11 @@ const char* ExtendedInputManager::describe(Availability availability)
         case Availability::Failed:           return "akira/settings/analog_triggers_failed";
     }
     return "akira/settings/analog_triggers_failed";
+}
+
+ExtendedInputManager::ExtendedInputManager(const play::ControllerSettings& controllers)
+    : m_controllers(controllers)
+{
 }
 
 ExtendedInputManager::~ExtendedInputManager()
@@ -493,22 +498,18 @@ void ExtendedInputManager::setDirectHapticsAllowed(bool allowed)
     s_direct_haptics_allowed.store(allowed, std::memory_order_release);
 }
 
-bool ExtendedInputManager::directHapticsAllowed()
+bool ExtendedInputManager::directHapticsAllowed(const play::ControllerSettings& controllers)
 {
-    loadDirectGatesOnce();
+    loadDirectGatesOnce(controllers);
     return s_direct_haptics_allowed.load(std::memory_order_acquire);
 }
 
-void ExtendedInputManager::loadDirectGatesOnce()
+void ExtendedInputManager::loadDirectGatesOnce(const play::ControllerSettings& controllers)
 {
     static std::once_flag once;
-    std::call_once(once, []() {
-        auto* settings = settings::SettingsManager::getInstance();
-        if (settings == nullptr)
-            return;
-
+    std::call_once(once, [&controllers]() {
         const play::RumbleProfile ds =
-            settings->controllers().rumbleProfile(akira::play::kRumbleKeyDualSense);
+            controllers.rumbleProfile(akira::play::kRumbleKeyDualSense);
 
         s_direct_stream_allowed.store(
             ds.output_mode == play::PadOutputMode::Native, std::memory_order_release);
@@ -523,21 +524,17 @@ void ExtendedInputManager::setDirectStreamAllowed(bool allowed)
     s_direct_stream_allowed.store(allowed, std::memory_order_release);
 }
 
-bool ExtendedInputManager::directStreamAllowed()
+bool ExtendedInputManager::directStreamAllowed(const play::ControllerSettings& controllers)
 {
-    loadDirectGatesOnce();
+    loadDirectGatesOnce(controllers);
     return s_direct_stream_allowed.load(std::memory_order_acquire);
 }
 
-void ExtendedInputManager::refreshDirectGates(uint16_t vendor_id, uint16_t product_id,
-                                             const uint8_t* address)
+void ExtendedInputManager::refreshDirectGates(const play::ControllerSettings& controllers, uint16_t vendor_id,
+                                             uint16_t product_id, const uint8_t* address)
 {
-    auto* settings = settings::SettingsManager::getInstance();
-    if (settings == nullptr)
-        return;
-
     const play::RumbleProfile profile =
-        akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(settings->controllers(), vendor_id, product_id, address, false, false);
+        akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(controllers, vendor_id, product_id, address, false, false);
 
     s_direct_vid_pid.store(((uint32_t)vendor_id << 16) | product_id,
                            std::memory_order_release);
@@ -782,16 +779,12 @@ bool ExtendedInputManager::resolveLightbar(uint8_t* rgb) const
     if (!m_direct_addr_valid || rgb == nullptr)
         return false;
 
-    auto* settings = settings::SettingsManager::getInstance();
-    if (settings == nullptr)
-        return false;
-
     const uint32_t ids = s_direct_vid_pid.load(std::memory_order_acquire);
     if (ids == 0)
         return false;
 
     const play::RumbleProfile profile =
-        akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(settings->controllers(), (uint16_t)(ids >> 16), (uint16_t)(ids & 0xffff),
+        akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(m_controllers, (uint16_t)(ids >> 16), (uint16_t)(ids & 0xffff),
                                        m_direct_addr, false, false);
     if (!profile.lightbar_enabled)
         return false;
@@ -1481,7 +1474,7 @@ void ExtendedInputManager::resolveDirectAddress()
                 dev.vendor_id, dev.product_id);
         }
 
-        refreshDirectGates(dev.vendor_id, dev.product_id, dev.bt_addr);
+        refreshDirectGates(m_controllers, dev.vendor_id, dev.product_id, dev.bt_addr);
         return;
     }
 }
@@ -1556,7 +1549,7 @@ void ExtendedInputManager::poll()
                         continue;
                     std::memcpy(m_direct_addr, raw.bt_addr, sizeof(m_direct_addr));
                     m_direct_addr_valid = true;
-                    refreshDirectGates(raw.vendor_id, raw.product_id, raw.bt_addr);
+                    refreshDirectGates(m_controllers, raw.vendor_id, raw.product_id, raw.bt_addr);
                     m_direct_sent_valid = false;
                     m_direct_failures   = 0;
                     m_haptics_landing.store(true, std::memory_order_release);

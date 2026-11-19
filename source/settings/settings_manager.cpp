@@ -9,7 +9,8 @@ SettingsManager::SettingsManager()
     : settingsStore("sdmc:/switch/akira"),
       developerSettings(settingsStore),
       streamSettings(settingsStore,
-          platform::PlatformFactory::instance().supplies(platform::PlatformCapability::fsr_4k)),
+          (platform::PlatformFactory::fixedCapabilities() & platform::PlatformCapability::fsr_4k)
+              == platform::PlatformCapability::fsr_4k),
       controllerSettings(settingsStore),
       cloudSettings(settingsStore),
       networkSettings(settingsStore,

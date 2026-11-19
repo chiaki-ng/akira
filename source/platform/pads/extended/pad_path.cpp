@@ -7,7 +7,7 @@
 #include "platform/pads/extended/pad_path_hos.hpp"
 #include "platform/pads/extended/pad_path_mc.hpp"
 
-#include "settings/settings_manager.hpp"
+#include "play/controller_settings.hpp"
 #include "platform/pads/extended/extended_input_manager.hpp"
 
 #include <borealis.hpp>
@@ -20,8 +20,8 @@ namespace {
 
 class JoyConPath : public HosPadPath {
 public:
-    JoyConPath(HidNpadIdType npad, HidNpadStyleTag style)
-        : HosPadPath(npad, style)
+    JoyConPath(HidNpadIdType npad, HidNpadStyleTag style, const play::ControllerSettings& controllers)
+        : HosPadPath(npad, style, controllers)
     {
     }
 
@@ -43,8 +43,8 @@ public:
 
 class SwitchProPath : public HosPadPath {
 public:
-    explicit SwitchProPath(HidNpadIdType npad)
-        : HosPadPath(npad, HidNpadStyleTag_NpadFullKey)
+    SwitchProPath(HidNpadIdType npad, const play::ControllerSettings& controllers)
+        : HosPadPath(npad, HidNpadStyleTag_NpadFullKey, controllers)
     {
     }
 
@@ -62,8 +62,9 @@ public:
 
 class LegacyPadPath : public PadPath {
 public:
-    explicit LegacyPadPath(ExtendedInputManager& extended)
+    LegacyPadPath(ExtendedInputManager& extended, const play::ControllerSettings& controllers)
         : m_extended(extended)
+        , m_controllers(controllers)
     {
         padInitializeDefault(&m_pad);
         padUpdate(&m_pad);
@@ -136,7 +137,7 @@ public:
             bool useLeft  = false;
             bool useRight = false;
 
-            switch (settings::SettingsManager::getInstance()->controllers().gyroSource()) {
+            switch (m_controllers.gyroSource()) {
                 case play::GyroSource::Left:  useLeft  = leftConnected;  break;
                 case play::GyroSource::Right: useRight = rightConnected; break;
                 case play::GyroSource::Auto:
@@ -190,6 +191,7 @@ public:
 
 private:
     ExtendedInputManager&  m_extended;
+    const play::ControllerSettings& m_controllers;
     PadState               m_pad{};
     uint64_t               m_buttons = 0;
     uint64_t               m_excluded = 0;
@@ -394,7 +396,7 @@ std::vector<input::PadDescription> DescribeWith(const AkiraInputDeviceList& devi
 } // namespace
 
 PadDriverState ResolvePadDriverState(const input::PadDescription& desc,
-                                     ExtendedInputManager& extended)
+                                     ExtendedInputManager& extended, const play::ControllerSettings& controllers)
 {
     PadOutputInputs in;
     in.supported_pad = desc.kind == input::PadPathKind::McPsNative
@@ -402,7 +404,7 @@ PadDriverState ResolvePadDriverState(const input::PadDescription& desc,
 
     if (in.supported_pad) {
         const play::RumbleProfile profile =
-            akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(settings::SettingsManager::getInstance()->controllers(), 
+            akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(controllers, 
                 desc.vendor_id, desc.product_id,
                 desc.has_address ? desc.bt_addr : nullptr, false, false);
         in.profile_native = profile.output_mode == play::PadOutputMode::Native;
@@ -419,12 +421,14 @@ PadDriverState ResolvePadDriverState(const input::PadDescription& desc,
     return { state.driver, state.reason };
 }
 
-PadDriver ResolvePadDriver(const input::PadDescription& desc, ExtendedInputManager& extended)
+PadDriver ResolvePadDriver(const input::PadDescription& desc, ExtendedInputManager& extended,
+                           const play::ControllerSettings& controllers)
 {
-    return ResolvePadDriverState(desc, extended).driver;
+    return ResolvePadDriverState(desc, extended, controllers).driver;
 }
 
-std::unique_ptr<PadPath> MakePath(const input::PadDescription& desc, ExtendedInputManager& extended)
+std::unique_ptr<PadPath> MakePath(const input::PadDescription& desc, ExtendedInputManager& extended,
+                                  const play::ControllerSettings& controllers)
 {
     switch (desc.kind) {
         case input::PadPathKind::McPsNative: {
@@ -432,31 +436,31 @@ std::unique_ptr<PadPath> MakePath(const input::PadDescription& desc, ExtendedInp
             if (model == nullptr)
                 return nullptr;
 
-            if (ResolvePadDriver(desc, extended) == PadDriver::MissionControl) {
+            if (ResolvePadDriver(desc, extended, controllers) == PadDriver::MissionControl) {
                 log::info("pad {:04x}:{:04x} driven by MissionControl"
                                    " - using the generic path",
                                    desc.vendor_id, desc.product_id);
-                return std::make_unique<McGenericPath>(desc.npad, extended, desc.vendor_id,
+                return std::make_unique<McGenericPath>(desc.npad, extended, controllers, desc.vendor_id,
                                                        desc.product_id);
             }
 
-            return std::make_unique<McPsNativePath>(desc.npad, extended, *model,
+            return std::make_unique<McPsNativePath>(desc.npad, extended, controllers, *model,
                                                    desc.has_address ? desc.bt_addr : nullptr);
         }
         case input::PadPathKind::McGeneric:
-            return std::make_unique<McGenericPath>(desc.npad, extended, desc.vendor_id,
+            return std::make_unique<McGenericPath>(desc.npad, extended, controllers, desc.vendor_id,
                                                    desc.product_id);
         case input::PadPathKind::SwitchPro:
-            return std::make_unique<SwitchProPath>(desc.npad);
+            return std::make_unique<SwitchProPath>(desc.npad, controllers);
         case input::PadPathKind::JoyCon:
         default:
-            return std::make_unique<JoyConPath>(desc.npad, desc.style);
+            return std::make_unique<JoyConPath>(desc.npad, desc.style, controllers);
     }
 }
 
-std::unique_ptr<PadPath> DefaultPadPath(ExtendedInputManager& extended)
+std::unique_ptr<PadPath> DefaultPadPath(ExtendedInputManager& extended, const play::ControllerSettings& controllers)
 {
-    return std::make_unique<LegacyPadPath>(extended);
+    return std::make_unique<LegacyPadPath>(extended, controllers);
 }
 
 } // namespace akira::platform::extended

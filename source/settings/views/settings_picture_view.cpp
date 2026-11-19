@@ -1,4 +1,5 @@
 #include "settings/views/settings_picture_view.hpp"
+#include "app/view_services.hpp"
 #include "log/log.hpp"
 
 #include <borealis/core/i18n.hpp>
@@ -66,7 +67,7 @@ std::vector<SettingsPictureView::ResolutionPreset> SettingsPictureView::resoluti
         {"720p (FSR)", play::VideoResolution::P540, 720},
         {"1080p (FSR)", play::VideoResolution::P720, 1080},
     };
-    if (akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::fsr_4k)) {
+    if (app::ViewServices::current().platform.supplies(akira::platform::PlatformCapability::fsr_4k)) {
         presets.push_back({"1440p (FSR)", play::VideoResolution::P1080, 1440});
         presets.push_back({"2160p (FSR)", play::VideoResolution::P1080, 2160});
     }
@@ -383,7 +384,7 @@ void SettingsPictureView::initCloudResolutionSelector(bool pscloud,
         "akira/settings/res_1080p"_i18n,
         "1080p (FSR)",
     };
-    const bool hevcTiers = pscloud && akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::hevc);
+    const bool hevcTiers = pscloud && app::ViewServices::current().platform.supplies(akira::platform::PlatformCapability::hevc);
     if (hevcTiers) {
         options.push_back("1440p");
         options.push_back("2160p");
@@ -561,7 +562,7 @@ void SettingsPictureView::initRcasSharpnessSlider() {
 }
 
 void SettingsPictureView::initRendererSection() {
-    auto& platform = akira::platform::PlatformFactory::instance();
+    auto& platform = app::ViewServices::current().platform;
     const auto choices = platform.rendererChoices();
     const bool choosable = choices.size() > 1;
     if (choosable) {

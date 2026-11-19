@@ -1,7 +1,7 @@
 #include "platform/pads/extended/pad_path_hos.hpp"
 #include "log/log.hpp"
 
-#include "settings/settings_manager.hpp"
+#include "play/controller_settings.hpp"
 
 #include <borealis.hpp>
 
@@ -59,8 +59,9 @@ void StopSixAxisSensorShared(HidSixAxisSensorHandle handle)
     SensorRefs().erase(it);
 }
 
-HosPadPath::HosPadPath(HidNpadIdType npad, HidNpadStyleTag style)
-    : m_npad(npad)
+HosPadPath::HosPadPath(HidNpadIdType npad, HidNpadStyleTag style, const play::ControllerSettings& controllers)
+    : m_controllers(controllers)
+    , m_npad(npad)
     , m_style(style)
 {
     padInitialize(&m_pad, npad);
@@ -149,7 +150,7 @@ std::optional<HidSixAxisSensorState> HosPadPath::readGyro()
         bool leftConnected  = attrib & HidNpadAttribute_IsLeftConnected;
         bool rightConnected = attrib & HidNpadAttribute_IsRightConnected;
 
-        switch (settings::SettingsManager::getInstance()->controllers().gyroSource()) {
+        switch (m_controllers.gyroSource()) {
             case play::GyroSource::Left:
                 if (!leftConnected) return std::nullopt;
                 index = 0;

@@ -12,7 +12,7 @@ namespace akira::platform::extended
 class ExtendedPadSettingsProvider final : public PadSettingsProvider
 {
 public:
-    explicit ExtendedPadSettingsProvider(const input::PadDescription& pad);
+    ExtendedPadSettingsProvider(const input::PadDescription& pad, const play::ControllerSettings& controllers);
 
     static std::string resolveKey(const play::ControllerSettings& settings, uint16_t vendorId, uint16_t productId,
                                   const uint8_t* address, bool switchNative, bool joycon);
@@ -39,6 +39,7 @@ private:
     bool switchNative() const;
 
     input::PadDescription m_pad;
+    const play::ControllerSettings& m_controllers;
     PadDriverState m_driver;
 };
 

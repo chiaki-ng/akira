@@ -13,14 +13,22 @@ using namespace brls::literals;
 namespace akira::platform::github
 {
 
+GithubUpdateProvider::GithubUpdateProvider(HttpPool& http, app::AppSettings& app,
+    settings::DeveloperSettings& developer, settings::SettingsStore& store)
+    : m_manager(app)
+    , m_services{ .manager = m_manager, .http = http, .app = app, .developer = developer, .store = store }
+    , m_flow(m_services)
+{
+}
+
 void GithubUpdateProvider::prepare(int argc, char* argv[])
 {
-    UpdateManager::setSelfPath(argc > 0 && argv[0] ? argv[0] : "");
+    m_manager.setSelfPath(argc > 0 && argv[0] ? argv[0] : "");
 }
 
 void GithubUpdateProvider::launched()
 {
-    UpdateFlow::checkOnLaunch();
+    m_flow.checkOnLaunch();
 }
 
 std::span<const char* const> GithubUpdateProvider::helpFiles() const
@@ -31,14 +39,14 @@ std::span<const char* const> GithubUpdateProvider::helpFiles() const
 
 std::vector<SettingsMenu> GithubUpdateProvider::settingsMenus() const
 {
-    return {{"akira/settings/menu_updates"_i18n, []() -> brls::Box* { return new SettingsUpdatesView(); }}};
+    return {{"akira/settings/menu_updates"_i18n, [this]() -> brls::Box* { return new SettingsUpdatesView(m_flow, m_services); }}};
 }
 
 void GithubUpdateProvider::initSimulateRow(brls::DetailCell& cell) const
 {
     cell.setText("akira/settings/simulate_update"_i18n);
-    cell.registerClickAction([](brls::View*) {
-        UpdateFlow::simulate();
+    cell.registerClickAction([this](brls::View*) {
+        m_flow.simulate();
         return true;
     });
 }

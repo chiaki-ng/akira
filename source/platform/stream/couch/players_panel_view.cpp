@@ -1,5 +1,4 @@
 #include "platform/stream/couch/players_panel_view.hpp"
-#include "app/view_services.hpp"
 #include "log/log.hpp"
 
 #include <algorithm>
@@ -8,7 +7,9 @@
 #include <vector>
 
 #include "consoles/host.hpp"
-#include "settings/settings_manager.hpp"
+#include "accounts/account_settings.hpp"
+#include "app/app_settings.hpp"
+#include "settings/settings_store.hpp"
 #include "trophies/trophy_manager.hpp"
 #include "play/connection.hpp"
 #include "platform/pads/extended/provider.hpp"
@@ -235,27 +236,29 @@ std::string MetaText(int player, const CouchSeat& seat)
     }
 }
 
-std::string WithAccount(const std::string& text, const consoles::Host* host, const Connection* connection, uint8_t slot)
+std::string WithAccount(const std::string& text, const consoles::Host* host, const Connection* connection, uint8_t slot,
+                        const accounts::AccountSettings& accounts, const app::AppSettings& app)
 {
     if (!host || !host->isPS5())
         return text;
     std::string account;
     if (slot == 0) {
-        if (const accounts::Profile* active = settings::SettingsManager::getInstance()->accounts().activeProfile(); active && !active->accountId.empty())
+        if (const accounts::Profile* active = accounts.activeProfile(); active && !active->accountId.empty())
             account = active->label();
     } else if (connection) {
         account = connection->couchSeat(slot).accountLabel;
     }
     if (account.empty())
         return text + " - no PSN account configured";
-    return text + " - PSN: " + settings::SettingsManager::getInstance()->app().maskAccountName(account);
+    return text + " - PSN: " + app.maskAccountName(account);
 }
 
 } // namespace
 
-PlayersPanelView::PlayersPanelView(consoles::Host* host, std::weak_ptr<Connection> connection, akira::platform::extended::ExtendedPadProvider* input,
-                                   bool claimImmediately)
-    : m_host(host)
+PlayersPanelView::PlayersPanelView(Profiles profiles, consoles::Host* host, std::weak_ptr<Connection> connection,
+                                   akira::platform::extended::ExtendedPadProvider* input, bool claimImmediately)
+    : m_profiles(profiles)
+    , m_host(host)
     , m_connection(std::move(connection))
     , m_input(input)
 {
@@ -412,7 +415,7 @@ void PlayersPanelView::populateRoster()
     primary->setBorderColor(nvgRGB(0x35, 0x5a, 0x8a));
     primary->addView(MakeLed(1, false));
     const auto connection = m_connection.lock();
-    primary->addView(MakeBody(primaryLabel, WithAccount("Player 1 - ready", m_host, connection.get(), 0), false));
+    primary->addView(MakeBody(primaryLabel, WithAccount("Player 1 - ready", m_host, connection.get(), 0, m_profiles.accounts, m_profiles.app), false));
     m_slots->addView(primary);
 
     std::vector<std::pair<HidNpadIdType, uint8_t>> ordered;
@@ -437,7 +440,7 @@ void PlayersPanelView::populateRoster()
 
         brls::Label* meta = nullptr;
         row->addView(MakeBody(deviceLabelFor(npad),
-                              WithAccount(MetaText(player, seat), m_host, connection.get(), slot),
+                              WithAccount(MetaText(player, seat), m_host, connection.get(), slot, m_profiles.accounts, m_profiles.app),
                               false, &meta));
         if (meta)
             meta->setTextColor(MetaColor(seat.phase));
@@ -589,7 +592,7 @@ void PlayersPanelView::populateProfilePicker()
         loadProfileAvatar(choice.profileId, choice.accountId, choice.avatarUrl, avatar);
 
         auto* name = new brls::Label();
-        name->setText(settings::SettingsManager::getInstance()->app().maskAccountName(choice.label));
+        name->setText(m_profiles.app.maskAccountName(choice.label));
         name->setFontSize(cardWidth < 170.0f ? 16 : 18);
         name->setTextColor(app::views::active().text);
         name->setMarginBottom(0);
@@ -608,7 +611,7 @@ void PlayersPanelView::loadProfileAvatarUrl(int64_t profileId, const std::string
         return;
 
     auto alive = m_callback_alive;
-    app::ViewServices::current().trophies.fetchIcon(avatarUrl,
+    m_profiles.trophies.fetchIcon(avatarUrl,
         [this, alive, image, profileId](const std::string&, const std::vector<uint8_t>& bytes) {
             if (!alive->load(std::memory_order_acquire) || bytes.empty())
                 return;
@@ -631,7 +634,7 @@ void PlayersPanelView::loadProfileAvatar(int64_t profileId, const std::string& a
         return;
 
     auto alive = m_callback_alive;
-    app::ViewServices::current().trophies.fetchProfileForAccount(accountId,
+    m_profiles.trophies.fetchProfileForAccount(accountId,
         [this, alive, image, profileId](const trophies::TrophyManager::Profile& profile) {
             if (!alive->load(std::memory_order_acquire))
                 return;
@@ -639,11 +642,10 @@ void PlayersPanelView::loadProfileAvatar(int64_t profileId, const std::string& a
             if (url.empty())
                 return;
 
-            settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-            if (accounts::Profile* saved = settings->accounts().findProfile(profileId); saved && saved->avatarUrl != url)
+            if (accounts::Profile* saved = m_profiles.accounts.findProfile(profileId); saved && saved->avatarUrl != url)
             {
                 saved->avatarUrl = url;
-                settings->store().save();
+                m_profiles.store.save();
             }
             loadProfileAvatarUrl(profileId, url, image);
         },
@@ -699,7 +701,7 @@ void PlayersPanelView::refreshStates()
         if (!r.meta || !m_host || !connection)
             continue;
         const CouchSeat& seat = connection->couchSeat(r.slot);
-        const std::string text = WithAccount(MetaText(r.slot + 1, seat), m_host, connection.get(), r.slot);
+        const std::string text = WithAccount(MetaText(r.slot + 1, seat), m_host, connection.get(), r.slot, m_profiles.accounts, m_profiles.app);
         if (r.meta->getFullText() != text) {
             r.meta->setText(text);
             r.meta->setTextColor(MetaColor(seat.phase));

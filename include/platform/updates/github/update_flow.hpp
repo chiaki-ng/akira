@@ -3,17 +3,39 @@
 
 #include "platform/updates/github/update_manager.hpp"
 
+class HttpPool;
+
+namespace akira::settings
+{
+class DeveloperSettings;
+class SettingsStore;
+}
+
 namespace akira::platform::github
 {
 
 class UpdateFlow {
 public:
-    static void checkOnLaunch();
-    static void promptUpdate(const UpdateInfo& info);
-    static void simulate();
+    struct Services {
+        UpdateManager& manager;
+        HttpPool& http;
+        app::AppSettings& app;
+        settings::DeveloperSettings& developer;
+        settings::SettingsStore& store;
+    };
+
+    explicit UpdateFlow(Services services);
+
+    void checkOnLaunch() const;
+    void promptUpdate(const UpdateInfo& info) const;
+    void simulate() const;
 
 private:
-    static void startDownload(const UpdateInfo& info);
+    static void showUpdateError(const std::string& message);
+
+    void startDownload(const UpdateInfo& info) const;
+
+    Services services;
 };
 
 }

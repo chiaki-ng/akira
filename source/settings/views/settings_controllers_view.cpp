@@ -1,4 +1,5 @@
 #include "settings/views/settings_controllers_view.hpp"
+#include "app/view_services.hpp"
 #include "settings/views/settings_pad_view.hpp"
 
 #include "settings/settings_manager.hpp"
@@ -13,7 +14,7 @@ using namespace brls::literals;
 std::string SettingsControllersView::tierSummary(const akira::input::PadDescription& pad)
 {
     auto* settings = SettingsManager::getInstance();
-    const auto padSettings = akira::platform::PlatformFactory::instance().createPadSettings(pad);
+    const auto padSettings = app::ViewServices::current().platform.createPadSettings(pad);
 
     if (auto summary = padSettings->outputSummary(settings->controllers()))
         return *summary;
@@ -78,7 +79,7 @@ void SettingsControllersView::rebuild()
     list->clearViews();
 
     auto* settings = SettingsManager::getInstance();
-    const std::vector<akira::input::PadDescription> pads = akira::platform::PlatformFactory::instance().pads().scanPads();
+    const std::vector<akira::input::PadDescription> pads = app::ViewServices::current().platform.pads().scanPads();
 
     if (pads.empty()) {
         auto* empty = new brls::Label();
@@ -92,7 +93,7 @@ void SettingsControllersView::rebuild()
 
     for (const akira::input::PadDescription& pad : pads) {
         settings->controllers().seedRumbleProfile(
-            akira::platform::PlatformFactory::instance().createPadSettings(pad)->rumbleKey(settings->controllers()));
+            app::ViewServices::current().platform.createPadSettings(pad)->rumbleKey(settings->controllers()));
 
         auto* cell = new brls::DetailCell();
         cell->setMarginLeft(15.0f);

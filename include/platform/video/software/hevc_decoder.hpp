@@ -21,6 +21,20 @@ class Box;
 
 }
 
+namespace akira::play
+{
+
+class StreamSettings;
+
+}
+
+namespace akira::settings
+{
+
+class SettingsStore;
+
+}
+
 namespace akira::platform::software
 {
 
@@ -35,7 +49,7 @@ public:
     HevcDecoder(const HevcDecoder&) = delete;
     HevcDecoder& operator=(const HevcDecoder&) = delete;
 
-    static void addSetting(brls::Box& group);
+    static void addSetting(brls::Box& group, play::StreamSettings& stream, settings::SettingsStore& store);
 
     void setFrameReadyCallback(FrameReadyCallback callback) { m_frame_ready_callback = std::move(callback); }
 

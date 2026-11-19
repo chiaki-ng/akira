@@ -8,8 +8,9 @@
 namespace akira::platform::nxext
 {
 
-IpcStatsService::IpcStatsService(play::Session* session)
+IpcStatsService::IpcStatsService(play::Session* session, const network::WireGuardManager& wireGuard)
     : m_session(session)
+    , m_wire_guard(wireGuard)
 {
     memset(&m_server, 0, sizeof(m_server));
     memset(&m_thread, 0, sizeof(m_thread));
@@ -150,7 +151,7 @@ Result IpcStatsService::ServiceHandler(void* userdata, const IpcServerRequest* r
 
             out->ghash_mode = 1;
 
-            auto& wg = network::WireGuardManager::instance();
+            const auto& wg = self->m_wire_guard;
             out->vpn_connected = wg.isConnected() ? 1 : 0;
             memset(out->vpn_ip, 0, sizeof(out->vpn_ip));
             if (wg.isConnected())

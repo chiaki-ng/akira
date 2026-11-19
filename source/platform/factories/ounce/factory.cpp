@@ -5,7 +5,7 @@
 #include <borealis.hpp>
 #include <borealis/platforms/switch/switch_platform.hpp>
 
-#include "settings/settings_manager.hpp"
+#include "play/stream_settings.hpp"
 
 #include "platform/feedback/hid/provider.hpp"
 #include "platform/haptics/hid/provider.hpp"
@@ -17,16 +17,26 @@
 namespace akira::platform
 {
 
-PlatformFactory& PlatformFactory::instance()
+std::unique_ptr<PlatformFactory> PlatformFactory::create(PlatformServices services)
 {
-    static OuncePlatformFactory factory;
-    return factory;
+    return std::make_unique<OuncePlatformFactory>(services);
+}
+
+PlatformCapability PlatformFactory::fixedCapabilities() noexcept
+{
+    return OuncePlatformFactory::Capabilities;
+}
+
+OuncePlatformFactory::OuncePlatformFactory(PlatformServices services)
+    : m_services(services)
+    , m_pads(services.controllers)
+{
 }
 
 PlatformInfo OuncePlatformFactory::info() const noexcept
 {
-    const bool softwareHevc = settings::SettingsManager::getInstance()->stream().softwareHevc();
-    return {"ounce", softwareHevc ? PlatformCapability::fsr_4k | PlatformCapability::hevc : PlatformCapability::fsr_4k};
+    const bool softwareHevc = m_services.stream.softwareHevc();
+    return {"ounce", softwareHevc ? Capabilities | PlatformCapability::hevc : Capabilities};
 }
 
 std::span<const char* const> OuncePlatformFactory::helpFiles() const
@@ -42,7 +52,7 @@ brls::SwitchPlatform& OuncePlatformFactory::switchPlatform()
 
 void OuncePlatformFactory::prepareVideo()
 {
-    const bool drako3d = settings::SettingsManager::getInstance()->stream().videoRenderer() == play::RendererKind::Drako3d
+    const bool drako3d = m_services.stream.videoRenderer() == play::RendererKind::Drako3d
         && drako3d::Drako3dVideoProvider::shadersPresent();
     switchPlatform().setRenderer(drako3d ? brls::SwitchRenderer::Deko3d : brls::SwitchRenderer::Vulkan);
 }
@@ -58,8 +68,10 @@ std::vector<RendererChoice> OuncePlatformFactory::rendererChoices() const
 std::unique_ptr<VideoProvider> OuncePlatformFactory::createVideo()
 {
     if (switchPlatform().getRenderer() == brls::SwitchRenderer::Deko3d)
-        return std::make_unique<drako3d::Drako3dVideoProvider>();
-    return std::make_unique<vulkan::VulkanVideoProvider>();
+        return std::make_unique<drako3d::Drako3dVideoProvider>(m_services.stream, m_services.streamState,
+            m_services.store, m_services.developer, m_services.wireGuard);
+    return std::make_unique<vulkan::VulkanVideoProvider>(m_services.stream, m_services.streamState, m_services.store,
+        m_services.developer, m_services.wireGuard);
 }
 
 std::unique_ptr<HapticsProvider> OuncePlatformFactory::createHaptics()

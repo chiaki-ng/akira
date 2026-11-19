@@ -6,7 +6,8 @@
 #include <borealis/core/assets.hpp>
 #include <nanovg_dk.h>
 #include "network/wireguard_manager.hpp"
-#include "settings/settings_manager.hpp"
+#include "play/stream_settings.hpp"
+#include "play/stream_state.hpp"
 #include "app/views/theme.hpp"
 #include <borealis.hpp>
 #include <borealis/platforms/switch/switch_platform.hpp>
@@ -84,9 +85,13 @@ void Deko3dRenderer::setConnectionContext(const std::string& context)
     m_ovl_dirty = true;
 }
 
-Deko3dRenderer::Deko3dRenderer(std::unique_ptr<ShaderSource> shaders, std::string decoderLabel)
+Deko3dRenderer::Deko3dRenderer(std::unique_ptr<ShaderSource> shaders, std::string decoderLabel,
+    play::StreamSettings& stream, const play::StreamState& streamState, const network::WireGuardManager& wireGuard)
     : m_shaders(std::move(shaders))
     , m_decoder_label(std::move(decoderLabel))
+    , m_stream(stream)
+    , m_stream_state(streamState)
+    , m_wire_guard(wireGuard)
 {
 }
 
@@ -140,8 +145,8 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
     m_overlay_cmdmem.emplace();
     m_overlay_cmdmem->allocate(*m_pool_data, OverlayCmdSliceSize);
 
-    float saved_x = settings::SettingsManager::getInstance()->stream().statsOverlayX();
-    float saved_y = settings::SettingsManager::getInstance()->stream().statsOverlayY();
+    float saved_x = m_stream.statsOverlayX();
+    float saved_y = m_stream.statsOverlayY();
     if (saved_x >= 0.0f && saved_y >= 0.0f)
     {
         m_overlay_norm_x.store(saved_x, std::memory_order_relaxed);
@@ -154,7 +159,7 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
         writeDitherUniform();
     }
 
-    bool dithering = settings::SettingsManager::getInstance()->stream().ditheringEnabled();
+    bool dithering = m_stream.ditheringEnabled();
     if (!compileVideoShaders(dithering))
     {
         log::error("Failed to compile video shaders");
@@ -220,9 +225,9 @@ bool Deko3dRenderer::setupTextures(const VideoFrame& frame)
     initializePlaneLayout(m_chroma_layout, DkImageFormat_RG8_Unorm,
         m_frame_width / 2, m_frame_height / 2, m_frame_format.chromaPitch);
 
-    bool easuSetting = settings::SettingsManager::getInstance()->streamState().easuEnabled();
-    bool rcasSetting = settings::SettingsManager::getInstance()->stream().rcasEnabled();
-    int targetH = settings::SettingsManager::getInstance()->streamState().easuTargetHeight();
+    bool easuSetting = m_stream_state.easuEnabled();
+    bool rcasSetting = m_stream.rcasEnabled();
+    int targetH = m_stream_state.easuTargetHeight();
     int targetW = (targetH * 16) / 9;
     bool easuNeeded = easuSetting && targetH > 0 && (m_frame_width < targetW || m_frame_height < targetH);
     m_fsr_pending = easuNeeded || rcasSetting;
@@ -339,7 +344,7 @@ void Deko3dRenderer::writeDitherUniform()
     if (!m_dither_uniform)
         return;
 
-    const std::array<float, 4> constants{ settings::SettingsManager::getInstance()->stream().ditheringStrength(), 0.0f, 0.0f, 0.0f };
+    const std::array<float, 4> constants{ m_stream.ditheringStrength(), 0.0f, 0.0f, 0.0f };
     memcpy(m_dither_uniform.getCpuAddr(), constants.data(), sizeof(constants));
 }
 
@@ -388,12 +393,12 @@ void Deko3dRenderer::initFsr()
     m_queue.waitIdle();
 
     m_easu_enabled = false;
-    m_rcas_enabled = settings::SettingsManager::getInstance()->stream().rcasEnabled();
-    m_fsr_sharpness = settings::SettingsManager::getInstance()->stream().rcasSharpness();
+    m_rcas_enabled = m_stream.rcasEnabled();
+    m_fsr_sharpness = m_stream.rcasSharpness();
 
-    int targetH = settings::SettingsManager::getInstance()->streamState().easuTargetHeight();
+    int targetH = m_stream_state.easuTargetHeight();
     int targetW = (targetH * 16) / 9;
-    if (settings::SettingsManager::getInstance()->streamState().easuEnabled() && targetH > 0 &&
+    if (m_stream_state.easuEnabled() && targetH > 0 &&
         (m_frame_width < targetW || m_frame_height < targetH))
     {
         m_easu_enabled = true;
@@ -419,7 +424,7 @@ void Deko3dRenderer::initFsr()
     if (!ensureVertexShaderCompiled())
         return;
 
-    bool dithering = settings::SettingsManager::getInstance()->stream().ditheringEnabled();
+    bool dithering = m_stream.ditheringEnabled();
 
     if (m_easu_enabled)
     {
@@ -982,7 +987,7 @@ void Deko3dRenderer::rebuildOverlayText()
     uint64_t mins = m_stats.stream_duration_seconds / 60;
     uint64_t secs = m_stats.stream_duration_seconds % 60;
 
-    auto& wg = network::WireGuardManager::instance();
+    const auto& wg = m_wire_guard;
 
     m_ov.fps = std::format("{:.1f}", m_render_fps);
     m_ov.rate = std::format("{:.1f}", m_stats.measured_bitrate_mbps);
@@ -1432,7 +1437,7 @@ void Deko3dRenderer::overlayTouchEnd()
     if (sw <= 0.0f || sh <= 0.0f)
         return;
 
-    settings::SettingsManager::getInstance()->stream().setStatsOverlayPosition(
+    m_stream.setStatsOverlayPosition(
         m_overlay_x.load(std::memory_order_relaxed) / sw,
         m_overlay_y.load(std::memory_order_relaxed) / sh);
     m_overlay_pos_dirty.store(true, std::memory_order_relaxed);

@@ -16,8 +16,10 @@ using namespace brls::literals;
 namespace akira::platform::extended
 {
 
-ExtendedPadSettingsProvider::ExtendedPadSettingsProvider(const input::PadDescription& pad)
+ExtendedPadSettingsProvider::ExtendedPadSettingsProvider(const input::PadDescription& pad,
+                                                         const play::ControllerSettings& controllers)
     : m_pad(pad)
+    , m_controllers(controllers)
 {
 }
 
@@ -161,7 +163,7 @@ void ExtendedPadSettingsProvider::addOutputRows(brls::Box& content, play::Rumble
 
     mode->init("akira/settings/rumble_output_mode"_i18n, options,
                static_cast<int>(profile.output_mode),
-               [&profile, store, reopen, pad = m_pad](int selected) {
+               [&profile, store, reopen, pad = m_pad, &controllers = m_controllers](int selected) {
                    const auto chosen = selected == 1
                                            ? play::PadOutputMode::Basic
                                            : play::PadOutputMode::Native;
@@ -171,7 +173,7 @@ void ExtendedPadSettingsProvider::addOutputRows(brls::Box& content, play::Rumble
                    profile.output_mode = chosen;
                    store();
 
-                   ExtendedInputManager::refreshDirectGates(
+                   ExtendedInputManager::refreshDirectGates(controllers,
                        pad.vendor_id, pad.product_id,
                        pad.has_address ? pad.bt_addr : nullptr);
 

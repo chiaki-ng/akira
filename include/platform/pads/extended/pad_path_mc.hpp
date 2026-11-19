@@ -13,7 +13,7 @@ class ExtendedInputManager;
 
 class McGenericPath : public HosPadPath {
 public:
-    McGenericPath(HidNpadIdType npad, ExtendedInputManager& extended,
+    McGenericPath(HidNpadIdType npad, ExtendedInputManager& extended, const play::ControllerSettings& controllers,
                   uint16_t vendor_id, uint16_t product_id);
 
     input::PadPathKind kind() const override { return input::PadPathKind::McGeneric; }
@@ -41,7 +41,7 @@ protected:
 
 class McPsNativePath : public McGenericPath {
 public:
-    McPsNativePath(HidNpadIdType npad, ExtendedInputManager& extended,
+    McPsNativePath(HidNpadIdType npad, ExtendedInputManager& extended, const play::ControllerSettings& controllers,
                    const PsModel& model, const uint8_t* bt_addr);
 
     input::PadPathKind kind() const override { return input::PadPathKind::McPsNative; }

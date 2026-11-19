@@ -1,4 +1,5 @@
 #include "settings/views/settings_frame_view.hpp"
+#include "app/view_services.hpp"
 #include "app/views/theme.hpp"
 #include "app/views/motion.hpp"
 #include "settings/views/settings_general_view.hpp"
@@ -133,7 +134,7 @@ void SettingsFrameView::buildMenus() {
 
     menus.push_back({"akira/settings/menu_account"_i18n, {{"", []() -> brls::Box* { return new accounts::views::SettingsAccountView(); }}}});
     menus.push_back({"akira/settings/menu_general"_i18n, {{"", []() -> brls::Box* { return new SettingsGeneralView(); }}}});
-    for (auto& menu : akira::platform::PlatformFactory::instance().updates().settingsMenus())
+    for (auto& menu : app::ViewServices::current().platform.updates().settingsMenus())
         menus.push_back({std::move(menu.title), {{"", std::move(menu.create)}}});
     menus.push_back({"akira/settings/menu_quality"_i18n, {{"", []() -> brls::Box* { return new SettingsPictureView(); }}}});
     menus.push_back({"akira/settings/menu_controls"_i18n, {{"", []() -> brls::Box* { return new SettingsControllerView(); }}}});
@@ -213,7 +214,7 @@ void SettingsFrameView::updateDescriptionFromFocus() {
     brls::View* f = brls::Application::getCurrentFocus();
     while (f) {
         SettingDescription d;
-        if (settings::lookupSettingDescription(f->getId(), d)) {
+        if (settings::lookupSettingDescription(app::ViewServices::current().platform, f->getId(), d)) {
             if (!d.title.empty() || !d.body.empty()) {
                 descTitle->setText(d.title);
                 descBody->setText(d.body);

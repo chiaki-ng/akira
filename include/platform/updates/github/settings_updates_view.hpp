@@ -9,14 +9,14 @@
 #include <borealis/views/cells/cell_detail.hpp>
 #include <borealis/views/cells/cell_selector.hpp>
 
-#include "settings/settings_manager.hpp"
+#include "platform/updates/github/update_flow.hpp"
 
 namespace akira::platform::github
 {
 
 class SettingsUpdatesView : public brls::Box {
 public:
-    SettingsUpdatesView();
+    SettingsUpdatesView(const UpdateFlow& flow, UpdateFlow::Services services);
     ~SettingsUpdatesView() override;
 
 private:
@@ -27,7 +27,8 @@ private:
     BRLS_BIND(brls::DetailCell, checkNowCell, "settings/checkForUpdates");
     BRLS_BIND(brls::Label, versionLabel, "settings/updateCurrentVersion");
 
-    settings::SettingsManager* settings = nullptr;
+    const UpdateFlow& flow;
+    UpdateFlow::Services services;
     bool checking = false;
 
     void initChannelSelector();

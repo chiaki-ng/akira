@@ -11,16 +11,27 @@
 namespace akira::platform
 {
 
-PlatformFactory& PlatformFactory::instance()
+std::unique_ptr<PlatformFactory> PlatformFactory::create(PlatformServices services)
 {
-    static NxPlatformFactory factory;
-    return factory;
+    return std::make_unique<NxPlatformFactory>(services);
+}
+
+PlatformCapability PlatformFactory::fixedCapabilities() noexcept
+{
+    return NxPlatformFactory::Capabilities;
+}
+
+NxPlatformFactory::NxPlatformFactory(PlatformServices services)
+    : m_services(services)
+    , m_updates(services.http, services.app, services.developer, services.store)
+    , m_stats(services.developer, services.store, services.wireGuard)
+    , m_pads(services.controllers)
+{
 }
 
 PlatformInfo NxPlatformFactory::info() const noexcept
 {
-    return {"nx", PlatformCapability::couch_seats | PlatformCapability::self_update | PlatformCapability::stats_export
-                  | PlatformCapability::hevc};
+    return {"nx", Capabilities};
 }
 
 void NxPlatformFactory::prepareVideo()
@@ -35,14 +46,16 @@ std::vector<RendererChoice> NxPlatformFactory::rendererChoices() const
 std::unique_ptr<VideoProvider> NxPlatformFactory::createVideo()
 {
     return std::make_unique<deko3d::Deko3dVideoProvider>("Deko3d",
+        deko3d::Deko3dVideoProvider::Presentation{ .stream = m_services.stream, .streamState = m_services.streamState,
+            .wireGuard = m_services.wireGuard },
         deko3d::Deko3dVideoProvider::DecoderChoice{ .name = "FFmpeg nvtegra", .stat = "NVTEGRA",
             .make = [] { return std::make_unique<nvtegra::NvtegraDecoder>(); } },
-        [] { return std::make_unique<uam::UamShaderSource>("romfs:/shaders"); });
+        [&stream = m_services.stream] { return std::make_unique<uam::UamShaderSource>("romfs:/shaders", stream); });
 }
 
 std::unique_ptr<HapticsProvider> NxPlatformFactory::createHaptics()
 {
-    return std::make_unique<extended::ExtendedHapticsProvider>(m_pads);
+    return std::make_unique<extended::ExtendedHapticsProvider>(m_pads, m_services.controllers, m_services.developer);
 }
 
 std::unique_ptr<FeedbackProvider> NxPlatformFactory::createFeedback(play::HapticManager& haptics)
@@ -52,12 +65,15 @@ std::unique_ptr<FeedbackProvider> NxPlatformFactory::createFeedback(play::Haptic
 
 std::unique_ptr<StreamControlsProvider> NxPlatformFactory::createStreamControls(std::weak_ptr<StreamControlsHost> host)
 {
-    return std::make_unique<couch::CouchStreamControlsProvider>(m_pads, std::move(host));
+    return std::make_unique<couch::CouchStreamControlsProvider>(m_pads,
+        couch::PlayersPanelView::Profiles{ .accounts = m_services.accounts, .app = m_services.app,
+            .store = m_services.store, .trophies = m_services.trophies },
+        std::move(host));
 }
 
 std::unique_ptr<PadSettingsProvider> NxPlatformFactory::createPadSettings(const input::PadDescription& pad)
 {
-    return std::make_unique<extended::ExtendedPadSettingsProvider>(pad);
+    return std::make_unique<extended::ExtendedPadSettingsProvider>(pad, m_services.controllers);
 }
 
 }

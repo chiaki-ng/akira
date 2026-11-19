@@ -10,7 +10,7 @@ void StopSixAxisSensorShared(HidSixAxisSensorHandle handle);
 
 class HosPadPath : public PadPath {
 public:
-    HosPadPath(HidNpadIdType npad, HidNpadStyleTag style);
+    HosPadPath(HidNpadIdType npad, HidNpadStyleTag style, const play::ControllerSettings& controllers);
     ~HosPadPath() override;
 
     HidNpadIdType   npad()  const override { return m_npad; }
@@ -29,6 +29,7 @@ protected:
     void acquireHandles();
     void releaseHandles();
 
+    const play::ControllerSettings& m_controllers;
     PadState        m_pad{};
     HidNpadIdType   m_npad;
     HidNpadStyleTag m_style;

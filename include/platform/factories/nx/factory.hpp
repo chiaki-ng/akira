@@ -12,7 +12,10 @@ namespace akira::platform
 class NxPlatformFactory final : public PlatformFactory
 {
 public:
-    NxPlatformFactory() = default;
+    static constexpr PlatformCapability Capabilities = PlatformCapability::couch_seats | PlatformCapability::self_update
+        | PlatformCapability::stats_export | PlatformCapability::hevc;
+
+    explicit NxPlatformFactory(PlatformServices services);
 
     PlatformInfo info() const noexcept override;
     std::span<const char* const> helpFiles() const override { return {}; }
@@ -31,6 +34,7 @@ public:
     std::unique_ptr<PadSettingsProvider> createPadSettings(const input::PadDescription& pad) override;
 
 private:
+    PlatformServices m_services;
     fixed::FixedDisplayProvider m_display;
     github::GithubUpdateProvider m_updates;
     nxext::NxextStatsProvider m_stats;

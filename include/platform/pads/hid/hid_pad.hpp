@@ -5,13 +5,20 @@
 
 #include "platform/pads/pad.hpp"
 
+namespace akira::play
+{
+
+class ControllerSettings;
+
+}
+
 namespace akira::platform::hid
 {
 
 class HidPad final : public input::Pad
 {
 public:
-    HidPad();
+    explicit HidPad(const play::ControllerSettings& controllers);
     ~HidPad() override;
 
     HidPad(const HidPad&) = delete;
@@ -34,6 +41,7 @@ private:
         SensorCount,
     };
 
+    const play::ControllerSettings& m_controllers;
     PadState m_pad{};
     uint64_t m_buttons = 0;
     std::array<HidSixAxisSensorHandle, SensorCount> m_sixaxis{};

@@ -19,14 +19,38 @@ namespace akira::play {
 class Connection;
 }
 
+namespace akira::accounts {
+class AccountSettings;
+}
+
+namespace akira::app {
+class AppSettings;
+}
+
+namespace akira::settings {
+class SettingsStore;
+}
+
+namespace akira::trophies {
+class TrophyManager;
+}
+
 namespace akira::platform::couch
 {
 
 class PlayersPanelView : public brls::Box
 {
 public:
-    PlayersPanelView(consoles::Host* host, std::weak_ptr<play::Connection> connection, akira::platform::extended::ExtendedPadProvider* input,
-                     bool claimImmediately = false);
+    struct Profiles
+    {
+        accounts::AccountSettings& accounts;
+        const app::AppSettings& app;
+        settings::SettingsStore& store;
+        trophies::TrophyManager& trophies;
+    };
+
+    PlayersPanelView(Profiles profiles, consoles::Host* host, std::weak_ptr<play::Connection> connection,
+                     akira::platform::extended::ExtendedPadProvider* input, bool claimImmediately = false);
     ~PlayersPanelView() override;
 
     void draw(NVGcontext* vg, float x, float y, float width, float height,
@@ -61,6 +85,7 @@ private:
     const char* deviceLabelFor(HidNpadIdType npad) const;
     int rosterCount() const;
 
+    Profiles                 m_profiles;
     consoles::Host*          m_host    = nullptr;
     std::weak_ptr<play::Connection> m_connection;
     akira::platform::extended::ExtendedPadProvider* m_input = nullptr;

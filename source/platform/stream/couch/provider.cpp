@@ -15,8 +15,10 @@ using namespace brls::literals;
 namespace akira::platform::couch
 {
 
-CouchStreamControlsProvider::CouchStreamControlsProvider(extended::ExtendedPadProvider& pads, std::weak_ptr<StreamControlsHost> host)
+CouchStreamControlsProvider::CouchStreamControlsProvider(extended::ExtendedPadProvider& pads,
+    PlayersPanelView::Profiles profiles, std::weak_ptr<StreamControlsHost> host)
     : m_pads(pads)
+    , m_profiles(profiles)
     , m_host(std::move(host))
 {
 }
@@ -225,7 +227,7 @@ void CouchStreamControlsProvider::decorateMenu(play::views::StreamMenu& menu)
             log::warning("StreamMenu: no input manager for players panel");
             return;
         }
-        auto* panel = new PlayersPanelView(self->controlsHost(), self->controlsConnection(), &m_pads);
+        auto* panel = new PlayersPanelView(m_profiles, self->controlsHost(), self->controlsConnection(), &m_pads);
         brls::Application::pushActivity(new brls::Activity(panel), brls::TransitionAnimation::NONE);
     });
 }
@@ -301,7 +303,7 @@ void CouchStreamControlsProvider::openCouchClaim()
     }
 
     auto weak = m_host;
-    auto* panel = new PlayersPanelView(view->controlsHost(), view->controlsConnection(), &m_pads, true);
+    auto* panel = new PlayersPanelView(m_profiles, view->controlsHost(), view->controlsConnection(), &m_pads, true);
     panel->setOnClosed([this, weak]() {
         auto self = weak.lock();
         if (!self)

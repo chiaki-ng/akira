@@ -267,13 +267,26 @@ void App::startServices()
     cloud.emplace(settings::SettingsManager::getInstance()->accounts(), HttpPool::instance());
 #endif
     auto* settings = settings::SettingsManager::getInstance();
+    factory = platform::PlatformFactory::create(platform::PlatformServices{
+        .stream = settings->stream(),
+        .streamState = settings->streamState(),
+        .controllers = settings->controllers(),
+        .developer = settings->developer(),
+        .app = settings->app(),
+        .accounts = settings->accounts(),
+        .store = settings->store(),
+        .wireGuard = network::WireGuardManager::instance(),
+        .http = HttpPool::instance(),
+        .trophies = *trophies,
+    });
     discovery.emplace(settings->hosts(), settings->store(), settings->network(), settings->developer(),
         settings->accounts(), network::WireGuardManager::instance());
     preferences.emplace(settings->stream(), settings->cloud(), settings->network(), settings->developer(),
-        platform::PlatformFactory::instance(), network::WireGuardManager::instance());
-    session.emplace(platform::PlatformFactory::instance(), settings->streamState(), settings->controllers(),
+        *factory, network::WireGuardManager::instance());
+    session.emplace(*factory, settings->streamState(), settings->controllers(),
         settings->developer());
     services.emplace(Services{
+        .platform = *factory,
         .discovery = *discovery,
         .preferences = *preferences,
         .session = *session,
@@ -332,9 +345,8 @@ int App::run()
 
     startServices();
 
-    auto& factory = platform::PlatformFactory::instance();
-    factory.updates().prepare(argc, argv);
-    factory.display().prepare();
+    factory->updates().prepare(argc, argv);
+    factory->display().prepare();
 
     if (!startFrameworks())
         return EXIT_FAILURE;
@@ -347,7 +359,7 @@ int App::run()
 
     registerViews();
 
-    factory.prepareVideo();
+    factory->prepareVideo();
 
     openWindow();
 

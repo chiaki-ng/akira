@@ -6,7 +6,7 @@
 
 #include "platform/pads/extended/extended_input_manager.hpp"
 #include "platform/pads/extended/ps_output.hpp"
-#include "settings/settings_manager.hpp"
+#include "play/controller_settings.hpp"
 
 #include <borealis.hpp>
 
@@ -41,8 +41,8 @@ constexpr ButtonMap kButtons[] = {
 } // namespace
 
 McGenericPath::McGenericPath(HidNpadIdType npad, ExtendedInputManager& extended,
-                             uint16_t vendor_id, uint16_t product_id)
-    : HosPadPath(npad, HidNpadStyleTag_NpadFullKey)
+                             const play::ControllerSettings& controllers, uint16_t vendor_id, uint16_t product_id)
+    : HosPadPath(npad, HidNpadStyleTag_NpadFullKey, controllers)
     , m_extended(extended)
     , m_vendor_id(vendor_id)
     , m_product_id(product_id)
@@ -94,8 +94,8 @@ void McGenericPath::readTriggers(libchiaking::controllers::ControllerState& stat
 }
 
 McPsNativePath::McPsNativePath(HidNpadIdType npad, ExtendedInputManager& extended,
-                               const PsModel& model, const uint8_t* bt_addr)
-    : McGenericPath(npad, extended, model.vendor_id, model.product_id)
+                               const play::ControllerSettings& controllers, const PsModel& model, const uint8_t* bt_addr)
+    : McGenericPath(npad, extended, controllers, model.vendor_id, model.product_id)
     , m_model(&model)
 {
     if (bt_addr != nullptr) {
@@ -163,12 +163,10 @@ void McPsNativePath::readButtons(libchiaking::controllers::ControllerState& stat
     if (!m_report_valid)
         return;
 
-    auto* settings = settings::SettingsManager::getInstance();
-
     for (const ButtonMap& m : kButtons) {
         if (!(m_report.buttons & m.ps))
             continue;
-        if (!settings->controllers().isButtonEnabled(m.button))
+        if (!m_controllers.isButtonEnabled(m.button))
             continue;
         state.buttons |= m.button;
     }
@@ -176,7 +174,7 @@ void McPsNativePath::readButtons(libchiaking::controllers::ControllerState& stat
 
 void McPsNativePath::sendRumble(float left, float right, float freqLow, float freqHigh)
 {
-    const bool direct = m_direct_output && ExtendedInputManager::directStreamAllowed();
+    const bool direct = m_direct_output && ExtendedInputManager::directStreamAllowed(m_controllers);
 
     if (!m_rumble_source_logged && (left > 0.0f || right > 0.0f)) {
         m_rumble_source_logged = true;

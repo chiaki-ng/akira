@@ -128,7 +128,7 @@ void StreamView::setupCallbacks()
 
     session->getInputManager()->setTargetPS5(host->isPS5());
 
-    controls = akira::platform::PlatformFactory::instance().createStreamControls(weak_from_this());
+    controls = app::ViewServices::current().platform.createStreamControls(weak_from_this());
     controls->attach();
 
     exitSubscription = brls::Application::getExitEvent()->subscribe([weak]() {
@@ -283,7 +283,7 @@ void StreamView::startStream()
 
 RumbleProfile StreamView::activePadProfile()
 {
-    return akira::platform::PlatformFactory::instance().pads().primaryRumbleProfile();
+    return app::ViewServices::current().platform.pads().primaryRumbleProfile();
 }
 
 void StreamView::openConnection()
@@ -366,7 +366,7 @@ void StreamView::openConnection()
 
     std::shared_ptr<ConnectionListener> self = shared_from_this();
     connection = std::make_shared<Connection>(*session, self, host->isPS5(),
-        akira::platform::PlatformFactory::instance(), settings->accounts());
+        app::ViewServices::current().platform, settings->accounts());
     if (!connection->open(std::move(starter))) {
         connection.reset();
         throw app::Exception("akira/connection/failed_create_thread"_i18n);
@@ -388,7 +388,7 @@ void StreamView::stopStream()
     brls::Application::setSuspendedRenderCallback(nullptr);
     brls::Application::setLimitedFPS(0);
     brls::Application::setSwapInterval(1);
-    akira::platform::PlatformFactory::instance().display().streaming(false);
+    app::ViewServices::current().platform.display().streaming(false);
     brls::Application::setExclusiveRender(false);
     videoPipelineActive = false;
 
@@ -571,7 +571,7 @@ void StreamView::prepareVideoPipelineTick()
     });
     brls::Application::setLimitedFPS(60);
     brls::Application::setSwapInterval(0);
-    akira::platform::PlatformFactory::instance().display().streaming(true);
+    app::ViewServices::current().platform.display().streaming(true);
     brls::Application::setExclusiveRender(true);
 }
 
@@ -592,7 +592,7 @@ void StreamView::streamingTick()
     if (menuOpen)
     {
         brls::Application::setSwapInterval(1);
-        akira::platform::PlatformFactory::instance().display().streaming(false);
+        app::ViewServices::current().platform.display().streaming(false);
         brls::Application::setExclusiveRender(false);
         brls::Application::setRenderSuspended(false);
         videoPipelineActive = false;
@@ -605,7 +605,7 @@ void StreamView::streamingTick()
     if (!session->MainLoop())
     {
         brls::Application::setSwapInterval(1);
-        akira::platform::PlatformFactory::instance().display().streaming(false);
+        app::ViewServices::current().platform.display().streaming(false);
         brls::Application::setExclusiveRender(false);
         brls::Application::setRenderSuspended(false);
         brls::Application::setSuspendedRenderCallback(nullptr);

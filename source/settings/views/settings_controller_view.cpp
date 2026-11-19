@@ -1,4 +1,5 @@
 #include "settings/views/settings_controller_view.hpp"
+#include "app/view_services.hpp"
 #include "play/views/controller_remap_view.hpp"
 #include "platform/factory.hpp"
 #include "settings/views/settings_controllers_view.hpp"
@@ -38,7 +39,7 @@ void SettingsControllerView::initConnectedControllers()
 {
     connectedControllersCell->setText("akira/settings/connected_controllers"_i18n);
 
-    const size_t count = akira::platform::PlatformFactory::instance().pads().scanPads().size();
+    const size_t count = app::ViewServices::current().platform.pads().scanPads().size();
     connectedControllersCell->setDetailText(
         count == 0 ? "akira/settings/connected_controllers_none"_i18n
                    : std::to_string(count));

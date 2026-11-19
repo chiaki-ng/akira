@@ -67,7 +67,7 @@ void MainActivity::onContentAvailable()
         return true;
     }, false);
 
-    platform::PlatformFactory::instance().updates().launched();
+    app::ViewServices::current().platform.updates().launched();
 }
 
 void MainActivity::addFooterStatus(brls::Box* rowBox)
