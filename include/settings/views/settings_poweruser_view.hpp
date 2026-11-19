@@ -27,6 +27,7 @@ private:
     app::Services* services = nullptr;
 
     void initUnlockBitrateMaxToggle();
+    void initIpcStatsToggle();
     void initAutoReconnectToggle();
     void initHideAccountNameToggle();
     void initPortGuessingToggle();

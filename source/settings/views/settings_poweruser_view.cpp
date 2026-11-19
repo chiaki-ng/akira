@@ -21,7 +21,7 @@ SettingsPowerUserView::SettingsPowerUserView() {
 
     initUnlockBitrateMaxToggle();
     if (auto& platform = app::ViewServices::current().platform; platform.supplies(akira::platform::PlatformCapability::stats_export))
-        platform.stats().initToggle(*ipcStatsToggle);
+        initIpcStatsToggle();
     else
         ipcStatsToggle->setVisibility(brls::Visibility::GONE);
     initPortGuessingToggle();
@@ -53,6 +53,17 @@ void SettingsPowerUserView::initUnlockBitrateMaxToggle() {
             log::info("Unlock Bitrate Max set to {}", isOn ? "true" : "false");
         }
     );
+}
+
+void SettingsPowerUserView::initIpcStatsToggle() {
+    ipcStatsToggle->init(
+        "akira/settings/ipc_stats"_i18n,
+        services->developer.ipcStatsEnabled(),
+        [this](bool isOn) {
+            services->developer.setIpcStatsEnabled(isOn);
+            services->store.save();
+            log::info("IPC Stats set to {}", isOn ? "true" : "false");
+        });
 }
 
 void SettingsPowerUserView::initHideAccountNameToggle() {

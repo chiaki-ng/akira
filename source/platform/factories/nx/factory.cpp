@@ -24,7 +24,7 @@ PlatformCapability PlatformFactory::fixedCapabilities() noexcept
 NxPlatformFactory::NxPlatformFactory(PlatformServices services)
     : m_services(services)
     , m_updates(services.http, services.app, services.developer, services.store)
-    , m_stats(services.developer, services.store, services.wireGuard)
+    , m_stats(services.developer, services.wireGuard)
     , m_pads(services.controllers)
 {
 }
