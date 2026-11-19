@@ -14,7 +14,7 @@
 #   make fetch-devkit OUNCE_DEVKIT_URL=u Download the pinned ounce devkit and check its sha256
 #   make ounce-deps                      Build ../native-deps-ounce inside devkita64-ounce
 
-.PHONY: help build deploy crash test check-strings rebuild shell clean docker-image devkit-image fetch-devkit devkit-pin release-notes ounce-deps ounce-deps-check image-tag submodules backup platform
+.PHONY: help build deploy crash test check-strings lint-structure rebuild shell clean docker-image devkit-image fetch-devkit devkit-pin release-notes ounce-deps ounce-deps-check image-tag submodules backup platform
 
 PLATFORM ?=
 
@@ -195,6 +195,7 @@ help:
 	@echo "  test-nx, test-ounce              Run the host-side unit tests"
 	@echo "  image-tag-nx, image-tag-ounce    Print the builder image tag for this checkout"
 	@echo "  check-strings  Check resources/strings matches the borealis catalogs"
+	@echo "  lint-structure Check the subject/views include rules"
 	@echo "  backup       Pull akira.toml off the Switch over sys-ftpd (SWITCH_IP)"
 	@echo "  clean        Remove the build directory"
 	@echo "  help         Show this help"
@@ -267,6 +268,9 @@ test: platform
 
 check-strings:
 	@python3 "$(CURDIR)/scripts/convert-i18n.py" --check
+
+lint-structure:
+	@bash "$(CURDIR)/scripts/lint-structure.sh"
 
 submodules:
 	@if [ ! -f "$(CURDIR)/library/borealis$(LIBRARY_SUFFIX)/README.md" ]; then \
