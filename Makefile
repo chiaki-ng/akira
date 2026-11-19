@@ -103,6 +103,11 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/log/log_tail.cpp \
                 $(CURDIR)/source/play/connect_failure.cpp \
                 $(CURDIR)/source/play/connect_flow.cpp \
+                $(CURDIR)/source/play/session_ending.cpp \
+                $(CURDIR)/source/play/stream_route.cpp \
+                $(CURDIR)/source/play/menu_hold.cpp \
+                $(CURDIR)/source/play/stream_recovery.cpp \
+                $(CURDIR)/source/play/paused_frame.cpp \
                 $(CURDIR)/source/play/stream_summary.cpp \
                 $(CURDIR)/source/play/stream_controls.cpp \
                 $(CURDIR)/source/settings/settings_store.cpp \

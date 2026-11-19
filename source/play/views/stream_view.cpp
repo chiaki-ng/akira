@@ -13,6 +13,10 @@
 #endif
 #include "app/views/theme.hpp"
 #include "play/views/connection_stage.hpp"
+#include "play/connect_failure.hpp"
+#include "play/session_ending.hpp"
+#include "play/stream_recovery.hpp"
+#include "play/stream_route.hpp"
 #include "platform/video/renderer.hpp"
 #include "consoles/views/enter_pin_view.hpp"
 #include "play/views/controller_remap_view.hpp"
@@ -30,83 +34,6 @@
 namespace akira::play::views {
 
 using namespace brls::literals;
-
-namespace
-{
-    void boxBlurRGBA(std::vector<uint8_t>& pixels, int width, int height, int radius)
-    {
-        if (radius <= 0 || width <= 1 || height <= 1 ||
-            pixels.size() != static_cast<size_t>(width) * height * 4)
-            return;
-
-        std::vector<uint8_t> scratch(pixels.size());
-        const int diameter = radius * 2 + 1;
-
-        for (int y = 0; y < height; y++)
-        {
-            int sums[4] = {};
-            for (int dx = -radius; dx <= radius; dx++)
-            {
-                const int sx = std::clamp(dx, 0, width - 1);
-                const size_t src = (static_cast<size_t>(y) * width + sx) * 4;
-                for (int c = 0; c < 4; c++)
-                    sums[c] += pixels[src + c];
-            }
-
-            for (int x = 0; x < width; x++)
-            {
-                const size_t dst = (static_cast<size_t>(y) * width + x) * 4;
-                for (int c = 0; c < 4; c++)
-                    scratch[dst + c] = static_cast<uint8_t>(sums[c] / diameter);
-
-                const int removeX = std::clamp(x - radius, 0, width - 1);
-                const int addX = std::clamp(x + radius + 1, 0, width - 1);
-                const size_t remove = (static_cast<size_t>(y) * width + removeX) * 4;
-                const size_t add = (static_cast<size_t>(y) * width + addX) * 4;
-                for (int c = 0; c < 4; c++)
-                    sums[c] += static_cast<int>(pixels[add + c]) - pixels[remove + c];
-            }
-        }
-
-        for (int x = 0; x < width; x++)
-        {
-            int sums[4] = {};
-            for (int dy = -radius; dy <= radius; dy++)
-            {
-                const int sy = std::clamp(dy, 0, height - 1);
-                const size_t src = (static_cast<size_t>(sy) * width + x) * 4;
-                for (int c = 0; c < 4; c++)
-                    sums[c] += scratch[src + c];
-            }
-
-            for (int y = 0; y < height; y++)
-            {
-                const size_t dst = (static_cast<size_t>(y) * width + x) * 4;
-                for (int c = 0; c < 4; c++)
-                    pixels[dst + c] = static_cast<uint8_t>(sums[c] / diameter);
-
-                const int removeY = std::clamp(y - radius, 0, height - 1);
-                const int addY = std::clamp(y + radius + 1, 0, height - 1);
-                const size_t remove = (static_cast<size_t>(removeY) * width + x) * 4;
-                const size_t add = (static_cast<size_t>(addY) * width + x) * 4;
-                for (int c = 0; c < 4; c++)
-                    sums[c] += static_cast<int>(scratch[add + c]) - scratch[remove + c];
-            }
-        }
-    }
-
-    void blurPausedFrame(std::vector<uint8_t>& pixels, int width, int height)
-    {
-        // The menu frame is already captured at 640 px wide. Three small box
-        // passes approximate a soft Gaussian blur while keeping this one-time
-        // transition comfortably cheaper than a live framebuffer effect.
-        constexpr int kPassRadius = 5;
-        for (int pass = 0; pass < 3; pass++)
-            boxBlurRGBA(pixels, width, height, kPassRadius);
-    }
-}
-
-
 
 StreamView::StreamView(consoles::Host* host, std::shared_ptr<consoles::Host> hostOwner)
     : host(host)
@@ -156,13 +83,8 @@ void StreamView::startLogCapture()
     auto weak = weak_from_this();
     logSubscription = log::Log::process().subscribe(
         [weak](const log::Entry& entry) {
-            if (auto self = weak.lock()) {
-                std::lock_guard<std::mutex> lock(self->logMutex);
-                self->logLines.emplace_back(entry.message);
-                while (self->logLines.size() > MAX_LOG_LINES) {
-                    self->logLines.pop_front();
-                }
-            }
+            if (auto self = weak.lock())
+                self->logTail.push(entry.message);
         });
 }
 
@@ -230,16 +152,9 @@ void StreamView::startStream()
 
     try
     {
-        auto profile = play::StreamProfile::Local;
-        if (host->isCloud()) {
-            profile = play::StreamProfile::Cloud;
+        if (host->isCloud())
             services->streamState.setCloudPscloud(host->cloudLaunch()->ps5());
-        }
-        else if (host->isRemote())
-            profile = play::StreamProfile::Remote;
-        else if (app::ViewServices::current().wireGuard.isConnected())
-            profile = play::StreamProfile::Vpn;
-        services->streamState.setProfile(profile);
+        services->streamState.setProfile(route().profile());
 
         if (!controllerReady)
         {
@@ -353,16 +268,7 @@ void StreamView::openConnection()
     if (!session->InitVideo(width, height))
         throw app::Exception("Failed to initiate video");
 
-    const char* platformLabel = host->isPS5() ? "PS5" : "PS4";
-    if (const auto* cloud = host->cloudLaunch()) {
-        session->setConnectionContext(std::format("Cloud \xc2\xb7 {}", cloud->name()));
-    } else if (host->isRemote()) {
-        session->setConnectionContext(std::format("{} \xc2\xb7 Remote", platformLabel));
-    } else if (app::ViewServices::current().wireGuard.isConnected()) {
-        session->setConnectionContext(std::format("{} \xc2\xb7 VPN", platformLabel));
-    } else {
-        session->setConnectionContext(std::format("{} \xc2\xb7 Direct", platformLabel));
-    }
+    session->setConnectionContext(route().context());
 
     std::shared_ptr<ConnectionListener> self = shared_from_this();
     connection = std::make_shared<Connection>(*session, self, host->isPS5(),
@@ -407,9 +313,7 @@ void StreamView::stopStream()
 
 void StreamView::capturePausedFrame()
 {
-    pausedFrameRGBA.clear();
-    pausedFrameW = 0;
-    pausedFrameH = 0;
+    pausedFrame = PausedFrame{};
 
     if (!session)
         return;
@@ -418,15 +322,13 @@ void StreamView::capturePausedFrame()
     if (!renderer)
         return;
 
-    if (!renderer->captureLastFrame(pausedFrameRGBA, pausedFrameW, pausedFrameH))
-    {
-        pausedFrameRGBA.clear();
-        pausedFrameW = 0;
-        pausedFrameH = 0;
+    std::vector<uint8_t> pixels;
+    int width = 0;
+    int height = 0;
+    if (!renderer->captureLastFrame(pixels, width, height))
         return;
-    }
 
-    blurPausedFrame(pausedFrameRGBA, pausedFrameW, pausedFrameH);
+    pausedFrame = PausedFrame(std::move(pixels), width, height);
 }
 
 void StreamView::releasePausedFrame(NVGcontext* vg)
@@ -434,21 +336,17 @@ void StreamView::releasePausedFrame(NVGcontext* vg)
     if (pausedFrameImage >= 0 && vg)
         nvgDeleteImage(vg, pausedFrameImage);
     pausedFrameImage = -1;
-    pausedFrameRGBA.clear();
-    pausedFrameRGBA.shrink_to_fit();
-    pausedFrameW = 0;
-    pausedFrameH = 0;
+    pausedFrame = PausedFrame{};
 }
 
 bool StreamView::drawPausedFrame(NVGcontext* vg, float x, float y, float width, float height)
 {
-    if (pausedFrameImage < 0 && !pausedFrameRGBA.empty() && pausedFrameW > 0 && pausedFrameH > 0)
+    if (pausedFrameImage < 0 && pausedFrame.ready())
     {
-        pausedFrameImage = nvgCreateImageRGBA(vg, pausedFrameW, pausedFrameH, 0, pausedFrameRGBA.data());
+        pausedFrameImage = nvgCreateImageRGBA(vg, pausedFrame.width(), pausedFrame.height(), 0, pausedFrame.data());
         if (pausedFrameImage < 0)
             log::warning("StreamView: failed to create paused frame image");
-        pausedFrameRGBA.clear();
-        pausedFrameRGBA.shrink_to_fit();
+        pausedFrame.dropPixels();
     }
 
     if (pausedFrameImage < 0)
@@ -488,11 +386,7 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
         nvgFill(vg);
 
         if (services->appSettings.connectionShowStages()) {
-            ConnectionStage stage = static_cast<ConnectionStage>(currentStage.load());
-            int raw = static_cast<int>(stage);
-            int idx = raw < 1 ? 1 : (raw > 6 ? 6 : raw);
-            drawConnectionRing(vg, x + width / 2, y + height / 2,
-                brls::getStr(connectionStageLabelKey(stage)), idx, 6);
+            drawStageRing(vg, x, y, width, height);
         } else {
             nvgFontSize(vg, 24);
             nvgFillColor(vg, nvgRGBA(255, 255, 255, 255));
@@ -546,11 +440,7 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
         nvgFill(vg);
 
         if (services->appSettings.connectionShowStages()) {
-            ConnectionStage stage = static_cast<ConnectionStage>(currentStage.load());
-            int raw = static_cast<int>(stage);
-            int idx = raw < 1 ? 1 : (raw > 6 ? 6 : raw);
-            drawConnectionRing(vg, x + width / 2, y + height / 2,
-                brls::getStr(connectionStageLabelKey(stage)), idx, 6);
+            drawStageRing(vg, x, y, width, height);
         } else {
             renderLogs(vg, x, y, width, height);
         }
@@ -560,6 +450,19 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
     }
 
     activateVideoPipeline();
+}
+
+StreamRoute StreamView::route() const
+{
+    const auto* launch = host->cloudLaunch();
+    return StreamRoute(launch ? std::optional<std::string>(launch->name()) : std::nullopt, host->isRemote(),
+                       app::ViewServices::current().wireGuard.isConnected(), host->isPS5());
+}
+
+void StreamView::drawStageRing(NVGcontext* vg, float x, float y, float width, float height)
+{
+    const ConnectFlow::Ring ring = flow.ring();
+    drawConnectionRing(vg, x + width / 2, y + height / 2, brls::getStr(ring.labelKey), ring.index, ring.total);
 }
 
 void StreamView::prepareVideoPipelineTick()
@@ -624,7 +527,7 @@ void StreamView::onPlaying()
 {
     std::string hostName = host->getHostName();
     log::info("Connected to {}", hostName);
-    currentStage = static_cast<int>(ConnectionStage::Connected);
+    flow.connected();
 #if AKIRA_CLOUD
     if (cloudScreen)
         cloudScreen->playing();
@@ -701,29 +604,15 @@ void StreamView::onConnectProgress(const libchiaking::play::ConnectProgress& pro
 {
     log::info("Connect progress: step {} attempt {}{}", static_cast<int>(progress.step), progress.attempt,
                        progress.reconnecting ? " (reconnecting)" : "");
-    const int stage = static_cast<int>(connectionStageOf(progress.step));
-    if (progress.reconnecting || stage > currentStage.load())
-        currentStage = stage;
+    flow.follow(progress.step, progress.reconnecting);
 }
 
 void StreamView::onRefused(const libchiaking::play::StartRefusal& refusal)
 {
-    using Kind = libchiaking::play::StartRefusal::Kind;
     if (!sessionStarted)
         return;
 
-    const char* key = "akira/connection/fail_generic";
-    switch (refusal.kind()) {
-        case Kind::needs_psn_sign_in:
-        case Kind::sign_in_expired: key = "akira/stream/psn_token_expired"; break;
-        case Kind::remote_play_disabled: key = "akira/connection/fail_rp_disabled"; break;
-        case Kind::not_paired: key = "akira/connection/fail_regist"; break;
-        case Kind::console_unreachable: key = "akira/connection/fail_unreachable"; break;
-        case Kind::busy: key = "akira/connection/fail_in_use"; break;
-        default: break;
-    }
-
-    std::string text = brls::getStr(key);
+    std::string text = brls::getStr(ConnectFailure::forRefusal(refusal.kind()));
     if (refusal.launch() && host->cloudLaunch())
         text = cloud::CloudLaunch::refusalText(*refusal.launch(), host->cloudLaunch()->name());
 
@@ -749,9 +638,6 @@ void StreamView::onRefused(const libchiaking::play::StartRefusal& refusal)
 
 void StreamView::onEnded(const libchiaking::play::Outcome& outcome)
 {
-    using libchiaking::play::ConsoleQuit;
-    using libchiaking::play::EndReason;
-
     log::info("Session ended: ending={} cause={}", static_cast<int>(outcome.ending()),
                        outcome.cause() ? static_cast<int>(*outcome.cause()) : -1);
 
@@ -762,30 +648,32 @@ void StreamView::onEnded(const libchiaking::play::Outcome& outcome)
         return;
     }
 
-    const auto& quit = outcome.quit();
-    const bool stoppedByConsole = quit && quit->reason() == ConsoleQuit::Reason::stopped;
-    const bool stopped = outcome.was_left() || stoppedByConsole;
-    const std::string reasonStr = quit
-        ? brls::getStr(quitReasonKey(quit->reason()))
-        : brls::getStr(connectionFailureKeyFor(outcome));
-    const bool rejectedWhileAwake = host->isAwake() && quit &&
-        quit->reason() == ConsoleQuit::Reason::session_request_unknown;
-    const bool unpairedConsole = outcome.cause() == EndReason::Cause::unpaired_console;
+    bool showsCloudScreen = false;
+#if AKIRA_CLOUD
+    showsCloudScreen = cloudScreen.has_value();
+#endif
+    const SessionEnding ending(outcome, SessionEnding::Situation{
+        .loginPinEntered = loginPinEnteredThisSession,
+        .duringConnect = !videoPipelineActive,
+        .consoleAwake = host->isAwake(),
+        .cloudScreen = showsCloudScreen,
+        .cloudLaunch = host->cloudLaunch() != nullptr,
+    });
+    const SessionEnding::Verdict verdict = ending.verdict();
+    const std::string reasonStr = brls::getStr(ending.reasonKey());
 
-    if (loginPinEnteredThisSession && !stopped && !unpairedConsole) {
+    if (verdict == SessionEnding::Verdict::Reconnect) {
         log::info("onEnded: first-time login PIN was entered, auto-reconnecting");
         loginPinEnteredThisSession = false;
         attemptReconnect();
         return;
     }
 
-    const bool duringConnect = !videoPipelineActive;
-
     stopStream();
 
     app::views::SharedViewHolder::release(this);
 
-    if (unpairedConsole) {
+    if (verdict == SessionEnding::Verdict::Unpaired) {
         auto* dialog = new brls::Dialog("akira/stream/ps4_console_unregistered"_i18n);
         dialog->setCloseCallback([]() {
             stream_nav::unwindToBase();
@@ -795,22 +683,20 @@ void StreamView::onEnded(const libchiaking::play::Outcome& outcome)
         });
         brls::Application::forceUnblockInputs();
         dialog->open();
-    } else if (stopped) {
+    } else if (verdict == SessionEnding::Verdict::Stopped) {
         brls::Application::notify("akira/stream/quit_stopped"_i18n);
         stream_nav::unwindToBase();
 #if AKIRA_CLOUD
-    } else if (cloudScreen) {
+    } else if (verdict == SessionEnding::Verdict::CloudFailure) {
         cloudScreen->failed();
-        const bool endsPlayTime = quit && (quit->reason() == ConsoleQuit::Reason::time_limit_reached ||
-                                           quit->reason() == ConsoleQuit::Reason::trial_ended);
-        std::string message = duringConnect
-            ? brls::getStr(connectionFailureKeyFor(outcome))
+        std::string message = ending.duringConnect()
+            ? brls::getStr(ending.failureKey())
             : brls::getStr("akira/stream/session_ended", reasonStr);
         if (outcome.launch_refused())
             message = cloud::CloudLaunch::refusalText(*outcome.launch_refused(), host->cloudLaunch()->name());
-        showCloudFailure(message, !endsPlayTime);
+        showCloudFailure(message, !ending.endsPlayTime());
 #endif
-    } else if (outcome.launch_refused() && host->cloudLaunch()) {
+    } else if (verdict == SessionEnding::Verdict::LaunchRefused) {
         auto* dialog = new brls::Dialog(brls::getStr("akira/stream/connection_failed",
             cloud::CloudLaunch::refusalText(*outcome.launch_refused(), host->cloudLaunch()->name())));
         dialog->setCloseCallback([]() {
@@ -822,11 +708,8 @@ void StreamView::onEnded(const libchiaking::play::Outcome& outcome)
         brls::Application::forceUnblockInputs();
         dialog->open();
     } else {
-        std::string body = duringConnect
-            ? brls::getStr("akira/connection/connect_failed_title",
-                brls::getStr(rejectedWhileAwake
-                    ? "akira/connection/fail_rp_disabled"
-                    : connectionFailureKeyFor(outcome)))
+        std::string body = ending.duringConnect()
+            ? brls::getStr("akira/connection/connect_failed_title", brls::getStr(ending.connectFailureKey()))
             : brls::getStr("akira/stream/session_ended", reasonStr);
         auto* dialog = new brls::Dialog(body);
         dialog->setCloseCallback([]() {
@@ -894,15 +777,7 @@ void StreamView::onSeatPasscodeNeeded(uint8_t slot, bool retry)
 
 void StreamView::onSeatRefused(uint8_t slot, const libchiaking::play::SeatRefusal& refusal)
 {
-    using Kind = libchiaking::play::SeatRefusal::Kind;
-    uint8_t status = 0;
-    switch (refusal.kind()) {
-        case Kind::account_not_on_console: status = 1; break;
-        case Kind::refused_by_console: status = refusal.console_status().value_or(0); break;
-        case Kind::passcode_attempts_used: status = libchiaking::play::SeatRefusal::passcode_attempts_status; break;
-        case Kind::timed_out: status = libchiaking::play::SeatRefusal::timed_out_status; break;
-        default: break;
-    }
+    const uint8_t status = ConnectFailure::seatStatus(refusal);
     log::error("Couch join failed for player {} with status {}", slot + 1, status);
 
     brls::Application::notify(status == 1
@@ -921,18 +796,17 @@ void StreamView::onLoginPinNeeded(bool pinIncorrect)
 {
     log::info("Login PIN request (incorrect: {})", pinIncorrect);
 
-    if (host->isCloud()) {
-        log::warning("Ignoring login PIN request for a cloud session");
-        return;
-    }
-
-    if (!pinIncorrect) {
-        std::string savedPin = host->getConsolePIN();
-        if (!savedPin.empty() && connection) {
+    const std::string savedPin = host->getConsolePIN();
+    switch (StreamRecovery::loginPin(host->isCloud(), pinIncorrect, savedPin, connection != nullptr)) {
+        case StreamRecovery::LoginPinStep::Ignore:
+            log::warning("Ignoring login PIN request for a cloud session");
+            return;
+        case StreamRecovery::LoginPinStep::SubmitSaved:
             log::info("Using saved Console PIN for auto-login");
             connection->submitLoginPin(savedPin);
             return;
-        }
+        case StreamRecovery::LoginPinStep::Ask:
+            break;
     }
 
     consoles::Host* hostPtr = host;
@@ -979,26 +853,15 @@ void StreamView::checkMenuTrigger()
     }
 
     static int checkCount = 0;
+    const auto now = MenuHold::Clock::now();
     if (minusPressed && checkCount++ % 30 == 0) {
-        auto elapsed = minusWasHeld ?
-            std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - minusHoldStart).count() : 0;
-        log::info("checkMenuTrigger: minus pressed, wasHeld={}, elapsed={}s", minusWasHeld, elapsed);
+        log::info("checkMenuTrigger: minus pressed, wasHeld={}, elapsed={}s", menuHold.held(),
+                  menuHold.heldFor(now).count());
     }
 
-    if (minusPressed) {
-        if (!minusWasHeld) {
-            minusHoldStart = std::chrono::steady_clock::now();
-            minusWasHeld = true;
-        } else {
-            auto elapsed = std::chrono::steady_clock::now() - minusHoldStart;
-            if (std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() >= 3) {
-                log::info("checkMenuTrigger: 3 seconds reached, showing menu");
-                showDisconnectMenu();
-                minusWasHeld = false;  // Reset
-            }
-        }
-    } else {
-        minusWasHeld = false;
+    if (menuHold.update(minusPressed, now)) {
+        log::info("checkMenuTrigger: 3 seconds reached, showing menu");
+        showDisconnectMenu();
     }
 }
 
@@ -1127,7 +990,7 @@ void StreamView::disconnectWithSleep(bool sleep)
 
 void StreamView::renderLogs(NVGcontext* vg, float x, float y, float width, float height)
 {
-    std::lock_guard<std::mutex> lock(logMutex);
+    const std::vector<std::string> logLines = logTail.lines();
 
     nvgFontSize(vg, 16);
     nvgFillColor(vg, nvgRGBA(200, 200, 200, 255));
@@ -1155,16 +1018,15 @@ void StreamView::onFocusChanged(bool focused)
     if (!focused)
         return;
 
-    if (intentionalDisconnect || !services->networkSettings.autoReconnect() || !sessionStarted || host->isCloud())
+    if (!StreamRecovery::watchesFocus(intentionalDisconnect, services->networkSettings.autoReconnect(),
+                                      sessionStarted, host->isCloud()))
         return;
 
-    const auto state = connection ? connection->state() : std::nullopt;
-    const bool sessionAlive = state && (*state == libchiaking::play::SessionState::playing ||
-                                        *state == libchiaking::play::SessionState::connecting);
+    const bool sessionAlive = StreamRecovery::sessionAlive(connection ? connection->state() : std::nullopt);
     log::info("StreamView::onFocusChanged(InFocus): streamActive={}, sessionAlive={}",
                        streamActive, sessionAlive);
 
-    if (!streamActive || !sessionAlive) {
+    if (StreamRecovery::lost(streamActive, sessionAlive)) {
         log::info("Stream dead on focus regain, prompting user");
         stopStream();
         brls::Application::forceUnblockInputs();
@@ -1198,7 +1060,7 @@ void StreamView::attemptReconnect()
     log::info("Auto-reconnect: tearing down old session");
     stopStream();
 
-    currentStage = static_cast<int>(ConnectionStage::Idle);
+    flow.restart();
 
     handover = libchiaking::play::ConsoleHandover::just_left;
     brls::Application::notify("akira/stream/reconnecting"_i18n);

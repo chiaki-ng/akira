@@ -3,6 +3,7 @@
 
 #include "log/log.hpp"
 #include "log/connection_log.hpp"
+#include "log/log_tail.hpp"
 
 #include <optional>
 
@@ -21,10 +22,14 @@
 #include "app/background_work.hpp"
 #include "consoles/discovery_manager.hpp"
 #include "consoles/host.hpp"
+#include "play/connect_flow.hpp"
+#include "play/menu_hold.hpp"
+#include "play/paused_frame.hpp"
 #include "play/rumble_profile.hpp"
 #include "play/connection.hpp"
 #include "platform/stream/provider.hpp"
 #include "play/session.hpp"
+#include "play/stream_route.hpp"
 #include "app/view_services.hpp"
 
 namespace akira::play::views {
@@ -80,9 +85,7 @@ private:
 
     bool menuOpen = false;
 
-    std::vector<uint8_t> pausedFrameRGBA;
-    int pausedFrameW = 0;
-    int pausedFrameH = 0;
+    PausedFrame pausedFrame;
     int pausedFrameImage = -1;
 
     void capturePausedFrame();
@@ -93,19 +96,19 @@ private:
     bool reconnecting = false;
     bool loginPinEnteredThisSession = false;
     bool couchPasscodeDialogOpen = false;
-    std::chrono::steady_clock::time_point minusHoldStart;
-    bool minusWasHeld = false;
+    MenuHold menuHold;
     brls::Event<>::Subscription exitSubscription;
     brls::Event<bool>::Subscription focusSubscription;
 
-    std::deque<std::string> logLines;
-    std::atomic<int> currentStage{0};
-    std::mutex logMutex;
-    std::optional<log::Log::Subscription> logSubscription;
     static constexpr size_t MAX_LOG_LINES = 30;
+    log::LogTail logTail{MAX_LOG_LINES, log::LogTail::Stamp::None};
+    ConnectFlow flow;
+    std::optional<log::Log::Subscription> logSubscription;
     void startLogCapture();
     void stopLogCapture();
     void renderLogs(NVGcontext* vg, float x, float y, float width, float height);
+    void drawStageRing(NVGcontext* vg, float x, float y, float width, float height);
+    StreamRoute route() const;
 
     void onConnectProgress(const libchiaking::play::ConnectProgress& progress) override;
     void onLaunchProgress(const libchiaking::play::LaunchProgress& progress) override;
