@@ -5,7 +5,7 @@
 #include <optional>
 #include <string>
 
-namespace akira {
+namespace akira::log {
 
 class AppLog {
 public:
@@ -13,7 +13,7 @@ public:
     static void close();
 
 private:
-    static auto redirect() -> std::optional<log::Log::Redirect>&;
+    static auto redirect() -> std::optional<Log::Redirect>&;
 };
 
 }
