@@ -1,4 +1,5 @@
 #include "network/views/network_utilities_tab.hpp"
+#include "app/ui_dispatcher.hpp"
 #include "app/view_services.hpp"
 #include "app/views/theme.hpp"
 #include "consoles/discovery_manager.hpp"
@@ -6,6 +7,8 @@
 #include "network/wireguard_manager.hpp"
 #include "play/chiaki_core.hpp"
 #include <borealis/core/i18n.hpp>
+
+#include <utility>
 
 namespace akira::network::views {
 
@@ -170,11 +173,16 @@ void NetworkUtilitiesTab::onCheckNatClicked() {
     clearResults();
     addResultRow("", "akira/network/testing"_i18n, app::views::active().textDim);
 
-    NatProbe probe(play::ChiakiCore::current());
-    NatReport report(probe.check());
-
-    isChecking = false;
-    displayResult(report);
+    auto& dispatcher = app::ViewServices::current().dispatcher;
+    dispatcher.runOnWorker([this, guard = alive, &dispatcher, &core = play::ChiakiCore::current()]() {
+        NatReport report(NatProbe(core).check());
+        dispatcher.post([this, guard, report = std::move(report)]() {
+            if (!*guard)
+                return;
+            isChecking = false;
+            displayResult(report);
+        });
+    });
 }
 
 void NetworkUtilitiesTab::clearResults() {
