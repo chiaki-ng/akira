@@ -95,6 +95,9 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/consoles/console_address.cpp \
                 $(CURDIR)/source/consoles/console_entry.cpp \
                 $(CURDIR)/source/consoles/console_list.cpp \
+                $(CURDIR)/source/consoles/console_pin.cpp \
+                $(CURDIR)/source/consoles/takion_pin_choice.cpp \
+                $(CURDIR)/source/consoles/psn_identity.cpp \
                 $(CURDIR)/source/log/log.cpp \
                 $(CURDIR)/source/log/core_log.cpp \
                 $(CURDIR)/source/settings/settings_store.cpp \
