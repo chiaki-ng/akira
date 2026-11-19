@@ -296,8 +296,9 @@ void StreamView::stopStream()
 
     brls::Application::forceUnblockInputs();
     brls::Application::setRenderSuspended(false);
-    if (session)
-    brls::Application::setSuspendedRenderCallback(nullptr);
+    if (session) {
+        brls::Application::setSuspendedRenderCallback(nullptr);
+    }
     brls::Application::setLimitedFPS(0);
     brls::Application::setSwapInterval(1);
     app::ViewServices::current().platform.display().streaming(false);
