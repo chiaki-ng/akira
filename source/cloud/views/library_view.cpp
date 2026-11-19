@@ -340,8 +340,6 @@ void LibraryView::renderSnapshot(const Snapshot& snapshot)
         statusChip->setBackgroundColor(app::views::withAlpha(chipColor, 0x2e));
     }
 
-    (void)pal;
-
     if (!snapshot.hasCatalog || snapshot.catalog.games.empty())
     {
         log::info("CloudLib: renderSnapshot -> STATE (avail={} hasCatalog={} games={})",
