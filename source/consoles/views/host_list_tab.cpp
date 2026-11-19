@@ -994,7 +994,7 @@ HostListTab::HostListTab() {
     this->inflateFromXMLRes("xml/tabs/host_list.xml");
 
     settings = settings::SettingsManager::getInstance();
-    discovery = DiscoveryManager::getInstance();
+    discovery = &app::ViewServices::current().discovery;
 
     discovery->setOnHostDiscovered([](Host* host) {
         if (!host) {
@@ -1221,7 +1221,7 @@ void HostListTab::initFindRemoteButton() {
         "akira/hosts/find_remote"_i18n,
         "akira/hosts/find_remote_busy"_i18n,
         "akira/hosts/find_remote_wait",
-        []() { return DiscoveryManager::getInstance()->getRemoteRefreshStatus(); }
+        []() { return app::ViewServices::current().discovery.getRemoteRefreshStatus(); }
     );
 
     findRemoteBtn->registerClickAction([this](brls::View* view) {

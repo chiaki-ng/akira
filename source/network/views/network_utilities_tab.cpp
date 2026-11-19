@@ -1,4 +1,5 @@
 #include "network/views/network_utilities_tab.hpp"
+#include "app/view_services.hpp"
 #include "app/views/theme.hpp"
 #include "consoles/discovery_manager.hpp"
 #include "network/wireguard_manager.hpp"
@@ -144,7 +145,7 @@ void NetworkUtilitiesTab::onWgConnectClicked() {
                 return;
             isWgConnecting = false;
             if (success)
-                consoles::DiscoveryManager::getInstance()->restartSearch();
+                app::ViewServices::current().discovery.restartSearch();
             updateWireGuardStatus();
         });
     });
@@ -152,7 +153,7 @@ void NetworkUtilitiesTab::onWgConnectClicked() {
 
 void NetworkUtilitiesTab::onWgDisconnectClicked() {
     WireGuardManager::instance().disconnect();
-    consoles::DiscoveryManager::getInstance()->restartSearch();
+    app::ViewServices::current().discovery.restartSearch();
     updateWireGuardStatus();
 }
 

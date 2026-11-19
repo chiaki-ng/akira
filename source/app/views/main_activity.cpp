@@ -1,4 +1,5 @@
 #include "app/views/main_activity.hpp"
+#include "app/view_services.hpp"
 
 #include <arpa/inet.h>
 #include <switch.h>
@@ -109,7 +110,7 @@ void MainActivity::showDiscoveryStatus()
 {
     if (!discoveryStatusLabel)
         return;
-    consoles::DiscoveryManager::SweepStatus st = consoles::DiscoveryManager::getInstance()->getSweepStatus();
+    consoles::DiscoveryManager::SweepStatus st = app::ViewServices::current().discovery.getSweepStatus();
     std::string text;
     if (!st.serviceRunning) {
         text = "akira/app/discovery_off"_i18n;

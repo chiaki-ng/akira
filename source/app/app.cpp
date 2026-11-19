@@ -266,7 +266,11 @@ void App::startServices()
 #if AKIRA_CLOUD
     cloud.emplace(settings::SettingsManager::getInstance()->accounts(), HttpPool::instance());
 #endif
+    auto* settings = settings::SettingsManager::getInstance();
+    discovery.emplace(settings->hosts(), settings->store(), settings->network(), settings->developer(),
+        settings->accounts(), network::WireGuardManager::instance());
     services.emplace(Services{
+        .discovery = *discovery,
         .trophies = *trophies,
 #if AKIRA_CLOUD
         .cloud = *cloud,
@@ -279,7 +283,7 @@ void App::shutDown()
 {
     log::info("Application exiting");
 
-    consoles::DiscoveryManager::getInstance()->setServiceEnabled(false);
+    discovery->setServiceEnabled(false);
     for (auto& [name, host] : settings::SettingsManager::getInstance()->hosts().entries())
     {
         if (host)

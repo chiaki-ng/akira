@@ -11,6 +11,7 @@
 #if AKIRA_CLOUD
 #include "cloud/service.hpp"
 #endif
+#include "consoles/discovery_manager.hpp"
 #include "play/chiaki_core.hpp"
 #include "trophies/trophy_manager.hpp"
 
@@ -50,6 +51,7 @@ private:
 #if AKIRA_CLOUD
     std::optional<cloud::Service> cloud;
 #endif
+    std::optional<consoles::DiscoveryManager> discovery;
     std::optional<Services> services;
     std::optional<ViewServices> viewServices;
     std::optional<play::ChiakiCore> core;

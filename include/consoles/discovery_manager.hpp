@@ -14,10 +14,21 @@
 
 #include "app/background_work.hpp"
 #include "host.hpp"
+#include "consoles/host_catalog.hpp"
 #include "accounts/accounts.hpp"
 
 namespace akira::settings {
-class SettingsManager;
+class DeveloperSettings;
+class SettingsStore;
+}
+
+namespace akira::network {
+class NetworkSettings;
+class WireGuardManager;
+}
+
+namespace akira::accounts {
+class AccountSettings;
 }
 
 namespace akira::consoles {
@@ -40,7 +51,12 @@ public:
         std::string currentTarget;
     };
 
-    static DiscoveryManager* getInstance();
+    DiscoveryManager(HostCatalog& hostCatalog, settings::SettingsStore& settingsStore,
+                     const network::NetworkSettings& networkSettings, const settings::DeveloperSettings& developerSettings,
+                     const accounts::AccountSettings& accountSettings, network::WireGuardManager& wireGuard);
+
+    DiscoveryManager(const DiscoveryManager&) = delete;
+    DiscoveryManager& operator=(const DiscoveryManager&) = delete;
 
     static void appendDiscoveryLog(const std::string& line);
     static std::vector<std::string> getDiscoveryLogSnapshot();
@@ -89,8 +105,6 @@ private:
     static constexpr int PSN_REMOTE_COOLDOWN_S = 15;
     static constexpr int PSN_FAILED_COOLDOWN_S = 5;
 
-    DiscoveryManager();
-
     void startSearch();
     void stopSearch();
     void stopRemoteRefresh();
@@ -109,7 +123,12 @@ private:
     void processMainPs4Remote();
     void finishRemoteRefresh(uint64_t generation, const RemoteRefreshResult& result);
 
-    settings::SettingsManager* settings = nullptr;
+    HostCatalog& hostCatalog;
+    settings::SettingsStore& settingsStore;
+    const network::NetworkSettings& networkSettings;
+    const settings::DeveloperSettings& developerSettings;
+    const accounts::AccountSettings& accountSettings;
+    network::WireGuardManager& wireGuard;
     bool serviceEnabled = false;
 
     brls::Event<bool>::Subscription focusSubscription;

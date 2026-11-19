@@ -1,6 +1,9 @@
 #include "consoles/discovery_manager.hpp"
 #include "play/chiaki_core.hpp"
-#include "settings/settings_manager.hpp"
+#include "accounts/account_settings.hpp"
+#include "network/network_settings.hpp"
+#include "settings/developer_settings.hpp"
+#include "settings/settings_store.hpp"
 #include "network/wireguard_manager.hpp"
 #include "log/log.hpp"
 
@@ -57,15 +60,13 @@ void DiscoveryManager::clearDiscoveryLog()
 namespace consoles = libchiaking::consoles;
 namespace platform = libchiaking::platform;
 
-DiscoveryManager* DiscoveryManager::getInstance()
+DiscoveryManager::DiscoveryManager(HostCatalog& hostCatalog, settings::SettingsStore& settingsStore,
+                                   const network::NetworkSettings& networkSettings,
+                                   const settings::DeveloperSettings& developerSettings,
+                                   const accounts::AccountSettings& accountSettings, network::WireGuardManager& wireGuard)
+    : hostCatalog(hostCatalog), settingsStore(settingsStore), networkSettings(networkSettings),
+      developerSettings(developerSettings), accountSettings(accountSettings), wireGuard(wireGuard)
 {
-    static DiscoveryManager* instance = new DiscoveryManager();
-    return instance;
-}
-
-DiscoveryManager::DiscoveryManager()
-{
-    settings = settings::SettingsManager::getInstance();
     backgroundSubscription = app::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
 }
 
@@ -146,7 +147,7 @@ void DiscoveryManager::setServiceEnabled(bool enable)
 void DiscoveryManager::linkSavedConsoles()
 {
     auto& known = play::ChiakiCore::current().chiaki().consoles();
-    auto* hostsMap = &settings->hosts().entries();
+    auto* hostsMap = &hostCatalog.entries();
     bool changed = false;
 
     for (auto& [name, host] : *hostsMap)
@@ -166,14 +167,14 @@ void DiscoveryManager::linkSavedConsoles()
             continue;
         if (hostFor(*console))
             continue;
-        Host* host = settings->hosts().getOrCreate(console->name());
+        Host* host = hostCatalog.getOrCreate(console->name());
         host->setHostType(HostType::Auto);
         host->linkConsole(console);
         changed = true;
     }
 
     if (changed)
-        settings->store().save();
+        settingsStore.save();
 }
 
 auto DiscoveryManager::searchRanges() -> consoles::SearchRanges
@@ -182,7 +183,7 @@ auto DiscoveryManager::searchRanges() -> consoles::SearchRanges
     const std::string local = getLocalSubnetCidr();
     const auto localSubnet = consoles::Subnet::parse(local);
 
-    const std::string configured = settings->network().discoverySubnets();
+    const std::string configured = networkSettings.discoverySubnets();
     size_t start = 0;
     while (start < configured.size())
     {
@@ -205,9 +206,8 @@ auto DiscoveryManager::searchRanges() -> consoles::SearchRanges
         cidrs.push_back(subnet->text());
     }
 
-    auto& wireGuard = network::WireGuardManager::instance();
     std::vector<std::string> tunnelled;
-    for (auto& [name, host] : settings->hosts().entries())
+    for (auto& [name, host] : hostCatalog.entries())
     {
         if (!host || !host->isManual())
             continue;
@@ -346,21 +346,21 @@ void DiscoveryManager::applyView(uint64_t generation, const SeenNetwork& seen)
         sweep.currentTarget = seen.targets > 0 ? std::format("{}/{}", seen.visited, seen.targets) : std::string{};
     }
 
-    const bool logging = settings->developer().discoveryLog();
+    const bool logging = developerSettings.discoveryLog();
     bool adopted = false;
     for (const auto& console : seen.nearby)
     {
         Host* host = hostFor(*console);
         if (!host)
         {
-            host = settings->hosts().getOrCreate(console->name());
+            host = hostCatalog.getOrCreate(console->name());
             host->setHostType(HostType::Auto);
         }
 
         host->linkConsole(console);
         host->presence = console->presence();
         host->discovered = true;
-        adopted = settings->hosts().adoptLegacyRegistrations(*host) || adopted;
+        adopted = hostCatalog.adoptLegacyRegistrations(*host) || adopted;
 
         if (logging)
         {
@@ -387,7 +387,7 @@ void DiscoveryManager::applyView(uint64_t generation, const SeenNetwork& seen)
 
 Host* DiscoveryManager::hostFor(const consoles::Console& console)
 {
-    auto* hostsMap = &settings->hosts().entries();
+    auto* hostsMap = &hostCatalog.entries();
     const auto hardwareId = console.hardware_id();
     for (auto& [name, host] : *hostsMap)
     {
@@ -413,7 +413,7 @@ Host* DiscoveryManager::hostFor(const consoles::Console& console)
 void DiscoveryManager::reconcile(const SeenNetwork& seen)
 {
     bool changed = false;
-    for (auto& [name, host] : settings->hosts().entries())
+    for (auto& [name, host] : hostCatalog.entries())
     {
         if (!host || !host->hardwareId || host->isRemote())
             continue;
@@ -508,7 +508,7 @@ void DiscoveryManager::runRemoteRefresh(const platform::StopToken& stop, uint64_
 {
     auto& core = play::ChiakiCore::current();
     auto* accounts = core.accounts();
-    if (settings->accounts().isLegacyProfileActive() || !accounts)
+    if (accountSettings.isLegacyProfileActive() || !accounts)
     {
         log::info("Legacy profile: skipping PSN remote device discovery");
         finishRemoteRefresh(generation, {true, ""});
@@ -570,7 +570,7 @@ void DiscoveryManager::applyAccountConsoles(uint64_t generation, const std::vect
 
 void DiscoveryManager::processMainPs4Remote()
 {
-    auto* hostsMap = &settings->hosts().entries();
+    auto* hostsMap = &hostCatalog.entries();
     if (!hostsMap)
         return;
 
@@ -598,7 +598,7 @@ void DiscoveryManager::processMainPs4Remote()
             // Remove keys written by older Akira builds. The PS4 PSN flow
             // obtains fresh session-only keys from chiaki-ng instead.
             remote->legacyRegistrations.clear();
-            settings->store().save();
+            settingsStore.save();
             if (onHostsChanged)
                 onHostsChanged();
         }
@@ -607,7 +607,7 @@ void DiscoveryManager::processMainPs4Remote()
         return;
     }
 
-    Host* remote = settings->hosts().getOrCreate(mainPs4RemoteName);
+    Host* remote = hostCatalog.getOrCreate(mainPs4RemoteName);
     remote->setHostType(HostType::Remote);
     remote->setFirmware(Host::Firmware::newest(consoles::Generation::ps4));
     remote->setRemoteDuid(consoles::DeviceUid::main_ps4().text());
@@ -619,7 +619,7 @@ void DiscoveryManager::processMainPs4Remote()
     // Never copy or persist a local console's Remote Play keys here.
     remote->legacyRegistrations.clear();
 
-    settings->store().save();
+    settingsStore.save();
 
     if (onHostDiscovered)
         onHostDiscovered(remote);
@@ -632,7 +632,7 @@ void DiscoveryManager::processRemoteDevice(const SeenAccount& device)
         device.generation == consoles::Generation::ps5 ? "PS5" : "PS4",
         device.remotePlayEnabled ? "enabled" : "disabled");
 
-    auto* hostsMap = &settings->hosts().entries();
+    auto* hostsMap = &hostCatalog.entries();
     for (auto& entry : *hostsMap)
     {
         Host* h = entry.second.get();
@@ -658,7 +658,7 @@ void DiscoveryManager::processRemoteDevice(const SeenAccount& device)
         }
     }
 
-    Host* host = settings->hosts().getOrCreate(device.name + " (Remote)");
+    Host* host = hostCatalog.getOrCreate(device.name + " (Remote)");
     host->setHostType(HostType::Remote);
     host->discovered = true;
     host->setRemoteDuid(device.deviceUid);
@@ -681,7 +681,7 @@ void DiscoveryManager::processRemoteDevice(const SeenAccount& device)
 
     host->presence = Host::Presence::unknown;
 
-    settings->store().save();
+    settingsStore.save();
 
     if (onHostDiscovered)
         onHostDiscovered(host);

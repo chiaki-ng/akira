@@ -1,4 +1,5 @@
 #include "settings/views/settings_general_view.hpp"
+#include "app/view_services.hpp"
 #include "network/views/custom_dns_prompt.hpp"
 #include "log/log.hpp"
 
@@ -191,7 +192,7 @@ static std::string joinSubnets(const std::vector<std::string>& v) {
 }
 
 static void restartDiscovery() {
-    consoles::DiscoveryManager* dm = consoles::DiscoveryManager::getInstance();
+    consoles::DiscoveryManager* dm = &app::ViewServices::current().discovery;
     if (dm->isServiceEnabled()) {
         dm->setServiceEnabled(false);
         dm->setServiceEnabled(true);
@@ -210,7 +211,7 @@ void SettingsGeneralView::scheduleSubnetsRebuild() {
 void SettingsGeneralView::rebuildSubnetsUI() {
     subnetsBox->clearViews();
 
-    std::string localCidr = consoles::DiscoveryManager::getInstance()->getLocalSubnetCidr();
+    std::string localCidr = app::ViewServices::current().discovery.getLocalSubnetCidr();
     if (!localCidr.empty()) {
         auto* defaultRow = new brls::Box();
         defaultRow->setAxis(brls::Axis::ROW);
