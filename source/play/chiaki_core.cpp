@@ -1,6 +1,10 @@
 #include "play/chiaki_core.hpp"
 #include "log/log.hpp"
-#include "settings/settings_manager.hpp"
+#include "accounts/account_settings.hpp"
+#include "cloud/cloud_settings.hpp"
+#include "consoles/console_settings.hpp"
+#include "settings/developer_settings.hpp"
+#include "settings/settings_store.hpp"
 #include "app/crash_report.hpp"
 
 #include <chrono>
@@ -23,7 +27,7 @@ auto ChiakiCore::threadPlacement() noexcept -> platform::horizon::ThreadPlacemen
     return policy;
 }
 
-ChiakiCore::ChiakiCore(settings::SettingsManager& settings, std::function<void()> signInRenewed)
+ChiakiCore::ChiakiCore(Settings settings, std::function<void()> signInRenewed)
     : settings(settings),
       signInRenewed(std::move(signInRenewed)),
       threadingProvider((app::CrashReport::stage("core threading"), threadPlacement())),
@@ -40,25 +44,25 @@ ChiakiCore::ChiakiCore(settings::SettingsManager& settings, std::function<void()
           .diagnostics = &coreLog,
       })),
       recordStore((app::CrashReport::stage("core records"), recordRoot)),
-      datacenters((app::CrashReport::stage("core datacenters"), settings.cloud().datacenters()), settings.store()),
+      datacenters((app::CrashReport::stage("core datacenters"), settings.cloud.datacenters()), settings.store),
       chiakiNg((app::CrashReport::stage("core open"), libchiaking::ChiakiNg::open(
-          factory, libchiaking::ChiakiNg::Stores{settings.accounts().signIns(), settings.consoles().pairings(), datacenters, nullptr,
+          factory, libchiaking::ChiakiNg::Stores{settings.accounts.signIns(), settings.consoles.pairings(), datacenters, nullptr,
                                                  recordStore})))
 {
     app::CrashReport::stage("core ready");
     if (instance != nullptr)
         std::terminate();
     instance = this;
-    settings.developer().setCoreLog(&coreLog);
+    settings.developer.setCoreLog(&coreLog);
     app::CrashReport::stage("core duid");
-    settings.cloud().ensureDuid(random());
+    settings.cloud.ensureDuid(random());
     app::CrashReport::stage("core remember saved");
     rememberSaved();
 }
 
 ChiakiCore::~ChiakiCore()
 {
-    settings.developer().setCoreLog(nullptr);
+    settings.developer.setCoreLog(nullptr);
     instance = nullptr;
 }
 
@@ -110,7 +114,7 @@ void ChiakiCore::rememberSaved()
     else
         log::error("[CORE] saved consoles could not be read");
 
-    psnAccounts.emplace(*chiakiNg, settings, threadingProvider, steadyClock, random());
+    psnAccounts.emplace(*chiakiNg, settings.accounts, threadingProvider, steadyClock, random());
     if (signInRenewed)
         psnAccounts->setRenewedObserver(signInRenewed);
 }

@@ -4,7 +4,8 @@
 
 #include "log/log.hpp"
 #include "network/sony_dns_checker.hpp"
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
+#include "network/custom_dns.hpp"
 
 namespace akira::network::views {
 
@@ -58,11 +59,12 @@ void DnsWarningDialog::show()
 
 void DnsWarningDialog::checkAtStartup()
 {
-    if (settings::SettingsManager::getInstance()->accounts().isLegacyProfileActive())
+    auto& services = app::ViewServices::current();
+    if (services.accounts.isLegacyProfileActive())
         return;
 
-    brls::async([] {
-        const auto report = checkSonyDnsAtStartup();
+    brls::async([&dns = services.dns] {
+        const auto report = checkSonyDnsAtStartup(dns);
         if (!report.failed())
             return;
 

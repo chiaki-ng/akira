@@ -5,7 +5,7 @@
 #include <borealis/views/cells/cell_bool.hpp>
 #include <borealis/views/cells/cell_selector.hpp>
 
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 
 namespace akira::settings::views {
 
@@ -24,7 +24,7 @@ private:
     BRLS_BIND(brls::BooleanCell, debugFfmpegLogToggle, "settings/debugFfmpegLog");
     BRLS_BIND(brls::Button, openDiscoveryLogBtn, "settings/openDiscoveryLog");
 
-    SettingsManager* settings = nullptr;
+    app::Services* services = nullptr;
 
     void initSilenceAllLogsToggle();
     void initEnableFileLoggingToggle();

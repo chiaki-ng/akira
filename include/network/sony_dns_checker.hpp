@@ -13,6 +13,8 @@
 
 namespace akira::network {
 
+class CustomDns;
+
 inline constexpr std::array<const char*, 3> SonyDnsDomains = {
     "auth.api.sonyentertainmentnetwork.com",
     "m.np.playstation.com",
@@ -84,7 +86,7 @@ inline int secondsUntilDnsWarningOk(int64_t elapsedMilliseconds)
 
 // Runs on a worker thread; only numeric DNS servers configured on the Switch
 // are queried. It makes no HTTP requests and sends no account data.
-SonyDnsReport checkSonyDnsAtStartup();
+SonyDnsReport checkSonyDnsAtStartup(const CustomDns& dns);
 
 } // namespace akira::network
 

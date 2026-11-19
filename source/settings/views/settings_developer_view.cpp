@@ -87,7 +87,7 @@ SettingsDeveloperView::~SettingsDeveloperView() {
 
 void SettingsDeveloperView::initTakionSelector(brls::SelectorCell* cell, TakionTarget target, std::string title,
     std::vector<std::uint32_t> implemented) {
-    const int current = settings->developer().takionVersion(target);
+    const int current = services->developer.takionVersion(target);
     std::vector<int> versions{0};
     for (const std::uint32_t version : implemented)
         versions.push_back(static_cast<int>(version));
@@ -101,22 +101,22 @@ void SettingsDeveloperView::initTakionSelector(brls::SelectorCell* cell, TakionT
     const auto selected = std::ranges::find(versions, current);
     cell->init(std::move(title), labels, static_cast<int>(selected - versions.begin()),
         [this, target, versions](int index) {
-            settings->developer().setTakionVersion(target, versions[static_cast<size_t>(index)]);
-            settings->store().save();
+            services->developer.setTakionVersion(target, versions[static_cast<size_t>(index)]);
+            services->store.save();
         });
 }
 
 SettingsDeveloperView::SettingsDeveloperView() {
     this->inflateFromXMLRes("xml/settings/developer.xml");
 
-    settings = SettingsManager::getInstance();
+    services = &app::ViewServices::current();
 
     fakeHostsToggle->init(
         "akira/settings/dev_fake_hosts"_i18n,
-        settings->developer().fakeHosts(),
+        services->developer.fakeHosts(),
         [this](bool isOn) {
-            settings->developer().setFakeHosts(isOn);
-            settings->store().save();
+            services->developer.setFakeHosts(isOn);
+            services->store.save();
             consoles::views::HostListTab::notifyActiveProfileChanged();
         });
 

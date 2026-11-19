@@ -3,7 +3,7 @@
 #include <libchiaking/users_types.hpp>
 
 #include "accounts/profile.hpp"
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "app/views/theme.hpp"
 
 namespace akira::accounts::views {
@@ -149,17 +149,17 @@ void LegacyProfileView::create() {
         return;
     }
 
-    auto* settings = settings::SettingsManager::getInstance();
+    auto* services = &app::ViewServices::current();
 
     Profile profile;
     profile.legacy = true;
     profile.accountId = m_account_id;
     profile.onlineId = m_name;
 
-    const int64_t id = settings->accounts().addProfile(profile);
-    settings->accounts().setActiveProfileId(id);
-    settings->accounts().refreshLegacyGate();
-    settings->store().save();
+    const int64_t id = services->accounts.addProfile(profile);
+    services->accounts.setActiveProfileId(id);
+    services->accounts.refreshLegacyGate();
+    services->store.save();
 
     brls::Application::notify("akira/profile_setup/created"_i18n);
     brls::Application::popActivity();

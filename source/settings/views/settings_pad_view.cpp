@@ -36,13 +36,13 @@ brls::Label* SettingsPadView::makeHeading(const std::string& text)
 SettingsPadView::SettingsPadView(const akira::input::PadDescription& pad)
     : m_pad(pad)
 {
-    settings = SettingsManager::getInstance();
+    services = &app::ViewServices::current();
 
     m_platform = app::ViewServices::current().platform.createPadSettings(pad);
-    m_key = m_platform->rumbleKey(settings->controllers());
+    m_key = m_platform->rumbleKey(services->controllers);
 
-    settings->controllers().seedRumbleProfile(m_key);
-    m_profile = settings->controllers().rumbleProfile(m_key);
+    services->controllers.seedRumbleProfile(m_key);
+    m_profile = services->controllers.rumbleProfile(m_key);
     m_platform->useProfile(m_profile);
 
     setAxis(brls::Axis::COLUMN);
@@ -320,10 +320,10 @@ void SettingsPadView::buildGyroRow()
     };
 
     gyro->init("akira/settings/gyro_source"_i18n, options,
-               static_cast<int>(settings->controllers().gyroSource()),
+               static_cast<int>(services->controllers.gyroSource()),
                [this](int selected) {
-                   settings->controllers().setGyroSource(static_cast<play::GyroSource>(selected));
-                   settings->store().save();
+                   services->controllers.setGyroSource(static_cast<play::GyroSource>(selected));
+                   services->store.save();
                });
 
     card->addView(gyro);
@@ -351,9 +351,9 @@ void SettingsPadView::buildActionRows()
     reset->setText("akira/settings/rumble_reset"_i18n);
     reset->setDetailText("akira/settings/rumble_reset_hint"_i18n);
     reset->registerClickAction([this](brls::View*) {
-        settings->controllers().resetRumbleProfile(m_key);
-        m_profile = settings->controllers().rumbleProfile(m_key);
-        settings->store().save();
+        services->controllers.resetRumbleProfile(m_key);
+        m_profile = services->controllers.rumbleProfile(m_key);
+        services->store.save();
 
         reopen();
         return true;
@@ -365,8 +365,8 @@ void SettingsPadView::buildActionRows()
 
 void SettingsPadView::store()
 {
-    settings->controllers().setRumbleProfile(m_key, m_profile);
-    settings->store().save();
+    services->controllers.setRumbleProfile(m_key, m_profile);
+    services->store.save();
 }
 
 static void ReopenWhenSettled(const akira::input::PadDescription& pad, int attempts_left)

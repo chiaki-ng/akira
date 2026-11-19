@@ -1,7 +1,7 @@
 #include "log/views/log_browser_view.hpp"
 #include "log/log_files.hpp"
 
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "app/views/theme.hpp"
 
 #include <borealis/core/i18n.hpp>

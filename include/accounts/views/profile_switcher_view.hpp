@@ -6,7 +6,7 @@
 #include <string>
 
 #include "accounts/profile.hpp"
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "accounts/views/profile_card_view.hpp"
 
 namespace akira::accounts::views {
@@ -32,7 +32,7 @@ private:
     void confirmRemoveProfile(int64_t id, const std::string& label);
     void addProfileFlow();
 
-    settings::SettingsManager* settings = nullptr;
+    app::Services* services = nullptr;
     ProfileCardView* card = nullptr;
     brls::Box* header = nullptr;
     brls::Box* panel = nullptr;

@@ -4,7 +4,7 @@
 
 #include "cloud/views/game_detail_view.hpp"
 
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "trophies/trophy_manager.hpp"
 #include "app/views/motion.hpp"
 #include "app/views/qr_code_view.hpp"
@@ -280,7 +280,7 @@ private:
 
 LibraryView::LibraryView()
 {
-    if (auto saved = LibraryListing::filterNamed(settings::SettingsManager::getInstance()->cloud().filter()))
+    if (auto saved = LibraryListing::filterNamed(app::ViewServices::current().cloudSettings.filter()))
         listing.pick(*saved);
 
     this->setAxis(brls::Axis::COLUMN);
@@ -342,7 +342,7 @@ LibraryView::LibraryView()
     actions->addView(searchButton);
     updateSearchButton();
 
-    sortState = settings::SettingsManager::getInstance()->cloud().sortState();
+    sortState = app::ViewServices::current().cloudSettings.sortState();
 
     sortButton = new brls::Button();
     sortButton->setMarginRight(8);
@@ -849,9 +849,9 @@ void LibraryView::rebuildFilterControls()
 void LibraryView::pickFilter(LibraryFilter filter)
 {
     listing.pick(filter);
-    auto* settings = settings::SettingsManager::getInstance();
-    settings->cloud().setFilter(std::string(LibraryListing::key(filter)));
-    settings->store().save();
+    auto* services = &app::ViewServices::current();
+    services->cloudSettings.setFilter(std::string(LibraryListing::key(filter)));
+    services->store.save();
     applyFilter();
 }
 
@@ -933,8 +933,8 @@ void LibraryView::openSortPicker()
             if (!*guard)
                 return;
             sortState = sel;
-            settings::SettingsManager::getInstance()->cloud().setSortState(sortState);
-            settings::SettingsManager::getInstance()->store().save();
+            app::ViewServices::current().cloudSettings.setSortState(sortState);
+            app::ViewServices::current().store.save();
             updateSortButton();
             applyFilter();
         },
@@ -996,8 +996,8 @@ void LibraryView::toggleShortcut(const Game& game)
 {
     if (!game.launchable())
         return;
-    auto* settings = settings::SettingsManager::getInstance();
-    std::vector<Game> shortcuts = settings->accounts().cloudShortcuts();
+    auto* services = &app::ViewServices::current();
+    std::vector<Game> shortcuts = services->accounts.cloudShortcuts();
     auto it = std::find_if(shortcuts.begin(), shortcuts.end(),
         [&](const Game& g) { return g.productId == game.productId; });
 
@@ -1022,8 +1022,8 @@ void LibraryView::toggleShortcut(const Game& game)
         shortcuts.push_back(game);
         added = true;
     }
-    settings->accounts().setCloudShortcuts(shortcuts);
-    settings->store().save();
+    services->accounts.setCloudShortcuts(shortcuts);
+    services->store.save();
     brls::Application::notify(added ? "akira/cloud/shortcut_added"_i18n
                                     : "akira/cloud/shortcut_removed"_i18n);
 }

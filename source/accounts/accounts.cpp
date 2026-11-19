@@ -1,5 +1,6 @@
 #include "accounts/accounts.hpp"
-#include "settings/settings_manager.hpp"
+#include "accounts/account_settings.hpp"
+#include <libchiaking/platform/platform.hpp>
 #include "util/base64.hpp"
 #include "log/log.hpp"
 
@@ -38,7 +39,7 @@ public:
     RenewedObserver renewed;
 };
 
-Accounts::Accounts(libchiaking::ChiakiNg& chiaki, settings::SettingsManager& settings,
+Accounts::Accounts(libchiaking::ChiakiNg& chiaki, AccountSettings& settings,
                    platform::ThreadingProvider& threading, platform::ClockProvider& clock,
                    platform::SecureRandomProvider& random)
     : chiaki(chiaki),
@@ -95,7 +96,7 @@ auto Accounts::activeUser() -> User
     std::optional<libchiaking::AccountId> account;
     std::string name;
     bool legacy = false;
-    settings.accounts().readProfile(settings.accounts().activeProfileId(), [&](const Profile& profile) {
+    settings.readProfile(settings.activeProfileId(), [&](const Profile& profile) {
         account = libchiaking::AccountId::from_base64(profile.accountId);
         name = profile.onlineId;
         legacy = profile.legacy;
@@ -410,7 +411,7 @@ void Accounts::keepAlive(const platform::StopToken& stop)
 
 auto Accounts::keepEveryoneSignedIn(const platform::StopToken& stop) -> bool
 {
-    if (settings.accounts().isLegacyProfileActive()) {
+    if (settings.isLegacyProfileActive()) {
         log::debug("PSN keep-alive: legacy profile active, nothing to renew");
         return true;
     }

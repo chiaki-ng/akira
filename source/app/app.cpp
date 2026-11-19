@@ -5,17 +5,12 @@
 #include <SDL2/SDL.h>
 #include <curl/curl.h>
 
-#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <string_view>
-
-extern "C" {
-#include <libavutil/log.h>
-}
+#include <vector>
 
 #include "accounts/views/psn_gated_box.hpp"
 #include "akira_version.h"
@@ -38,7 +33,6 @@ extern "C" {
 #include "network/wireguard_manager.hpp"
 #include "platform/factory.hpp"
 #include "play/views/stream_view.hpp"
-#include "settings/settings_manager.hpp"
 #include "settings/views/config_view_tab.hpp"
 #include "trophies/views/trophy_list_tab.hpp"
 #include "util/http.hpp"
@@ -47,8 +41,29 @@ extern "C" {
 namespace akira::app {
 
 App::App(int argc, char* argv[])
-    : argc(argc), argv(argv), mainPlaced(prepareProcess())
+    : argc(argc),
+      argv(argv),
+      mainPlaced(prepareProcess()),
+      resolverHook(dns),
+      store((CrashReport::stage("settings"), SettingsDirectory)),
+      developer(store),
+      stream(store, fsr4k()),
+      controllers(store),
+      cloudSettings(store),
+      networkSettings(store, [this](const std::vector<network::Ipv4Address>& servers) { dns.configure(servers); }),
+      accountSettings(store, [](bool legacy) { httpSetSonyBlocked(legacy); }),
+      consoleSettings(store),
+      appSettings(store),
+      hosts(consoleSettings, accountSettings, appSettings, store),
+      streamState(stream, cloudSettings, developer)
 {
+    store.finishLoading();
+}
+
+bool App::fsr4k()
+{
+    return (platform::PlatformFactory::fixedCapabilities() & platform::PlatformCapability::fsr_4k)
+        == platform::PlatformCapability::fsr_4k;
 }
 
 Result App::prepareProcess()
@@ -58,27 +73,6 @@ Result App::prepareProcess()
         std::setvbuf(stderr, nullptr, _IONBF, 0);
     log::Log::process().setLevel(log::Level::info);
     return WorkerCores::placeMainThread();
-}
-
-void App::forwardFfmpegLog(void*, int level, const char* format, va_list arguments)
-{
-    if (settings::SettingsManager::getInstance()->developer().silenceAllLogs() || !settings::SettingsManager::getInstance()->developer().ffmpegLog())
-        return;
-    if (level > av_log_get_level())
-        return;
-    std::array<char, 512> buf{};
-    vsnprintf(buf.data(), buf.size(), format, arguments);
-    std::string_view msg(buf.data());
-    if (msg.ends_with('\n'))
-        msg.remove_suffix(1);
-    if (msg.empty())
-        return;
-    if (level <= AV_LOG_ERROR)
-        log::error("ffmpeg: {}", msg);
-    else if (level <= AV_LOG_WARNING)
-        log::warning("ffmpeg: {}", msg);
-    else
-        log::info("ffmpeg: {}", msg);
 }
 
 const char* App::appletTypeName(AppletType type)
@@ -98,9 +92,8 @@ const char* App::appletTypeName(AppletType type)
 
 void App::openLog()
 {
-    auto* settings = settings::SettingsManager::getInstance();
-    settings->developer().applyChiakiLogVerbosity();
-    if (settings->developer().fileLogging())
+    developer.applyChiakiLogVerbosity();
+    if (developer.fileLogging())
         log::AppLog::open(log::LogFiles::appLogPath());
     CrashReport::stage("log open");
     log::info("akira {} starting", AKIRA_VERSION_STRING);
@@ -124,7 +117,7 @@ void App::readArguments()
 
 void App::prepareLocale()
 {
-    std::string overrideLocale = settings::SettingsManager::getInstance()->app().debugLocale();
+    std::string overrideLocale = appSettings.debugLocale();
     if (!overrideLocale.empty()) {
         brls::Platform::APP_LOCALE_DEFAULT = overrideLocale;
     } else {
@@ -179,7 +172,14 @@ std::function<void()> App::signInRenewed()
 void App::startCore()
 {
     CrashReport::stage("core init");
-    core.emplace(*settings::SettingsManager::getInstance(), signInRenewed());
+    core.emplace(play::ChiakiCore::Settings{
+                     .store = store,
+                     .developer = developer,
+                     .cloud = cloudSettings,
+                     .accounts = accountSettings,
+                     .consoles = consoleSettings,
+                 },
+        signInRenewed());
     CrashReport::stage("post core");
     if (!core->opened())
         log::error("[CORE] running without the core: streaming, sign-in and discovery are unavailable");
@@ -263,31 +263,39 @@ void App::startServices()
 {
     CrashReport::stage("services");
     http.emplace();
-    wireGuard.emplace(settings::SettingsManager::getInstance()->developer());
+    wireGuard.emplace(developer);
     trophies.emplace(*http);
 #if AKIRA_CLOUD
-    cloud.emplace(settings::SettingsManager::getInstance()->accounts(), *http);
+    cloud.emplace(accountSettings, *http);
 #endif
-    auto* settings = settings::SettingsManager::getInstance();
     factory = platform::PlatformFactory::create(platform::PlatformServices{
-        .stream = settings->stream(),
-        .streamState = settings->streamState(),
-        .controllers = settings->controllers(),
-        .developer = settings->developer(),
-        .app = settings->app(),
-        .accounts = settings->accounts(),
-        .store = settings->store(),
+        .stream = stream,
+        .streamState = streamState,
+        .controllers = controllers,
+        .developer = developer,
+        .app = appSettings,
+        .accounts = accountSettings,
+        .store = store,
         .wireGuard = *wireGuard,
         .http = *http,
         .trophies = *trophies,
     });
-    discovery.emplace(settings->hosts(), settings->store(), settings->network(), settings->developer(),
-        settings->accounts(), *wireGuard);
-    preferences.emplace(settings->stream(), settings->cloud(), settings->network(), settings->developer(),
-        *factory, *wireGuard);
-    session.emplace(*factory, settings->streamState(), settings->controllers(),
-        settings->developer());
+    discovery.emplace(hosts, store, networkSettings, developer, accountSettings, *wireGuard);
+    preferences.emplace(stream, cloudSettings, networkSettings, developer, *factory, *wireGuard);
+    session.emplace(*factory, streamState, controllers, developer);
     services.emplace(Services{
+        .store = store,
+        .developer = developer,
+        .stream = stream,
+        .controllers = controllers,
+        .cloudSettings = cloudSettings,
+        .networkSettings = networkSettings,
+        .accounts = accountSettings,
+        .consoleSettings = consoleSettings,
+        .appSettings = appSettings,
+        .hosts = hosts,
+        .streamState = streamState,
+        .dns = dns,
         .http = *http,
         .platform = *factory,
         .wireGuard = *wireGuard,
@@ -307,7 +315,7 @@ void App::shutDown()
     log::info("Application exiting");
 
     discovery->setServiceEnabled(false);
-    for (auto& [name, host] : settings::SettingsManager::getInstance()->hosts().entries())
+    for (auto& [name, host] : hosts.entries())
     {
         if (host)
         {
@@ -334,17 +342,15 @@ void App::shutDown()
 
 int App::run()
 {
-    CrashReport::stage("settings");
-    settings::SettingsManager::getInstance();
     openLog();
     readArguments();
 
-    av_log_set_callback(forwardFfmpegLog);
+    ffmpegLog.emplace(developer);
 
     prepareLocale();
 
     CrashReport::stage("theme");
-    views::setActiveTheme(settings::SettingsManager::getInstance()->app().uiTheme());
+    views::setActiveTheme(appSettings.uiTheme());
     views::applyToBorealis();
 
     startServices();

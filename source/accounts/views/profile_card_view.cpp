@@ -48,7 +48,7 @@ std::string cloudSummary(const cloud::Status& status)
 
 ProfileCardView::ProfileCardView() {
     this->inflateFromXMLRes("xml/profile_card.xml");
-    settings = settings::SettingsManager::getInstance();
+    services = &app::ViewServices::current();
 
     this->setAlignItems(brls::AlignItems::CENTER);
     this->setBackgroundColor(app::views::active().surface);
@@ -86,7 +86,7 @@ ProfileCardView::~ProfileCardView() {
 }
 
 void ProfileCardView::refresh() {
-    const Profile* p = settings->accounts().activeProfile();
+    const Profile* p = services->accounts.activeProfile();
 
     std::string display;
     if (!p)
@@ -94,7 +94,7 @@ void ProfileCardView::refresh() {
     else if (p->label().empty())
         display = "akira/settings/unnamed_profile"_i18n;
     else
-        display = settings->app().maskAccountName(p->label());
+        display = services->appSettings.maskAccountName(p->label());
     onlineIdLabel->setText(display);
 
     std::string status = p && p->isRemote()
@@ -134,7 +134,7 @@ void ProfileCardView::refresh() {
             if (!*guard)
                 return;
             if (!prof.online_id.empty())
-                onlineIdLabel->setText(settings->app().maskAccountName(prof.online_id));
+                onlineIdLabel->setText(services->appSettings.maskAccountName(prof.online_id));
             plusLabel->setVisibility(prof.membership.is_ps_plus_member().value_or(false) ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
 
             std::string url = prof.avatar_url.value_or("");

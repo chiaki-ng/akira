@@ -1,6 +1,6 @@
 #include "play/views/controller_remap_view.hpp"
 #include "app/views/theme.hpp"
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "play/swipe_direction.hpp"
 
 #include <borealis/core/touch/tap_gesture.hpp>
@@ -28,7 +28,7 @@ ControllerRemapView::ControllerRemapView()
     captureLabel = (brls::Label*)this->getView("remap/captureLabel");
     captureButtonsLabel = (brls::Label*)this->getView("remap/captureButtons");
 
-    settings = settings::SettingsManager::getInstance();
+    services = &app::ViewServices::current();
 
     initRemappableButtons();
     loadMappings();
@@ -147,21 +147,21 @@ void ControllerRemapView::buildUI()
             auto* toggle = new brls::BooleanCell();
             toggle->init(
                 remappableButtons[i].displayName + "akira/remap/enabled_suffix"_i18n,
-                settings->controllers().isButtonEnabled(target),
+                services->controllers.isButtonEnabled(target),
                 [this, target](bool isOn) {
                     switch (target) {
                         case remapKey(RemapTarget::Touchpad):
-                            settings->controllers().setTouchpadEnabled(isOn); break;
+                            services->controllers.setTouchpadEnabled(isOn); break;
                         case SWIPE_TOUCHPAD_UP:
-                            settings->controllers().setSwipeUpEnabled(isOn); break;
+                            services->controllers.setSwipeUpEnabled(isOn); break;
                         case SWIPE_TOUCHPAD_DOWN:
-                            settings->controllers().setSwipeDownEnabled(isOn); break;
+                            services->controllers.setSwipeDownEnabled(isOn); break;
                         case SWIPE_TOUCHPAD_LEFT:
-                            settings->controllers().setSwipeLeftEnabled(isOn); break;
+                            services->controllers.setSwipeLeftEnabled(isOn); break;
                         case SWIPE_TOUCHPAD_RIGHT:
-                            settings->controllers().setSwipeRightEnabled(isOn); break;
+                            services->controllers.setSwipeRightEnabled(isOn); break;
                     }
-                    settings->store().save();
+                    services->store.save();
                 }
             );
             listContainer->addView(toggle);
@@ -185,13 +185,13 @@ void ControllerRemapView::buildUI()
 
 void ControllerRemapView::loadMappings()
 {
-    currentMapping = settings->controllers().buttonMapping();
+    currentMapping = services->controllers.buttonMapping();
 }
 
 void ControllerRemapView::saveMappings()
 {
-    settings->controllers().setButtonMapping(currentMapping);
-    settings->store().save();
+    services->controllers.setButtonMapping(currentMapping);
+    services->store.save();
 }
 
 void ControllerRemapView::updateCellDisplay(int index)
@@ -525,15 +525,15 @@ void ControllerRemapView::draw(NVGcontext* vg, float x, float y, float width, fl
 
 void ControllerRemapView::resetAllToDefaults()
 {
-    currentMapping = settings->controllers().defaultButtonMapping();
+    currentMapping = services->controllers.defaultButtonMapping();
     saveMappings();
 
-    settings->controllers().setTouchpadEnabled(true);
-    settings->controllers().setSwipeUpEnabled(true);
-    settings->controllers().setSwipeDownEnabled(true);
-    settings->controllers().setSwipeLeftEnabled(true);
-    settings->controllers().setSwipeRightEnabled(true);
-    settings->store().save();
+    services->controllers.setTouchpadEnabled(true);
+    services->controllers.setSwipeUpEnabled(true);
+    services->controllers.setSwipeDownEnabled(true);
+    services->controllers.setSwipeLeftEnabled(true);
+    services->controllers.setSwipeRightEnabled(true);
+    services->store.save();
 
     for (auto& [btn, toggle] : enableToggles)
         toggle->setOn(true, true);
@@ -563,7 +563,7 @@ bool ControllerRemapView::isToggleableButton(uint32_t chiakiButton)
 
 void ControllerRemapView::resetSingleToDefault(uint32_t chiakiButton)
 {
-    auto defaults = settings->controllers().defaultButtonMapping();
+    auto defaults = services->controllers.defaultButtonMapping();
     auto it = defaults.find(chiakiButton);
     if (it != defaults.end()) {
         currentMapping[chiakiButton] = it->second;
@@ -576,7 +576,7 @@ void ControllerRemapView::resetSingleToDefault(uint32_t chiakiButton)
 
 bool ControllerRemapView::isDefaultMapping(uint32_t chiakiButton) const
 {
-    auto defaults = settings->controllers().defaultButtonMapping();
+    auto defaults = services->controllers.defaultButtonMapping();
     auto defIt = defaults.find(chiakiButton);
     auto curIt = currentMapping.find(chiakiButton);
 
@@ -616,7 +616,7 @@ bool ControllerRemapView::hasConflict(uint32_t chiakiButton) const
 
 std::vector<uint64_t> ControllerRemapView::getDefaultForButton(uint32_t chiakiButton) const
 {
-    auto defaults = settings->controllers().defaultButtonMapping();
+    auto defaults = services->controllers.defaultButtonMapping();
     auto it = defaults.find(chiakiButton);
     if (it != defaults.end()) return it->second;
     return {};

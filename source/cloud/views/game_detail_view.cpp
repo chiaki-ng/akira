@@ -1,6 +1,6 @@
 #include "cloud/views/game_detail_view.hpp"
 #include "app/view_services.hpp"
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 
 #include "cloud/cloud_connect_task.hpp"
 #include "app/views/qr_code_view.hpp"
@@ -704,7 +704,7 @@ void GameDetailView::checkAndPlay(const Game& target)
             checks->clear();
             render();
             play::views::startConnecting(std::make_unique<CloudConnectTask>(app::ViewServices::current().cloud,
-                settings::SettingsManager::getInstance()->accounts(), settings::SettingsManager::getInstance()->app(),
+                app::ViewServices::current().accounts, app::ViewServices::current().appSettings,
                 std::move(launch)));
             checks->launched();
         },

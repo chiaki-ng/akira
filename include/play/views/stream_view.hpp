@@ -25,7 +25,7 @@
 #include "play/connection.hpp"
 #include "platform/stream/provider.hpp"
 #include "play/session.hpp"
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 
 namespace akira::play::views {
 
@@ -72,7 +72,7 @@ private:
     std::shared_ptr<Connection> connection;
     std::optional<log::ConnectionLog> connectionLog;
     libchiaking::play::ConsoleHandover handover = libchiaking::play::ConsoleHandover::fresh;
-    settings::SettingsManager* settings = nullptr;
+    app::Services* services = nullptr;
     bool streamActive = false;
     bool sessionStarted = false;
     bool sessionPreStarted = false;

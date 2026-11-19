@@ -1,6 +1,6 @@
 #include "accounts/views/profile_setup_view.hpp"
 
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "network/custom_dns.hpp"
 #include "app/views/theme.hpp"
 #include "network/views/custom_dns_prompt.hpp"
@@ -33,7 +33,7 @@ ProfileSetupView::ProfileSetupView(bool createProfile, bool firstRun)
     this->registerAction("akira/settings/set_dns"_i18n, brls::ControllerButton::BUTTON_Y,
         [](brls::View*) {
             network::views::CustomDnsPrompt::open([]() {
-                const auto servers = settings::SettingsManager::getInstance()->network().customDnsServers();
+                const auto servers = app::ViewServices::current().networkSettings.customDnsServers();
                 const std::string shown = servers.empty() ? "akira/settings/custom_dns_system"_i18n
                                                           : network::CustomDns::formatServers(servers);
                 brls::Application::notify(brls::getStr("akira/settings/custom_dns_saved", shown));
@@ -147,7 +147,7 @@ void ProfileSetupView::addOption(const std::string& glyphText, const std::string
 
 void ProfileSetupView::willAppear(bool resetState) {
     Box::willAppear(resetState);
-    if (m_first_run && !settings::SettingsManager::getInstance()->accounts().profiles().empty())
+    if (m_first_run && !app::ViewServices::current().accounts.profiles().empty())
         brls::Application::popActivity();
 }
 

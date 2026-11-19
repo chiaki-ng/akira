@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 
 namespace akira::settings::views {
 
@@ -36,7 +36,7 @@ private:
 
     static constexpr std::uint32_t highestCloudTakion = 23;
 
-    SettingsManager* settings = nullptr;
+    app::Services* services = nullptr;
     std::shared_ptr<std::atomic<bool>> alive = std::make_shared<std::atomic<bool>>(true);
 };
 

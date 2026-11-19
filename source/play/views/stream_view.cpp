@@ -113,7 +113,7 @@ StreamView::StreamView(consoles::Host* host, std::shared_ptr<consoles::Host> hos
     , hostOwner(std::move(hostOwner))
 {
     this->session = &app::ViewServices::current().session.get();
-    this->settings = settings::SettingsManager::getInstance();
+    this->services = &app::ViewServices::current();
 #if AKIRA_CLOUD
     if (const auto* launch = host->cloudLaunch())
         cloudScreen.emplace(launch->name());
@@ -133,7 +133,7 @@ void StreamView::setupCallbacks()
 
     exitSubscription = brls::Application::getExitEvent()->subscribe([weak]() {
         if (auto self = weak.lock()) {
-            if (self->sessionStarted && self->settings->app().sleepOnExit() && !self->host->isCloud() && self->connection) {
+            if (self->sessionStarted && self->services->appSettings.sleepOnExit() && !self->host->isCloud() && self->connection) {
                 self->connection->leave(true);
             }
         }
@@ -233,13 +233,13 @@ void StreamView::startStream()
         auto profile = play::StreamProfile::Local;
         if (host->isCloud()) {
             profile = play::StreamProfile::Cloud;
-            settings->streamState().setCloudPscloud(host->cloudLaunch()->ps5());
+            services->streamState.setCloudPscloud(host->cloudLaunch()->ps5());
         }
         else if (host->isRemote())
             profile = play::StreamProfile::Remote;
         else if (app::ViewServices::current().wireGuard.isConnected())
             profile = play::StreamProfile::Vpn;
-        settings->streamState().setProfile(profile);
+        services->streamState.setProfile(profile);
 
         if (!controllerReady)
         {
@@ -366,7 +366,7 @@ void StreamView::openConnection()
 
     std::shared_ptr<ConnectionListener> self = shared_from_this();
     connection = std::make_shared<Connection>(*session, self, host->isPS5(),
-        app::ViewServices::current().platform, settings->accounts());
+        app::ViewServices::current().platform, services->accounts);
     if (!connection->open(std::move(starter))) {
         connection.reset();
         throw app::Exception("akira/connection/failed_create_thread"_i18n);
@@ -394,7 +394,7 @@ void StreamView::stopStream()
 
     streamActive = false;
 
-    settings->streamState().setActive(false);
+    services->streamState.setActive(false);
     connection.reset();
 
     session->FreeController();
@@ -467,7 +467,7 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
 {
     static int drawCount = 0;
     ++drawCount;
-    if (settings->developer().renderLog() && drawCount % 60 == 0) {
+    if (services->developer.renderLog() && drawCount % 60 == 0) {
         log::info("StreamView::draw #{}: streamActive={}, sessionStarted={}, menuOpen={}",
             drawCount, streamActive, sessionStarted, menuOpen);
     }
@@ -487,7 +487,7 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
         nvgFillColor(vg, nvgRGBA(0, 0, 0, 255));
         nvgFill(vg);
 
-        if (settings->app().connectionShowStages()) {
+        if (services->appSettings.connectionShowStages()) {
             ConnectionStage stage = static_cast<ConnectionStage>(currentStage.load());
             int raw = static_cast<int>(stage);
             int idx = raw < 1 ? 1 : (raw > 6 ? 6 : raw);
@@ -545,7 +545,7 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
         nvgFillColor(vg, nvgRGBA(0, 0, 0, 255));
         nvgFill(vg);
 
-        if (settings->app().connectionShowStages()) {
+        if (services->appSettings.connectionShowStages()) {
             ConnectionStage stage = static_cast<ConnectionStage>(currentStage.load());
             int raw = static_cast<int>(stage);
             int idx = raw < 1 ? 1 : (raw > 6 ? 6 : raw);
@@ -677,7 +677,7 @@ void StreamView::showCloudFailure(const std::string& message, bool retry)
             stream_nav::unwindToBase();
             brls::sync([again]() {
                 views::startConnecting(cloud::CloudConnectTask::retrying(app::ViewServices::current().cloud,
-                    settings::SettingsManager::getInstance()->accounts(), settings::SettingsManager::getInstance()->app(),
+                    app::ViewServices::current().accounts, app::ViewServices::current().appSettings,
                     again));
             });
         });
@@ -936,12 +936,12 @@ void StreamView::onLoginPinNeeded(bool pinIncorrect)
     }
 
     consoles::Host* hostPtr = host;
-    settings::SettingsManager* settingsPtr = settings;
+    settings::SettingsStore* storePtr = &services->store;
     auto weak = weak_from_this();
 
     auto* pinView = new consoles::views::EnterPinView(hostPtr, consoles::views::PinViewType::Login, pinIncorrect);
 
-    pinView->setOnPinEntered([weak, hostPtr, settingsPtr](const std::string& pin) {
+    pinView->setOnPinEntered([weak, hostPtr, storePtr](const std::string& pin) {
         log::info("Login PIN entered, sending to session");
         if (auto self = weak.lock()) {
             if (self->connection)
@@ -950,7 +950,7 @@ void StreamView::onLoginPinNeeded(bool pinIncorrect)
         }
 
         hostPtr->setConsolePIN(pin);
-        settingsPtr->store().save();
+        storePtr->save();
     });
 
     pinView->setOnCancel([weak]() {
@@ -1011,7 +1011,7 @@ void StreamView::showDisconnectMenu()
     {
         akira::platform::VideoRenderer* renderer = session->getVideoRenderer();
         if (renderer && renderer->takeOverlayPositionDirty())
-            settings::SettingsManager::getInstance()->store().save();
+            app::ViewServices::current().store.save();
     }
     menuOpen = true;
     if (connection)
@@ -1155,7 +1155,7 @@ void StreamView::onFocusChanged(bool focused)
     if (!focused)
         return;
 
-    if (intentionalDisconnect || !settings->network().autoReconnect() || !sessionStarted || host->isCloud())
+    if (intentionalDisconnect || !services->networkSettings.autoReconnect() || !sessionStarted || host->isCloud())
         return;
 
     const auto state = connection ? connection->state() : std::nullopt;

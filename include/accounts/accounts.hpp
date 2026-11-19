@@ -13,11 +13,9 @@
 
 #include "app/background_work.hpp"
 
-namespace akira::settings {
-class SettingsManager;
-}
-
 namespace akira::accounts {
+
+class AccountSettings;
 
 enum class ActionState {
     Ready,
@@ -54,7 +52,7 @@ public:
     using RenewedObserver = std::function<void()>;
     using QrProgress = std::function<void(const libchiaking::users::QrSignInState&)>;
 
-    Accounts(libchiaking::ChiakiNg& chiaki, settings::SettingsManager& settings,
+    Accounts(libchiaking::ChiakiNg& chiaki, AccountSettings& settings,
              libchiaking::platform::ThreadingProvider& threading, libchiaking::platform::ClockProvider& clock,
              libchiaking::platform::SecureRandomProvider& random);
     ~Accounts();
@@ -97,7 +95,7 @@ private:
     void followBackgroundWork(bool paused);
 
     libchiaking::ChiakiNg& chiaki;
-    settings::SettingsManager& settings;
+    AccountSettings& settings;
     libchiaking::platform::ThreadingProvider& threading;
     libchiaking::platform::ClockProvider& clock;
     libchiaking::platform::SecureRandomProvider& random;

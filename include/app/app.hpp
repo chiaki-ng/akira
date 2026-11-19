@@ -1,25 +1,38 @@
 #pragma once
 
-#include <cstdarg>
 #include <functional>
 #include <memory>
 #include <optional>
 
 #include <switch.h>
 
+#include "accounts/account_settings.hpp"
+#include "app/app_settings.hpp"
 #include "app/services.hpp"
 #include "app/view_services.hpp"
+#include "cloud/cloud_settings.hpp"
 #if AKIRA_CLOUD
 #include "cloud/service.hpp"
 #endif
+#include "consoles/console_settings.hpp"
 #include "consoles/discovery_manager.hpp"
+#include "consoles/host_catalog.hpp"
+#include "log/ffmpeg_log.hpp"
+#include "network/custom_dns.hpp"
+#include "network/network_settings.hpp"
+#include "network/resolver_hook.hpp"
 #include "network/wireguard_manager.hpp"
-#include "util/http_pool.hpp"
 #include "platform/factory.hpp"
 #include "play/chiaki_core.hpp"
+#include "play/controller_settings.hpp"
 #include "play/lazy_session.hpp"
 #include "play/stream_preferences.hpp"
+#include "play/stream_settings.hpp"
+#include "play/stream_state.hpp"
+#include "settings/developer_settings.hpp"
+#include "settings/settings_store.hpp"
 #include "trophies/trophy_manager.hpp"
+#include "util/http_pool.hpp"
 
 namespace akira::app {
 
@@ -33,9 +46,11 @@ public:
     int run();
 
 private:
+    static constexpr const char* SettingsDirectory = "sdmc:/switch/akira";
+
     static Result prepareProcess();
     static const char* appletTypeName(AppletType type);
-    static void forwardFfmpegLog(void* context, int level, const char* format, va_list arguments);
+    static bool fsr4k();
 
     void openLog();
     void readArguments();
@@ -53,6 +68,20 @@ private:
     int argc;
     char** argv;
     Result mainPlaced;
+    network::CustomDns dns;
+    network::ResolverHook resolverHook;
+    settings::SettingsStore store;
+    settings::DeveloperSettings developer;
+    play::StreamSettings stream;
+    play::ControllerSettings controllers;
+    cloud::CloudSettings cloudSettings;
+    network::NetworkSettings networkSettings;
+    accounts::AccountSettings accountSettings;
+    consoles::ConsoleSettings consoleSettings;
+    AppSettings appSettings;
+    consoles::HostCatalog hosts;
+    play::StreamState streamState;
+    std::optional<log::FfmpegLog> ffmpegLog;
     std::optional<HttpPool> http;
     std::optional<network::WireGuardManager> wireGuard;
     std::optional<trophies::TrophyManager> trophies;

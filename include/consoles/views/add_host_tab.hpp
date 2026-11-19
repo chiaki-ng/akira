@@ -3,7 +3,7 @@
 
 #include <borealis.hpp>
 
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 
 namespace akira::consoles::views {
 
@@ -20,7 +20,7 @@ private:
     BRLS_BIND(brls::Button, saveBtn, "add/saveBtn");
     BRLS_BIND(brls::Label, statusLabel, "add/status");
 
-    settings::SettingsManager* settings = nullptr;
+    app::Services* services = nullptr;
 
     void onSaveClicked();
 };

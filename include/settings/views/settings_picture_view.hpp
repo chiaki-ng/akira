@@ -6,7 +6,7 @@
 #include <borealis/views/cells/cell_selector.hpp>
 #include <borealis/views/cells/cell_slider.hpp>
 
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 
 namespace akira::settings::views {
 
@@ -48,7 +48,7 @@ private:
         int fsrTarget;
     };
 
-    SettingsManager* settings = nullptr;
+    app::Services* services = nullptr;
 
     static std::vector<ResolutionPreset> resolutionPresets();
     static std::vector<std::string> presetLabels(const std::vector<ResolutionPreset>& presets);

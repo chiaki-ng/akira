@@ -5,7 +5,7 @@
 #include <unordered_map>
 
 #include "consoles/discovery_manager.hpp"
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "accounts/views/psn_action_button.hpp"
 #include "accounts/views/profile_chip_view.hpp"
 #if AKIRA_CLOUD
@@ -60,7 +60,7 @@ private:
 
     accounts::views::PsnActionButton findRemoteGate;
 
-    settings::SettingsManager* settings = nullptr;
+    app::Services* services = nullptr;
     DiscoveryManager* discovery = nullptr;
 
     bool entrancePlayed = false;

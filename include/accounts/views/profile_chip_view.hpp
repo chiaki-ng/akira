@@ -4,7 +4,7 @@
 #include <borealis.hpp>
 #include <memory>
 
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 
 namespace akira::accounts::views {
 
@@ -25,7 +25,7 @@ private:
     BRLS_BIND(brls::Box, dot, "chip/dot");
     BRLS_BIND(brls::Label, cloudLabel, "chip/cloud");
 
-    settings::SettingsManager* settings = nullptr;
+    app::Services* services = nullptr;
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 };
 

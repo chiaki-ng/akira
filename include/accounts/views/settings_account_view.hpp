@@ -8,7 +8,7 @@
 #include <borealis/views/cells/cell_bool.hpp>
 #include <string>
 
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "accounts/views/psn_action_button.hpp"
 #include "accounts/views/profile_switcher_view.hpp"
 
@@ -45,7 +45,7 @@ private:
 
     PsnActionButton refreshTokenGate;
 
-    settings::SettingsManager* settings = nullptr;
+    app::Services* services = nullptr;
     ProfileSwitcherView* profileSwitcher = nullptr;
     bool credentialsRevealed = false;
 

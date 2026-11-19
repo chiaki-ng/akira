@@ -2,7 +2,7 @@
 #include "app/view_services.hpp"
 #include "settings/views/settings_pad_view.hpp"
 
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "platform/factory.hpp"
 
 #include <borealis/core/i18n.hpp>
@@ -13,13 +13,13 @@ using namespace brls::literals;
 
 std::string SettingsControllersView::tierSummary(const akira::input::PadDescription& pad)
 {
-    auto* settings = SettingsManager::getInstance();
+    auto* services = &app::ViewServices::current();
     const auto padSettings = app::ViewServices::current().platform.createPadSettings(pad);
 
-    if (auto summary = padSettings->outputSummary(settings->controllers()))
+    if (auto summary = padSettings->outputSummary(services->controllers))
         return *summary;
 
-    const std::string key = padSettings->currentKey(settings->controllers());
+    const std::string key = padSettings->currentKey(services->controllers);
 
     if (key == play::kRumbleKeySwitch)
         return "akira/settings/rumble_tier_switch"_i18n;
@@ -78,7 +78,7 @@ void SettingsControllersView::rebuild()
 {
     list->clearViews();
 
-    auto* settings = SettingsManager::getInstance();
+    auto* services = &app::ViewServices::current();
     const std::vector<akira::input::PadDescription> pads = app::ViewServices::current().platform.pads().scanPads();
 
     if (pads.empty()) {
@@ -92,8 +92,8 @@ void SettingsControllersView::rebuild()
     }
 
     for (const akira::input::PadDescription& pad : pads) {
-        settings->controllers().seedRumbleProfile(
-            app::ViewServices::current().platform.createPadSettings(pad)->rumbleKey(settings->controllers()));
+        services->controllers.seedRumbleProfile(
+            app::ViewServices::current().platform.createPadSettings(pad)->rumbleKey(services->controllers));
 
         auto* cell = new brls::DetailCell();
         cell->setMarginLeft(15.0f);
@@ -110,7 +110,7 @@ void SettingsControllersView::rebuild()
         list->addView(cell);
     }
 
-    settings->store().save();
+    services->store.save();
 }
 
 }

@@ -40,7 +40,8 @@ public:
         });
     }
 
-    static CustomDns& instance();
+    CustomDns() = default;
+
     static std::optional<std::vector<Ipv4Address>> parseServers(std::string_view text);
     static std::string formatServers(std::span<const Ipv4Address> servers);
 
@@ -68,8 +69,6 @@ private:
 
     static constexpr std::chrono::seconds MinTtl{30};
     static constexpr std::chrono::seconds MaxTtl{3600};
-
-    CustomDns() = default;
 
     std::expected<std::vector<Ipv4Address>, int> resolve(const std::string& name);
     std::optional<std::vector<Ipv4Address>> cached(const std::string& name);

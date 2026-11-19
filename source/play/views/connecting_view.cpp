@@ -10,7 +10,7 @@
 #include <borealis/core/i18n.hpp>
 
 #include "consoles/host.hpp"
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "app/views/theme.hpp"
 #include "log/app_log.hpp"
 #include "app/views/shared_view_holder.hpp"
@@ -103,13 +103,13 @@ void ConnectingView::setupAndStart()
         });
     }
 
-    settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-    if (settings->app().hideAccountName())
+    auto* services = &app::ViewServices::current();
+    if (services->appSettings.hideAccountName())
     {
-        for (const accounts::Profile& profile : settings->accounts().profiles())
+        for (const accounts::Profile& profile : services->accounts.profiles())
         {
-            logMasks.emplace_back(profile.onlineId, settings->app().maskAccountName(profile.onlineId));
-            logMasks.emplace_back(profile.accountId, settings->app().maskAccountName(profile.accountId));
+            logMasks.emplace_back(profile.onlineId, services->appSettings.maskAccountName(profile.onlineId));
+            logMasks.emplace_back(profile.accountId, services->appSettings.maskAccountName(profile.accountId));
         }
     }
 
@@ -167,7 +167,7 @@ void ConnectingView::addLogLine(const std::string& line)
 
 void ConnectingView::switchToConnectionLog()
 {
-    if (!settings::SettingsManager::getInstance()->developer().fileLogging())
+    if (!app::ViewServices::current().developer.fileLogging())
         return;
 
     const std::string logPath = log::LogFiles::connectionLogPath(task->logKind());
@@ -243,7 +243,7 @@ void ConnectingView::failed(const std::string& error)
      * while linking" is worth more than the last error string the stack
      * produced - and the ring is already showing which stage that was.
      */
-    if (settings::SettingsManager::getInstance()->app().connectionShowStages()) {
+    if (app::ViewServices::current().appSettings.connectionShowStages()) {
         const auto stage = static_cast<ConnectionStage>(currentStage.load());
         failureText = brls::getStr(connectionFailureKeyForStage(stage));
         settled.store(true);
@@ -335,7 +335,7 @@ void ConnectingView::draw(NVGcontext* vg, float x, float y, float width, float h
         return;
     }
 
-    if (settings::SettingsManager::getInstance()->app().connectionShowStages()) {
+    if (app::ViewServices::current().appSettings.connectionShowStages()) {
         if (steppedRoute.load()) {
             std::string label;
             {
@@ -375,9 +375,9 @@ void ConnectingView::askAboutFileLogging(std::unique_ptr<ConnectTask> task)
     auto* dialog = new brls::Dialog("akira/connection/file_logging_warning"_i18n);
     dialog->setCancelable(false);
     dialog->addButton("akira/connection/file_logging_turn_off"_i18n, [pending]() {
-        settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-        settings->developer().setFileLogging(false);
-        settings->store().save();
+        auto* services = &app::ViewServices::current();
+        services->developer.setFileLogging(false);
+        services->store.save();
         log::AppLog::close();
         open(std::move(*pending));
     });
@@ -389,7 +389,7 @@ void ConnectingView::askAboutFileLogging(std::unique_ptr<ConnectTask> task)
 
 void startConnecting(std::unique_ptr<ConnectTask> task)
 {
-    if (settings::SettingsManager::getInstance()->developer().fileLogging())
+    if (app::ViewServices::current().developer.fileLogging())
         ConnectingView::askAboutFileLogging(std::move(task));
     else
         ConnectingView::open(std::move(task));

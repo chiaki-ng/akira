@@ -13,7 +13,7 @@
 #include "app/views/build_info_tab.hpp"
 #include "settings/views/config_view_tab.hpp"
 #include "network/views/network_utilities_tab.hpp"
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "settings/settings_descriptions.hpp"
 
 #include <borealis/core/i18n.hpp>
@@ -143,7 +143,7 @@ void SettingsFrameView::buildMenus() {
     menus.push_back({"akira/settings/menu_config"_i18n, {{"", []() -> brls::Box* { return new ConfigViewTab(); }}}});
     menus.push_back({"akira/settings/menu_network"_i18n, {{"", []() -> brls::Box* { return new network::views::NetworkUtilitiesTab(); }}}});
 
-    if (SettingsManager::getInstance()->developer().powerUserMenuUnlocked()) {
+    if (app::ViewServices::current().developer.powerUserMenuUnlocked()) {
         menus.push_back({"akira/settings/menu_power_user"_i18n, {{"", []() -> brls::Box* { return new SettingsPowerUserView(); }}}});
         menus.push_back({"akira/settings/menu_developer"_i18n, {{"", []() -> brls::Box* { return new SettingsDeveloperView(); }}}});
     }

@@ -44,7 +44,7 @@ const char* verdictName(DnsVerdict verdict)
 
 } // namespace
 
-SonyDnsReport checkSonyDnsAtStartup()
+SonyDnsReport checkSonyDnsAtStartup(const CustomDns& dns)
 {
     SonyDnsReport report;
     uint32_t ip = 0;
@@ -59,7 +59,7 @@ SonyDnsReport checkSonyDnsAtStartup()
         return report;
     }
 
-    const std::vector<Ipv4Address> dnsServers = CustomDns::instance().resolvers();
+    const std::vector<Ipv4Address> dnsServers = dns.resolvers();
 
     for (const Ipv4Address& serverIp : dnsServers) {
         DnsServerStatus server;

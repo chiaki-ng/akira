@@ -45,7 +45,7 @@ std::string cloudSummary(const cloud::Status& status)
 
 ProfileChipView::ProfileChipView() {
     this->inflateFromXMLRes("xml/profile_chip.xml");
-    settings = settings::SettingsManager::getInstance();
+    services = &app::ViewServices::current();
 
     const auto& pal = app::views::active();
 
@@ -74,7 +74,7 @@ void ProfileChipView::refresh() {
 #if AKIRA_CLOUD
     const auto& pal = app::views::active();
 #endif
-    const Profile* p = settings->accounts().activeProfile();
+    const Profile* p = services->accounts.activeProfile();
 
     std::string name;
     if (!p)
@@ -82,7 +82,7 @@ void ProfileChipView::refresh() {
     else if (p->label().empty())
         name = "akira/settings/unnamed_profile"_i18n;
     else
-        name = settings->app().maskAccountName(p->label());
+        name = services->appSettings.maskAccountName(p->label());
     nameLabel->setText(name);
 
     /*
@@ -148,7 +148,7 @@ void ProfileChipView::refresh() {
             if (!*guard)
                 return;
             if (!prof.online_id.empty())
-                nameLabel->setText(settings->app().maskAccountName(prof.online_id));
+                nameLabel->setText(services->appSettings.maskAccountName(prof.online_id));
             plusBadge->setVisibility(prof.membership.is_ps_plus_member().value_or(false) ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
 
             std::string url = prof.avatar_url.value_or("");

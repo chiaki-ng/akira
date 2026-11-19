@@ -11,7 +11,7 @@
 #include <memory>
 #include <string>
 
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "platform/pads/pad.hpp"
 #include "platform/pad_settings/provider.hpp"
 
@@ -42,7 +42,7 @@ private:
 
     brls::Box* content = nullptr;
 
-    SettingsManager*            settings = nullptr;
+    app::Services* services = nullptr;
     akira::input::PadDescription m_pad;
     play::RumbleProfile  m_profile;
     std::unique_ptr<akira::platform::PadSettingsProvider> m_platform;

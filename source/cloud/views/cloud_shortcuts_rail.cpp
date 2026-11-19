@@ -1,7 +1,7 @@
 #include "cloud/views/cloud_shortcuts_rail.hpp"
 #include "app/view_services.hpp"
 
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "trophies/trophy_manager.hpp"
 #include "app/views/motion.hpp"
 #include "app/views/theme.hpp"
@@ -52,13 +52,13 @@ void CloudShortcutsRail::setLeadingCard(std::function<brls::View*()> factory)
 
 void CloudShortcutsRail::removeShortcut(const std::string& productId)
 {
-    auto* settings = settings::SettingsManager::getInstance();
-    std::vector<Game> games = settings->accounts().cloudShortcuts();
+    auto* services = &app::ViewServices::current();
+    std::vector<Game> games = services->accounts.cloudShortcuts();
     games.erase(std::remove_if(games.begin(), games.end(),
                     [&](const Game& g) { return g.productId == productId; }),
         games.end());
-    settings->accounts().setCloudShortcuts(games);
-    settings->store().save();
+    services->accounts.setCloudShortcuts(games);
+    services->store.save();
     refresh();
 }
 
@@ -72,8 +72,8 @@ void CloudShortcutsRail::refresh()
     railRow->clearViews();
     const int myGen = ++refreshGen;
 
-    std::vector<Game> games = settings::SettingsManager::getInstance()->accounts().cloudShortcuts();
-    bool hasProfile = !settings::SettingsManager::getInstance()->accounts().profiles().empty();
+    std::vector<Game> games = app::ViewServices::current().accounts.cloudShortcuts();
+    bool hasProfile = !app::ViewServices::current().accounts.profiles().empty();
     brls::View* lead = (hasProfile && leadingCardFactory) ? leadingCardFactory() : nullptr;
     if (!lead && games.empty())
     {

@@ -1,4 +1,5 @@
 #include "consoles/views/add_host_tab.hpp"
+#include "app/view_services.hpp"
 #include "app/views/theme.hpp"
 #include "consoles/host.hpp"
 #include "log/log.hpp"
@@ -12,7 +13,7 @@ using namespace brls::literals;
 AddHostTab::AddHostTab() {
     this->inflateFromXMLRes("xml/tabs/add_host.xml");
 
-    settings = settings::SettingsManager::getInstance();
+    services = &app::ViewServices::current();
 
     hostNameInput->init(
         "akira/add_host/console_name"_i18n,
@@ -72,14 +73,14 @@ void AddHostTab::onSaveClicked() {
         return;
     }
 
-    auto* hostsMap = &settings->hosts().entries();
+    auto* hostsMap = &services->hosts.entries();
     if (hostsMap->find(name) != hostsMap->end()) {
         statusLabel->setText("akira/add_host/error_duplicate_name"_i18n);
         statusLabel->setTextColor(app::views::active().danger);
         return;
     }
 
-    Host* host = settings->hosts().getOrCreate(name);
+    Host* host = services->hosts.getOrCreate(name);
     host->setHostType(HostType::Manual);
     host->setHostAddr(addr);
     host->setDiscovered(true);
@@ -87,7 +88,7 @@ void AddHostTab::onSaveClicked() {
     host->setFirmware(Host::Firmware::newest(targetIndex == 0 ? libchiaking::consoles::Generation::ps4
                                                               : libchiaking::consoles::Generation::ps5));
 
-    settings->store().save();
+    services->store.save();
 
     statusLabel->setText("akira/add_host/success"_i18n);
     statusLabel->setTextColor(app::views::active().success);

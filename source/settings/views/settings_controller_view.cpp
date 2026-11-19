@@ -14,7 +14,7 @@ using namespace brls::literals;
 SettingsControllerView::SettingsControllerView() {
     this->inflateFromXMLRes("xml/settings/controller.xml");
 
-    settings = SettingsManager::getInstance();
+    services = &app::ViewServices::current();
 
     initSleepOnExitToggle();
     initConnectedControllers();
@@ -23,14 +23,14 @@ SettingsControllerView::SettingsControllerView() {
 }
 
 void SettingsControllerView::initSleepOnExitToggle() {
-    bool currentValue = settings->app().sleepOnExit();
+    bool currentValue = services->appSettings.sleepOnExit();
 
     sleepOnExitToggle->init(
         "akira/settings/sleep_on_exit"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->app().setSleepOnExit(isOn);
-            settings->store().save();
+            services->appSettings.setSleepOnExit(isOn);
+            services->store.save();
         }
     );
 }

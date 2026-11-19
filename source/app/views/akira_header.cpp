@@ -10,7 +10,7 @@
 #include "app/views/header_status_view.hpp"
 #include "app/views/theme.hpp"
 #include "log/log.hpp"
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "settings/views/settings_frame_view.hpp"
 #include "trophies/views/trophy_list_tab.hpp"
 
@@ -126,12 +126,12 @@ void AkiraHeader::openTrophies()
      * Also guarded here, not only at registration: the action is registered once per view
      * but the active profile can change under it.
      */
-    if (settings::SettingsManager::getInstance()->accounts().isLegacyProfileActive()) {
+    if (app::ViewServices::current().accounts.isLegacyProfileActive()) {
         brls::Application::notify("akira/trophies/no_psn_token"_i18n);
         return;
     }
 
-    if (!settings::SettingsManager::getInstance()->accounts().activeProfileTrophiesEnabled()) {
+    if (!app::ViewServices::current().accounts.activeProfileTrophiesEnabled()) {
         brls::Application::notify("akira/trophies/disabled_for_profile"_i18n);
         return;
     }
@@ -147,7 +147,7 @@ void AkiraHeader::openTrophies()
 
 void AkiraHeader::openSettings()
 {
-    if (settings::SettingsManager::getInstance()->accounts().profiles().empty()) {
+    if (app::ViewServices::current().accounts.profiles().empty()) {
         auto* setupFrame = new brls::AppletFrame(new accounts::views::ProfileSetupView(false, true));
         decorate(setupFrame);
         brls::Application::pushActivity(new brls::Activity(setupFrame));
@@ -164,7 +164,7 @@ void AkiraHeader::registerTabActions(brls::View* view)
      * Trophies need a PSN token, so in legacy the action is not registered at all rather
      * than opening a screen that can only tell the user no.
      */
-    if (!settings::SettingsManager::getInstance()->accounts().isLegacyProfileActive())
+    if (!app::ViewServices::current().accounts.isLegacyProfileActive())
     {
         view->registerAction("akira/tabs/trophies"_i18n, brls::ControllerButton::BUTTON_LB, [](brls::View*) {
             openTrophies();

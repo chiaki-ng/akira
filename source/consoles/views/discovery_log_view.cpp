@@ -1,7 +1,7 @@
 #include "consoles/views/discovery_log_view.hpp"
 
 #include "consoles/discovery_manager.hpp"
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "app/views/theme.hpp"
 
 #include <borealis/core/i18n.hpp>
@@ -72,7 +72,7 @@ void DiscoveryLogView::refreshLog()
     std::vector<std::string> lines = DiscoveryManager::getDiscoveryLogSnapshot();
 
     if (statusLabel) {
-        if (!settings::SettingsManager::getInstance()->developer().discoveryLog())
+        if (!app::ViewServices::current().developer.discoveryLog())
             statusLabel->setText("akira/settings/discovery_log_off"_i18n);
         else
             statusLabel->setText(std::to_string(lines.size()));

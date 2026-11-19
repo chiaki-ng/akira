@@ -8,12 +8,6 @@
 
 namespace akira::network {
 
-CustomDns& CustomDns::instance()
-{
-    static CustomDns dns;
-    return dns;
-}
-
 std::optional<std::vector<Ipv4Address>> CustomDns::parseServers(std::string_view text)
 {
     std::vector<Ipv4Address> servers;

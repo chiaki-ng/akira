@@ -6,7 +6,7 @@
 #include "cloud/service.hpp"
 #endif
 #include "play/chiaki_core.hpp"
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "trophies/trophy_manager.hpp"
 #include "app/views/theme.hpp"
 #include "consoles/views/host_list_tab.hpp"
@@ -79,7 +79,7 @@ PairView::PairView(bool createProfile) : createProfile(createProfile) {
 
     setFocusable(true);
 
-    listenPort = settings::SettingsManager::getInstance()->network().companionPort();
+    listenPort = app::ViewServices::current().networkSettings.companionPort();
     const auto& palette = app::views::active();
     std::string ip = PairListener::localIpv4();
     if (addrIpLabel) {
@@ -176,21 +176,21 @@ void PairView::onEvent(ListenerEvent event) {
 }
 
 void PairView::applyCredentials(const PairedCredentials& creds, bool createProfile) {
-    settings::SettingsManager* settings = settings::SettingsManager::getInstance();
+    auto* services = &app::ViewServices::current();
 
     log::info("Pair push: create={} active={} onlineId={} accountId={} npsso={} refresh={} mobile={}",
-        createProfile, settings->accounts().activeProfileId(), !creds.onlineId.empty(),
+        createProfile, services->accounts.activeProfileId(), !creds.onlineId.empty(),
         !creds.accountId.empty(), !creds.npsso.empty(), !creds.refreshToken.empty(),
         creds.hasMobile);
-    settings->accounts().logProfileCensus("pair-before");
+    services->accounts.logProfileCensus("pair-before");
 
-    if (createProfile || !settings->accounts().activeProfile()) {
+    if (createProfile || !services->accounts.activeProfile()) {
         accounts::Profile fresh;
-        int64_t id = settings->accounts().addProfile(fresh);
-        settings->accounts().setActiveProfileId(id);
+        int64_t id = services->accounts.addProfile(fresh);
+        services->accounts.setActiveProfileId(id);
     }
 
-    accounts::Profile* profile = settings->accounts().activeProfile();
+    accounts::Profile* profile = services->accounts.activeProfile();
 
     /*
      * Switching an existing profile between modes is not supported: delete it and add a
@@ -216,13 +216,13 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
     }
 
     if (!creds.onlineId.empty())
-        settings->accounts().setPsnOnlineId(creds.onlineId);
+        services->accounts.setPsnOnlineId(creds.onlineId);
     if (!creds.accountId.empty())
-        settings->accounts().setPsnAccountId(creds.accountId);
+        services->accounts.setPsnAccountId(creds.accountId);
 
-    settings->accounts().refreshLegacyGate();
-    settings->store().save();
-    settings->accounts().logProfileCensus("pair-after");
+    services->accounts.refreshLegacyGate();
+    services->store.save();
+    services->accounts.logProfileCensus("pair-after");
 
     auto* accounts = play::ChiakiCore::current().accounts();
     if (!accounts || creds.npsso.empty()) {
@@ -231,7 +231,7 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
         return;
     }
 
-    const int64_t profileId = settings->accounts().activeProfileId();
+    const int64_t profileId = services->accounts.activeProfileId();
     accounts->signIn(profileId, creds.npsso, creds.duid,
         [profileId](accounts::SignInOutcome outcome, const accounts::Accounts::User& user) {
             if (outcome != accounts::SignInOutcome::SignedIn || !user) {
@@ -246,13 +246,13 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
 }
 
 void PairView::adoptSignedInUser(int64_t profileId, const accounts::Accounts::User& user) {
-    settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-    settings->accounts().updateProfile(profileId, [&user](accounts::Profile& profile) {
+    auto* services = &app::ViewServices::current();
+    services->accounts.updateProfile(profileId, [&user](accounts::Profile& profile) {
         profile.accountId = accounts::Accounts::base64Of(user->account_id());
         profile.onlineId = user->online_id();
     });
-    settings->accounts().refreshLegacyGate();
-    settings->store().save();
+    services->accounts.refreshLegacyGate();
+    services->store.save();
 
     app::ViewServices::current().trophies.onActiveProfileChanged();
     /*

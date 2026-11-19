@@ -9,7 +9,7 @@
 #include <borealis/views/cells/cell_slider.hpp>
 #include <chrono>
 
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 
 namespace akira::settings::views {
 
@@ -29,7 +29,7 @@ private:
     BRLS_BIND(brls::BooleanCell, requestIdrOnFecFailureToggle, "settings/requestIdrOnFecFailure");
     BRLS_BIND(brls::SliderCell, packetLossMaxSlider, "settings/packetLossMax");
 
-    SettingsManager* settings = nullptr;
+    app::Services* services = nullptr;
     int powerUserClickCount = 0;
     std::chrono::steady_clock::time_point lastPowerUserClick;
 

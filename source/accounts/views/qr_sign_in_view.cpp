@@ -2,7 +2,7 @@
 #include "log/log.hpp"
 
 #include "play/chiaki_core.hpp"
-#include "settings/settings_manager.hpp"
+#include "app/view_services.hpp"
 #include "app/views/qr_code_view.hpp"
 #include "app/views/theme.hpp"
 #include "consoles/views/pair_view.hpp"
@@ -136,11 +136,11 @@ void QrSignInView::onSignedIn(SignInOutcome outcome, const Accounts::User& user)
         return;
     }
 
-    settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-    if (createProfile || !settings->accounts().activeProfile())
-        settings->accounts().setActiveProfileId(settings->accounts().addProfile(Profile{}));
+    auto* services = &app::ViewServices::current();
+    if (createProfile || !services->accounts.activeProfile())
+        services->accounts.setActiveProfileId(services->accounts.addProfile(Profile{}));
 
-    const Profile* profile = settings->accounts().activeProfile();
+    const Profile* profile = services->accounts.activeProfile();
     if (!profile)
         return;
     if (profile->legacy) {

@@ -12,8 +12,17 @@
 #include "log/core_log.hpp"
 #include "accounts/accounts.hpp"
 
+namespace akira::cloud {
+class CloudSettings;
+}
+
+namespace akira::consoles {
+class ConsoleSettings;
+}
+
 namespace akira::settings {
-class SettingsManager;
+class DeveloperSettings;
+class SettingsStore;
 }
 
 namespace akira::play {
@@ -24,7 +33,15 @@ public:
 
     static constexpr const char* recordRoot = "sdmc:/switch/akira";
 
-    ChiakiCore(settings::SettingsManager& settings, std::function<void()> signInRenewed);
+    struct Settings {
+        settings::SettingsStore& store;
+        settings::DeveloperSettings& developer;
+        cloud::CloudSettings& cloud;
+        accounts::AccountSettings& accounts;
+        consoles::ConsoleSettings& consoles;
+    };
+
+    ChiakiCore(Settings settings, std::function<void()> signInRenewed);
     ~ChiakiCore();
 
     ChiakiCore(const ChiakiCore&) = delete;
@@ -55,7 +72,7 @@ private:
 
     static ChiakiCore* instance;
 
-    settings::SettingsManager& settings;
+    Settings settings;
     std::function<void()> signInRenewed;
     libchiaking::platform::horizon::ThreadingProvider threadingProvider;
     libchiaking::platform::SteadyClock steadyClock;

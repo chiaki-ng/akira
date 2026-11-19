@@ -17,7 +17,7 @@ using namespace brls::literals;
 SettingsPowerUserView::SettingsPowerUserView() {
     this->inflateFromXMLRes("xml/settings/power_user.xml");
 
-    settings = SettingsManager::getInstance();
+    services = &app::ViewServices::current();
 
     initUnlockBitrateMaxToggle();
     if (auto& platform = app::ViewServices::current().platform; platform.supplies(akira::platform::PlatformCapability::stats_export))
@@ -46,10 +46,10 @@ SettingsPowerUserView::SettingsPowerUserView() {
 void SettingsPowerUserView::initUnlockBitrateMaxToggle() {
     unlockBitrateMaxToggle->init(
         "akira/settings/unlock_bitrate_max"_i18n,
-        settings->stream().unlockBitrateMax(),
+        services->stream.unlockBitrateMax(),
         [this](bool isOn) {
-            settings->stream().setUnlockBitrateMax(isOn);
-            settings->store().save();
+            services->stream.setUnlockBitrateMax(isOn);
+            services->store.save();
             log::info("Unlock Bitrate Max set to {}", isOn ? "true" : "false");
         }
     );
@@ -58,10 +58,10 @@ void SettingsPowerUserView::initUnlockBitrateMaxToggle() {
 void SettingsPowerUserView::initHideAccountNameToggle() {
     hideAccountNameToggle->init(
         "akira/settings/hide_account_name"_i18n,
-        settings->app().hideAccountName(),
+        services->appSettings.hideAccountName(),
         [this](bool isOn) {
-            settings->app().setHideAccountName(isOn);
-            settings->store().save();
+            services->appSettings.setHideAccountName(isOn);
+            services->store.save();
             consoles::views::HostListTab::notifyAccountNameDisplayChanged();
         }
     );
@@ -70,31 +70,31 @@ void SettingsPowerUserView::initHideAccountNameToggle() {
 void SettingsPowerUserView::initAutoReconnectToggle() {
     autoReconnectToggle->init(
         "akira/settings/auto_reconnect"_i18n,
-        settings->network().autoReconnect(),
+        services->networkSettings.autoReconnect(),
         [this](bool isOn) {
-            settings->network().setAutoReconnect(isOn);
-            settings->store().save();
+            services->networkSettings.setAutoReconnect(isOn);
+            services->store.save();
             log::info("Auto Reconnect set to {}", isOn ? "true" : "false");
         }
     );
 }
 
 void SettingsPowerUserView::initPortGuessingToggle() {
-    bool currentValue = settings->network().portGuessing();
+    bool currentValue = services->networkSettings.portGuessing();
 
     portGuessingToggle->init(
         "akira/settings/port_guessing"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->network().setPortGuessing(isOn);
-            settings->store().save();
+            services->networkSettings.setPortGuessing(isOn);
+            services->store.save();
             log::info("Port Guessing set to {}", isOn ? "true" : "false");
         }
     );
 }
 
 void SettingsPowerUserView::initPortGuessingCountSlider() {
-    int current = settings->network().portGuessingCount();
+    int current = services->networkSettings.portGuessingCount();
     constexpr int minVal = 1;
     constexpr int maxVal = 75;
     float normalized = static_cast<float>(current - minVal) / (maxVal - minVal);
@@ -108,9 +108,9 @@ void SettingsPowerUserView::initPortGuessingCountSlider() {
         [this](float value) {
             int count = static_cast<int>(1 + value * 74);
             count = std::max(1, std::min(75, count));
-            settings->network().setPortGuessingCount(count);
+            services->networkSettings.setPortGuessingCount(count);
             portGuessingCountSlider->detail->setText(std::format("{}", count));
-            settings->store().save();
+            services->store.save();
         }
     );
     portGuessingCountSlider->detail->setText(std::format("{}", current));
@@ -118,7 +118,7 @@ void SettingsPowerUserView::initPortGuessingCountSlider() {
 }
 
 void SettingsPowerUserView::initPortGuessingSocksSlider() {
-    int current = settings->network().portGuessingSocks();
+    int current = services->networkSettings.portGuessingSocks();
     constexpr int minVal = 1;
     constexpr int maxVal = 250;
     float normalized = static_cast<float>(current - minVal) / (maxVal - minVal);
@@ -132,9 +132,9 @@ void SettingsPowerUserView::initPortGuessingSocksSlider() {
         [this](float value) {
             int count = static_cast<int>(1 + value * 249);
             count = std::max(1, std::min(250, count));
-            settings->network().setPortGuessingSocks(count);
+            services->networkSettings.setPortGuessingSocks(count);
             portGuessingSocksSlider->detail->setText(std::format("{}", count));
-            settings->store().save();
+            services->store.save();
         }
     );
     portGuessingSocksSlider->detail->setText(std::format("{}", current));
