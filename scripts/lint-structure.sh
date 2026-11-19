@@ -90,6 +90,8 @@ while IFS= read -r file; do
                 "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*"[^"]*views/')"
         fi
     fi
+    report "ChiakiCore::current locator" "${file}" \
+        "$(code_lines "${file}" '\bChiakiCore::current\b')"
     singletons="$(code_lines "${file}" '\b(getInstance|GetInstance|instance)[[:space:]]*\([[:space:]]*\)')"
     if [ -n "${singletons}" ] && ! is_listed "${file}" "${SINGLETON_SEAMS_STILL_ALLOWED[@]+"${SINGLETON_SEAMS_STILL_ALLOWED[@]}"}"; then
         report "singleton accessor" "${file}" "${singletons}"
