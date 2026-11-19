@@ -34,9 +34,9 @@ std::vector<RendererChoice> NxPlatformFactory::rendererChoices() const
 
 std::unique_ptr<VideoProvider> NxPlatformFactory::createVideo()
 {
-    return std::make_unique<deko3d::Deko3dVideoProvider>(
-        deko3d::Deko3dVideoProvider::Labels{ .name = "Deko3d", .decoderName = "FFmpeg nvtegra", .decoderStat = "NVTEGRA" },
-        [] { return std::make_unique<nvtegra::NvtegraDecoder>(); },
+    return std::make_unique<deko3d::Deko3dVideoProvider>("Deko3d",
+        deko3d::Deko3dVideoProvider::DecoderChoice{ .name = "FFmpeg nvtegra", .stat = "NVTEGRA",
+            .make = [] { return std::make_unique<nvtegra::NvtegraDecoder>(); } },
         [] { return std::make_unique<uam::UamShaderSource>("romfs:/shaders"); });
 }
 

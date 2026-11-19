@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 #include "platform/video/deko3d/frame_decoder.hpp"
@@ -16,28 +17,30 @@ class Deko3dRenderer;
 class Deko3dVideoProvider final : public VideoProvider
 {
 public:
-    struct Labels
-    {
-        const char* name;
-        std::string_view decoderName;
-        std::string_view decoderStat;
-    };
-
     using DecoderFactory = std::function<std::unique_ptr<FrameDecoder>()>;
     using ShaderFactory = std::function<std::unique_ptr<ShaderSource>()>;
 
-    Deko3dVideoProvider(Labels labels, DecoderFactory makeDecoder, ShaderFactory makeShaders);
+    struct DecoderChoice
+    {
+        std::string_view name;
+        std::string_view stat;
+        DecoderFactory make;
+    };
+
+    Deko3dVideoProvider(const char* name, DecoderChoice decoder, ShaderFactory makeShaders,
+        std::optional<DecoderChoice> hevcDecoder = std::nullopt);
     ~Deko3dVideoProvider() override;
     Deko3dVideoProvider(const Deko3dVideoProvider&) = delete;
     Deko3dVideoProvider& operator=(const Deko3dVideoProvider&) = delete;
 
-    const char* name() const override { return m_labels.name; }
-    std::string_view decoderName() const override { return m_labels.decoderName; }
-    std::string_view decoderStat() const override { return m_labels.decoderStat; }
+    const char* name() const override { return m_name; }
+    std::string_view decoderName() const override { return active().name; }
+    std::string_view decoderStat() const override { return active().stat; }
     bool addSettings(brls::Box&) const override { return false; }
 
     VideoDecoder* decoder() override;
     VideoDecoder& ensureDecoder() override;
+    VideoDecoder& ensureDecoderFor(bool hevc) override;
     VideoRenderer* renderer() override;
 
     bool startRenderer(int width, int height, FrameHooks hooks) override;
@@ -45,9 +48,13 @@ public:
     void release() override;
 
 private:
-    Labels m_labels;
-    DecoderFactory m_make_decoder;
+    const DecoderChoice& active() const { return m_hevc_active ? *m_hevc_decoder : m_primary_decoder; }
+
+    const char* m_name;
+    DecoderChoice m_primary_decoder;
+    std::optional<DecoderChoice> m_hevc_decoder;
     ShaderFactory m_make_shaders;
+    bool m_hevc_active = false;
     std::unique_ptr<FrameDecoder> m_decoder;
     std::unique_ptr<Deko3dRenderer> m_renderer;
 };

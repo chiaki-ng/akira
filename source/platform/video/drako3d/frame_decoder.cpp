@@ -1,8 +1,5 @@
 #include "platform/video/drako3d/frame_decoder.hpp"
 
-#include <memory>
-#include <utility>
-
 #include <switch.h>
 
 #include "platform/video/drako3d/output_memory.hpp"
@@ -10,25 +7,7 @@
 namespace akira::platform::drako3d
 {
 
-ViddecFrameDecoder::ViddecFrameDecoder()
-{
-    m_decoder.setOutputMemory(std::make_shared<HostOutputMemory>());
-}
-
-void ViddecFrameDecoder::setFrameReadyCallback(FrameReadyCallback callback)
-{
-    if (!callback)
-    {
-        m_decoder.setFrameReadyCallback(nullptr);
-        return;
-    }
-    m_decoder.setFrameReadyCallback([callback = std::move(callback)](viddec::ViddecDecoder::Frame frame) {
-        if (frame)
-            callback(describe(frame));
-    });
-}
-
-deko3d::VideoFrame ViddecFrameDecoder::describe(const viddec::ViddecDecoder::Frame& frame)
+deko3d::VideoFrame Nv12FrameSource::describe(std::shared_ptr<const Nv12Frame> frame)
 {
     constexpr std::size_t page = HostOutputMemory::PageSize;
     auto* storage = const_cast<void*>(frame->backing());
@@ -43,7 +22,7 @@ deko3d::VideoFrame ViddecFrameDecoder::describe(const viddec::ViddecDecoder::Fra
         .chromaPitch = frame->chroma().pitch,
         .layout = deko3d::PlaneLayout::PitchLinear,
         .cacheKey = (frame->generation() << 8) | frame->slot(),
-        .lifetime = frame,
+        .lifetime = std::move(frame),
         .prepareCpuRead = [storage, size] { armDCacheFlush(storage, size); },
     };
 }

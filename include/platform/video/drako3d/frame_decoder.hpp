@@ -2,21 +2,43 @@
 
 #include <chrono>
 #include <cstddef>
+#include <memory>
+#include <utility>
 
 #include "platform/video/deko3d/frame_decoder.hpp"
-#include "platform/video/viddec/decoder.hpp"
+#include "platform/video/nv12_frame.hpp"
 
 namespace akira::platform::drako3d
 {
 
-class ViddecFrameDecoder final : public deko3d::FrameDecoder
+class Nv12FrameSource : public deko3d::FrameDecoder
+{
+protected:
+    static deko3d::VideoFrame describe(std::shared_ptr<const Nv12Frame> frame);
+};
+
+template <class Decoder>
+class Nv12FrameDecoder final : public Nv12FrameSource
 {
 public:
-    ViddecFrameDecoder();
-    ViddecFrameDecoder(const ViddecFrameDecoder&) = delete;
-    ViddecFrameDecoder& operator=(const ViddecFrameDecoder&) = delete;
+    Nv12FrameDecoder() = default;
+    Nv12FrameDecoder(const Nv12FrameDecoder&) = delete;
+    Nv12FrameDecoder& operator=(const Nv12FrameDecoder&) = delete;
 
-    void setFrameReadyCallback(FrameReadyCallback callback) override;
+    Decoder& decoder() { return m_decoder; }
+
+    void setFrameReadyCallback(FrameReadyCallback callback) override
+    {
+        if (!callback)
+        {
+            m_decoder.setFrameReadyCallback(nullptr);
+            return;
+        }
+        m_decoder.setFrameReadyCallback([callback = std::move(callback)](typename Decoder::Frame frame) {
+            if (frame)
+                callback(describe(std::move(frame)));
+        });
+    }
 
     bool initCodec(bool hevc, bool ps5, int width, int height) override { return m_decoder.initCodec(hevc, ps5, width, height); }
     bool initVideo(int width, int height) override { return m_decoder.initVideo(width, height); }
@@ -34,9 +56,7 @@ public:
     bool lastDecodeCorrupt() const override { return m_decoder.lastDecodeCorrupt(); }
 
 private:
-    static deko3d::VideoFrame describe(const viddec::ViddecDecoder::Frame& frame);
-
-    viddec::ViddecDecoder m_decoder;
+    Decoder m_decoder;
 };
 
 }

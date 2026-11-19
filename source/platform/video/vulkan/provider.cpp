@@ -28,16 +28,9 @@ std::string_view VulkanVideoProvider::decoderStat() const
 
 bool VulkanVideoProvider::addSettings(brls::Box& group) const
 {
-    auto* settings = SettingsManager::getInstance();
-    auto* softwareHevc = new brls::BooleanCell();
-    softwareHevc->init("akira/settings/software_hevc"_i18n, settings->getSoftwareHevc(), [settings](bool isOn) {
-        settings->setSoftwareHevc(isOn);
-        settings->writeFile();
-        brls::Logger::info("Software HEVC set to {}", isOn ? "on" : "off");
-    });
-    softwareHevc->setId("settings/softwareHevc");
-    group.addView(softwareHevc);
+    akira::platform::software::HevcDecoder::addSetting(group);
 
+    auto* settings = SettingsManager::getInstance();
     auto* zeroCopy = new brls::BooleanCell();
     zeroCopy->init("akira/settings/zero_copy"_i18n, settings->getZeroCopyVideo(), [settings](bool isOn) {
         settings->setZeroCopyVideo(isOn);

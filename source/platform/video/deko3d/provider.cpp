@@ -7,8 +7,12 @@
 namespace akira::platform::deko3d
 {
 
-Deko3dVideoProvider::Deko3dVideoProvider(Labels labels, DecoderFactory makeDecoder, ShaderFactory makeShaders)
-    : m_labels(labels), m_make_decoder(std::move(makeDecoder)), m_make_shaders(std::move(makeShaders))
+Deko3dVideoProvider::Deko3dVideoProvider(const char* name, DecoderChoice decoder, ShaderFactory makeShaders,
+    std::optional<DecoderChoice> hevcDecoder)
+    : m_name(name)
+    , m_primary_decoder(std::move(decoder))
+    , m_hevc_decoder(std::move(hevcDecoder))
+    , m_make_shaders(std::move(makeShaders))
 {
 }
 
@@ -22,8 +26,18 @@ VideoDecoder* Deko3dVideoProvider::decoder()
 VideoDecoder& Deko3dVideoProvider::ensureDecoder()
 {
     if (!m_decoder)
-        m_decoder = m_make_decoder();
+        m_decoder = active().make();
     return *m_decoder;
+}
+
+VideoDecoder& Deko3dVideoProvider::ensureDecoderFor(bool hevc)
+{
+    const bool useHevcDecoder = hevc && m_hevc_decoder.has_value();
+    if (m_decoder && useHevcDecoder == m_hevc_active)
+        return *m_decoder;
+    m_decoder.reset();
+    m_hevc_active = useHevcDecoder;
+    return ensureDecoder();
 }
 
 VideoRenderer* Deko3dVideoProvider::renderer()
@@ -62,6 +76,7 @@ void Deko3dVideoProvider::release()
         m_renderer->waitIdle();
     m_renderer.reset();
     m_decoder.reset();
+    m_hevc_active = false;
 }
 
 }

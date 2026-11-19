@@ -25,8 +25,7 @@ PlatformFactory& PlatformFactory::instance()
 
 PlatformInfo OuncePlatformFactory::info() const noexcept
 {
-    const auto* settings = SettingsManager::getInstance();
-    const bool softwareHevc = settings->getSoftwareHevc() && settings->getVideoRenderer() == RendererKind::Vulkan;
+    const bool softwareHevc = SettingsManager::getInstance()->getSoftwareHevc();
     return {"ounce", softwareHevc ? PlatformCapability::fsr_4k | PlatformCapability::hevc : PlatformCapability::fsr_4k};
 }
 

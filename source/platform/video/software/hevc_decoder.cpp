@@ -12,14 +12,31 @@
 
 #include <borealis.hpp>
 
+#include "core/settings_manager.hpp"
+
 extern "C"
 {
 #include <libavutil/error.h>
 #include <libavutil/pixdesc.h>
 }
 
+using namespace brls::literals;
+
 namespace akira::platform::software
 {
+
+void HevcDecoder::addSetting(brls::Box& group)
+{
+    auto* settings = SettingsManager::getInstance();
+    auto* cell = new brls::BooleanCell();
+    cell->init("akira/settings/software_hevc"_i18n, settings->getSoftwareHevc(), [settings](bool isOn) {
+        settings->setSoftwareHevc(isOn);
+        settings->writeFile();
+        brls::Logger::info("Software HEVC set to {}", isOn ? "on" : "off");
+    });
+    cell->setId("settings/softwareHevc");
+    group.addView(cell);
+}
 
 HevcDecoder::HevcDecoder() = default;
 

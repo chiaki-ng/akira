@@ -20,10 +20,11 @@ public:
     const char* name() const override { return m_deko3d.name(); }
     std::string_view decoderName() const override { return m_deko3d.decoderName(); }
     std::string_view decoderStat() const override { return m_deko3d.decoderStat(); }
-    bool addSettings(brls::Box&) const override { return false; }
+    bool addSettings(brls::Box& group) const override;
 
     VideoDecoder* decoder() override { return m_deko3d.decoder(); }
     VideoDecoder& ensureDecoder() override { return m_deko3d.ensureDecoder(); }
+    VideoDecoder& ensureDecoderFor(bool hevc) override { return m_deko3d.ensureDecoderFor(hevc); }
     VideoRenderer* renderer() override { return m_deko3d.renderer(); }
 
     bool startRenderer(int width, int height, FrameHooks hooks) override

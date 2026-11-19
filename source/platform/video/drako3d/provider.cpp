@@ -8,17 +8,32 @@
 
 #include "platform/video/deko3d/dksh_shader_source.hpp"
 #include "platform/video/drako3d/frame_decoder.hpp"
+#include "platform/video/drako3d/output_memory.hpp"
+#include "platform/video/software/hevc_decoder.hpp"
+#include "platform/video/viddec/decoder.hpp"
 
 namespace akira::platform::drako3d
 {
 
 Drako3dVideoProvider::Drako3dVideoProvider()
-    : m_deko3d(
-          deko3d::Deko3dVideoProvider::Labels{
-              .name = "drako3d", .decoderName = "Switch 2 hardware decoder", .decoderStat = "HW" },
-          [] { return std::make_unique<ViddecFrameDecoder>(); },
-          [] { return std::make_unique<deko3d::DkshShaderSource>(std::string(ShaderDirectory)); })
+    : m_deko3d("drako3d",
+          deko3d::Deko3dVideoProvider::DecoderChoice{ .name = "Switch 2 hardware decoder", .stat = "HW",
+              .make =
+                  [] {
+                      auto decoder = std::make_unique<Nv12FrameDecoder<viddec::ViddecDecoder>>();
+                      decoder->decoder().setOutputMemory(std::make_shared<HostOutputMemory>());
+                      return decoder;
+                  } },
+          [] { return std::make_unique<deko3d::DkshShaderSource>(std::string(ShaderDirectory)); },
+          deko3d::Deko3dVideoProvider::DecoderChoice{ .name = "Switch 2 software HEVC decoder", .stat = "SW",
+              .make = [] { return std::make_unique<Nv12FrameDecoder<software::HevcDecoder>>(); } })
 {
+}
+
+bool Drako3dVideoProvider::addSettings(brls::Box& group) const
+{
+    software::HevcDecoder::addSetting(group);
+    return true;
 }
 
 bool Drako3dVideoProvider::shadersPresent()
