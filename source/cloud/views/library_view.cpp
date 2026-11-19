@@ -2,6 +2,9 @@
 #include "app/view_services.hpp"
 #include "log/log.hpp"
 
+#include "cloud/catalog_rows.hpp"
+#include "cloud/cloud_shortcuts.hpp"
+#include "cloud/game_badges.hpp"
 #include "cloud/views/game_detail_view.hpp"
 
 #include "app/view_services.hpp"
@@ -112,7 +115,8 @@ public:
         const std::function<void(const Game&)>& onPin)
     {
         const auto& pal = app::views::active();
-        bool streamable = game.streamableNow() && !game.launchLeftOut;
+        const GameBadges badges(game);
+        bool streamable = badges.playable();
 
         boundGame = game;
         launchCb = onLaunch;
@@ -126,35 +130,10 @@ public:
         cover->setAlpha(streamable ? 1.0f : 0.5f);
         cover->clear();
 
-        pillRow->setAlpha(game.launchLeftOut ? 0.5f : 1.0f);
+        pillRow->setAlpha(badges.leftOut() ? 0.5f : 1.0f);
         pillRow->clearViews();
-        std::string platform = platformBadge(game);
-        if (!platform.empty())
-        {
-            NVGcolor pc = game.platform == "ps5" ? pal.accentStrong
-                        : game.platform == "ps4" ? pal.textMuted
-                                                  : pal.media;
-            pillRow->addView(makePill(platform, pc));
-        }
-        if (game.plusCatalog)
-            pillRow->addView(makePill("akira/cloud/badge_plus"_i18n, pal.gold));
-        if (game.serviceType == "pscloud")
-        {
-            if (game.streamabilityStatus == StreamabilityStatus::Streamable)
-                pillRow->addView(makePill("akira/cloud/badge_verified"_i18n, pal.success));
-            else if (game.streamabilityStatus == StreamabilityStatus::NotStreamable)
-                pillRow->addView(makePill("akira/cloud/badge_unavailable"_i18n, pal.danger));
-            else
-                pillRow->addView(makePill("akira/cloud/badge_unverified"_i18n, pal.textMuted));
-        }
-        std::string category = categoryBadge(game);
-        if (!category.empty())
-        {
-            NVGcolor cc = game.isOwned ? pal.success
-                        : game.category == "streamable" ? pal.media
-                                                         : pal.warning;
-            pillRow->addView(makePill(category, cc));
-        }
+        for (const GameBadges::Badge& badge : badges.badges())
+            pillRow->addView(pillFor(badge));
 
         iconUrl = game.artworkUrl();
         if (iconUrl.empty())
@@ -168,6 +147,25 @@ public:
                     if (card->iconUrl == url)
                         card->cover->setImageFromMem(bytes.data(), static_cast<int>(bytes.size()));
             });
+    }
+
+    static brls::Box* pillFor(const GameBadges::Badge& badge)
+    {
+        const auto& pal = app::views::active();
+        switch (badge.kind)
+        {
+            case GameBadges::Kind::PlatformPs5: return makePill(badge.label, pal.accentStrong);
+            case GameBadges::Kind::PlatformPs4: return makePill(badge.label, pal.textMuted);
+            case GameBadges::Kind::PlatformOther: return makePill(badge.label, pal.media);
+            case GameBadges::Kind::Plus: return makePill("akira/cloud/badge_plus"_i18n, pal.gold);
+            case GameBadges::Kind::Verified: return makePill("akira/cloud/badge_verified"_i18n, pal.success);
+            case GameBadges::Kind::Unavailable: return makePill("akira/cloud/badge_unavailable"_i18n, pal.danger);
+            case GameBadges::Kind::Unverified: return makePill("akira/cloud/badge_unverified"_i18n, pal.textMuted);
+            case GameBadges::Kind::CategoryOwned: return makePill(badge.label, pal.success);
+            case GameBadges::Kind::CategoryCatalog: return makePill(badge.label, pal.media);
+            case GameBadges::Kind::CategoryOther: break;
+        }
+        return makePill(badge.label, pal.warning);
     }
 
     void reset()
@@ -215,15 +213,15 @@ public:
         return new CloudGameRowCell();
     }
 
-    void bindRow(const std::vector<Game>& games, size_t startIndex,
+    void bindRow(const std::vector<Game>& games, size_t row,
         const std::function<void(const Game&)>& onLaunch,
         const std::function<void(const Game&)>& onPin)
     {
+        const CatalogRows rows(games.size(), kCloudPerRow);
         for (size_t i = 0; i < kCloudPerRow; i++)
         {
-            size_t idx = startIndex + i;
-            if (idx < games.size())
-                cards[i]->bind(games[idx], onLaunch, onPin);
+            if (const auto idx = rows.gameAt(row, i))
+                cards[i]->bind(games[*idx], onLaunch, onPin);
             else
                 cards[i]->reset();
         }
@@ -250,7 +248,7 @@ public:
 
     size_t getItemCount() override
     {
-        return (games.size() + kCloudPerRow - 1) / kCloudPerRow;
+        return CatalogRows(games.size(), kCloudPerRow).rows();
     }
 
     float heightForRow(brls::View* recycler, size_t index) override
@@ -263,7 +261,7 @@ public:
         auto* cell = dynamic_cast<CloudGameRowCell*>(recycler->dequeueReusableCell("CloudRow"));
         if (!cell)
             return nullptr;
-        cell->bindRow(games, index * kCloudPerRow, onLaunch, onPin);
+        cell->bindRow(games, index, onLaunch, onPin);
         return cell;
     }
 
@@ -536,50 +534,49 @@ void LibraryView::renderSnapshot(const Snapshot& snapshot)
     const auto& pal = app::views::active();
     const Status& status = snapshot.status;
 
-    canPairState = status.canPair;
-    checkingState = status.availability == Availability::Checking;
+    libraryStatus = LibraryStatus(status);
 
     std::string chipText;
     NVGcolor chipColor = pal.textDim;
-    bool chipShown = true;
-    switch (status.availability)
+    const auto chip = libraryStatus.chip();
+    const bool chipShown = chip.has_value();
+    if (chip)
     {
-        case Availability::Ready:
-            chipText = "akira/cloud/chip_ready"_i18n;
-            chipColor = pal.success;
-            break;
-        case Availability::CatalogAvailable:
-            chipText = "akira/cloud/chip_catalog"_i18n;
-            chipColor = pal.warning;
-            break;
-        case Availability::SubscriptionRequired:
-            chipText = "akira/cloud/chip_unavailable"_i18n;
-            chipColor = pal.danger;
-            break;
-        case Availability::Warning:
-        case Availability::LaunchBlocked:
-            chipText = "akira/cloud/chip_warning"_i18n;
-            chipColor = pal.warning;
-            break;
-        case Availability::Empty:
-            chipText = "akira/cloud/chip_empty"_i18n;
-            chipColor = pal.textDim;
-            break;
-        case Availability::NeedsPairing:
-            chipText = "akira/cloud/chip_pair"_i18n;
-            chipColor = pal.accent;
-            break;
-        case Availability::Checking:
-            chipText = "akira/cloud/chip_checking"_i18n;
-            chipColor = pal.accent;
-            break;
-        case Availability::Error:
-            chipText = "akira/cloud/chip_error"_i18n;
-            chipColor = pal.danger;
-            break;
-        default:
-            chipShown = false;
-            break;
+        switch (*chip)
+        {
+            case LibraryStatus::Chip::Ready:
+                chipText = "akira/cloud/chip_ready"_i18n;
+                chipColor = pal.success;
+                break;
+            case LibraryStatus::Chip::Catalog:
+                chipText = "akira/cloud/chip_catalog"_i18n;
+                chipColor = pal.warning;
+                break;
+            case LibraryStatus::Chip::Unavailable:
+                chipText = "akira/cloud/chip_unavailable"_i18n;
+                chipColor = pal.danger;
+                break;
+            case LibraryStatus::Chip::Warning:
+                chipText = "akira/cloud/chip_warning"_i18n;
+                chipColor = pal.warning;
+                break;
+            case LibraryStatus::Chip::Empty:
+                chipText = "akira/cloud/chip_empty"_i18n;
+                chipColor = pal.textDim;
+                break;
+            case LibraryStatus::Chip::Pair:
+                chipText = "akira/cloud/chip_pair"_i18n;
+                chipColor = pal.accent;
+                break;
+            case LibraryStatus::Chip::Checking:
+                chipText = "akira/cloud/chip_checking"_i18n;
+                chipColor = pal.accent;
+                break;
+            case LibraryStatus::Chip::Error:
+                chipText = "akira/cloud/chip_error"_i18n;
+                chipColor = pal.danger;
+                break;
+        }
     }
 
     statusChip->setVisibility(chipShown ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
@@ -648,37 +645,29 @@ void LibraryView::showState(const Snapshot& snapshot)
     stateBox->clearViews();
     stateBox->setVisibility(brls::Visibility::VISIBLE);
 
+    const LibraryStatus shown(st);
     std::string glyph = "\xEE\x8A\xBD";
-    NVGcolor glyphColor = pal.accent;
+    switch (shown.glyph())
+    {
+        case LibraryStatus::Glyph::Pair: glyph = "\xEE\x85\x97"; break;
+        case LibraryStatus::Glyph::Alert: glyph = "\xEE\x8B\x81"; break;
+        case LibraryStatus::Glyph::Cloud: break;
+    }
+    NVGcolor glyphColor = pal.textDim;
+    switch (shown.tone())
+    {
+        case LibraryStatus::Tone::Accent: glyphColor = pal.accent; break;
+        case LibraryStatus::Tone::Danger: glyphColor = pal.danger; break;
+        case LibraryStatus::Tone::Dim: break;
+    }
     std::string title = st.title;
     std::string detail = st.detail;
-    enum StateAction { ActNone, ActPair, ActRefresh } action = ActNone;
-
-    switch (st.availability)
+    if (shown.emptyLibrary())
     {
-        case Availability::NeedsPairing:
-            glyph = "\xEE\x85\x97";
-            action = ActPair;
-            break;
-        case Availability::Empty:
-            glyphColor = pal.textDim;
-            title = "akira/cloud/empty_none_title"_i18n;
-            detail = "akira/cloud/empty_none_detail"_i18n;
-            action = ActRefresh;
-            break;
-        case Availability::Error:
-        case Availability::LaunchBlocked:
-            glyph = "\xEE\x8B\x81";
-            glyphColor = pal.danger;
-            action = ActRefresh;
-            break;
-        case Availability::Checking:
-            glyphColor = pal.accent;
-            break;
-        default:
-            glyphColor = pal.textDim;
-            break;
+        title = "akira/cloud/empty_none_title"_i18n;
+        detail = "akira/cloud/empty_none_detail"_i18n;
     }
+    const LibraryStatus::Action action = shown.action();
 
     auto* panel = new brls::Box();
     panel->setAxis(brls::Axis::COLUMN);
@@ -701,7 +690,7 @@ void LibraryView::showState(const Snapshot& snapshot)
     t->setMarginBottom(8);
     panel->addView(t);
 
-    if (st.availability == Availability::Checking)
+    if (shown.checking())
         addLoadingLines(panel, detail);
     else if (!detail.empty())
     {
@@ -716,14 +705,14 @@ void LibraryView::showState(const Snapshot& snapshot)
     }
 
     brls::Button* actionBtn = nullptr;
-    if (action == ActPair)
+    if (action == LibraryStatus::Action::Pair)
     {
         actionBtn = new brls::Button();
         actionBtn->setText("akira/cloud/pair"_i18n);
         actionBtn->registerClickAction([this](brls::View*) { openSignIn(); return true; });
         panel->addView(actionBtn);
     }
-    else if (action == ActRefresh)
+    else if (action == LibraryStatus::Action::Refresh)
     {
         actionBtn = new brls::Button();
         actionBtn->setText("akira/cloud/check_again"_i18n);
@@ -753,14 +742,11 @@ void LibraryView::showCatalog(const Snapshot& snapshot)
 void LibraryView::scheduleUnlock()
 {
     const uint64_t scheduled = ++unlockGeneration;
-    const auto next = listing.nextUnlock();
-    if (!next)
+    const auto wait = listing.unlockDelay();
+    if (!wait)
         return;
-    constexpr int64_t margin = 2000;
-    constexpr int64_t longest = 24LL * 3600 * 1000;
-    const int64_t wait = std::min(*next - listing.now() + margin, longest);
     auto guard = alive;
-    brls::delay(static_cast<long>(wait), [this, guard, scheduled]() {
+    brls::delay(static_cast<long>(*wait), [this, guard, scheduled]() {
         if (!*guard || scheduled != unlockGeneration)
             return;
         log::info("CloudLib: a scheduled release is due, reloading the library");
@@ -871,22 +857,7 @@ void LibraryView::updateSearchButton()
 
 void LibraryView::applyFilter()
 {
-    std::vector<Game> filtered = listing.matching();
-
-    auto ciless = [](const std::string& a, const std::string& b) {
-        return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(),
-            [](unsigned char c1, unsigned char c2) { return std::tolower(c1) < std::tolower(c2); });
-    };
-    const bool recencyOrder = listing.filter() == LibraryFilter::Recent && listing.query().empty();
-    if (!recencyOrder && sortState == 1)
-        std::sort(filtered.begin(), filtered.end(),
-            [&ciless](const Game& a, const Game& b) { return ciless(a.name, b.name); });
-    else if (!recencyOrder && sortState == 2)
-        std::sort(filtered.begin(), filtered.end(),
-            [&ciless](const Game& a, const Game& b) { return ciless(b.name, a.name); });
-    else if (!recencyOrder)
-        std::stable_sort(filtered.begin(), filtered.end(),
-            [](const Game& a, const Game& b) { return a.streamableNow() && !b.streamableNow(); });
+    std::vector<Game> filtered = listing.ordered(LibraryListing::orderOf(sortState));
 
     rebuildFilterControls();
 
@@ -944,19 +915,23 @@ void LibraryView::openSortPicker()
 
 void LibraryView::openOverflowMenu()
 {
-    enum Op { Refresh, Pair, ClearCache };
-
+    const std::vector<LibraryStatus::Option> ops = libraryStatus.options();
     std::vector<std::string> names;
-    std::vector<int> ops;
-    names.push_back(checkingState ? "akira/cloud/refresh_busy"_i18n : "akira/cloud/refresh"_i18n);
-    ops.push_back(Refresh);
-    if (canPairState)
+    for (LibraryStatus::Option op : ops)
     {
-        names.push_back("akira/cloud/pair"_i18n);
-        ops.push_back(Pair);
+        switch (op)
+        {
+            case LibraryStatus::Option::Refresh:
+                names.push_back(libraryStatus.checking() ? "akira/cloud/refresh_busy"_i18n : "akira/cloud/refresh"_i18n);
+                break;
+            case LibraryStatus::Option::Pair:
+                names.push_back("akira/cloud/pair"_i18n);
+                break;
+            case LibraryStatus::Option::ClearCache:
+                names.push_back("akira/cloud/cache_clear"_i18n);
+                break;
+        }
     }
-    names.push_back("akira/cloud/cache_clear"_i18n);
-    ops.push_back(ClearCache);
 
     auto guard = alive;
     auto* dropdown = new brls::Dropdown(
@@ -966,9 +941,9 @@ void LibraryView::openOverflowMenu()
                 return;
             switch (ops[static_cast<size_t>(sel)])
             {
-            case Refresh: refresh(true); break;
-            case Pair: openSignIn(); break;
-            case ClearCache: clearCatalogCache(); break;
+            case LibraryStatus::Option::Refresh: refresh(true); break;
+            case LibraryStatus::Option::Pair: openSignIn(); break;
+            case LibraryStatus::Option::ClearCache: clearCatalogCache(); break;
             }
         },
         0);
@@ -986,43 +961,40 @@ void LibraryView::updateSortButton()
 {
     if (!sortButton)
         return;
-    std::string key = sortState == 1 ? "akira/cloud/sort_az"
-                    : sortState == 2 ? "akira/cloud/sort_za"
-                                     : "akira/cloud/sort_playable";
+    std::string key;
+    switch (LibraryListing::orderOf(sortState))
+    {
+        case LibraryOrder::AToZ: key = "akira/cloud/sort_az"; break;
+        case LibraryOrder::ZToA: key = "akira/cloud/sort_za"; break;
+        case LibraryOrder::Playable: key = "akira/cloud/sort_playable"; break;
+    }
     sortButton->setText(brls::getStr(key));
 }
 
 void LibraryView::toggleShortcut(const Game& game)
 {
-    if (!game.launchable())
-        return;
     auto* services = &app::ViewServices::current();
-    std::vector<Game> shortcuts = services->accounts.cloudShortcuts();
-    auto it = std::find_if(shortcuts.begin(), shortcuts.end(),
-        [&](const Game& g) { return g.productId == game.productId; });
+    CloudShortcuts shortcuts(services->accounts.cloudShortcuts());
 
-    bool added;
-    if (it != shortcuts.end())
+    bool added = false;
+    switch (shortcuts.toggle(game))
     {
-        shortcuts.erase(it);
-        added = false;
-    }
-    else
-    {
-        if (game.launchLeftOut)
-        {
+        case CloudShortcuts::Toggle::Ignored:
+            return;
+        case CloudShortcuts::Toggle::NotBuilt:
             brls::Application::notify("akira/cloud/launch_not_built"_i18n);
             return;
-        }
-        if (!game.streamableNow())
-        {
+        case CloudShortcuts::Toggle::NeedsLibrary:
             showAddGameDialog(game);
             return;
-        }
-        shortcuts.push_back(game);
-        added = true;
+        case CloudShortcuts::Toggle::Removed:
+            added = false;
+            break;
+        case CloudShortcuts::Toggle::Added:
+            added = true;
+            break;
     }
-    services->accounts.setCloudShortcuts(shortcuts);
+    services->accounts.setCloudShortcuts(shortcuts.games());
     services->store.save();
     brls::Application::notify(added ? "akira/cloud/shortcut_added"_i18n
                                     : "akira/cloud/shortcut_removed"_i18n);

@@ -19,6 +19,8 @@
 #include "cloud/game_actions.hpp"
 #include "cloud/library_listing.hpp"
 #include "cloud/models.hpp"
+#include "cloud/status.hpp"
+#include "cloud/title_refresh.hpp"
 #include "app/background_work.hpp"
 
 class HttpPool;
@@ -28,42 +30,6 @@ class AccountSettings;
 }
 
 namespace akira::cloud {
-
-enum class Availability {
-    NoProfile,
-    NeedsPairing,
-    Checking,
-    CatalogAvailable,
-    SubscriptionRequired,
-    Ready,
-    Warning,
-    Empty,
-    Error,
-    LaunchBlocked
-};
-
-struct Status {
-    Availability availability = Availability::NoProfile;
-    std::string title;
-    std::string detail;
-    bool canBrowse = false;
-    bool canPair = false;
-    bool degraded = false;
-    int gameCount = 0;
-    PlusMembership plusMembership = PlusMembership::Unknown;
-};
-
-struct TitleRefresh {
-    enum class Outcome {
-        Added,
-        NotInLibrary,
-        Failed
-    };
-
-    Outcome outcome = Outcome::Failed;
-    std::optional<Game> game;
-    std::string message;
-};
 
 struct Snapshot {
     Status status;

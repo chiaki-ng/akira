@@ -3,6 +3,8 @@
 #include "app/view_services.hpp"
 
 #include "cloud/cloud_connect_task.hpp"
+#include "cloud/game_facts.hpp"
+#include "cloud/release_notice.hpp"
 #include "app/views/qr_code_view.hpp"
 #include "app/views/theme.hpp"
 #include "play/views/connecting_view.hpp"
@@ -20,7 +22,7 @@ namespace akira::cloud::views {
 using namespace brls::literals;
 
 GameDetailView::GameDetailView(Game shownGame, std::vector<Game> listedGames)
-    : game(std::move(shownGame)), listed(std::move(listedGames))
+    : game(std::move(shownGame)), listed(std::move(listedGames)), titleRefresh(kTitleRefreshCooldown)
 {
     this->setAxis(brls::Axis::COLUMN);
     this->setWidthPercentage(100.0f);
@@ -50,23 +52,6 @@ GameDetailView::~GameDetailView()
     *alive = false;
     static_cast<void>(lifetime.request_stop());
     static_cast<void>(launchStop.request_stop());
-}
-
-auto GameDetailView::checkOf(libchiaking::catalog::LaunchCheck check) -> LaunchChecks::Check
-{
-    using Core = libchiaking::catalog::LaunchCheck;
-    switch (check)
-    {
-        case Core::loading_library: return LaunchChecks::Check::LoadingLibrary;
-        case Core::membership: return LaunchChecks::Check::Membership;
-        case Core::cloud_streaming: return LaunchChecks::Check::CloudStreaming;
-        case Core::ownership: return LaunchChecks::Check::Ownership;
-        case Core::entitlement: return LaunchChecks::Check::Entitlement;
-        case Core::cloud_game: return LaunchChecks::Check::CloudGame;
-        case Core::exclusions: return LaunchChecks::Check::Exclusions;
-        case Core::release: return LaunchChecks::Check::Release;
-    }
-    return LaunchChecks::Check::LoadingLibrary;
 }
 
 auto GameDetailView::nowMs() -> int64_t
@@ -245,7 +230,7 @@ void GameDetailView::startCardCheck()
 
 auto GameDetailView::actions() const -> GameActions
 {
-    return GameActions(game, app::ViewServices::current().cloud.signedIn(), cardCheck, titleRefresh == TitleRefreshPhase::Idle);
+    return GameActions(game, app::ViewServices::current().cloud.signedIn(), cardCheck, titleRefresh.idle());
 }
 
 void GameDetailView::render()
@@ -268,40 +253,30 @@ auto GameDetailView::metadataLabel(const std::string& text, NVGcolor color) -> b
 
 auto GameDetailView::standingText(Standing standing, const Game& game) -> std::string
 {
-    if (game.isTrial && standing != Standing::Store && standing != Standing::OwnershipUnknown)
+    switch (GameActions::standingNote(standing, game))
     {
-        std::string lower = game.name;
-        std::ranges::transform(lower, lower.begin(), [](unsigned char c) { return std::tolower(c); });
-        const bool demo = lower == "demo" || lower.starts_with("demo ") || lower.ends_with(" demo") ||
-                          lower.find(" demo ") != std::string::npos;
-        return demo ? "akira/cloud/standing_demo"_i18n : "akira/cloud/standing_trial"_i18n;
-    }
-    switch (standing)
-    {
-        case Standing::MayStream: return "akira/cloud/standing_may_stream"_i18n;
-        case Standing::InLibrary: return "akira/cloud/standing_in_library"_i18n;
-        case Standing::Included: return "akira/cloud/standing_included"_i18n;
-        case Standing::Store:
-        case Standing::OwnershipUnknown: return "akira/cloud/standing_store"_i18n;
+        case GameActions::StandingNote::Demo: return "akira/cloud/standing_demo"_i18n;
+        case GameActions::StandingNote::Trial: return "akira/cloud/standing_trial"_i18n;
+        case GameActions::StandingNote::MayStream: return "akira/cloud/standing_may_stream"_i18n;
+        case GameActions::StandingNote::InLibrary: return "akira/cloud/standing_in_library"_i18n;
+        case GameActions::StandingNote::Included: return "akira/cloud/standing_included"_i18n;
+        case GameActions::StandingNote::Store: return "akira/cloud/standing_store"_i18n;
     }
     return {};
 }
 
 auto GameDetailView::releaseText(const Game& game, int64_t now) -> std::optional<std::string>
 {
-    switch (game.release)
-    {
-        case ReleaseKind::Unrestricted: return std::nullopt;
-        case ReleaseKind::Unannounced: return "akira/cloud/release_unannounced"_i18n;
-        case ReleaseKind::Scheduled: break;
-    }
-    const int64_t remainingMs = game.availableFromMs - now;
-    if (remainingMs <= 0)
+    const auto notice = ReleaseNotice::of(game, now);
+    if (!notice)
         return std::nullopt;
-    const int64_t remaining = (remainingMs + 999) / 1000;
-    if (remaining < 86400 * 7)
-        return brls::getStr("akira/cloud/release_in", Game::countdown(remaining));
-    const std::time_t at = static_cast<std::time_t>(game.availableFromMs / 1000);
+    switch (notice->kind())
+    {
+        case ReleaseNotice::Kind::Unannounced: return "akira/cloud/release_unannounced"_i18n;
+        case ReleaseNotice::Kind::Countdown: return brls::getStr("akira/cloud/release_in", Game::countdown(notice->seconds()));
+        case ReleaseNotice::Kind::Date: break;
+    }
+    const std::time_t at = static_cast<std::time_t>(notice->atMs() / 1000);
     std::tm local = *std::localtime(&at);
     char text[64];
     std::strftime(text, sizeof(text), "%d %b %Y %H:%M", &local);
@@ -420,20 +395,10 @@ void GameDetailView::renderActions()
             false, shown.refreshTitleFocusable(), [this]() { refreshTitle(); });
     }
 
-    const bool playEnabled = actionButton(GameActions::Focus::Play) != nullptr;
-    brls::Button* target = nullptr;
-    if (playEnabled && !playWasEnabled && (!previous || previous == GameActions::Focus::Play))
-        target = actionButton(GameActions::Focus::Play);
-    else if (previous)
-        target = actionButton(*previous);
-    if (!target && previous == GameActions::Focus::AddToLibrary)
-        target = actionButton(GameActions::Focus::RefreshTitle);
-    if (!target)
-        for (GameActions::Focus focus : shown.focusOrder())
-            if ((target = actionButton(focus)))
-                break;
+    const auto target = shown.refocus(previous, playWasEnabled,
+        [this](GameActions::Focus focus) { return actionButton(focus) != nullptr; });
     if (focusInside && target)
-        brls::Application::giveFocus(target);
+        brls::Application::giveFocus(actionButton(*target));
 }
 
 auto GameDetailView::cardCheckText(const CardCheck& check) -> std::optional<std::string>
@@ -476,9 +441,10 @@ void GameDetailView::renderNotes()
     hintLabel->setText("akira/cloud/detail_library_hint"_i18n);
     hintLabel->setVisibility(shown.showsLibraryAddHint() ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
 
-    const bool notice = shown.showsTitleNotice() && titleNotice;
-    noticeLabel->setText(titleNotice.value_or(""));
-    noticeLabel->setTextColor(titleNoticeAdded ? pal.success : pal.textMuted);
+    const auto titleText = titleNotice();
+    const bool notice = shown.showsTitleNotice() && titleText;
+    noticeLabel->setText(titleText.value_or(""));
+    noticeLabel->setTextColor(titleRefresh.outcome() == TitleRefresh::Outcome::Added ? pal.success : pal.textMuted);
     noticeLabel->setVisibility(notice ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
 }
 
@@ -603,22 +569,14 @@ void GameDetailView::renderBand(const GameDetail& detail)
     }
 
     std::vector<std::pair<std::string, std::string>> facts;
-    if (!detail.publisher.empty())
-        facts.emplace_back("akira/cloud/fact_publisher"_i18n, detail.publisher);
-    if (detail.releasedMs)
+    for (const GameFacts::Entry& entry : GameFacts(detail).entries())
     {
-        const std::time_t at = static_cast<std::time_t>(*detail.releasedMs / 1000);
-        std::tm utc = *std::gmtime(&at);
-        char text[64];
-        std::strftime(text, sizeof(text), "%d %B %Y", &utc);
-        facts.emplace_back("akira/cloud/fact_released"_i18n, text);
-    }
-    if (!detail.genres.empty())
-    {
-        std::string genres;
-        for (const std::string& genre : detail.genres)
-            genres += (genres.empty() ? "" : ", ") + genre;
-        facts.emplace_back("akira/cloud/fact_genres"_i18n, genres);
+        switch (entry.fact)
+        {
+            case GameFacts::Fact::Publisher: facts.emplace_back("akira/cloud/fact_publisher"_i18n, entry.value); break;
+            case GameFacts::Fact::Released: facts.emplace_back("akira/cloud/fact_released"_i18n, entry.value); break;
+            case GameFacts::Fact::Genres: facts.emplace_back("akira/cloud/fact_genres"_i18n, entry.value); break;
+        }
     }
     if (!facts.empty())
     {
@@ -643,30 +601,9 @@ void GameDetailView::renderBand(const GameDetail& detail)
     }
 }
 
-auto GameDetailView::bundleChoices() const -> std::vector<Game>
-{
-    std::vector<Game> choices;
-    for (const BundledGame& child : game.bundle)
-    {
-        if (!child.launchable || child.productId.empty())
-            continue;
-        auto match = std::ranges::find_if(listed, [&](const Game& candidate) {
-            return candidate.productId != game.productId &&
-                   (candidate.productId == child.productId ||
-                    (!child.entitlementId.empty() && candidate.entitlementId == child.entitlementId));
-        });
-        Game choice = match != listed.end() ? *match : game;
-        choice.productId = child.productId;
-        choice.bundle.clear();
-        choice.launchBlock = LaunchBlock::None;
-        choices.push_back(std::move(choice));
-    }
-    return choices;
-}
-
 void GameDetailView::chooseBundleGame()
 {
-    std::vector<Game> choices = bundleChoices();
+    std::vector<Game> choices = GameActions::bundleChoices(game, listed);
     if (choices.empty())
         return;
     std::vector<std::string> names;
@@ -717,7 +654,7 @@ void GameDetailView::checkAndPlay(const Game& target)
         [this, current](libchiaking::catalog::LaunchCheck check) {
             if (!current())
                 return;
-            checks->observe(checkOf(check));
+            checks->observe(LaunchChecks::checkOf(check));
             checkRow->show(checks);
         });
 }
@@ -732,57 +669,41 @@ void GameDetailView::showStorePage(bool addingToLibrary)
 
 void GameDetailView::refreshTitle()
 {
-    if (titleRefresh != TitleRefreshPhase::Idle || !game.canBeAddedToLibrary)
+    if (!game.canBeAddedToLibrary)
         return;
-    titleRefresh = TitleRefreshPhase::Checking;
-    titleNotice.reset();
-    refreshReadyAt = std::chrono::steady_clock::now() + kTitleRefreshCooldown;
-    refreshShownSecond = -1;
-    const uint64_t attempt = ++refreshAttempt;
+    const auto started = titleRefresh.begin(std::chrono::steady_clock::now());
+    if (!started)
+        return;
     render();
 
     auto guard = alive;
-    app::ViewServices::current().cloud.refreshTitle(game, lifetime.token(), [this, guard, attempt](TitleRefresh refreshed) {
-        if (!*guard || attempt != refreshAttempt || titleRefresh != TitleRefreshPhase::Checking)
+    app::ViewServices::current().cloud.refreshTitle(game, lifetime.token(), [this, guard, attempt = *started](TitleRefresh refreshed) {
+        if (!*guard || !titleRefresh.finish(attempt, refreshed, std::chrono::steady_clock::now()))
             return;
-        titleRefresh = refreshSecondsLeft() > 0 ? TitleRefreshPhase::CoolingDown : TitleRefreshPhase::Idle;
-        titleNoticeAdded = refreshed.outcome == TitleRefresh::Outcome::Added;
-        switch (refreshed.outcome)
-        {
-            case TitleRefresh::Outcome::Added:
-                titleNotice = "akira/cloud/title_added"_i18n;
-                if (refreshed.game)
-                    game = *refreshed.game;
-                break;
-            case TitleRefresh::Outcome::NotInLibrary:
-                titleNotice = "akira/cloud/title_not_in_library"_i18n;
-                break;
-            case TitleRefresh::Outcome::Failed:
-                titleNotice = refreshed.message;
-                break;
-        }
+        if (refreshed.outcome == TitleRefresh::Outcome::Added && refreshed.game)
+            game = *refreshed.game;
         render();
     });
 }
 
 void GameDetailView::tickRefreshCooldown()
 {
-    if (titleRefresh != TitleRefreshPhase::CoolingDown)
-        return;
-    const int left = refreshSecondsLeft();
-    if (left <= 0)
+    switch (titleRefresh.tick(std::chrono::steady_clock::now()))
     {
-        titleRefresh = TitleRefreshPhase::Idle;
-        auto guard = alive;
-        brls::sync([this, guard]() {
-            if (*guard)
-                render();
-        });
-        return;
+        case TitleRefreshCooldown::Tick::Unchanged:
+            return;
+        case TitleRefreshCooldown::Tick::Idle:
+        {
+            auto guard = alive;
+            brls::sync([this, guard]() {
+                if (*guard)
+                    render();
+            });
+            return;
+        }
+        case TitleRefreshCooldown::Tick::Second:
+            break;
     }
-    if (left == refreshShownSecond)
-        return;
-    refreshShownSecond = left;
     for (const auto& [kind, button] : buttons)
         if (kind == GameActions::Focus::RefreshTitle)
             button->setText(refreshText());
@@ -790,24 +711,30 @@ void GameDetailView::tickRefreshCooldown()
 
 auto GameDetailView::refreshText() const -> std::string
 {
-    switch (titleRefresh)
+    switch (titleRefresh.phase())
     {
-        case TitleRefreshPhase::Checking:
+        case TitleRefreshCooldown::Phase::Checking:
             return "akira/cloud/detail_refresh_checking"_i18n;
-        case TitleRefreshPhase::CoolingDown:
-            return brls::getStr("akira/cloud/detail_refresh_wait", refreshSecondsLeft());
-        case TitleRefreshPhase::Idle:
+        case TitleRefreshCooldown::Phase::CoolingDown:
+            return brls::getStr("akira/cloud/detail_refresh_wait", titleRefresh.secondsLeft(std::chrono::steady_clock::now()));
+        case TitleRefreshCooldown::Phase::Idle:
             break;
     }
     return "akira/cloud/detail_refresh"_i18n;
 }
 
-auto GameDetailView::refreshSecondsLeft() const -> int
+auto GameDetailView::titleNotice() const -> std::optional<std::string>
 {
-    const auto left = refreshReadyAt - std::chrono::steady_clock::now();
-    if (left <= std::chrono::steady_clock::duration::zero())
-        return 0;
-    return static_cast<int>(std::chrono::ceil<std::chrono::seconds>(left).count());
+    const auto& outcome = titleRefresh.outcome();
+    if (!outcome)
+        return std::nullopt;
+    switch (*outcome)
+    {
+        case TitleRefresh::Outcome::Added: return "akira/cloud/title_added"_i18n;
+        case TitleRefresh::Outcome::NotInLibrary: return "akira/cloud/title_not_in_library"_i18n;
+        case TitleRefresh::Outcome::Failed: break;
+    }
+    return titleRefresh.message();
 }
 
 brls::View* GameDetailView::getDefaultFocus()

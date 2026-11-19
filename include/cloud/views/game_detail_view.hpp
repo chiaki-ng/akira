@@ -16,6 +16,7 @@
 #include "cloud/launch_checks.hpp"
 #include "cloud/models.hpp"
 #include "cloud/service.hpp"
+#include "cloud/title_refresh_cooldown.hpp"
 
 namespace akira::cloud::views {
 
@@ -47,12 +48,6 @@ private:
         std::optional<LaunchChecks> shown;
     };
 
-    enum class TitleRefreshPhase {
-        Idle,
-        Checking,
-        CoolingDown
-    };
-
     void buildStage();
     void buildBand();
     void loadDetails();
@@ -71,9 +66,8 @@ private:
     void refreshTitle();
     void tickRefreshCooldown();
     auto refreshText() const -> std::string;
-    auto refreshSecondsLeft() const -> int;
+    auto titleNotice() const -> std::optional<std::string>;
     auto actions() const -> GameActions;
-    auto bundleChoices() const -> std::vector<Game>;
     auto focusedAction() const -> std::optional<GameActions::Focus>;
     auto actionButton(GameActions::Focus focus) const -> brls::Button*;
 
@@ -82,7 +76,6 @@ private:
     static auto releaseText(const Game& game, int64_t nowMs) -> std::optional<std::string>;
     static auto metadataLabel(const std::string& text, NVGcolor color) -> brls::Label*;
     static auto nowMs() -> int64_t;
-    static auto checkOf(libchiaking::catalog::LaunchCheck check) -> LaunchChecks::Check;
 
     static constexpr float kStageHeight = 500.0f;
     static constexpr float kInset = 64.0f;
@@ -94,14 +87,9 @@ private:
     std::vector<Game> listed;
     std::optional<CardCheck> cardCheck;
     std::optional<LaunchChecks> checks;
-    std::optional<std::string> titleNotice;
-    bool titleNoticeAdded = false;
-    TitleRefreshPhase titleRefresh = TitleRefreshPhase::Idle;
-    std::chrono::steady_clock::time_point refreshReadyAt{};
-    int refreshShownSecond = -1;
+    TitleRefreshCooldown titleRefresh;
     bool parkingFocus = false;
     uint64_t attempts = 0;
-    uint64_t refreshAttempt = 0;
 
     libchiaking::platform::StopSource lifetime;
     libchiaking::platform::StopSource launchStop;

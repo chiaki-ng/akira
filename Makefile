@@ -89,6 +89,13 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/cloud/library_listing.cpp \
                 $(CURDIR)/source/cloud/game_actions.cpp \
                 $(CURDIR)/source/cloud/launch_checks.cpp \
+                $(CURDIR)/source/cloud/library_status.cpp \
+                $(CURDIR)/source/cloud/catalog_rows.cpp \
+                $(CURDIR)/source/cloud/cloud_shortcuts.cpp \
+                $(CURDIR)/source/cloud/game_badges.cpp \
+                $(CURDIR)/source/cloud/game_facts.cpp \
+                $(CURDIR)/source/cloud/release_notice.cpp \
+                $(CURDIR)/source/cloud/title_refresh_cooldown.cpp \
                 $(CURDIR)/source/cloud/start_steps.cpp \
                 $(CURDIR)/source/cloud/fetch_progress.cpp \
                 $(CURDIR)/source/consoles/pair_crypto.cpp \

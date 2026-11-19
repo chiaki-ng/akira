@@ -1,6 +1,7 @@
 #ifndef AKIRA_CLOUD_GAME_ACTIONS_HPP
 #define AKIRA_CLOUD_GAME_ACTIONS_HPP
 
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -62,6 +63,15 @@ public:
         RefreshTitle
     };
 
+    enum class StandingNote {
+        Demo,
+        Trial,
+        MayStream,
+        InLibrary,
+        Included,
+        Store
+    };
+
     struct Play {
         std::optional<Offer> offer;
         bool allowed = false;
@@ -79,12 +89,17 @@ public:
     bool showsLibraryAddHint() const { return addToLibrary; }
     bool showsTitleNotice() const { return launchChecks || addToLibrary; }
     auto focusOrder() const -> std::vector<Focus>;
+    auto refocus(std::optional<Focus> previous, bool playWasEnabled,
+                 const std::function<bool(Focus)>& focusable) const -> std::optional<Focus>;
 
     static auto standingAfter(const Game& game, const std::optional<CardCheck>& check) -> Standing;
     static bool isStoreUrl(std::string_view url);
+    static auto standingNote(Standing standing, const Game& game) -> StandingNote;
+    static auto bundleChoices(const Game& game, const std::vector<Game>& listed) -> std::vector<Game>;
 
 private:
     static auto offerFor(const Game& game, bool signedIn) -> std::optional<Offer>;
+    static bool namesDemo(const std::string& name);
 
     std::optional<Play> playButton;
     std::optional<StoreTitle> storeLink;

@@ -10,6 +10,7 @@
 
 #include "cloud/fetch_progress.hpp"
 #include "cloud/library_listing.hpp"
+#include "cloud/library_status.hpp"
 #include "cloud/service.hpp"
 #include "app/views/vendored/switchfin/recycling_grid.hpp"
 
@@ -67,8 +68,7 @@ private:
     brls::Box* statusChip = nullptr;
     brls::Label* statusChipLabel = nullptr;
     brls::Label* countLabel = nullptr;
-    bool canPairState = false;
-    bool checkingState = false;
+    LibraryStatus libraryStatus;
     app::views::RecyclingGrid* grid = nullptr;
     brls::Box* stateBox = nullptr;
     app::views::RecyclingGridDataSource* dataSource = nullptr;
