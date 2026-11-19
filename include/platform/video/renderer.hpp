@@ -6,7 +6,7 @@
 #include <vector>
 #include <atomic>
 #include <cstdint>
-#include "stream/stream_stats.hpp"
+#include "play/stream_stats.hpp"
 
 
 // Abstract interface for video rendering

@@ -3,7 +3,7 @@
 
 #include <borealis.hpp>
 
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 #include "platform/stats/nxext/ipc_service.hpp"
 
 using namespace brls::literals;

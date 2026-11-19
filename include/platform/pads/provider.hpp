@@ -8,7 +8,7 @@
 #include <libchiaking/play.hpp>
 
 #include "platform/pads/pad.hpp"
-#include "input/rumble_profile.hpp"
+#include "play/rumble_profile.hpp"
 
 class InputManager;
 struct StreamStats;

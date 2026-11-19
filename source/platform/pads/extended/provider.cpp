@@ -4,10 +4,10 @@
 
 #include <algorithm>
 
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 #include "platform/pads/extended/ps_output.hpp"
-#include "stream/input_manager.hpp"
-#include "stream/stream_stats.hpp"
+#include "play/input_manager.hpp"
+#include "play/stream_stats.hpp"
 
 namespace akira::platform::extended
 {

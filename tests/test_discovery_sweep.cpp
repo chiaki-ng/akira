@@ -1,6 +1,6 @@
 #include "test_util.hpp"
 
-#include "core/discovery_sweep.hpp"
+#include "consoles/discovery_sweep.hpp"
 
 #include <arpa/inet.h>
 #include <cstdint>

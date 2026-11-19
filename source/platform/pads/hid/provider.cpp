@@ -1,6 +1,6 @@
 #include "platform/pads/hid/provider.hpp"
 
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 #include "platform/pad_settings/hid/provider.hpp"
 
 namespace akira::platform::hid

@@ -9,7 +9,7 @@
 
 #include "cloud/cloud_launch.hpp"
 #include "cloud/models.hpp"
-#include "views/connect_task.hpp"
+#include "play/views/connect_task.hpp"
 
 namespace cloud {
 

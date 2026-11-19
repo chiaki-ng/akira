@@ -16,8 +16,8 @@ extern "C" {
 
 #include <borealis/extern/nlohmann/json.hpp>
 
-#include "core/settings_manager.hpp"
-#include "core/version.hpp"
+#include "settings/settings_manager.hpp"
+#include "app/version.hpp"
 #include "util/curl_wrappers.hpp"
 #include "util/http.hpp"
 #include "util/semver.hpp"

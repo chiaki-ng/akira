@@ -1,6 +1,6 @@
 #include "cloud/cloud_launch.hpp"
 
-#include "core/chiaki_core.hpp"
+#include "play/chiaki_core.hpp"
 
 #include <borealis.hpp>
 #include <borealis/core/i18n.hpp>

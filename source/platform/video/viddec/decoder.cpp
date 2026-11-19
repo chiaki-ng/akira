@@ -1,6 +1,6 @@
 #include "platform/video/viddec/decoder.hpp"
 #include "platform/video/viddec/h264_sps.hpp"
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 #include "log/log.hpp"
 
 #include <algorithm>

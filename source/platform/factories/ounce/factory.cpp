@@ -5,7 +5,7 @@
 #include <borealis.hpp>
 #include <borealis/platforms/switch/switch_platform.hpp>
 
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 
 #include "platform/feedback/hid/provider.hpp"
 #include "platform/haptics/hid/provider.hpp"

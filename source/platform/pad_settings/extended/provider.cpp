@@ -4,12 +4,12 @@
 
 #include <borealis.hpp>
 
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 #include "platform/pads/extended/ps_output.hpp"
 #include "platform/pads/extended/rumble_keys.hpp"
 #include "platform/pads/extended/extended_input_manager.hpp"
 #include "platform/pad_settings/extended/lightbar_picker.hpp"
-#include "views/settings_pad_view.hpp"
+#include "settings/views/settings_pad_view.hpp"
 
 using namespace brls::literals;
 

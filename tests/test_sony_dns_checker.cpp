@@ -1,5 +1,5 @@
 #include "test_util.hpp"
-#include "util/sony_dns_checker.hpp"
+#include "network/sony_dns_checker.hpp"
 
 #include <vector>
 

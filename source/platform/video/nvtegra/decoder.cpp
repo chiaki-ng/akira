@@ -5,8 +5,8 @@
 #include <chrono>
 #include <cstring>
 #include <memory>
-#include "core/exception.hpp"
-#include "core/settings_manager.hpp"
+#include "app/exception.hpp"
+#include "settings/settings_manager.hpp"
 #include "util/av_wrappers.hpp"
 
 #ifdef BOREALIS_USE_DEKO3D

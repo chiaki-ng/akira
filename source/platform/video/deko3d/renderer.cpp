@@ -5,9 +5,9 @@
 
 #include <borealis/core/assets.hpp>
 #include <nanovg_dk.h>
-#include "core/wireguard_manager.hpp"
-#include "core/settings_manager.hpp"
-#include "ui/theme.hpp"
+#include "network/wireguard_manager.hpp"
+#include "settings/settings_manager.hpp"
+#include "app/views/theme.hpp"
 #include <borealis.hpp>
 #include <borealis/platforms/switch/switch_platform.hpp>
 #include <algorithm>

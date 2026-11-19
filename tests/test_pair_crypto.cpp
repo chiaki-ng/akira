@@ -1,6 +1,6 @@
 #include "test_util.hpp"
 
-#include "core/pair_crypto.hpp"
+#include "consoles/pair_crypto.hpp"
 
 #include <libchiaking/platform/crypto/openssl/provider.hpp>
 #include <libchiaking/platform/runtime/random_provider.hpp>

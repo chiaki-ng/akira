@@ -1,6 +1,6 @@
 #include "platform/pads/extended/extended_input_manager.hpp"
 #include "platform/pad_settings/extended/provider.hpp"
-#include "input/sample_cadence.hpp"
+#include "play/sample_cadence.hpp"
 #include "log/log.hpp"
 
 #include <cstring>
@@ -9,8 +9,8 @@
 
 #include <mutex>
 
-#include "core/settings_manager.hpp"
-#include "core/chiaki_core.hpp"
+#include "settings/settings_manager.hpp"
+#include "play/chiaki_core.hpp"
 #include "platform/pads/extended/pad_path.hpp"
 #include "platform/pads/extended/ps_output.hpp"
 

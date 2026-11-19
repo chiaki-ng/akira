@@ -4,7 +4,7 @@
 #include <borealis/core/i18n.hpp>
 
 #include "cloud/service.hpp"
-#include "core/host.hpp"
+#include "consoles/host.hpp"
 
 #include <string>
 

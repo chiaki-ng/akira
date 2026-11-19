@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <span>
 
-#include "input/rumble_profile.hpp"
+#include "play/rumble_profile.hpp"
 
 class HapticManager;
 

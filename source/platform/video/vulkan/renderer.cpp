@@ -2,9 +2,9 @@
 #include "platform/video/vulkan/decoder_output.hpp"
 #include "log/log.hpp"
 
-#include "core/settings_manager.hpp"
-#include "core/wireguard_manager.hpp"
-#include "ui/theme.hpp"
+#include "settings/settings_manager.hpp"
+#include "network/wireguard_manager.hpp"
+#include "app/views/theme.hpp"
 
 #include <borealis/core/assets.hpp>
 

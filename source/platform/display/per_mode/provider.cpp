@@ -3,7 +3,7 @@
 
 #include <switch.h>
 
-#include "util/crash_report.hpp"
+#include "app/crash_report.hpp"
 
 namespace akira::platform::per_mode
 {

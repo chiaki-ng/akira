@@ -7,7 +7,7 @@
 #include "platform/pads/extended/pad_path_hos.hpp"
 #include "platform/pads/extended/pad_path_mc.hpp"
 
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 #include "platform/pads/extended/extended_input_manager.hpp"
 
 #include <borealis.hpp>

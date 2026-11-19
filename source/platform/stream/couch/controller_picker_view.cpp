@@ -7,8 +7,8 @@
 #include "platform/stream/couch/battery_pips.hpp"
 #include "platform/stream/couch/pad_art.hpp"
 
-#include "ui/glass.hpp"
-#include "ui/theme.hpp"
+#include "app/views/glass.hpp"
+#include "app/views/theme.hpp"
 
 #include <borealis/core/i18n.hpp>
 

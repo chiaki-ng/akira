@@ -4,7 +4,7 @@
 #include <optional>
 #include <string>
 
-#include "input/rumble_profile.hpp"
+#include "play/rumble_profile.hpp"
 
 namespace brls
 {

@@ -2,9 +2,9 @@
 #include "platform/pad_settings/extended/provider.hpp"
 #include "log/log.hpp"
 
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 #include "platform/pads/extended/rumble_keys.hpp"
-#include "stream/haptic_manager.hpp"
+#include "play/haptic_manager.hpp"
 #include "platform/pads/extended/provider.hpp"
 
 namespace akira::platform::extended

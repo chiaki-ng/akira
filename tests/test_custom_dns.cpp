@@ -1,5 +1,5 @@
 #include "test_util.hpp"
-#include "util/custom_dns.hpp"
+#include "network/custom_dns.hpp"
 
 using akira::net::CustomDns;
 

@@ -19,7 +19,7 @@
 #include "cloud/game_actions.hpp"
 #include "cloud/library_listing.hpp"
 #include "cloud/models.hpp"
-#include "core/background_work.hpp"
+#include "app/background_work.hpp"
 
 class SettingsManager;
 

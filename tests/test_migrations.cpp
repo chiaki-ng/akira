@@ -5,15 +5,15 @@
 #include <string>
 #include <string_view>
 
-#include "core/migrations/m000_baseline.hpp"
-#include "core/migrations/m001_unify_psn_auth.hpp"
-#include "core/migrations/m002_multi_profile.hpp"
-#include "core/migrations/m003_drop_hardened_nat.hpp"
-#include "core/migrations/m004_cloud_datacenter_tables.hpp"
-#include "core/migrations/m005_group_settings_tables.hpp"
-#include "core/migrations/m006_split_cloud_video_by_service.hpp"
-#include "core/migrations/m007_split_psn_sign_ins.hpp"
-#include "core/migrations/registry.hpp"
+#include "settings/migrations/m000_baseline.hpp"
+#include "settings/migrations/m001_unify_psn_auth.hpp"
+#include "settings/migrations/m002_multi_profile.hpp"
+#include "settings/migrations/m003_drop_hardened_nat.hpp"
+#include "settings/migrations/m004_cloud_datacenter_tables.hpp"
+#include "settings/migrations/m005_group_settings_tables.hpp"
+#include "settings/migrations/m006_split_cloud_video_by_service.hpp"
+#include "settings/migrations/m007_split_psn_sign_ins.hpp"
+#include "settings/migrations/registry.hpp"
 
 namespace {
 

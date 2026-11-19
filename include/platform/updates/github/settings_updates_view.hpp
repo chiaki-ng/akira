@@ -9,7 +9,7 @@
 #include <borealis/views/cells/cell_detail.hpp>
 #include <borealis/views/cells/cell_selector.hpp>
 
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 
 namespace akira::platform::github
 {

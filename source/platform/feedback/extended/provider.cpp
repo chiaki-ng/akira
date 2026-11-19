@@ -3,7 +3,7 @@
 #include <cstring>
 
 #include "platform/pads/extended/ps_output.hpp"
-#include "stream/haptic_manager.hpp"
+#include "play/haptic_manager.hpp"
 #include "platform/pads/extended/provider.hpp"
 
 namespace akira::platform::extended

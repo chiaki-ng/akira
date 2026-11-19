@@ -1,6 +1,6 @@
 #include "test_util.hpp"
 
-#include "input/rumble_profile.hpp"
+#include "play/rumble_profile.hpp"
 #include "platform/pads/extended/pad_output_state.hpp"
 #include "platform/pads/extended/rumble_keys.hpp"
 

@@ -1,6 +1,6 @@
 #include "test_util.hpp"
 
-#include "input/sample_cadence.hpp"
+#include "play/sample_cadence.hpp"
 
 using namespace std::chrono_literals;
 

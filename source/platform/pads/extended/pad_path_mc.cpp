@@ -6,7 +6,7 @@
 
 #include "platform/pads/extended/extended_input_manager.hpp"
 #include "platform/pads/extended/ps_output.hpp"
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 
 #include <borealis.hpp>
 

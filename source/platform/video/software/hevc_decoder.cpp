@@ -13,7 +13,7 @@
 
 #include <borealis.hpp>
 
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 
 extern "C"
 {

@@ -6,13 +6,13 @@
 #include <utility>
 #include <vector>
 
-#include "core/host.hpp"
-#include "core/settings_manager.hpp"
-#include "core/trophy_manager.hpp"
-#include "stream/connection.hpp"
+#include "consoles/host.hpp"
+#include "settings/settings_manager.hpp"
+#include "trophies/trophy_manager.hpp"
+#include "play/connection.hpp"
 #include "platform/pads/extended/provider.hpp"
-#include "ui/glass.hpp"
-#include "ui/theme.hpp"
+#include "app/views/glass.hpp"
+#include "app/views/theme.hpp"
 
 namespace akira::platform::couch
 {

@@ -3,7 +3,7 @@
 
 #include <borealis.hpp>
 
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 #include "platform/video/software/hevc_decoder.hpp"
 #include "platform/video/viddec/decoder.hpp"
 #include "platform/video/vulkan/renderer.hpp"

@@ -11,11 +11,11 @@
 #include <memory>
 #include <string>
 
-#include "core/settings_manager.hpp"
-#include "core/version.hpp"
+#include "settings/settings_manager.hpp"
+#include "app/version.hpp"
 #include "util/http_pool.hpp"
-#include "views/progress_ring.hpp"
-#include "views/quit_dialog.hpp"
+#include "play/views/progress_ring.hpp"
+#include "play/views/quit_dialog.hpp"
 
 using namespace brls::literals;
 

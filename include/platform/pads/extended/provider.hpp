@@ -11,7 +11,7 @@
 #include <switch.h>
 
 #include "platform/pads/extended/controller_timing.hpp"
-#include "input/sample_cadence.hpp"
+#include "play/sample_cadence.hpp"
 #include "platform/pads/extended/extended_input_manager.hpp"
 #include "platform/pads/extended/pad_path.hpp"
 #include "platform/pads/provider.hpp"

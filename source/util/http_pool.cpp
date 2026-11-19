@@ -2,7 +2,7 @@
 #include "log/log.hpp"
 
 
-#include "core/chiaki_core.hpp"
+#include "play/chiaki_core.hpp"
 
 
 HttpPool& HttpPool::instance()

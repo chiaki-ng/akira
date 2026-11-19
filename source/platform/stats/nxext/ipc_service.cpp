@@ -1,6 +1,6 @@
 #include "platform/stats/nxext/ipc_service.hpp"
-#include "stream/session.hpp"
-#include "core/wireguard_manager.hpp"
+#include "play/session.hpp"
+#include "network/wireguard_manager.hpp"
 #include <akira/ipc.h>
 #include <cstring>
 #include "log/log.hpp"

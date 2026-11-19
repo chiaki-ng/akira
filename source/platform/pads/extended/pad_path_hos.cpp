@@ -1,7 +1,7 @@
 #include "platform/pads/extended/pad_path_hos.hpp"
 #include "log/log.hpp"
 
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 
 #include <borealis.hpp>
 

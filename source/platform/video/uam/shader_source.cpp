@@ -8,7 +8,7 @@
 
 #include <uam.h>
 
-#include "core/settings_manager.hpp"
+#include "settings/settings_manager.hpp"
 
 namespace akira::platform::uam
 {

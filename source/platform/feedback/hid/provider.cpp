@@ -1,6 +1,6 @@
 #include "platform/feedback/hid/provider.hpp"
 
-#include "stream/haptic_manager.hpp"
+#include "play/haptic_manager.hpp"
 
 namespace akira::platform::hid
 {

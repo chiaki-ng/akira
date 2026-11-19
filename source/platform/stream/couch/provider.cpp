@@ -3,12 +3,12 @@
 
 #include <borealis.hpp>
 
-#include "core/host.hpp"
+#include "consoles/host.hpp"
 #include "platform/pads/extended/provider.hpp"
-#include "stream/connection.hpp"
+#include "play/connection.hpp"
 #include "platform/stream/couch/controller_picker_view.hpp"
 #include "platform/stream/couch/players_panel_view.hpp"
-#include "views/stream_menu.hpp"
+#include "play/views/stream_menu.hpp"
 
 using namespace brls::literals;
 

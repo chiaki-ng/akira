@@ -14,8 +14,8 @@
 #include <system_error>
 #include <utility>
 
-#include "core/chiaki_core.hpp"
-#include "core/settings_manager.hpp"
+#include "play/chiaki_core.hpp"
+#include "settings/settings_manager.hpp"
 #include "util/http_pool.hpp"
 
 using namespace brls::literals;

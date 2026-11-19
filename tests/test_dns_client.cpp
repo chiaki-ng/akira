@@ -1,5 +1,5 @@
 #include "test_util.hpp"
-#include "util/dns_client.hpp"
+#include "network/dns_client.hpp"
 
 #include <array>
 #include <span>

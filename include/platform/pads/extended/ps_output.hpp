@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "input/ds5_intensity.hpp"
+#include "play/ds5_intensity.hpp"
 
 #include <cstddef>
 #include <cstring>

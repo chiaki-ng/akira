@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <string>
 
-#include "input/rumble_profile.hpp"
+#include "play/rumble_profile.hpp"
 #include "platform/pads/extended/ps_output.hpp"
 
 namespace akira::platform::extended {

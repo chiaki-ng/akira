@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "platform/updates/github/update_manager.hpp"
-#include "core/version.hpp"
+#include "app/version.hpp"
 #include "util/http_pool.hpp"
 #include "platform/updates/github/update_flow.hpp"
 
