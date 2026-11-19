@@ -260,9 +260,9 @@ void PairView::adoptSignedInUser(int64_t profileId, const accounts::Accounts::Us
      * cached catalog carries the previous one's owned games.
      */
 #if AKIRA_CLOUD
-    cloud::Service::instance().clearCatalogCache();
-    cloud::Service::instance().markActiveProfileDirty();
-    cloud::Service::instance().refreshActiveProfile(true);
+    app::ViewServices::current().cloud.clearCatalogCache();
+    app::ViewServices::current().cloud.markActiveProfileDirty();
+    app::ViewServices::current().cloud.refreshActiveProfile(true);
 #endif
     HostListTab::notifyActiveProfileChanged();
 }

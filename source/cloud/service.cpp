@@ -15,7 +15,7 @@
 #include <utility>
 
 #include "play/chiaki_core.hpp"
-#include "settings/settings_manager.hpp"
+#include "accounts/account_settings.hpp"
 #include "util/http_pool.hpp"
 
 namespace akira::cloud {
@@ -25,15 +25,9 @@ using namespace brls::literals;
 namespace catalog = libchiaking::catalog;
 namespace platform = libchiaking::platform;
 
-Service& Service::instance()
+Service::Service(const accounts::AccountSettings& accountSettings, HttpPool& http)
+    : accountSettings(accountSettings), http(http)
 {
-    static Service instance;
-    return instance;
-}
-
-Service::Service()
-{
-    settings = settings::SettingsManager::getInstance();
     std::error_code ignored;
     if (std::filesystem::remove_all(LEGACY_CACHE_DIR, ignored) > 0)
         log::info("Cloud: removed the old catalog cache");
@@ -413,7 +407,7 @@ Snapshot Service::snapshotOf(const FetchFailure& failure)
 
 Snapshot Service::snapshotForActiveProfile() const
 {
-    const accounts::Profile* profile = settings->accounts().activeProfile();
+    const accounts::Profile* profile = accountSettings.activeProfile();
     if (!profile)
         return defaultSnapshotForProfile(false, false);
 
@@ -427,7 +421,7 @@ Snapshot Service::snapshotForActiveProfile() const
 
 void Service::markActiveProfileDirty()
 {
-    const accounts::Profile* profile = settings->accounts().activeProfile();
+    const accounts::Profile* profile = accountSettings.activeProfile();
     if (!profile)
         return;
 
@@ -439,7 +433,7 @@ void Service::markActiveProfileDirty()
 
 void Service::clearCatalogCache()
 {
-    const accounts::Profile* profile = settings->accounts().activeProfile();
+    const accounts::Profile* profile = accountSettings.activeProfile();
     if (!profile)
         return;
 
@@ -456,7 +450,7 @@ void Service::refreshInBackground()
 {
     if (!play::ChiakiCore::current().opened())
         return;
-    if (const accounts::Profile* profile = settings->accounts().activeProfile())
+    if (const accounts::Profile* profile = accountSettings.activeProfile())
     {
         std::lock_guard<std::mutex> lock(mutex);
         const auto it = entries.find(profile->id);
@@ -481,7 +475,7 @@ void Service::refreshActiveProfile(bool force, SnapshotCallback onDone, FetchCal
         }
     }
 
-    const accounts::Profile* profile = settings->accounts().activeProfile();
+    const accounts::Profile* profile = accountSettings.activeProfile();
     if (!profile)
     {
         Snapshot snapshot = defaultSnapshotForProfile(false, false);
@@ -559,7 +553,7 @@ void Service::refreshActiveProfile(bool force, SnapshotCallback onDone, FetchCal
         return;
     }
 
-    HttpPool::instance().submit([this, profileId, generation, user = std::move(user), force, stop = *started](HttpSession&) {
+    http.submit([this, profileId, generation, user = std::move(user), force, stop = *started](HttpSession&) {
         runRefresh(profileId, generation, user, force, stop);
     });
 }
@@ -715,7 +709,7 @@ void Service::detailsOf(const Game& game, const platform::StopToken& stop, Detai
         brls::sync([onDone]() { onDone(std::nullopt); });
         return;
     }
-    HttpPool::instance().submit([user = std::move(user), product = *product, stop, onDone](HttpSession&) {
+    http.submit([user = std::move(user), product = *product, stop, onDone](HttpSession&) {
         auto details = catalogOf().details_of(*user, product, stop);
         if (stop.stop_requested())
             return;
@@ -748,7 +742,7 @@ void Service::imageOf(const std::string& url, int width, const platform::StopTok
         brls::sync([onDone]() { onDone({}); });
         return;
     }
-    HttpPool::instance().submit([image = *image, stop, onDone](HttpSession&) {
+    http.submit([image = *image, stop, onDone](HttpSession&) {
         auto bytes = catalogOf().image_of(image, stop);
         if (stop.stop_requested())
             return;
@@ -776,7 +770,7 @@ void Service::checkStorefront(const Game& game, const platform::StopToken& stop,
         brls::sync([onDone]() { onDone(CardCheck::unavailable("akira/cloud/check_no_sign_in"_i18n)); });
         return;
     }
-    HttpPool::instance().submit([user = std::move(user), product = *product, stop, onDone](HttpSession&) {
+    http.submit([user = std::move(user), product = *product, stop, onDone](HttpSession&) {
         auto answer = catalogOf().check_title_against_storefront(*user, product, stop);
         if (stop.stop_requested())
             return;
@@ -820,7 +814,7 @@ void Service::replaceGame(int64_t profileId, const Game& game)
 
 void Service::refreshTitle(const Game& game, const platform::StopToken& stop, TitleCallback onDone)
 {
-    const accounts::Profile* profile = settings->accounts().activeProfile();
+    const accounts::Profile* profile = accountSettings.activeProfile();
     User user = profile && signedIn() ? activeUser() : nullptr;
     const auto product = catalog::ProductId::parse(game.productId);
     if (!user || !product)
@@ -828,7 +822,7 @@ void Service::refreshTitle(const Game& game, const platform::StopToken& stop, Ti
         brls::sync([onDone]() { onDone(TitleRefresh{TitleRefresh::Outcome::Failed, {}, "akira/cloud/status_relink_detail"_i18n}); });
         return;
     }
-    HttpPool::instance().submit([this, profileId = profile->id, user = std::move(user), product = *product, stop,
+    http.submit([this, profileId = profile->id, user = std::move(user), product = *product, stop,
                                  onDone](HttpSession&) {
         auto answer = catalogOf().recheck_ownership(*user, product, stop);
         if (stop.stop_requested())
@@ -869,7 +863,7 @@ void Service::clearForLaunch(const Game& game, const platform::StopToken& stop, 
         return;
     }
 
-    const accounts::Profile* profile = settings->accounts().activeProfile();
+    const accounts::Profile* profile = accountSettings.activeProfile();
     User user = profile && play::ChiakiCore::current().opened() ? activeUser() : nullptr;
     if (!user)
     {
@@ -899,7 +893,7 @@ void Service::clearForLaunch(const Game& game, const platform::StopToken& stop, 
         return;
     }
 
-    HttpPool::instance().submit([this, user = std::move(user), product = *product, name = game.name,
+    http.submit([this, user = std::move(user), product = *product, name = game.name,
                                  stop, onCleared, onError,
                                  onProgress](HttpSession&) {
         const auto observer = [onProgress, stop](catalog::LaunchCheck check) {

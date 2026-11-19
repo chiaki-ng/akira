@@ -836,7 +836,7 @@ class CloudCard : public brls::Box {
 public:
     CloudCard()
     {
-        cloud::Snapshot snapshot = cloud::Service::instance().snapshotForActiveProfile();
+        cloud::Snapshot snapshot = app::ViewServices::current().cloud.snapshotForActiveProfile();
         const auto& pal = app::views::active();
 
         this->setAxis(brls::Axis::COLUMN);
@@ -1038,7 +1038,7 @@ HostListTab::HostListTab() {
         }
 
 #if AKIRA_CLOUD
-        if (cloud::Service::instance().snapshotForActiveProfile().status.availability
+        if (app::ViewServices::current().cloud.snapshotForActiveProfile().status.availability
                 == cloud::Availability::Checking) {
             brls::Application::notify("akira/cloud/checking_wait"_i18n);
             return true;
@@ -1071,7 +1071,7 @@ HostListTab::HostListTab() {
                 app::ViewServices::current().trophies.onActiveProfileChanged();
                 brls::sync([] { accounts::views::QrSignInView::openIfSignInExpired(); });
 #if AKIRA_CLOUD
-                cloud::Service::instance().refreshActiveProfile(false,
+                app::ViewServices::current().cloud.refreshActiveProfile(false,
                     [](const cloud::Snapshot&) {
                         if (!HostListTab::currentInstance)
                             return;
@@ -1130,7 +1130,7 @@ void HostListTab::applyProfileMode() {
 
     shortcutsRail = new cloud::views::CloudShortcutsRail();
     shortcutsRail->setLaunchHandler([](const cloud::Game& game) {
-        const cloud::Snapshot snapshot = cloud::Service::instance().snapshotForActiveProfile();
+        const cloud::Snapshot snapshot = app::ViewServices::current().cloud.snapshotForActiveProfile();
         if (snapshot.status.plusMembership == cloud::PlusMembership::None)
         {
             auto* dialog = new brls::Dialog("akira/cloud/status_subscription_detail"_i18n);
@@ -1139,12 +1139,13 @@ void HostListTab::applyProfileMode() {
             return;
         }
         HostListTab::connectionActive = true;
-        play::views::startConnecting(std::make_unique<cloud::CloudConnectTask>(game));
+        play::views::startConnecting(std::make_unique<cloud::CloudConnectTask>(app::ViewServices::current().cloud,
+            settings::SettingsManager::getInstance()->accounts(), settings::SettingsManager::getInstance()->app(), game));
     });
     shortcutsRail->setLeadingCard([]() -> brls::View* { return new CloudCard(); });
     railSlot->addView(shortcutsRail);
 
-    cloud::Service::instance().refreshActiveProfile(false,
+    app::ViewServices::current().cloud.refreshActiveProfile(false,
         [](const cloud::Snapshot&) {
             if (!HostListTab::currentInstance)
                 return;
@@ -1281,7 +1282,7 @@ void HostListTab::willAppear(bool resetState) {
     if (profileChip) profileChip->refresh();
 #if AKIRA_CLOUD
     if (shortcutsRail) shortcutsRail->refresh();
-    cloud::Service::instance().refreshActiveProfile(false,
+    app::ViewServices::current().cloud.refreshActiveProfile(false,
         [](const cloud::Snapshot&) {
             if (!HostListTab::currentInstance)
                 return;
@@ -1351,7 +1352,7 @@ void HostListTab::refreshRailsIfActive() {
 
 void HostListTab::notifyActiveProfileChanged() {
 #if AKIRA_CLOUD
-    cloud::Service::instance().refreshActiveProfile(false);
+    app::ViewServices::current().cloud.refreshActiveProfile(false);
 #endif
     if (!currentInstance)
         return;

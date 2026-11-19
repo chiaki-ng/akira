@@ -114,7 +114,7 @@ void ProfileChipView::refresh() {
 
 #if AKIRA_CLOUD
     cloud::Status status = p
-        ? cloud::Service::instance().snapshotForActiveProfile().status
+        ? app::ViewServices::current().cloud.snapshotForActiveProfile().status
         : cloud::Status{};
     std::string cloudText = cloudSummary(status);
     if (cloudText.empty())

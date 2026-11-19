@@ -1,4 +1,6 @@
 #include "cloud/views/game_detail_view.hpp"
+#include "app/view_services.hpp"
+#include "settings/settings_manager.hpp"
 
 #include "cloud/cloud_connect_task.hpp"
 #include "app/views/qr_code_view.hpp"
@@ -71,7 +73,7 @@ auto GameDetailView::nowMs() -> int64_t
 {
     const auto system = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
-    return Service::instance().trustedNowMs().value_or(system);
+    return app::ViewServices::current().cloud.trustedNowMs().value_or(system);
 }
 
 void GameDetailView::buildStage()
@@ -183,7 +185,7 @@ void GameDetailView::buildBand()
 void GameDetailView::loadDetails()
 {
     auto guard = alive;
-    Service::instance().detailsOf(game, lifetime.token(), [this, guard](std::optional<GameDetail> detail) {
+    app::ViewServices::current().cloud.detailsOf(game, lifetime.token(), [this, guard](std::optional<GameDetail> detail) {
         if (!*guard || !detail)
             return;
         showDetail(*detail);
@@ -202,7 +204,7 @@ void GameDetailView::showDetail(const GameDetail& detail)
     if (!detail.logo.empty())
     {
         auto guard = alive;
-        Service::instance().imageOf(detail.logo, kLogoWidth, lifetime.token(),
+        app::ViewServices::current().cloud.imageOf(detail.logo, kLogoWidth, lifetime.token(),
             [this, guard](std::vector<uint8_t> bytes) {
                 if (!*guard || bytes.empty())
                     return;
@@ -219,7 +221,7 @@ void GameDetailView::loadImage(const std::string& url, int width, brls::Image* i
     if (url.empty())
         return;
     auto guard = alive;
-    Service::instance().imageOf(url, width, lifetime.token(), [guard, into](std::vector<uint8_t> bytes) {
+    app::ViewServices::current().cloud.imageOf(url, width, lifetime.token(), [guard, into](std::vector<uint8_t> bytes) {
         if (!*guard || bytes.empty())
             return;
         into->setImageFromMem(bytes.data(), static_cast<int>(bytes.size()));
@@ -228,12 +230,12 @@ void GameDetailView::loadImage(const std::string& url, int width, brls::Image* i
 
 void GameDetailView::startCardCheck()
 {
-    if (!CardCheck::needed(game) || (cardCheck && cardCheck->isSettled()) || !Service::instance().signedIn())
+    if (!CardCheck::needed(game) || (cardCheck && cardCheck->isSettled()) || !app::ViewServices::current().cloud.signedIn())
         return;
     cardCheck = CardCheck::checking();
     render();
     auto guard = alive;
-    Service::instance().checkStorefront(game, lifetime.token(), [this, guard](CardCheck answer) {
+    app::ViewServices::current().cloud.checkStorefront(game, lifetime.token(), [this, guard](CardCheck answer) {
         if (!*guard)
             return;
         cardCheck = std::move(answer);
@@ -243,7 +245,7 @@ void GameDetailView::startCardCheck()
 
 auto GameDetailView::actions() const -> GameActions
 {
-    return GameActions(game, Service::instance().signedIn(), cardCheck, titleRefresh == TitleRefreshPhase::Idle);
+    return GameActions(game, app::ViewServices::current().cloud.signedIn(), cardCheck, titleRefresh == TitleRefreshPhase::Idle);
 }
 
 void GameDetailView::render()
@@ -694,14 +696,16 @@ void GameDetailView::checkAndPlay(const Game& target)
     const auto current = [this, guard, attempt]() {
         return *guard && checks && checks->attempt() == attempt;
     };
-    Service::instance().clearForLaunch(
+    app::ViewServices::current().cloud.clearForLaunch(
         target, launchStop.token(),
         [this, current](std::shared_ptr<CloudLaunch> launch) {
             if (!current())
                 return;
             checks->clear();
             render();
-            play::views::startConnecting(std::make_unique<CloudConnectTask>(std::move(launch)));
+            play::views::startConnecting(std::make_unique<CloudConnectTask>(app::ViewServices::current().cloud,
+                settings::SettingsManager::getInstance()->accounts(), settings::SettingsManager::getInstance()->app(),
+                std::move(launch)));
             checks->launched();
         },
         [this, current](const std::string& error) {
@@ -738,7 +742,7 @@ void GameDetailView::refreshTitle()
     render();
 
     auto guard = alive;
-    Service::instance().refreshTitle(game, lifetime.token(), [this, guard, attempt](TitleRefresh refreshed) {
+    app::ViewServices::current().cloud.refreshTitle(game, lifetime.token(), [this, guard, attempt](TitleRefresh refreshed) {
         if (!*guard || attempt != refreshAttempt || titleRefresh != TitleRefreshPhase::Checking)
             return;
         titleRefresh = refreshSecondsLeft() > 0 ? TitleRefreshPhase::CoolingDown : TitleRefreshPhase::Idle;

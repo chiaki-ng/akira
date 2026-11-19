@@ -427,8 +427,8 @@ void LibraryView::refresh(bool force)
 
     log::info("CloudLib: refresh(force={}) gen={}", force, gen);
     fetch.follow(gen);
-    renderSnapshot(Service::instance().snapshotForActiveProfile());
-    Service::instance().refreshActiveProfile(force,
+    renderSnapshot(app::ViewServices::current().cloud.snapshotForActiveProfile());
+    app::ViewServices::current().cloud.refreshActiveProfile(force,
         [this, guard, gen](const Snapshot& snapshot) {
             log::info("CloudLib: refresh cb gen={} cur={} alive={} avail={} hasCatalog={} games={}",
                 gen, generation, *guard, static_cast<int>(snapshot.status.availability),
@@ -742,7 +742,7 @@ void LibraryView::showCatalog(const Snapshot& snapshot)
 {
     const auto systemNow = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
-    listing.setNow(Service::instance().trustedNowMs().value_or(systemNow));
+    listing.setNow(app::ViewServices::current().cloud.trustedNowMs().value_or(systemNow));
     listing.setGames(snapshot.catalog.games);
     listing.setRecentlyPlayed(snapshot.recentlyPlayed);
     listing.settle(true);
@@ -977,7 +977,7 @@ void LibraryView::openOverflowMenu()
 
 void LibraryView::clearCatalogCache()
 {
-    Service::instance().clearCatalogCache();
+    app::ViewServices::current().cloud.clearCatalogCache();
     brls::Application::notify("akira/cloud/cache_cleared"_i18n);
     refresh(true);
 }

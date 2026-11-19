@@ -5,31 +5,34 @@
 
 #include "cloud/service.hpp"
 #include "consoles/host.hpp"
-#include "settings/settings_manager.hpp"
 
 #include <string>
 
 namespace akira::cloud {
 
-CloudConnectTask::CloudConnectTask(const Game& game)
-    : game(game)
+CloudConnectTask::CloudConnectTask(Service& service, const accounts::AccountSettings& accounts,
+                                   const app::AppSettings& app, const Game& game)
+    : service(service), accounts(accounts), appSettings(app), game(game)
 {
 }
 
-CloudConnectTask::CloudConnectTask(std::shared_ptr<CloudLaunch> cleared)
-    : clearedLaunch(std::move(cleared))
+CloudConnectTask::CloudConnectTask(Service& service, const accounts::AccountSettings& accounts,
+                                   const app::AppSettings& app, std::shared_ptr<CloudLaunch> cleared)
+    : service(service), accounts(accounts), appSettings(app), clearedLaunch(std::move(cleared))
 {
     game.name = clearedLaunch->name();
 }
 
-auto CloudConnectTask::retrying(const CloudLaunch& previous) -> std::unique_ptr<CloudConnectTask>
+auto CloudConnectTask::retrying(Service& service, const accounts::AccountSettings& accounts,
+                                const app::AppSettings& app, const CloudLaunch& previous)
+    -> std::unique_ptr<CloudConnectTask>
 {
     Game game;
     game.productId = previous.product().text();
     game.name = previous.name();
     game.serviceType = previous.ps5() ? "pscloud" : "psnow";
     game.streamServiceType = game.serviceType;
-    return std::make_unique<CloudConnectTask>(game);
+    return std::make_unique<CloudConnectTask>(service, accounts, app, game);
 }
 
 CloudConnectTask::~CloudConnectTask()
@@ -53,13 +56,15 @@ void CloudConnectTask::start(play::views::ConnectSink& s)
 
     if (clearedLaunch)
     {
-        handOver(state, clearedLaunch);
+        handOver(state, clearedLaunch, accounts, appSettings);
         return;
     }
 
-    Service::instance().clearForLaunch(
+    service.clearForLaunch(
         game, state->stop.token(),
-        [state](std::shared_ptr<CloudLaunch> launch) { handOver(state, std::move(launch)); },
+        [state, &accounts = accounts, &app = appSettings](std::shared_ptr<CloudLaunch> launch) {
+            handOver(state, std::move(launch), accounts, app);
+        },
         [state](const std::string& error) {
             std::lock_guard<std::mutex> lock(state->mutex);
             if (!state->stop.stop_requested() && state->sink)
@@ -74,14 +79,14 @@ void CloudConnectTask::start(play::views::ConnectSink& s)
         });
 }
 
-void CloudConnectTask::handOver(const std::shared_ptr<CallbackState>& state, std::shared_ptr<CloudLaunch> launch)
+void CloudConnectTask::handOver(const std::shared_ptr<CallbackState>& state, std::shared_ptr<CloudLaunch> launch,
+                                const accounts::AccountSettings& accounts, const app::AppSettings& app)
 {
     std::lock_guard<std::mutex> lock(state->mutex);
     if (state->stop.stop_requested() || !state->sink)
         return;
 
-    auto* settings = settings::SettingsManager::getInstance();
-    auto host = std::make_shared<consoles::Host>(consoles::HostRecord{.nickname = launch->name()}, settings->accounts(), settings->app());
+    auto host = std::make_shared<consoles::Host>(consoles::HostRecord{.nickname = launch->name()}, accounts, app);
     host->setCloudLaunch(*launch);
     state->sink->succeeded(host.get(), host);
 }

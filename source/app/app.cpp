@@ -167,10 +167,19 @@ bool App::startFrameworks()
     return true;
 }
 
+std::function<void()> App::signInRenewed()
+{
+#if AKIRA_CLOUD
+    return [this] { cloud->refreshInBackground(); };
+#else
+    return {};
+#endif
+}
+
 void App::startCore()
 {
     CrashReport::stage("core init");
-    core.emplace(*settings::SettingsManager::getInstance());
+    core.emplace(*settings::SettingsManager::getInstance(), signInRenewed());
     CrashReport::stage("post core");
     if (!core->opened())
         log::error("[CORE] running without the core: streaming, sign-in and discovery are unavailable");
@@ -254,8 +263,14 @@ void App::startServices()
 {
     CrashReport::stage("services");
     trophies.emplace(HttpPool::instance());
+#if AKIRA_CLOUD
+    cloud.emplace(settings::SettingsManager::getInstance()->accounts(), HttpPool::instance());
+#endif
     services.emplace(Services{
         .trophies = *trophies,
+#if AKIRA_CLOUD
+        .cloud = *cloud,
+#endif
     });
     viewServices.emplace(*services);
 }

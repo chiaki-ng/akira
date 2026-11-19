@@ -1,12 +1,16 @@
 #pragma once
 
 #include <cstdarg>
+#include <functional>
 #include <optional>
 
 #include <switch.h>
 
 #include "app/services.hpp"
 #include "app/view_services.hpp"
+#if AKIRA_CLOUD
+#include "cloud/service.hpp"
+#endif
 #include "play/chiaki_core.hpp"
 #include "trophies/trophy_manager.hpp"
 
@@ -31,6 +35,7 @@ private:
     void prepareLocale();
     void startServices();
     [[nodiscard]] bool startFrameworks();
+    std::function<void()> signInRenewed();
     void startCore();
     void startAsyncLogging();
     void registerViews();
@@ -42,6 +47,9 @@ private:
     char** argv;
     Result mainPlaced;
     std::optional<trophies::TrophyManager> trophies;
+#if AKIRA_CLOUD
+    std::optional<cloud::Service> cloud;
+#endif
     std::optional<Services> services;
     std::optional<ViewServices> viewServices;
     std::optional<play::ChiakiCore> core;

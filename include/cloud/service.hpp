@@ -21,8 +21,10 @@
 #include "cloud/models.hpp"
 #include "app/background_work.hpp"
 
-namespace akira::settings {
-class SettingsManager;
+class HttpPool;
+
+namespace akira::accounts {
+class AccountSettings;
 }
 
 namespace akira::cloud {
@@ -82,7 +84,10 @@ public:
     using TitleCallback = std::function<void(TitleRefresh)>;
     using FetchCallback = std::function<void(const FetchProgress&)>;
 
-    static Service& instance();
+    Service(const accounts::AccountSettings& accountSettings, HttpPool& http);
+
+    Service(const Service&) = delete;
+    Service& operator=(const Service&) = delete;
 
     Snapshot snapshotForActiveProfile() const;
 
@@ -136,8 +141,6 @@ private:
     static constexpr std::chrono::hours freshFor{1};
     static constexpr const char* LEGACY_CACHE_DIR = "sdmc:/switch/akira/cache/cloud";
 
-    Service();
-
     static Snapshot defaultSnapshotForProfile(bool hasProfile, bool paired);
     static Snapshot snapshotOf(const libchiaking::catalog::MyGames& games, libchiaking::catalog::Catalog& catalog,
                                libchiaking::users::PsUser& user, PlusMembership plusMembership);
@@ -165,7 +168,8 @@ private:
     bool isCurrent(int64_t profileId, uint64_t generation) const;
     void followBackgroundWork(bool paused);
 
-    settings::SettingsManager* settings = nullptr;
+    const accounts::AccountSettings& accountSettings;
+    HttpPool& http;
 
     mutable std::mutex mutex;
     std::map<int64_t, Entry> entries;

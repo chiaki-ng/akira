@@ -1,4 +1,5 @@
 #include "play/views/stream_view.hpp"
+#include "app/view_services.hpp"
 #include "play/views/stream_nav.hpp"
 #include "platform/pads/pad.hpp"
 #include "platform/factory.hpp"
@@ -672,7 +673,9 @@ void StreamView::showCloudFailure(const std::string& message, bool retry)
         dialog->addButton("akira/cloud/start_retry"_i18n, [again = std::move(*again)]() {
             stream_nav::unwindToBase();
             brls::sync([again]() {
-                views::startConnecting(cloud::CloudConnectTask::retrying(again));
+                views::startConnecting(cloud::CloudConnectTask::retrying(app::ViewServices::current().cloud,
+                    settings::SettingsManager::getInstance()->accounts(), settings::SettingsManager::getInstance()->app(),
+                    again));
             });
         });
     }

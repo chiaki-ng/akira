@@ -1,8 +1,5 @@
 #include "play/chiaki_core.hpp"
 #include "log/log.hpp"
-#if AKIRA_CLOUD
-#include "cloud/service.hpp"
-#endif
 #include "settings/settings_manager.hpp"
 #include "app/crash_report.hpp"
 
@@ -26,8 +23,9 @@ auto ChiakiCore::threadPlacement() noexcept -> platform::horizon::ThreadPlacemen
     return policy;
 }
 
-ChiakiCore::ChiakiCore(settings::SettingsManager& settings)
+ChiakiCore::ChiakiCore(settings::SettingsManager& settings, std::function<void()> signInRenewed)
     : settings(settings),
+      signInRenewed(std::move(signInRenewed)),
       threadingProvider((app::CrashReport::stage("core threading"), threadPlacement())),
       httpProvider((app::CrashReport::stage("core http"), transportSettings()), threadingProvider, steadyClock, &coreLog),
       webSocketProvider((app::CrashReport::stage("core websocket"), threadingProvider), steadyClock),
@@ -113,9 +111,8 @@ void ChiakiCore::rememberSaved()
         log::error("[CORE] saved consoles could not be read");
 
     psnAccounts.emplace(*chiakiNg, settings, threadingProvider, steadyClock, random());
-#if AKIRA_CLOUD
-    psnAccounts->setRenewedObserver([] { cloud::Service::instance().refreshInBackground(); });
-#endif
+    if (signInRenewed)
+        psnAccounts->setRenewedObserver(signInRenewed);
 }
 
 }

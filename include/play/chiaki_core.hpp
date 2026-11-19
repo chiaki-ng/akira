@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <optional>
 
@@ -23,7 +24,7 @@ public:
 
     static constexpr const char* recordRoot = "sdmc:/switch/akira";
 
-    explicit ChiakiCore(settings::SettingsManager& settings);
+    ChiakiCore(settings::SettingsManager& settings, std::function<void()> signInRenewed);
     ~ChiakiCore();
 
     ChiakiCore(const ChiakiCore&) = delete;
@@ -55,6 +56,7 @@ private:
     static ChiakiCore* instance;
 
     settings::SettingsManager& settings;
+    std::function<void()> signInRenewed;
     libchiaking::platform::horizon::ThreadingProvider threadingProvider;
     libchiaking::platform::SteadyClock steadyClock;
     libchiaking::platform::SystemClock systemClock;

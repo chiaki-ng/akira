@@ -103,7 +103,7 @@ void ProfileCardView::refresh() {
 #if AKIRA_CLOUD
     if (p && !p->legacy)
     {
-        std::string cloud = cloudSummary(cloud::Service::instance().snapshotForActiveProfile().status);
+        std::string cloud = cloudSummary(app::ViewServices::current().cloud.snapshotForActiveProfile().status);
         if (!cloud.empty())
             status += "  ·  " + cloud;
     }
