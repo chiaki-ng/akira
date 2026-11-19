@@ -22,17 +22,16 @@ public:
 
     std::string rumbleKey(play::ControllerSettings& settings) override;
     std::string currentKey(const play::ControllerSettings& settings) const override;
-    std::optional<std::string> outputSummary(const play::ControllerSettings& settings) const override;
+    std::optional<play::PadOutputMode> outputMode(const play::ControllerSettings& settings) const override;
     void useProfile(const play::RumbleProfile& profile) override;
     bool isUnitKey(const std::string& key) const override;
     bool directOutput() const override;
     bool tunesMotors() const override;
 
-    void addOutputRows(brls::Box& content, play::RumbleProfile& profile,
-                       const Action& store, const Action& reopen) override;
-    void addLightbarRows(brls::Box& content, play::RumbleProfile& profile,
-                         const Action& store, const Action& reopen) override;
-    bool previewDirect(const play::RumbleProfile& profile) override;
+    bool outputReleased() const override;
+    bool drivesLightbar() const override;
+    void refreshOutputGates() override;
+    std::optional<DirectPreview> previewDirect(const play::RumbleProfile& profile) override;
 
 private:
     static std::uint8_t nextPreviewSequence();

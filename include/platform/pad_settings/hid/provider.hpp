@@ -15,15 +15,16 @@ public:
 
     std::string rumbleKey(play::ControllerSettings& settings) override;
     std::string currentKey(const play::ControllerSettings& settings) const override;
-    std::optional<std::string> outputSummary(const play::ControllerSettings&) const override { return std::nullopt; }
+    std::optional<play::PadOutputMode> outputMode(const play::ControllerSettings&) const override { return std::nullopt; }
     void useProfile(const play::RumbleProfile&) override {}
     bool isUnitKey(const std::string&) const override { return false; }
     bool directOutput() const override { return false; }
     bool tunesMotors() const override { return true; }
 
-    void addOutputRows(brls::Box&, play::RumbleProfile&, const Action&, const Action&) override {}
-    void addLightbarRows(brls::Box&, play::RumbleProfile&, const Action&, const Action&) override {}
-    bool previewDirect(const play::RumbleProfile&) override { return false; }
+    bool outputReleased() const override { return false; }
+    bool drivesLightbar() const override { return false; }
+    void refreshOutputGates() override {}
+    std::optional<DirectPreview> previewDirect(const play::RumbleProfile&) override { return std::nullopt; }
 
 private:
     platform::PadDescription m_pad;

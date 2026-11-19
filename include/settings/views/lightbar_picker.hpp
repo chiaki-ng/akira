@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <functional>
 
-namespace akira::platform::extended
+namespace akira::settings::views
 {
 
 class LightbarPicker : public brls::Box {

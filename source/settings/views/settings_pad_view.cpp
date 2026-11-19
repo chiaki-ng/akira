@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "platform/factory.hpp"
+#include "settings/views/lightbar_picker.hpp"
 
 #include <borealis/core/i18n.hpp>
 
@@ -73,7 +74,7 @@ SettingsPadView::SettingsPadView(const akira::platform::PadDescription& pad)
 
     const bool direct = m_platform->directOutput();
     if (direct)
-        m_platform->addOutputRows(*content, m_profile, [this]() { store(); }, [this]() { reopen(); });
+        buildOutputRows();
 
     if (!direct)
         buildSourceRows();
@@ -91,7 +92,7 @@ SettingsPadView::SettingsPadView(const akira::platform::PadDescription& pad)
         buildEnvelopeRows();
 
     if (direct)
-        m_platform->addLightbarRows(*content, m_profile, [this]() { store(); }, [this]() { reopen(); });
+        buildLightbarRows();
 
     if (m_pad.kind == akira::platform::PadPathKind::JoyCon)
         buildGyroRow();
@@ -122,6 +123,124 @@ void SettingsPadView::buildHeader()
     sub->setTextColor(brls::Application::getTheme()["brls/text_disabled"]);
     sub->setMarginBottom(20.0f);
     addView(sub);
+}
+
+void SettingsPadView::buildOutputRows()
+{
+    auto* card = makeCard();
+    card->addView(makeHeading("akira/settings/rumble_output_heading"_i18n));
+
+    if (m_platform->outputReleased()) {
+        auto* row = new brls::DetailCell();
+        row->setMarginLeft(15.0f);
+        row->setMarginRight(15.0f);
+        row->title->setText("akira/settings/rumble_output_mode"_i18n);
+        row->setDetailText("akira/settings/rumble_output_basic"_i18n);
+        row->setDetailTextColor(
+            brls::Application::getTheme()["brls/text_disabled"]);
+        card->addView(row);
+
+        auto* why = makeHeading("akira/settings/rumble_output_released_hint"_i18n);
+        why->setMarginLeft(15.0f);
+        why->setMarginRight(15.0f);
+        why->setMarginBottom(6.0f);
+        card->addView(why);
+
+        content->addView(card);
+        return;
+    }
+
+    auto* mode = new brls::SelectorCell();
+    mode->setMarginLeft(15.0f);
+    mode->setMarginRight(15.0f);
+
+    const std::vector<std::string> options = {
+        "akira/settings/rumble_output_native"_i18n,
+        "akira/settings/rumble_output_basic"_i18n,
+    };
+
+    mode->init("akira/settings/rumble_output_mode"_i18n, options,
+               static_cast<int>(m_profile.output_mode),
+               [this](int selected) {
+                   const auto chosen = selected == 1
+                                           ? play::PadOutputMode::Basic
+                                           : play::PadOutputMode::Native;
+                   if (chosen == m_profile.output_mode)
+                       return;
+
+                   m_profile.output_mode = chosen;
+                   store();
+
+                   m_platform->refreshOutputGates();
+
+                   reopen();
+               });
+
+    mode->setDetailText(m_profile.output_mode == play::PadOutputMode::Basic
+                            ? "akira/settings/rumble_output_basic_hint"_i18n
+                            : "akira/settings/rumble_output_native_hint"_i18n);
+    card->addView(mode);
+
+    content->addView(card);
+}
+
+void SettingsPadView::buildLightbarRows()
+{
+    auto* card = makeCard();
+    card->addView(makeHeading("akira/settings/lightbar_heading"_i18n));
+
+    auto* on = new brls::BooleanCell();
+    on->setMarginLeft(15.0f);
+    on->setMarginRight(15.0f);
+    on->init("akira/settings/lightbar_enabled"_i18n, m_profile.lightbar_enabled,
+             [this](bool value) {
+                 m_profile.lightbar_enabled = value;
+                 store();
+                 reopen();
+             });
+    card->addView(on);
+
+    if (!m_profile.lightbar_enabled) {
+        content->addView(card);
+        return;
+    }
+
+    auto* picker = new LightbarPicker(m_profile.lightbar_r, m_profile.lightbar_g,
+                                      m_profile.lightbar_b);
+    picker->setMarginLeft(15.0f);
+    picker->setMarginRight(15.0f);
+    picker->setMarginTop(4.0f);
+
+    auto* swatch = new brls::Box();
+    swatch->setHeight(30.0f);
+    swatch->setMarginLeft(15.0f);
+    swatch->setMarginRight(15.0f);
+    swatch->setMarginTop(10.0f);
+    swatch->setMarginBottom(4.0f);
+    swatch->setCornerRadius(6.0f);
+    swatch->setBackgroundColor(
+        nvgRGB(m_profile.lightbar_r, m_profile.lightbar_g, m_profile.lightbar_b));
+
+    picker->setChangeListener([this, swatch](std::uint8_t r, std::uint8_t g, std::uint8_t b) {
+        m_profile.lightbar_r = r;
+        m_profile.lightbar_g = g;
+        m_profile.lightbar_b = b;
+        swatch->setBackgroundColor(nvgRGB(r, g, b));
+        store();
+    });
+
+    card->addView(picker);
+    card->addView(swatch);
+
+    auto* how = makeHeading(m_platform->drivesLightbar()
+                                ? "akira/settings/lightbar_hint"_i18n
+                                : "akira/settings/lightbar_idle"_i18n);
+    how->setMarginLeft(15.0f);
+    how->setMarginRight(15.0f);
+    how->setMarginBottom(6.0f);
+    card->addView(how);
+
+    content->addView(card);
 }
 
 void SettingsPadView::buildSourceRows()
@@ -389,8 +508,11 @@ void SettingsPadView::reopen()
 
 void SettingsPadView::previewBuzz()
 {
-    if (m_platform->previewDirect(m_profile))
+    if (auto preview = m_platform->previewDirect(m_profile)) {
+        if (preview->stop)
+            brls::delay(300, preview->stop);
         return;
+    }
 
     auto* inputMgr = brls::Application::getPlatform()->getInputManager();
     const float amplitude = m_profile.strength * m_profile.ceiling;

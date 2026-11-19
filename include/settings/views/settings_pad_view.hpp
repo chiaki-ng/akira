@@ -23,11 +23,13 @@ public:
 
     ~SettingsPadView() override { *m_alive = false; }
 
+private:
     static brls::Box* makeCard();
     static brls::Label* makeHeading(const std::string& text);
 
-private:
     void buildHeader();
+    void buildOutputRows();
+    void buildLightbarRows();
     void buildSourceRows();
     void buildEnvelopeRows();
     void buildIntensityRow();

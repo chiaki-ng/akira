@@ -16,8 +16,10 @@ std::string SettingsControllersView::tierSummary(const akira::platform::PadDescr
     auto* services = &app::ViewServices::current();
     const auto padSettings = app::ViewServices::current().platform.createPadSettings(pad);
 
-    if (auto summary = padSettings->outputSummary(services->controllers))
-        return *summary;
+    if (auto mode = padSettings->outputMode(services->controllers))
+        return *mode == play::PadOutputMode::Basic
+                   ? "akira/settings/rumble_output_basic"_i18n
+                   : "akira/settings/rumble_output_native"_i18n;
 
     const std::string key = padSettings->currentKey(services->controllers);
 

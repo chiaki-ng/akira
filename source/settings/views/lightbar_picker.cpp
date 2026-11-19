@@ -1,11 +1,11 @@
-#include "platform/pad_settings/extended/lightbar_picker.hpp"
+#include "settings/views/lightbar_picker.hpp"
 
 #include <borealis/core/i18n.hpp>
 
 #include <algorithm>
 #include <cmath>
 
-namespace akira::platform::extended
+namespace akira::settings::views
 {
 
 using namespace brls::literals;
