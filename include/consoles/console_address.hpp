@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace akira::consoles {
 
@@ -18,6 +19,7 @@ private:
 
     static bool isIpv4(const std::string& text);
     static bool isFqdn(const std::string& text);
+    static bool isOctet(std::string_view digits);
 
     std::string value;
 };

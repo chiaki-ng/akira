@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <regex>
+#include <system_error>
 #include <utility>
 
 namespace akira::consoles {
@@ -26,10 +28,17 @@ bool ConsoleAddress::isIpv4(const std::string& text)
     if (!std::regex_match(text, match, ipv4Regex))
         return false;
     for (int i = 1; i <= 4; i++) {
-        if (std::stoi(match[i].str()) > 255)
+        if (!isOctet(std::string_view(match[i].first, match[i].second)))
             return false;
     }
     return true;
+}
+
+bool ConsoleAddress::isOctet(std::string_view digits)
+{
+    unsigned int value = 0;
+    const auto [end, error] = std::from_chars(digits.data(), digits.data() + digits.size(), value);
+    return error == std::errc{} && end == digits.data() + digits.size() && value <= 255;
 }
 
 bool ConsoleAddress::isFqdn(const std::string& text)
