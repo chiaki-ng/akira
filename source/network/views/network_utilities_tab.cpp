@@ -2,9 +2,9 @@
 #include "app/view_services.hpp"
 #include "app/views/theme.hpp"
 #include "consoles/discovery_manager.hpp"
+#include "network/nat_probe.hpp"
 #include "network/wireguard_manager.hpp"
-#include <format>
-#include <vector>
+#include "play/chiaki_core.hpp"
 #include <borealis/core/i18n.hpp>
 
 namespace akira::network::views {
@@ -170,238 +170,31 @@ void NetworkUtilitiesTab::onCheckNatClicked() {
     clearResults();
     addResultRow("", "akira/network/testing"_i18n, app::views::active().textDim);
 
-    StunResult result = StunClient::detectNATType();
+    NatProbe probe(play::ChiakiCore::current());
+    NatReport report(probe.check());
 
     isChecking = false;
-    displayResult(result);
+    displayResult(report);
 }
 
 void NetworkUtilitiesTab::clearResults() {
     resultContainer->clearViews();
 }
 
-void NetworkUtilitiesTab::displayResult(const StunResult& result) {
+void NetworkUtilitiesTab::displayResult(const NatReport& report) {
     clearResults();
 
-    if (!result.error.empty() && result.type == NATType::Unknown) {
-        addResultRow("akira/common/error"_i18n, result.error, app::views::active().danger);
+    if (!report.found()) {
+        addResultRow("akira/common/error"_i18n, brls::getStr(report.detailKey()), app::views::active().danger);
         return;
     }
 
-    std::string typeStr = StunClient::natTypeToString(result.type);
-    std::string descStr = StunClient::natTypeDescription(result.type);
-    NVGcolor typeColor;
-    if (result.type == NATType::FullCone || result.type == NATType::OpenInternet ||
-        result.type == NATType::RestrictedCone || result.type == NATType::PortRestrictedCone) {
-        typeColor = app::views::active().success;
-    } else if (result.type == NATType::UDPBlocked) {
-        typeColor = app::views::active().danger;
-    } else if (result.type == NATType::Symmetric || result.type == NATType::SymmetricPortOnly) {
+    NVGcolor typeColor = app::views::active().success;
+    if (report.tone() == NatReport::Tone::Warning)
         typeColor = app::views::active().warning;
-    } else {
-        typeColor = app::views::active().textDim;
-    }
 
-    addResultRow("akira/network/nat_type"_i18n, typeStr, typeColor);
-    addResultRow("", descStr, app::views::active().textDim);
-
-    std::string filteringStr = StunClient::filteringTypeToString(result.filtering);
-    NVGcolor filteringColor;
-    if (result.filtering == FilteringType::EndpointIndependent) {
-        filteringColor = app::views::active().success;
-    } else if (result.filtering == FilteringType::AddressDependent ||
-               result.filtering == FilteringType::AddressPortDependent) {
-        filteringColor = app::views::active().warning;
-    } else {
-        filteringColor = app::views::active().textDim;
-    }
-
-    addResultRow("akira/network/filtering"_i18n, filteringStr, filteringColor);
-
-    if (!result.externalIP.empty()) {
-        addResultRow("akira/network/external_ip"_i18n, result.externalIP);
-    }
-
-    if (result.externalPort > 0) {
-        addResultRow("akira/network/external_port"_i18n, std::format("{}", result.externalPort));
-    }
-
-    addCompatibilityTable();
-}
-
-void NetworkUtilitiesTab::addCompatibilityTable() {
-    auto* spacer = new brls::Box();
-    spacer->setHeight(30);
-    resultContainer->addView(spacer);
-
-    auto* header = new brls::Label();
-    header->setText("akira/network/holepunch_compat"_i18n);
-    header->setFontSize(22);
-    header->setTextColor(app::views::active().accent);
-    header->setMarginBottom(10);
-    resultContainer->addView(header);
-
-    auto* note = new brls::Label();
-    note->setText("akira/network/holepunch_note"_i18n);
-    note->setFontSize(16);
-    note->setTextColor(app::views::active().textDim);
-    note->setMarginBottom(15);
-    resultContainer->addView(note);
-
-    auto* mappingHeader = new brls::Label();
-    mappingHeader->setText("akira/network/mapping"_i18n);
-    mappingHeader->setFontSize(18);
-    mappingHeader->setTextColor(app::views::active().textDim);
-    mappingHeader->setMarginBottom(8);
-    resultContainer->addView(mappingHeader);
-
-    struct CompatRow {
-        std::string switchNat;
-        std::string ps5Nat;
-        std::string result;
-        NVGcolor color;
-    };
-
-    std::vector<CompatRow> mappingRows = {
-        {"akira/network/cone"_i18n, "akira/network/cone"_i18n, "akira/network/works"_i18n, app::views::active().success},
-        {"akira/network/cone"_i18n, "akira/network/symmetric"_i18n, "akira/network/may_work"_i18n, app::views::active().warning},
-        {"akira/network/symmetric"_i18n, "akira/network/cone"_i18n, "akira/network/may_work"_i18n, app::views::active().warning},
-        {"akira/network/symmetric"_i18n, "akira/network/symmetric"_i18n, "akira/network/unlikely"_i18n, app::views::active().danger},
-    };
-
-    auto* headerRow = new brls::Box();
-    headerRow->setAxis(brls::Axis::ROW);
-    headerRow->setMarginBottom(5);
-    headerRow->setWidthPercentage(100);
-
-    auto* col1 = new brls::Label();
-    col1->setText("akira/network/col_switch"_i18n);
-    col1->setFontSize(14);
-    col1->setTextColor(app::views::active().textMuted);
-    col1->setWidthPercentage(40);
-    headerRow->addView(col1);
-
-    auto* col2 = new brls::Label();
-    col2->setText("akira/network/col_ps5"_i18n);
-    col2->setFontSize(14);
-    col2->setTextColor(app::views::active().textMuted);
-    col2->setWidthPercentage(40);
-    headerRow->addView(col2);
-
-    auto* col3 = new brls::Label();
-    col3->setText("akira/network/col_result"_i18n);
-    col3->setFontSize(14);
-    col3->setTextColor(app::views::active().textMuted);
-    col3->setWidthPercentage(20);
-    headerRow->addView(col3);
-
-    resultContainer->addView(headerRow);
-
-    for (const auto& row : mappingRows) {
-        auto* tableRow = new brls::Box();
-        tableRow->setAxis(brls::Axis::ROW);
-        tableRow->setMarginTop(6);
-        tableRow->setWidthPercentage(100);
-
-        auto* c1 = new brls::Label();
-        c1->setText(row.switchNat);
-        c1->setFontSize(14);
-        c1->setTextColor(app::views::active().textMuted);
-        c1->setWidthPercentage(40);
-        tableRow->addView(c1);
-
-        auto* c2 = new brls::Label();
-        c2->setText(row.ps5Nat);
-        c2->setFontSize(14);
-        c2->setTextColor(app::views::active().textMuted);
-        c2->setWidthPercentage(40);
-        tableRow->addView(c2);
-
-        auto* c3 = new brls::Label();
-        c3->setText(row.result);
-        c3->setFontSize(14);
-        c3->setTextColor(row.color);
-        c3->setWidthPercentage(20);
-        tableRow->addView(c3);
-
-        resultContainer->addView(tableRow);
-    }
-
-    auto* spacer2 = new brls::Box();
-    spacer2->setHeight(20);
-    resultContainer->addView(spacer2);
-
-    auto* filteringHeader = new brls::Label();
-    filteringHeader->setText("akira/network/filtering_cone"_i18n);
-    filteringHeader->setFontSize(18);
-    filteringHeader->setTextColor(app::views::active().textDim);
-    filteringHeader->setMarginBottom(8);
-    resultContainer->addView(filteringHeader);
-
-    std::vector<CompatRow> filteringRows = {
-        {"akira/network/open"_i18n, "akira/network/open"_i18n, "akira/network/works"_i18n, app::views::active().success},
-        {"akira/network/open"_i18n, "akira/network/restricted"_i18n, "akira/network/works"_i18n, app::views::active().success},
-        {"akira/network/restricted"_i18n, "akira/network/open"_i18n, "akira/network/works"_i18n, app::views::active().success},
-        {"akira/network/restricted"_i18n, "akira/network/restricted"_i18n, "akira/network/may_fail"_i18n, app::views::active().warning},
-    };
-
-    auto* headerRow2 = new brls::Box();
-    headerRow2->setAxis(brls::Axis::ROW);
-    headerRow2->setMarginBottom(5);
-    headerRow2->setWidthPercentage(100);
-
-    auto* col1b = new brls::Label();
-    col1b->setText("akira/network/col_switch"_i18n);
-    col1b->setFontSize(14);
-    col1b->setTextColor(app::views::active().textMuted);
-    col1b->setWidthPercentage(40);
-    headerRow2->addView(col1b);
-
-    auto* col2b = new brls::Label();
-    col2b->setText("akira/network/col_ps5"_i18n);
-    col2b->setFontSize(14);
-    col2b->setTextColor(app::views::active().textMuted);
-    col2b->setWidthPercentage(40);
-    headerRow2->addView(col2b);
-
-    auto* col3b = new brls::Label();
-    col3b->setText("akira/network/col_result"_i18n);
-    col3b->setFontSize(14);
-    col3b->setTextColor(app::views::active().textMuted);
-    col3b->setWidthPercentage(20);
-    headerRow2->addView(col3b);
-
-    resultContainer->addView(headerRow2);
-
-    for (const auto& row : filteringRows) {
-        auto* tableRow = new brls::Box();
-        tableRow->setAxis(brls::Axis::ROW);
-        tableRow->setMarginTop(6);
-        tableRow->setWidthPercentage(100);
-
-        auto* c1 = new brls::Label();
-        c1->setText(row.switchNat);
-        c1->setFontSize(14);
-        c1->setTextColor(app::views::active().textMuted);
-        c1->setWidthPercentage(40);
-        tableRow->addView(c1);
-
-        auto* c2 = new brls::Label();
-        c2->setText(row.ps5Nat);
-        c2->setFontSize(14);
-        c2->setTextColor(app::views::active().textMuted);
-        c2->setWidthPercentage(40);
-        tableRow->addView(c2);
-
-        auto* c3 = new brls::Label();
-        c3->setText(row.result);
-        c3->setFontSize(14);
-        c3->setTextColor(row.color);
-        c3->setWidthPercentage(20);
-        tableRow->addView(c3);
-
-        resultContainer->addView(tableRow);
-    }
+    addResultRow("akira/network/nat_type"_i18n, brls::getStr("akira/network/nat_type_value", *report.type()), typeColor);
+    addResultRow("", brls::getStr(report.detailKey()), app::views::active().textDim);
 }
 
 void NetworkUtilitiesTab::addResultRow(const std::string& label, const std::string& value, NVGcolor valueColor) {

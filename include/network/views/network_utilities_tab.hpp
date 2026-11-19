@@ -5,7 +5,7 @@
 #include <memory>
 
 #include <borealis.hpp>
-#include "network/stun_client.hpp"
+#include "network/nat_report.hpp"
 #include "app/views/theme.hpp"
 
 namespace akira::network::views {
@@ -31,11 +31,10 @@ private:
     brls::Button* wgDisconnectBtn = nullptr;
 
     void onCheckNatClicked();
-    void displayResult(const StunResult& result);
+    void displayResult(const NatReport& report);
     void clearResults();
     void addResultRow(const std::string& label, const std::string& value,
                       NVGcolor valueColor = app::views::active().textMuted);
-    void addCompatibilityTable();
 
     void initWireGuardUI();
     void updateWireGuardStatus();

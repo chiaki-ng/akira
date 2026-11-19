@@ -118,6 +118,7 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/cloud/saved_datacenters.cpp \
                 $(CURDIR)/source/network/network_settings.cpp \
                 $(CURDIR)/source/network/custom_dns.cpp \
+                $(CURDIR)/source/network/nat_report.cpp \
                 $(CURDIR)/source/accounts/account_settings.cpp \
                 $(CURDIR)/source/accounts/sign_in_store.cpp \
                 $(CURDIR)/source/accounts/profile_tables.cpp \
