@@ -15,9 +15,13 @@
 #include "app/views/shared_view_holder.hpp"
 #include "play/views/stream_view.hpp"
 
+namespace akira::play::views {
+
 using namespace brls::literals;
 
-namespace akira::views {
+}
+
+namespace akira::play::views {
 
 namespace {
 
@@ -108,17 +112,17 @@ void ConnectingView::setupAndStart()
         }
     }
 
-    logSubscription = akira::log::Log::process().subscribe(
-        [weak](const akira::log::Entry& entry) {
+    logSubscription = log::Log::process().subscribe(
+        [weak](const log::Entry& entry) {
             if (auto self = weak.lock())
                 self->addLogLine(std::string(entry.message));
         });
 
     switchToConnectionLog();
 
-    akira::log::info("========================================");
-    akira::log::info("CONNECTION ATTEMPT: {} to {}", task->logKind(), task->title());
-    akira::log::info("========================================");
+    log::info("========================================");
+    log::info("CONNECTION ATTEMPT: {} to {}", task->logKind(), task->title());
+    log::info("========================================");
 
     addLogLine("akira/connection/starting"_i18n);
 
@@ -130,7 +134,7 @@ void ConnectingView::cancelFromUser()
     if (settled.exchange(true))
         return;
 
-    akira::log::info("Connection cancelled by user");
+    log::info("Connection cancelled by user");
     wasCancelled.store(true);
     task->cancel();
 
@@ -166,9 +170,9 @@ void ConnectingView::switchToConnectionLog()
         return;
 
     const std::string logPath = SettingsManager::getConnectionLogFilePath(task->logKind());
-    connectionLog = akira::ConnectionLog::open(logPath);
+    connectionLog = ConnectionLog::open(logPath);
     if (connectionLog)
-        akira::log::info("Switched to connection log: {}", logPath);
+        log::info("Switched to connection log: {}", logPath);
 }
 
 void ConnectingView::progress(ConnectionStage stage)
@@ -202,7 +206,7 @@ void ConnectingView::succeeded(consoles::Host* host, std::shared_ptr<consoles::H
     if (settled.exchange(true))
         return;
 
-    akira::log::info("Transitioning to stream view...");
+    log::info("Transitioning to stream view...");
 
     auto streamView = app::views::SharedViewHolder::holdNew<StreamView>(host, owner);
     streamView->setupCallbacks();
@@ -228,7 +232,7 @@ void ConnectingView::failed(const std::string& error)
     if (settled.load())
         return;
 
-    akira::log::error("{}", error);
+    log::error("{}", error);
 
     if (task->presentFailure(error, *this))
         return;
@@ -268,7 +272,7 @@ void ConnectingView::dismissAfterFailure()
     if (dismissed.exchange(true))
         return;
 
-    akira::log::info("Connection failure acknowledged, returning to hosts");
+    log::info("Connection failure acknowledged, returning to hosts");
     stream_nav::unwindToBase();
 }
 
@@ -390,4 +394,4 @@ void startConnecting(std::unique_ptr<ConnectTask> task)
         ConnectingView::open(std::move(task));
 }
 
-} // namespace akira::views
+} // namespace akira::play::views

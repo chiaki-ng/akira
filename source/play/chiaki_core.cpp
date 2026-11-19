@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <exception>
 
-namespace akira {
+namespace akira::play {
 
 namespace platform = libchiaking::platform;
 
@@ -96,21 +96,21 @@ auto ChiakiCore::transportSettings() noexcept -> platform::HttpTransportSettings
 void ChiakiCore::rememberSaved()
 {
     if (!chiakiNg) {
-        akira::log::error("[CORE] ChiakiNg did not open: {} provider missing",
+        log::error("[CORE] ChiakiNg did not open: {} provider missing",
             chiakiNg.error() == Missing::crypto ? "crypto" : "http");
         return;
     }
 
     if (auto returned = chiakiNg->users().welcome_back())
-        akira::log::info("[CORE] remembered {} user(s), skipped {}", returned->users.size(), returned->rejected);
+        log::info("[CORE] remembered {} user(s), skipped {}", returned->users.size(), returned->rejected);
     else
-        akira::log::error("[CORE] saved users could not be read");
+        log::error("[CORE] saved users could not be read");
 
     if (auto remembered = chiakiNg->consoles().remember_saved())
-        akira::log::info("[CORE] remembered {} console(s), skipped {}", remembered->consoles.size(),
+        log::info("[CORE] remembered {} console(s), skipped {}", remembered->consoles.size(),
             remembered->rejected);
     else
-        akira::log::error("[CORE] saved consoles could not be read");
+        log::error("[CORE] saved consoles could not be read");
 
     psnAccounts.emplace(*chiakiNg, settings, threadingProvider, steadyClock, random());
 #if AKIRA_CLOUD

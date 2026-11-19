@@ -5,11 +5,12 @@
 
 #include <borealis/core/touch/tap_gesture.hpp>
 #include <borealis/core/i18n.hpp>
-using namespace brls::literals;
-using akira::input::RemapTarget;
-using akira::input::remapKey;
 
 #include <algorithm>
+
+namespace akira::play::views {
+
+using namespace brls::literals;
 
 ControllerRemapView::ControllerRemapView()
 {
@@ -239,12 +240,12 @@ void ControllerRemapView::updateCellDisplay(int index)
         statusLbl->setText("akira/remap/default"_i18n);
         statusLbl->setFontSize(14);
         statusLbl->setMarginLeft(8);
-        statusLbl->setTextColor(akira::app::views::active().textDim);
+        statusLbl->setTextColor(app::views::active().textDim);
         switchBox->addView(statusLbl);
     }
 
     if (hasConflict(button)) {
-        detailCells[index]->setBackgroundColor(akira::app::views::withAlpha(akira::app::views::active().danger, 80));
+        detailCells[index]->setBackgroundColor(app::views::withAlpha(app::views::active().danger, 80));
     } else {
         detailCells[index]->setBackgroundColor(nvgRGBA(0, 0, 0, 0));
     }
@@ -373,7 +374,7 @@ void ControllerRemapView::enterCaptureMode(uint32_t target)
     auto* waitLbl = new brls::Label();
     waitLbl->setText("akira/remap/waiting"_i18n);
     waitLbl->setFontSize(22);
-    waitLbl->setTextColor(akira::app::views::active().success);
+    waitLbl->setTextColor(app::views::active().success);
     captureSwitchBox->addView(waitLbl);
     captureOverlay->setVisibility(brls::Visibility::VISIBLE);
     mainContent->setVisibility(brls::Visibility::GONE);
@@ -411,7 +412,7 @@ void ControllerRemapView::updateCaptureDisplay()
         auto* waitLbl = new brls::Label();
         waitLbl->setText("akira/remap/waiting"_i18n);
         waitLbl->setFontSize(22);
-        waitLbl->setTextColor(akira::app::views::active().success);
+        waitLbl->setTextColor(app::views::active().success);
         captureSwitchBox->addView(waitLbl);
     } else {
         std::vector<uint64_t> buttons(peakHeldButtons.begin(), peakHeldButtons.end());
@@ -421,7 +422,7 @@ void ControllerRemapView::updateCaptureDisplay()
                 plus->setText("+");
                 plus->setFontSize(20);
                 plus->setMargins(0, 6, 0, 6);
-                plus->setTextColor(akira::app::views::active().success);
+                plus->setTextColor(app::views::active().success);
                 captureSwitchBox->addView(plus);
             }
             std::string path = getButtonImagePath(buttons[j]);
@@ -435,7 +436,7 @@ void ControllerRemapView::updateCaptureDisplay()
                 auto* lbl = new brls::Label();
                 lbl->setText(hidButtonToString(buttons[j]));
                 lbl->setFontSize(22);
-                lbl->setTextColor(akira::app::views::active().success);
+                lbl->setTextColor(app::views::active().success);
                 captureSwitchBox->addView(lbl);
             }
         }
@@ -747,4 +748,6 @@ uint32_t ControllerRemapView::configKeyToChiakiButton(const std::string& key)
     if (key == "swipe_left") return SWIPE_TOUCHPAD_LEFT;
     if (key == "swipe_right") return SWIPE_TOUCHPAD_RIGHT;
     return 0;
+}
+
 }

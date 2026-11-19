@@ -15,16 +15,16 @@ ExtendedHapticsProvider::ExtendedHapticsProvider(ExtendedPadProvider& pads)
 {
 }
 
-input::RumbleSource ExtendedHapticsProvider::effectiveSource(input::RumbleSource configured) const
+play::RumbleSource ExtendedHapticsProvider::effectiveSource(play::RumbleSource configured) const
 {
-    if (configured == input::RumbleSource::Off)
-        return input::RumbleSource::Off;
+    if (configured == play::RumbleSource::Off)
+        return play::RumbleSource::Off;
     if (tunedForPad())
-        return input::RumbleSource::Derived;
+        return play::RumbleSource::Derived;
     return configured;
 }
 
-void ExtendedHapticsProvider::prepare(HapticManager& haptics)
+void ExtendedHapticsProvider::prepare(play::HapticManager& haptics)
 {
     const PadPathInfo path = m_pads.pathInfo();
     if (path.generation == m_profile_generation)
@@ -38,7 +38,7 @@ void ExtendedHapticsProvider::prepare(HapticManager& haptics)
         path.switchNative, path.kind == input::PadPathKind::JoyCon));
 }
 
-bool ExtendedHapticsProvider::play(HapticManager& haptics, std::span<const std::int16_t> stereo)
+bool ExtendedHapticsProvider::play(play::HapticManager& haptics, std::span<const std::int16_t> stereo)
 {
     if (nativeRumble() && streamNativeHaptics(haptics, stereo))
         return true;
@@ -62,7 +62,7 @@ bool ExtendedHapticsProvider::tunedForPad() const
     return path.available && PadTakesDirectOutput(path.vendorId, path.productId);
 }
 
-bool ExtendedHapticsProvider::streamNativeHaptics(HapticManager& haptics, std::span<const std::int16_t> stereo)
+bool ExtendedHapticsProvider::streamNativeHaptics(play::HapticManager& haptics, std::span<const std::int16_t> stereo)
 {
     ExtendedInputManager& extended = m_pads.extendedInput();
     if (!extended.directHapticsReady()) {
@@ -74,7 +74,7 @@ bool ExtendedHapticsProvider::streamNativeHaptics(HapticManager& haptics, std::s
         return false;
     }
 
-    const float gain = input::HapticSampleGain(haptics.profile().haptic_intensity)
+    const float gain = play::HapticSampleGain(haptics.profile().haptic_intensity)
                      * haptics.consoleVibrationScale();
 
     for (const std::int16_t sample : stereo) {
@@ -144,7 +144,7 @@ bool ExtendedHapticsProvider::streamNativeHaptics(HapticManager& haptics, std::s
     return true;
 }
 
-void ExtendedHapticsProvider::emitMotorsFromWaveform(HapticManager& haptics, std::span<const std::int16_t> stereo)
+void ExtendedHapticsProvider::emitMotorsFromWaveform(play::HapticManager& haptics, std::span<const std::int16_t> stereo)
 {
     const HapticRumble r =
         HapticAudioToRumble(stereo.data(), stereo.size() / 2, haptics.profile().haptic_intensity,

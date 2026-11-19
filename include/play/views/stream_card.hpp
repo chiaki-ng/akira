@@ -4,6 +4,8 @@
 #include <borealis.hpp>
 #include <string>
 
+namespace akira::play::views {
+
 enum class CardGlyph
 {
     Stats,
@@ -59,5 +61,7 @@ public:
     virtual std::string optionLabel(int i) const { (void)i; return {}; }
     virtual void chooseOption(int i) { (void)i; }
 };
+
+}
 
 #endif // AKIRA_STREAM_CARD_HPP

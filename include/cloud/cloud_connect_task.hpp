@@ -13,7 +13,7 @@
 
 namespace cloud {
 
-class CloudConnectTask : public akira::views::ConnectTask {
+class CloudConnectTask : public akira::play::views::ConnectTask {
 public:
     explicit CloudConnectTask(const Game& game);
     explicit CloudConnectTask(std::shared_ptr<CloudLaunch> cleared);
@@ -24,13 +24,13 @@ public:
     std::string title() const override;
     const char* logKind() const override { return "cloud"; }
 
-    void start(akira::views::ConnectSink& sink) override;
+    void start(akira::play::views::ConnectSink& sink) override;
     void cancel() override;
 
 private:
     struct CallbackState {
         std::mutex mutex;
-        akira::views::ConnectSink* sink = nullptr;
+        akira::play::views::ConnectSink* sink = nullptr;
         libchiaking::platform::StopSource stop;
     };
 

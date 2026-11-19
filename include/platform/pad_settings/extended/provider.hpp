@@ -17,22 +17,22 @@ public:
     static std::string resolveKey(const SettingsManager& settings, uint16_t vendorId, uint16_t productId,
                                   const uint8_t* address, bool switchNative, bool joycon);
 
-    static input::RumbleProfile resolveProfile(const SettingsManager& settings, uint16_t vendorId, uint16_t productId,
+    static play::RumbleProfile resolveProfile(const SettingsManager& settings, uint16_t vendorId, uint16_t productId,
                                                const uint8_t* address, bool switchNative, bool joycon);
 
     std::string rumbleKey(SettingsManager& settings) override;
     std::string currentKey(const SettingsManager& settings) const override;
     std::optional<std::string> outputSummary(const SettingsManager& settings) const override;
-    void useProfile(const input::RumbleProfile& profile) override;
+    void useProfile(const play::RumbleProfile& profile) override;
     bool isUnitKey(const std::string& key) const override;
     bool directOutput() const override;
     bool tunesMotors() const override;
 
-    void addOutputRows(brls::Box& content, input::RumbleProfile& profile,
+    void addOutputRows(brls::Box& content, play::RumbleProfile& profile,
                        const Action& store, const Action& reopen) override;
-    void addLightbarRows(brls::Box& content, input::RumbleProfile& profile,
+    void addLightbarRows(brls::Box& content, play::RumbleProfile& profile,
                          const Action& store, const Action& reopen) override;
-    bool previewDirect(const input::RumbleProfile& profile) override;
+    bool previewDirect(const play::RumbleProfile& profile) override;
 
 private:
     static std::uint8_t nextPreviewSequence();

@@ -118,7 +118,7 @@ private:
     float rumbleEnvelopeDecay = 0.85f;
     float rumbleEnvelopeAttack = 0.60f;
 
-    std::map<std::string, akira::input::RumbleProfile> rumbleProfiles;
+    std::map<std::string, akira::play::RumbleProfile> rumbleProfiles;
     int localVideoBitrate = 10000;
     int remoteVideoBitrate = 10000;
     int vpnVideoBitrate = 5000;
@@ -149,7 +149,7 @@ private:
     bool devFakeHosts = false;
     bool zeroCopyVideo = false;
     bool softwareHevc = false;
-    RendererKind videoRenderer = RendererKind::Drako3d;
+    akira::play::RendererKind videoRenderer = akira::play::RendererKind::Drako3d;
     bool hideAccountName = false;
     std::string updateChannel = "stable";
     std::string uiTheme = "playstation";
@@ -362,12 +362,12 @@ public:
     void setDirectHapticsInStream(bool value);
 
 
-    akira::input::RumbleProfile getRumbleProfile(const std::string& key) const;
-    void setRumbleProfile(const std::string& key, const akira::input::RumbleProfile& profile);
+    akira::play::RumbleProfile getRumbleProfile(const std::string& key) const;
+    void setRumbleProfile(const std::string& key, const akira::play::RumbleProfile& profile);
     bool hasRumbleProfile(const std::string& key) const;
 
     bool seedRumbleProfile(const std::string& key,
-                           const akira::input::RumbleProfile* inheritFrom = nullptr);
+                           const akira::play::RumbleProfile* inheritFrom = nullptr);
 
     void resetRumbleProfile(const std::string& key);
 
@@ -404,8 +404,8 @@ public:
     void setZeroCopyVideo(bool enabled);
     bool getSoftwareHevc() const;
     void setSoftwareHevc(bool enabled);
-    RendererKind getVideoRenderer() const;
-    void setVideoRenderer(RendererKind renderer);
+    akira::play::RendererKind getVideoRenderer() const;
+    void setVideoRenderer(akira::play::RendererKind renderer);
 
     bool getHideAccountName() const;
     void setHideAccountName(bool enabled);

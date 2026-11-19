@@ -8,7 +8,7 @@
 namespace akira::platform::nxext
 {
 
-IpcStatsService::IpcStatsService(Session* session)
+IpcStatsService::IpcStatsService(play::Session* session)
     : m_session(session)
 {
     memset(&m_server, 0, sizeof(m_server));
@@ -123,7 +123,7 @@ Result IpcStatsService::ServiceHandler(void* userdata, const IpcServerRequest* r
                 break;
 
             AkiraStreamStats* out = (AkiraStreamStats*)hipcGetBufferAddress(r->hipc.data.recv_buffers);
-            StreamStats stats = self->m_session->getStreamStats();
+            play::StreamStats stats = self->m_session->getStreamStats();
 
             out->requested_width = stats.requested_width;
             out->requested_height = stats.requested_height;

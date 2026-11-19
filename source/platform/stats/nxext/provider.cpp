@@ -28,7 +28,7 @@ void NxextStatsProvider::initToggle(brls::BooleanCell& cell) const
         });
 }
 
-void NxextStatsProvider::streamStarted(Session& session)
+void NxextStatsProvider::streamStarted(play::Session& session)
 {
     if (!SettingsManager::getInstance()->getIpcStatsEnabled())
         return;

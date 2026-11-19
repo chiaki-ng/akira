@@ -31,7 +31,7 @@ public:
     std::vector<RendererChoice> rendererChoices() const override;
     std::unique_ptr<VideoProvider> createVideo() override;
     std::unique_ptr<HapticsProvider> createHaptics() override;
-    std::unique_ptr<FeedbackProvider> createFeedback(HapticManager& haptics) override;
+    std::unique_ptr<FeedbackProvider> createFeedback(play::HapticManager& haptics) override;
     std::unique_ptr<StreamControlsProvider> createStreamControls(std::weak_ptr<StreamControlsHost> host) override;
     std::unique_ptr<PadSettingsProvider> createPadSettings(const input::PadDescription& pad) override;
 

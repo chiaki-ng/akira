@@ -6,8 +6,8 @@ using namespace std::chrono_literals;
 
 TEST(sample_cadence_is_due_immediately_then_at_its_period)
 {
-    akira::input::SampleCadence cadence(16ms);
-    const auto start = akira::input::SampleCadence::TimePoint{} + 1s;
+    akira::play::SampleCadence cadence(16ms);
+    const auto start = akira::play::SampleCadence::TimePoint{} + 1s;
 
     CHECK(cadence.due(start));
     CHECK(!cadence.due(start + 8ms));
@@ -18,8 +18,8 @@ TEST(sample_cadence_is_due_immediately_then_at_its_period)
 
 TEST(sample_cadence_resynchronizes_after_a_late_caller)
 {
-    akira::input::SampleCadence cadence(16ms);
-    const auto start = akira::input::SampleCadence::TimePoint{} + 1s;
+    akira::play::SampleCadence cadence(16ms);
+    const auto start = akira::play::SampleCadence::TimePoint{} + 1s;
 
     CHECK(cadence.due(start));
     CHECK(cadence.due(start + 40ms));
@@ -29,12 +29,12 @@ TEST(sample_cadence_resynchronizes_after_a_late_caller)
 
 TEST(sample_cadence_gates_120hz_calls_to_60hz)
 {
-    akira::input::SampleCadence cadence(akira::input::MotionPollPeriod);
-    const auto start = akira::input::SampleCadence::TimePoint{} + 1s;
+    akira::play::SampleCadence cadence(akira::play::MotionPollPeriod);
+    const auto start = akira::play::SampleCadence::TimePoint{} + 1s;
 
     int motionSamples = 0;
     for (int inputSample = 0; inputSample < 120; inputSample++) {
-        if (cadence.due(start + akira::input::InputPollPeriod * inputSample))
+        if (cadence.due(start + akira::play::InputPollPeriod * inputSample))
             motionSamples++;
     }
 
@@ -43,8 +43,8 @@ TEST(sample_cadence_gates_120hz_calls_to_60hz)
 
 TEST(sample_cadence_emits_only_once_after_a_long_stall)
 {
-    akira::input::SampleCadence cadence(16ms);
-    const auto start = akira::input::SampleCadence::TimePoint{} + 1s;
+    akira::play::SampleCadence cadence(16ms);
+    const auto start = akira::play::SampleCadence::TimePoint{} + 1s;
 
     CHECK(cadence.due(start));
     CHECK(cadence.due(start + 100ms));
@@ -54,12 +54,12 @@ TEST(sample_cadence_emits_only_once_after_a_long_stall)
 
 TEST(sample_cadence_limits_direct_device_discovery_to_twice_per_second)
 {
-    akira::input::SampleCadence cadence(akira::input::DirectDiscoveryPeriod);
-    const auto start = akira::input::SampleCadence::TimePoint{} + 1s;
+    akira::play::SampleCadence cadence(akira::play::DirectDiscoveryPeriod);
+    const auto start = akira::play::SampleCadence::TimePoint{} + 1s;
 
     int attempts = 0;
     for (int inputSample = 0; inputSample < 120; inputSample++) {
-        if (cadence.due(start + akira::input::InputPollPeriod * inputSample))
+        if (cadence.due(start + akira::play::InputPollPeriod * inputSample))
             attempts++;
     }
 

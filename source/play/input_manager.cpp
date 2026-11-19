@@ -13,6 +13,8 @@
 #include <array>
 #include "log/log.hpp"
 
+namespace akira::play {
+
 InputManager::InputManager()
     : m_pads(akira::platform::PlatformFactory::instance().pads())
     , m_state_mutex(m_pads.mutex())
@@ -47,7 +49,7 @@ bool InputManager::init()
 
     bool vibration_permitted = true;
     if (R_SUCCEEDED(hidIsVibrationPermitted(&vibration_permitted)) && !vibration_permitted) {
-        akira::log::warning("Controller Vibration is off in System Settings - "
+        log::warning("Controller Vibration is off in System Settings - "
                               "nothing sent through HOS will be felt");
     }
 
@@ -56,7 +58,7 @@ bool InputManager::init()
         m_sdl_joystick_ptr[i] = SDL_JoystickOpen(i);
         if (m_sdl_joystick_ptr[i] == nullptr)
         {
-            akira::log::error("SDL_JoystickOpen: {}", SDL_GetError());
+            log::error("SDL_JoystickOpen: {}", SDL_GetError());
             return false;
         }
     }
@@ -169,9 +171,9 @@ void InputManager::applyPadInput(akira::input::Pad& pad, libchiaking::controller
         }
 
         if (allHeld) {
-            if (chiakiBtn == akira::input::remapKey(akira::input::RemapTarget::L2)) {
+            if (chiakiBtn == play::remapKey(RemapTarget::L2)) {
                 state.l2 = 0xff;
-            } else if (chiakiBtn == akira::input::remapKey(akira::input::RemapTarget::R2)) {
+            } else if (chiakiBtn == play::remapKey(RemapTarget::R2)) {
                 state.r2 = 0xff;
             } else {
                 state.buttons |= chiakiBtn;
@@ -223,7 +225,7 @@ void InputManager::update(libchiaking::controllers::ControllerInput& input, std:
         return;
     }
 
-    const auto now = akira::input::gesture::Clock::now();
+    const auto now = gesture::Clock::now();
 
     pad->poll();
     m_menu_held.store(pad->menuHeld(), std::memory_order_release);
@@ -245,7 +247,7 @@ void InputManager::update(libchiaking::controllers::ControllerInput& input, std:
 
 void InputManager::updateTouchInput(libchiaking::controllers::ControllerInput& input,
     std::map<uint32_t, int8_t>* finger_id_touch_id, u64 buttons,
-    akira::input::gesture::TimePoint now)
+    gesture::TimePoint now)
 {
     readTouchScreen(input, finger_id_touch_id, now);
     updateSyntheticSwipes(input, buttons, now);
@@ -272,7 +274,7 @@ void InputManager::fireDeferredRelease(libchiaking::controllers::ControllerInput
 {
     if (m_deferred_release_touch_id < 0)
         return;
-    akira::log::info("Touch: deferred stop_touch={} fires now", m_deferred_release_touch_id);
+    log::info("Touch: deferred stop_touch={} fires now", m_deferred_release_touch_id);
     input.stop_touch(static_cast<uint8_t>(m_deferred_release_touch_id));
     m_deferred_release_touch_id = -1;
     m_active_click_touch_id = -1;
@@ -280,7 +282,7 @@ void InputManager::fireDeferredRelease(libchiaking::controllers::ControllerInput
 
 bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& input,
     std::map<uint32_t, int8_t>* finger_id_touch_id,
-    akira::input::gesture::TimePoint now)
+    gesture::TimePoint now)
 {
     HidTouchScreenState sw_state = {0};
 
@@ -289,8 +291,8 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
     {
         if (!finger_id_touch_id->empty() && now >= m_next_touch_warning)
         {
-            akira::log::warning("Touch: hidGetTouchScreenStates returned 0, preserving {} active touches", finger_id_touch_id->size());
-            m_next_touch_warning = now + akira::input::gesture::TouchWarningInterval;
+            log::warning("Touch: hidGetTouchScreenStates returned 0, preserving {} active touches", finger_id_touch_id->size());
+            m_next_touch_warning = now + gesture::TouchWarningInterval;
         }
         return !finger_id_touch_id->empty();
     }
@@ -315,10 +317,10 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
     }
 
     if (sw_state.count > 0 && m_prev_touch_count == 0)
-        akira::log::info("Touch: started, {} point(s), finger_id={}, pos=({},{})",
+        log::info("Touch: started, {} point(s), finger_id={}, pos=({},{})",
             sw_state.count, sw_state.touches[0].finger_id, sw_state.touches[0].x, sw_state.touches[0].y);
     else if (sw_state.count == 0 && m_prev_touch_count > 0)
-        akira::log::info("Touch: released, had {} tracked finger(s)", finger_id_touch_id->size());
+        log::info("Touch: released, had {} tracked finger(s)", finger_id_touch_id->size());
     m_prev_touch_count = sw_state.count;
 
     bool ret = false;
@@ -343,11 +345,11 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
                 if (m_touchpad_button_pulse.scheduled)
                 {
                     m_deferred_release_touch_id = cur->second;
-                    akira::log::debug("Touch: defer stop_touch={} until button hold completes", cur->second);
+                    log::debug("Touch: defer stop_touch={} until button hold completes", cur->second);
                 }
                 else
                 {
-                    akira::log::debug("Touch: stop touch_id={} for finger_id={}", cur->second, cur->first);
+                    log::debug("Touch: stop touch_id={} for finger_id={}", cur->second, cur->first);
                     input.stop_touch(static_cast<uint8_t>(cur->second));
                 }
             }
@@ -368,7 +370,7 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
         }
         if (!found)
         {
-            akira::log::info("Touch: pending border tap for finger_id={} lifted before commit", pt->first);
+            log::info("Touch: pending border tap for finger_id={} lifted before commit", pt->first);
             pt = m_pending_border_taps.erase(pt);
         }
         else
@@ -440,7 +442,7 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
             {
                 m_pending_border_taps[sw_state.touches[i].finger_id] =
                     {(uint16_t)rawX, (uint16_t)rawY, now};
-                akira::log::info("Touch: pending border tap for finger_id={} raw=({},{})",
+                log::info("Touch: pending border tap for finger_id={} raw=({},{})",
                     sw_state.touches[i].finger_id, rawX, rawY);
             }
             else
@@ -448,11 +450,11 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
                 fireDeferredRelease(input);
                 const int8_t touch_id = startTouch(input, x, y);
                 (*finger_id_touch_id)[sw_state.touches[i].finger_id] = touch_id;
-                akira::log::info("Touch: new finger_id={} -> touch_id={}, raw=({},{}) mapped=({},{})",
+                log::info("Touch: new finger_id={} -> touch_id={}, raw=({},{}) mapped=({},{})",
                     sw_state.touches[i].finger_id, touch_id,
                     sw_state.touches[i].x, sw_state.touches[i].y, x, y);
                 if (touch_id < 0)
-                    akira::log::warning("Touch: no free touch slots (max {})", libchiaking::controllers::ControllerState{}.touches.size());
+                    log::warning("Touch: no free touch slots (max {})", libchiaking::controllers::ControllerState{}.touches.size());
             }
         }
         else if (isPending)
@@ -466,22 +468,22 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
                 fireDeferredRelease(input);
                 const int8_t touch_id = startTouch(input, x, y);
                 (*finger_id_touch_id)[sw_state.touches[i].finger_id] = touch_id;
-                akira::log::info("Touch: border swipe committed finger_id={} -> touch_id={} at mapped=({},{})",
+                log::info("Touch: border swipe committed finger_id={} -> touch_id={} at mapped=({},{})",
                     sw_state.touches[i].finger_id, touch_id, x, y);
                 m_pending_border_taps.erase(pt);
             }
-            else if (now - pt->second.downAt >= akira::input::gesture::BorderTapCommitDelay)
+            else if (now - pt->second.downAt >= gesture::BorderTapCommitDelay)
             {
                 fireDeferredRelease(input);
                 const int8_t touch_id = startTouch(input, x, y);
                 (*finger_id_touch_id)[sw_state.touches[i].finger_id] = touch_id;
                 m_touchpad_button_pulse.scheduled = true;
-                m_touchpad_button_pulse.pressAt = now + akira::input::gesture::TouchpadButtonDelay;
+                m_touchpad_button_pulse.pressAt = now + gesture::TouchpadButtonDelay;
                 m_touchpad_button_pulse.releaseAt = m_touchpad_button_pulse.pressAt
-                    + akira::input::gesture::TouchpadButtonHold;
+                    + gesture::TouchpadButtonHold;
                 m_active_click_touch_id = touch_id;
                 Session::GetInstance()->triggerBorderFlash();
-                akira::log::info("Touch: border tap committed (touch first, button in 67 ms, pos frozen) finger_id={} -> touch_id={} at mapped=({},{})",
+                log::info("Touch: border tap committed (touch first, button in 67 ms, pos frozen) finger_id={} -> touch_id={} at mapped=({},{})",
                     sw_state.touches[i].finger_id, touch_id, x, y);
                 m_pending_border_taps.erase(pt);
             }
@@ -491,7 +493,7 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
             if (it->second != m_active_click_touch_id)
             {
                 input.move_touch(static_cast<uint8_t>(it->second), x, y);
-                akira::log::debug("Touch: move touch_id={} mapped=({},{})", it->second, x, y);
+                log::debug("Touch: move touch_id={} mapped=({},{})", it->second, x, y);
             }
         }
         ret = true;
@@ -578,12 +580,12 @@ void InputManager::resetMotionControls()
 
     pad->resetMotion();
 
-    akira::log::info("Motion controls reset: zero offset = ({}, {}, {})",
+    log::info("Motion controls reset: zero offset = ({}, {}, {})",
         m_accel_zero_x, m_accel_zero_y, m_accel_zero_z);
 }
 
 void InputManager::updateSyntheticSwipes(libchiaking::controllers::ControllerInput& state, u64 buttons,
-    akira::input::gesture::TimePoint now)
+    gesture::TimePoint now)
 {
     static constexpr uint32_t swipeConstants[4] = {
         SWIPE_TOUCHPAD_UP, SWIPE_TOUCHPAD_DOWN,
@@ -620,7 +622,7 @@ void InputManager::updateSyntheticSwipes(libchiaking::controllers::ControllerInp
         if (!SettingsManager::getInstance()->isButtonEnabled(swipeConstants[i])) {
             swipe.buttonWasPressed = false;
             if (swipe.phase == SyntheticSwipe::Phase::ACTIVE) {
-                akira::log::info("Swipe {}: disabled mid-swipe, stopping touch_id={}", swipeNames[i], swipe.touchId);
+                log::info("Swipe {}: disabled mid-swipe, stopping touch_id={}", swipeNames[i], swipe.touchId);
                 state.stop_touch(static_cast<uint8_t>(swipe.touchId));
                 swipe.phase = SyntheticSwipe::Phase::IDLE;
                 swipe.touchId = -1;
@@ -658,7 +660,7 @@ void InputManager::updateSyntheticSwipes(libchiaking::controllers::ControllerInp
         }
 
         if (comboHeld && !stickDirectionValid)
-            akira::log::debug("Swipe {}: combo held but stick direction invalid (L={},{} R={},{})",
+            log::debug("Swipe {}: combo held but stick direction invalid (L={},{} R={},{})",
                 swipeNames[i], leftStick.x, leftStick.y, rightStick.x, rightStick.y);
 
         if (swipe.phase == SyntheticSwipe::Phase::IDLE) {
@@ -671,30 +673,32 @@ void InputManager::updateSyntheticSwipes(libchiaking::controllers::ControllerInp
                 if (swipe.touchId >= 0) {
                     swipe.phase = SyntheticSwipe::Phase::ACTIVE;
                     swipe.startedAt = now;
-                    akira::log::info("Swipe {}: started touch_id={}, start=({},{}) end=({},{}) duration=300 ms",
+                    log::info("Swipe {}: started touch_id={}, start=({},{}) end=({},{}) duration=300 ms",
                         swipeNames[i], swipe.touchId, swipe.startX, swipe.startY,
                         swipe.endX, swipe.endY);
                 } else {
-                    akira::log::warning("Swipe {}: no free touch slots", swipeNames[i]);
+                    log::warning("Swipe {}: no free touch slots", swipeNames[i]);
                 }
             }
             swipe.buttonWasPressed = comboHeld && stickDirectionValid;
         } else {
             const auto elapsed = now - swipe.startedAt;
-            if (elapsed >= akira::input::gesture::SwipeDuration) {
-                akira::log::info("Swipe {}: completed, final pos=({},{}), touch_id={}",
+            if (elapsed >= gesture::SwipeDuration) {
+                log::info("Swipe {}: completed, final pos=({},{}), touch_id={}",
                     swipeNames[i], swipe.endX, swipe.endY, swipe.touchId);
                 state.stop_touch(static_cast<uint8_t>(swipe.touchId));
                 swipe.phase = SyntheticSwipe::Phase::IDLE;
                 swipe.touchId = -1;
                 swipe.buttonWasPressed = comboHeld && stickDirectionValid;
             } else {
-                const int16_t x = akira::input::gesture::interpolate(
-                    swipe.startX, swipe.endX, elapsed, akira::input::gesture::SwipeDuration);
-                const int16_t y = akira::input::gesture::interpolate(
-                    swipe.startY, swipe.endY, elapsed, akira::input::gesture::SwipeDuration);
+                const int16_t x = gesture::interpolate(
+                    swipe.startX, swipe.endX, elapsed, gesture::SwipeDuration);
+                const int16_t y = gesture::interpolate(
+                    swipe.startY, swipe.endY, elapsed, gesture::SwipeDuration);
                 state.move_touch(static_cast<uint8_t>(swipe.touchId), x, y);
             }
         }
     }
+}
+
 }

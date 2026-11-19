@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <cstddef>
 
+namespace akira::play {
+
 enum class StatsOverlayMode
 {
     Off = 0,
@@ -66,5 +68,7 @@ struct StreamStats
     uint8_t analog_l2 = 0;
     uint8_t analog_r2 = 0;
 };
+
+}
 
 #endif // AKIRA_IO_STREAM_STATS_HPP

@@ -5,6 +5,8 @@
 #include "play/views/stream_card.hpp"
 #include <functional>
 
+namespace akira::play::views {
+
 class StatsCard : public StreamCard
 {
 public:
@@ -101,5 +103,7 @@ private:
     bool sleepAvailable;
     std::function<void(bool)> disconnect;
 };
+
+}
 
 #endif // AKIRA_STREAM_CARDS_HPP

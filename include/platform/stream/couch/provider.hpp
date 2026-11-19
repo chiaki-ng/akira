@@ -22,7 +22,7 @@ public:
     void attach() override;
     bool beforeStart() override;
     void streaming() override;
-    void decorateMenu(StreamMenu& menu) override;
+    void decorateMenu(play::views::StreamMenu& menu) override;
 
 private:
     void waitForPads(int attempt);

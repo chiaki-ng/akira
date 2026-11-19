@@ -16,11 +16,11 @@ public:
     input::Pad* acquire(Callbacks& callbacks) override;
     input::Pad* current() override;
     std::vector<input::PadDescription> scanPads() const override;
-    input::RumbleProfile primaryRumbleProfile() const override;
+    play::RumbleProfile primaryRumbleProfile() const override;
 
-    void readSecondaryPads(InputManager&, std::span<libchiaking::controllers::ControllerInput>, uint8_t&) override {}
+    void readSecondaryPads(play::InputManager&, std::span<libchiaking::controllers::ControllerInput>, uint8_t&) override {}
     void routeSeatFeedback(uint8_t, const libchiaking::controllers::ControllerFeedback&) override {}
-    void fillStreamStats(StreamStats&) override {}
+    void fillStreamStats(play::StreamStats&) override {}
 
 private:
     std::optional<HidPad> m_pad;

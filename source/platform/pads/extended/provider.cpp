@@ -69,12 +69,12 @@ std::vector<input::PadDescription> ExtendedPadProvider::scanPads() const
     return akira::platform::extended::DescribePads();
 }
 
-input::RumbleProfile ExtendedPadProvider::primaryRumbleProfile() const
+play::RumbleProfile ExtendedPadProvider::primaryRumbleProfile() const
 {
     auto* settings = SettingsManager::getInstance();
     const std::vector<input::PadDescription> pads = scanPads();
     if (pads.empty())
-        return settings->getRumbleProfile(input::kRumbleKeyDefault);
+        return settings->getRumbleProfile(play::kRumbleKeyDefault);
 
     const input::PadDescription& pad = pads.front();
     const bool switchNative = pad.kind == input::PadPathKind::JoyCon
@@ -86,7 +86,7 @@ input::RumbleProfile ExtendedPadProvider::primaryRumbleProfile() const
                                           pad.kind == input::PadPathKind::JoyCon);
 }
 
-void ExtendedPadProvider::fillStreamStats(StreamStats& stats)
+void ExtendedPadProvider::fillStreamStats(play::StreamStats& stats)
 {
     stats.analog_triggers_active = m_extended.hasFreshAnalogState();
     stats.analog_l2 = m_extended.l2();
@@ -431,7 +431,7 @@ bool ExtendedPadProvider::couchSlotOutputTarget(uint8_t slot, uint8_t out_addr[6
     return false;
 }
 
-void ExtendedPadProvider::readSecondaryPads(InputManager& input, std::span<libchiaking::controllers::ControllerInput> states, uint8_t& count)
+void ExtendedPadProvider::readSecondaryPads(play::InputManager& input, std::span<libchiaking::controllers::ControllerInput> states, uint8_t& count)
 {
     Callbacks callbacks;
     std::unique_lock<std::mutex> lock(mutex());
@@ -443,7 +443,7 @@ void ExtendedPadProvider::readSecondaryPads(InputManager& input, std::span<libch
         return;
     }
     const auto now = akira::platform::extended::timing::Clock::now();
-    if (m_couch_pads.empty() || now - m_couch_pads_read >= akira::input::DirectDiscoveryPeriod)
+    if (m_couch_pads.empty() || now - m_couch_pads_read >= play::DirectDiscoveryPeriod)
     {
         m_couch_pads = describePadsLocked();
         m_couch_pads_read = now;

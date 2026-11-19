@@ -147,7 +147,7 @@ void Host::copyRegistrationFrom(const Host* other)
 
 libchiaking::Expected<void, Host::WakeRefusal> Host::wake()
 {
-    auto* accounts = ChiakiCore::current().accounts();
+    auto* accounts = play::ChiakiCore::current().accounts();
     const auto user = accounts ? accounts->activeUser() : nullptr;
     if (!console || !user)
     {
@@ -177,7 +177,7 @@ HostRegisterError Host::registerHost(int pin, PairingCallback done)
     namespace consoles = libchiaking::consoles;
     namespace platform = libchiaking::platform;
 
-    auto& core = ChiakiCore::current();
+    auto& core = play::ChiakiCore::current();
     auto* accounts = core.accounts();
     auto user = accounts ? accounts->activeUser() : nullptr;
     if (!user)
@@ -265,7 +265,7 @@ bool Host::canPairOverInternet() const
 {
     if (settings->isLegacyProfileActive())
         return false;
-    auto* accounts = ChiakiCore::current().accounts();
+    auto* accounts = play::ChiakiCore::current().accounts();
     if (!accounts || accounts->state() != psn::SessionState::Valid)
         return false;
     return !settings->getPsnAccountId(const_cast<Host*>(this)).empty();
@@ -276,7 +276,7 @@ HostRegisterError Host::registerOverInternet(PairingStageCallback stage, Pairing
     namespace consoles = libchiaking::consoles;
     namespace platform = libchiaking::platform;
 
-    auto& core = ChiakiCore::current();
+    auto& core = play::ChiakiCore::current();
     auto* accounts = core.accounts();
     auto user = accounts ? accounts->activeUser() : nullptr;
     if (!user || settings->isLegacyProfileActive())

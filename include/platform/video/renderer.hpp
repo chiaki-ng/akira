@@ -30,22 +30,22 @@ public:
 
     virtual void updateOverlayTexture() {}
 
-    virtual void setStatsOverlayMode(StatsOverlayMode mode) { m_stats_mode.store(mode, std::memory_order_relaxed); }
-    virtual void setStreamStats(const StreamStats& stats)
+    virtual void setStatsOverlayMode(play::StatsOverlayMode mode) { m_stats_mode.store(mode, std::memory_order_relaxed); }
+    virtual void setStreamStats(const play::StreamStats& stats)
     {
         m_stats_seq.fetch_add(1, std::memory_order_release);
         m_stats = stats;
         m_stats_seq.fetch_add(1, std::memory_order_release);
     }
 
-    StreamStats readStreamStats() const
+    play::StreamStats readStreamStats() const
     {
         for (;;)
         {
             uint32_t before = m_stats_seq.load(std::memory_order_acquire);
             if (before & 1u)
                 continue;
-            StreamStats copy = m_stats;
+            play::StreamStats copy = m_stats;
             if (m_stats_seq.load(std::memory_order_acquire) == before)
                 return copy;
         }
@@ -71,8 +71,8 @@ public:
     virtual void setTickCallback(TickCallback cb) { (void)cb; }
 
 protected:
-    std::atomic<StatsOverlayMode> m_stats_mode{StatsOverlayMode::Off};
-    StreamStats m_stats;
+    std::atomic<play::StatsOverlayMode> m_stats_mode{play::StatsOverlayMode::Off};
+    play::StreamStats m_stats;
     mutable std::atomic<uint32_t> m_stats_seq{0};
 };
 

@@ -16,7 +16,9 @@
 #include "platform/pads/extended/pad_path.hpp"
 #include "platform/pads/provider.hpp"
 
+namespace akira::play {
 class InputManager;
+}
 
 namespace akira::platform::extended
 {
@@ -45,12 +47,12 @@ public:
     input::Pad* acquire(Callbacks& callbacks) override;
     input::Pad* current() override;
     std::vector<input::PadDescription> scanPads() const override;
-    input::RumbleProfile primaryRumbleProfile() const override;
+    play::RumbleProfile primaryRumbleProfile() const override;
 
-    void readSecondaryPads(InputManager& input, std::span<libchiaking::controllers::ControllerInput> states,
+    void readSecondaryPads(play::InputManager& input, std::span<libchiaking::controllers::ControllerInput> states,
                            uint8_t& count) override;
     void routeSeatFeedback(uint8_t slot, const libchiaking::controllers::ControllerFeedback& feedback) override;
-    void fillStreamStats(StreamStats& stats) override;
+    void fillStreamStats(play::StreamStats& stats) override;
 
     uint8_t couchJoin(HidNpadIdType npad);
     void couchLeave(HidNpadIdType npad);
@@ -128,7 +130,7 @@ private:
     uint32_t m_announced_mask = 0;
     bool     m_arrival_primed = false;
     bool     m_arrival_pending = false;
-    input::SampleCadence m_arrival_cadence{timing::ArrivalPollPeriod};
+    play::SampleCadence m_arrival_cadence{timing::ArrivalPollPeriod};
     bool          m_identify_done  = false;
     uint32_t      m_identify_next  = 0;
     uint32_t      m_identify_until = 0;

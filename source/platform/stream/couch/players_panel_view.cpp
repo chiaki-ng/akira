@@ -18,9 +18,9 @@ namespace akira::platform::couch
 {
 
 using akira::input::PadDescription;
-using akira::stream::Connection;
-using akira::stream::CouchSeat;
-using akira::stream::SeatPhase;
+using play::Connection;
+using play::CouchSeat;
+using play::SeatPhase;
 
 namespace {
 
@@ -521,7 +521,7 @@ void PlayersPanelView::populateProfilePicker()
 {
     const auto connection = m_connection.lock();
     const auto choices = connection ? connection->couchProfileChoices(m_profileSlot)
-                                    : std::vector<akira::stream::CouchProfileChoice>{};
+                                    : std::vector<play::CouchProfileChoice>{};
     if (choices.empty()) {
         auto* row = MakeRowShell(true);
         row->addView(MakeBody("No eligible profiles",

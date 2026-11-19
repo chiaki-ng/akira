@@ -701,7 +701,7 @@ void GameDetailView::checkAndPlay(const Game& target)
                 return;
             checks->clear();
             render();
-            akira::views::startConnecting(std::make_unique<CloudConnectTask>(std::move(launch)));
+            akira::play::views::startConnecting(std::make_unique<CloudConnectTask>(std::move(launch)));
             checks->launched();
         },
         [this, current](const std::string& error) {

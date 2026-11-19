@@ -104,9 +104,9 @@ void SettingsPadView::buildHeader()
     addView(title);
 
     std::string tier;
-    if (m_key == akira::input::kRumbleKeySwitch)
+    if (m_key == akira::play::kRumbleKeySwitch)
         tier = "akira/settings/rumble_tier_switch"_i18n;
-    else if (m_key == akira::input::kRumbleKeyDefault)
+    else if (m_key == akira::play::kRumbleKeyDefault)
         tier = "akira/settings/rumble_tier_default"_i18n;
     else if (m_platform->isUnitKey(m_key))
         tier = "akira/settings/rumble_tier_unit"_i18n;
@@ -136,11 +136,11 @@ void SettingsPadView::buildSourceRows()
         "akira/settings/rumble_source_game"_i18n,
     };
 
-    const auto hintFor = [](akira::input::RumbleSource value) {
+    const auto hintFor = [](akira::play::RumbleSource value) {
         switch (value) {
-            case akira::input::RumbleSource::Off:
+            case akira::play::RumbleSource::Off:
                 return "akira/settings/rumble_source_hint_off"_i18n;
-            case akira::input::RumbleSource::Game:
+            case akira::play::RumbleSource::Game:
                 return "akira/settings/rumble_source_hint_game"_i18n;
             default:
                 return "akira/settings/rumble_source_hint_derived"_i18n;
@@ -151,7 +151,7 @@ void SettingsPadView::buildSourceRows()
                  static_cast<int>(m_profile.rumble_source),
                  [this, source, hintFor](int selected) {
                      m_profile.rumble_source =
-                         static_cast<akira::input::RumbleSource>(selected);
+                         static_cast<akira::play::RumbleSource>(selected);
                      store();
                      source->setDetailText(hintFor(m_profile.rumble_source));
                  });
@@ -224,7 +224,7 @@ void SettingsPadView::buildIntensityRow()
                     static_cast<int>(m_profile.haptic_intensity),
                     [this](int selected) {
                         m_profile.haptic_intensity =
-                            static_cast<akira::input::HapticIntensity>(selected);
+                            static_cast<akira::play::HapticIntensity>(selected);
                         store();
                     });
 

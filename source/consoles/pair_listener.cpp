@@ -105,7 +105,7 @@ PairListener::~PairListener() {
 
 std::string PairListener::generateCode() {
     std::array<std::byte, 2> raw{};
-    if (!ChiakiCore::current().random().fill_bytes(raw))
+    if (!play::ChiakiCore::current().random().fill_bytes(raw))
         raw = {};
     unsigned value = ((std::to_integer<unsigned>(raw[0]) << 8) | std::to_integer<unsigned>(raw[1])) % 10000u;
     char buf[8];
@@ -137,7 +137,7 @@ void PairListener::start(int port, const std::string& code, EventCallback onEven
     stop();
     onEvent_ = std::move(onEvent);
     onImport_ = std::move(onImport);
-    auto started = libchiaking::platform::Thread::start(ChiakiCore::current().threading(), "pair-listener",
+    auto started = libchiaking::platform::Thread::start(play::ChiakiCore::current().threading(), "pair-listener",
         libchiaking::platform::ThreadRole::unspecified,
         [this, port, code](libchiaking::platform::StopToken stop) { run(port, code, stop); });
     if (!started) {
@@ -180,7 +180,7 @@ void PairListener::run(int port, const std::string& code, const libchiaking::pla
 
     if (onEvent_) onEvent_(ListenerEvent::Listening);
 
-    auto& core = ChiakiCore::current();
+    auto& core = play::ChiakiCore::current();
     KeyExchange exchange{core.crypto(), core.random()};
     auto startTime = std::chrono::steady_clock::now();
     int tries = 0;

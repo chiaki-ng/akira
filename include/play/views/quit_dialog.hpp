@@ -3,7 +3,7 @@
 
 #include <string>
 
-namespace akira {
+namespace akira::play::views {
 
 void quitApp(bool toHbmenu, const std::string& message);
 

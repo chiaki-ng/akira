@@ -26,12 +26,12 @@ input::Pad* HidPadProvider::current()
     return m_pad ? &*m_pad : nullptr;
 }
 
-input::RumbleProfile HidPadProvider::primaryRumbleProfile() const
+play::RumbleProfile HidPadProvider::primaryRumbleProfile() const
 {
     auto* settings = SettingsManager::getInstance();
     const std::vector<input::PadDescription> pads = scanPads();
     if (pads.empty())
-        return settings->getRumbleProfile(input::kRumbleKeyDefault);
+        return settings->getRumbleProfile(play::kRumbleKeyDefault);
     return settings->getRumbleProfile(
         HidPadSettingsProvider::resolveKey(*settings, pads.front().kind == input::PadPathKind::JoyCon));
 }

@@ -44,10 +44,10 @@ public:
     void cleanup() override;
     void waitIdle() override;
 
-    void setStatsOverlayMode(StatsOverlayMode mode) override
+    void setStatsOverlayMode(play::StatsOverlayMode mode) override
     {
         m_stats_mode.store(mode, std::memory_order_relaxed);
-        if (mode == StatsOverlayMode::Off)
+        if (mode == play::StatsOverlayMode::Off)
             m_ovl_front.store(-1, std::memory_order_release);
         else
             m_ovl_dirty = true;
@@ -56,7 +56,7 @@ public:
     void overlayTouchMove(float x, float y) override;
     void overlayTouchEnd() override;
     bool takeOverlayPositionDirty() override;
-    void setStreamStats(const StreamStats& stats) override { m_stats = stats; }
+    void setStreamStats(const play::StreamStats& stats) override { m_stats = stats; }
     float getRenderFPS() const override { return m_render_fps; }
     void setPaused(bool paused) { m_paused.store(paused, std::memory_order_relaxed); }
     void setConnectionContext(const std::string& context) override;

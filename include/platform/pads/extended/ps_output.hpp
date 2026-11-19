@@ -62,23 +62,23 @@ enum Ds5Enable3 : std::uint8_t {
 };
 
 
-inline std::uint8_t Ds5IntensityByte(input::Ds5EffectIntensity vibration,
-                                     input::Ds5EffectIntensity trigger)
+inline std::uint8_t Ds5IntensityByte(play::Ds5EffectIntensity vibration,
+                                     play::Ds5EffectIntensity trigger)
 {
     std::uint8_t low = 0x00;
     switch (vibration) {
-        case input::Ds5EffectIntensity::Strong: low = 0x00; break;
-        case input::Ds5EffectIntensity::Medium: low = 0x02; break;
-        case input::Ds5EffectIntensity::Weak:   low = 0x03; break;
-        case input::Ds5EffectIntensity::Off:    low = 0x0f; break;
+        case play::Ds5EffectIntensity::Strong: low = 0x00; break;
+        case play::Ds5EffectIntensity::Medium: low = 0x02; break;
+        case play::Ds5EffectIntensity::Weak:   low = 0x03; break;
+        case play::Ds5EffectIntensity::Off:    low = 0x0f; break;
     }
 
     std::uint8_t high = 0x00;
     switch (trigger) {
-        case input::Ds5EffectIntensity::Strong: high = 0x00; break;
-        case input::Ds5EffectIntensity::Medium: high = 0x60; break;
-        case input::Ds5EffectIntensity::Weak:   high = 0x90; break;
-        case input::Ds5EffectIntensity::Off:    high = 0xf0; break;
+        case play::Ds5EffectIntensity::Strong: high = 0x00; break;
+        case play::Ds5EffectIntensity::Medium: high = 0x60; break;
+        case play::Ds5EffectIntensity::Weak:   high = 0x90; break;
+        case play::Ds5EffectIntensity::Off:    high = 0xf0; break;
     }
 
     return (std::uint8_t)(high | low);

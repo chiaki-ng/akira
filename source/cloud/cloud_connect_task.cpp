@@ -41,7 +41,7 @@ std::string CloudConnectTask::title() const
     return brls::getStr("akira/connection/connecting_to", game.name);
 }
 
-void CloudConnectTask::start(akira::views::ConnectSink& s)
+void CloudConnectTask::start(akira::play::views::ConnectSink& s)
 {
     cancel();
     auto state = std::make_shared<CallbackState>();

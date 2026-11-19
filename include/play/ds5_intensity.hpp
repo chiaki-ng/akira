@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace akira::input {
+namespace akira::play {
 
 enum class Ds5EffectIntensity : std::uint8_t {
     Off    = 0,

@@ -3,16 +3,16 @@
 namespace akira::platform::hid
 {
 
-input::RumbleSource HidHapticsProvider::effectiveSource(input::RumbleSource configured) const
+play::RumbleSource HidHapticsProvider::effectiveSource(play::RumbleSource configured) const
 {
     return configured;
 }
 
-void HidHapticsProvider::prepare(HapticManager&)
+void HidHapticsProvider::prepare(play::HapticManager&)
 {
 }
 
-bool HidHapticsProvider::play(HapticManager&, std::span<const std::int16_t>)
+bool HidHapticsProvider::play(play::HapticManager&, std::span<const std::int16_t>)
 {
     return false;
 }

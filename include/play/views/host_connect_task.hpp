@@ -14,7 +14,7 @@ namespace akira::consoles {
 class Host;
 }
 
-namespace akira::views {
+namespace akira::play::views {
 
 /*
  * A console akira already knows about, on the same network or over the
@@ -49,6 +49,6 @@ private:
     void post(std::function<void(ConnectSink&)> work);
 };
 
-} // namespace akira::views
+} // namespace akira::play::views
 
 #endif // AKIRA_HOST_CONNECT_TASK_HPP

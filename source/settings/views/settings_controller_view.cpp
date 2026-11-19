@@ -53,7 +53,7 @@ void SettingsControllerView::initButtonMappingCell() {
     buttonMappingCell->setDetailText("akira/common/configure"_i18n);
 
     buttonMappingCell->registerClickAction([](brls::View*) {
-        auto* remapView = new ControllerRemapView();
+        auto* remapView = new akira::play::views::ControllerRemapView();
         brls::Application::pushActivity(new brls::Activity(remapView), brls::TransitionAnimation::NONE);
         return true;
     });

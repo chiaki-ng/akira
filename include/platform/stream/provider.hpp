@@ -5,10 +5,14 @@
 namespace akira::consoles {
 class Host;
 }
+namespace akira::play {
 class Session;
+}
+namespace akira::play::views {
 class StreamMenu;
+}
 
-namespace akira::stream
+namespace akira::play
 {
 class Connection;
 }
@@ -21,8 +25,8 @@ class StreamControlsHost
 public:
     virtual ~StreamControlsHost() = default;
 
-    virtual Session* controlsSession() = 0;
-    virtual std::shared_ptr<stream::Connection> controlsConnection() = 0;
+    virtual play::Session* controlsSession() = 0;
+    virtual std::shared_ptr<play::Connection> controlsConnection() = 0;
     virtual consoles::Host* controlsHost() = 0;
     virtual bool controlsMenuOpen() const = 0;
 
@@ -41,7 +45,7 @@ public:
     virtual void attach() = 0;
     virtual bool beforeStart() = 0;
     virtual void streaming() = 0;
-    virtual void decorateMenu(StreamMenu& menu) = 0;
+    virtual void decorateMenu(play::views::StreamMenu& menu) = 0;
 };
 
 }

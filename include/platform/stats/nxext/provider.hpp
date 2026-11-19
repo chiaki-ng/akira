@@ -17,7 +17,7 @@ public:
     ~NxextStatsProvider() override;
 
     void initToggle(brls::BooleanCell& cell) const override;
-    void streamStarted(Session& session) override;
+    void streamStarted(play::Session& session) override;
     void streamStopped() override;
 
 private:

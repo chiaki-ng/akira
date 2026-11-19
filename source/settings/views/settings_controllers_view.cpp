@@ -18,9 +18,9 @@ std::string SettingsControllersView::tierSummary(const akira::input::PadDescript
 
     const std::string key = padSettings->currentKey(*settings);
 
-    if (key == akira::input::kRumbleKeySwitch)
+    if (key == akira::play::kRumbleKeySwitch)
         return "akira/settings/rumble_tier_switch"_i18n;
-    if (key == akira::input::kRumbleKeyDefault)
+    if (key == akira::play::kRumbleKeyDefault)
         return "akira/settings/rumble_tier_default"_i18n;
     if (padSettings->isUnitKey(key))
         return "akira/settings/rumble_tier_unit"_i18n;

@@ -401,11 +401,11 @@ PadDriverState ResolvePadDriverState(const input::PadDescription& desc,
                     && FindPsModel(desc.vendor_id, desc.product_id) != nullptr;
 
     if (in.supported_pad) {
-        const input::RumbleProfile profile =
+        const play::RumbleProfile profile =
             akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(*SettingsManager::getInstance(), 
                 desc.vendor_id, desc.product_id,
                 desc.has_address ? desc.bt_addr : nullptr, false, false);
-        in.profile_native = profile.output_mode == input::PadOutputMode::Native;
+        in.profile_native = profile.output_mode == play::PadOutputMode::Native;
     }
 
     in.backend_enabled   = !extended.backendReleased();

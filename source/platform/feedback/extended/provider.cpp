@@ -9,7 +9,7 @@
 namespace akira::platform::extended
 {
 
-ExtendedFeedbackProvider::ExtendedFeedbackProvider(ExtendedPadProvider& pads, HapticManager& haptics)
+ExtendedFeedbackProvider::ExtendedFeedbackProvider(ExtendedPadProvider& pads, play::HapticManager& haptics)
     : m_pads(pads)
     , m_haptics(haptics)
 {
@@ -39,7 +39,7 @@ void ExtendedFeedbackProvider::apply(const libchiaking::controllers::ControllerF
 
 void ExtendedFeedbackProvider::applyTriggerEffects(const libchiaking::controllers::TriggerEffects& effects)
 {
-    if (input::Ds5IntensityFromWire(m_trigger_intensity) == input::Ds5EffectIntensity::Off)
+    if (play::Ds5IntensityFromWire(m_trigger_intensity) == play::Ds5EffectIntensity::Off)
         return;
 
     PadPath::TriggerEffect left;

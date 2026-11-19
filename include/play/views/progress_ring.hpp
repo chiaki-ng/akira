@@ -3,6 +3,8 @@
 
 #include <borealis.hpp>
 
+namespace akira::play::views {
+
 class ProgressRing : public brls::Box {
 public:
     ProgressRing();
@@ -18,5 +20,7 @@ private:
     float thickness = 7.0f;
     brls::Animatable displayProgress{0.0f};
 };
+
+}
 
 #endif // AKIRA_PROGRESS_RING_HPP

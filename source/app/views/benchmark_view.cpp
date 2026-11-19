@@ -46,7 +46,7 @@ void BenchmarkView::startBenchmark()
     benchmarkFinished = false;
     statusShown = false;
 
-    ChiakiCore& core = ChiakiCore::current();
+    play::ChiakiCore& core = play::ChiakiCore::current();
     auto started = platform::Thread::start(core.threading(), "benchmark", platform::ThreadRole::crypto,
         [this, &crypto = core.crypto(), &clock = core.clock()](platform::StopToken stop) {
             run(crypto, clock, stop);

@@ -9,9 +9,13 @@
 #include "consoles/host.hpp"
 #include "play/chiaki_core.hpp"
 
+namespace akira::play::views {
+
 using namespace brls::literals;
 
-namespace akira::views {
+}
+
+namespace akira::play::views {
 
 HostConnectTask::HostConnectTask(consoles::Host* host)
     : host(host)
@@ -48,7 +52,7 @@ void HostConnectTask::start(ConnectSink& s)
     sink = &s;
     running.store(true);
 
-    auto started = libchiaking::platform::Thread::start(akira::ChiakiCore::current().threading(), "host-connect",
+    auto started = libchiaking::platform::Thread::start(ChiakiCore::current().threading(), "host-connect",
         libchiaking::platform::ThreadRole::unspecified,
         [this](libchiaking::platform::StopToken stop) { run(stop); });
     if (!started) {
@@ -61,17 +65,17 @@ void HostConnectTask::start(ConnectSink& s)
 
 void HostConnectTask::run(const libchiaking::platform::StopToken& stop)
 {
-    akira::log::info("Connection thread started");
+    log::info("Connection thread started");
 
     if (!host->isRemote()) {
-        akira::log::info("Local connection - ready to stream");
+        log::info("Local connection - ready to stream");
         running.store(false);
         post([target = host](ConnectSink& to) { to.succeeded(target, {}); });
         return;
     }
 
     sink->progress(ConnectionStage::Finding);
-    auto* accounts = akira::ChiakiCore::current().accounts();
+    auto* accounts = ChiakiCore::current().accounts();
     if (!accounts || !accounts->staySignedIn(stop)) {
         running.store(false);
         if (!stop.stop_requested())
@@ -79,7 +83,7 @@ void HostConnectTask::run(const libchiaking::platform::StopToken& stop)
         return;
     }
 
-    akira::log::info("PSN sign-in is current, handing over to the stream");
+    log::info("PSN sign-in is current, handing over to the stream");
     running.store(false);
     if (!stop.stop_requested() && !sink->cancelled())
         post([target = host](ConnectSink& to) { to.succeeded(target, {}); });
@@ -93,4 +97,4 @@ void HostConnectTask::post(std::function<void(ConnectSink&)> work)
     });
 }
 
-} // namespace akira::views
+} // namespace akira::play::views

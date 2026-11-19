@@ -48,7 +48,7 @@ public:
     static akira::app::views::RecyclingGridItem* create();
 
 private:
-    ProgressRing* ring = nullptr;
+    akira::play::views::ProgressRing* ring = nullptr;
     brls::Label* ringLabel = nullptr;
     brls::Label* earnedValue = nullptr;
     brls::Label* availableValue = nullptr;

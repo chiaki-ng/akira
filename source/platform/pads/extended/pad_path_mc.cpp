@@ -212,8 +212,8 @@ void McPsNativePath::sendEffectIntensity(uint8_t vibration, uint8_t trigger)
     if (!m_direct_output)
         return;
 
-    m_extended.setConsoleIntensity(akira::input::Ds5IntensityFromWire(vibration),
-                                   akira::input::Ds5IntensityFromWire(trigger));
+    m_extended.setConsoleIntensity(play::Ds5IntensityFromWire(vibration),
+                                   play::Ds5IntensityFromWire(trigger));
 }
 
 void McPsNativePath::sendLightbar(uint8_t red, uint8_t green, uint8_t blue)

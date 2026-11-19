@@ -185,7 +185,7 @@ void SettingsAccountView::initAuthSection() {
         "akira/settings/refresh_token_busy"_i18n,
         "akira/settings/refresh_token_wait",
         []() {
-            auto* accounts = akira::ChiakiCore::current().accounts();
+            auto* accounts = akira::play::ChiakiCore::current().accounts();
             return accounts ? accounts->refreshStatus() : psn::ActionStatus{};
         }
     );
@@ -195,7 +195,7 @@ void SettingsAccountView::initAuthSection() {
             return true;
         }
 
-        auto* accounts = akira::ChiakiCore::current().accounts();
+        auto* accounts = akira::play::ChiakiCore::current().accounts();
         if (!accounts || accounts->state() == psn::SessionState::NotLinked) {
             brls::Application::notify("akira/settings/no_refresh_token"_i18n);
             return true;
@@ -227,7 +227,7 @@ void SettingsAccountView::initAuthSection() {
 
         dialog->addButton("akira/settings/clear_all"_i18n, [this, dialog]() {
             dialog->close();
-            if (auto* accounts = akira::ChiakiCore::current().accounts())
+            if (auto* accounts = akira::play::ChiakiCore::current().accounts())
                 accounts->forget(settings->getPsnAccountId(nullptr));
             updateCredentialsDisplay();
             brls::Application::notify("akira/settings/psn_data_cleared"_i18n);
@@ -285,7 +285,7 @@ void SettingsAccountView::updateCredentialsDisplay() {
     psnAccountIdInput->setValue(maskNames ? settings->maskAccountName(accountId) : accountId);
     psnOnlineIdInput->setValue(maskNames ? settings->maskAccountName(onlineId) : onlineId);
 
-    auto* accounts = akira::ChiakiCore::current().accounts();
+    auto* accounts = akira::play::ChiakiCore::current().accounts();
     const psn::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
     const std::vector<libchiaking::users::HeldCredential> held =
         user ? user->held_credentials() : std::vector<libchiaking::users::HeldCredential>{};

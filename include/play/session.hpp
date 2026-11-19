@@ -21,6 +21,8 @@
 #include "play/video_worker.hpp"
 #include "platform/video/provider.hpp"
 
+namespace akira::play {
+
 class AudioManager;
 class HapticManager;
 class InputManager;
@@ -38,7 +40,7 @@ private:
     std::unique_ptr<InputManager> m_input_manager;
     std::unique_ptr<akira::platform::FeedbackProvider> m_pad_feedback;
     std::unique_ptr<akira::platform::VideoProvider> m_video;
-    std::unique_ptr<akira::stream::VideoWorker> m_video_worker;
+    std::unique_ptr<VideoWorker> m_video_worker;
     std::optional<libchiaking::media::AudioDecoder> m_audio_decoder;
 
     StatsOverlayMode m_stats_overlay_mode = StatsOverlayMode::Off;
@@ -89,8 +91,8 @@ public:
     void setEnvelopeDecay(float decay);
     void setEnvelopeAttack(float attack);
     void setRumbleCeiling(float ceiling);
-    void setRumbleSource(akira::input::RumbleSource source);
-    void setHapticIntensity(akira::input::HapticIntensity intensity);
+    void setRumbleSource(RumbleSource source);
+    void setHapticIntensity(HapticIntensity intensity);
 
     ~Session();
 
@@ -132,5 +134,7 @@ public:
     void startStreamTimer();
     void resetStreamStats();
 };
+
+}
 
 #endif // AKIRA_SESSION_HPP

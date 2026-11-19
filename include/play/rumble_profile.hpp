@@ -4,7 +4,7 @@
 #include <cstdint>
 
 
-namespace akira::input {
+namespace akira::play {
 
 
 inline constexpr const char* kRumbleKeyDefault = "default";
@@ -104,6 +104,6 @@ inline int HapticBaseForIntensity(HapticIntensity intensity)
 }
 
 
-} // namespace akira::input
+} // namespace akira::play
 
 #endif // AKIRA_INPUT_RUMBLE_PROFILE_HPP

@@ -9,7 +9,9 @@
 
 #include "platform/pads/extended/pad_path.hpp"
 
+namespace akira::play {
 class InputManager;
+}
 
 namespace akira::platform::couch
 {

@@ -977,7 +977,7 @@ void Deko3dRenderer::warmFontAtlas(NVGcontext* vg)
 
 void Deko3dRenderer::rebuildOverlayText()
 {
-    const StreamStats m_stats = readStreamStats();
+    const play::StreamStats m_stats = readStreamStats();
 
     uint64_t mins = m_stats.stream_duration_seconds / 60;
     uint64_t secs = m_stats.stream_duration_seconds % 60;
@@ -1383,7 +1383,7 @@ void Deko3dRenderer::updateOverlayPlacement()
 bool Deko3dRenderer::overlayTouchBegin(float x, float y)
 {
     std::lock_guard<std::mutex> lock(m_overlay_touch_mutex);
-    if (m_stats_mode.load(std::memory_order_relaxed) == StatsOverlayMode::Off)
+    if (m_stats_mode.load(std::memory_order_relaxed) == play::StatsOverlayMode::Off)
         return false;
 
     float ox = m_overlay_x.load(std::memory_order_relaxed);
@@ -1629,7 +1629,7 @@ void Deko3dRenderer::drawFullOverlay(NVGcontext* vg)
 
 void Deko3dRenderer::updateOverlayTexture()
 {
-    if (m_stats_mode.load(std::memory_order_relaxed) == StatsOverlayMode::Off)
+    if (m_stats_mode.load(std::memory_order_relaxed) == play::StatsOverlayMode::Off)
         return;
 
     unsigned screenH = brls::Application::windowHeight;
@@ -1684,7 +1684,7 @@ void Deko3dRenderer::updateOverlayTexture()
     nvgFontFaceId(m_ovl_vg, m_overlay_font);
     warmFontAtlas(m_ovl_vg);
 
-    if (m_stats_mode.load(std::memory_order_relaxed) == StatsOverlayMode::Compact)
+    if (m_stats_mode.load(std::memory_order_relaxed) == play::StatsOverlayMode::Compact)
         drawCompactOverlay(m_ovl_vg);
     else
         drawFullOverlay(m_ovl_vg);

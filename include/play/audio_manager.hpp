@@ -6,6 +6,8 @@
 #include <span>
 #include <vector>
 
+namespace akira::play {
+
 class AudioManager
 {
 public:
@@ -27,5 +29,7 @@ private:
     std::vector<int16_t> m_boosted;
     SDL_AudioDeviceID m_device_id = 0;
 };
+
+}
 
 #endif // AKIRA_IO_AUDIO_MANAGER_HPP

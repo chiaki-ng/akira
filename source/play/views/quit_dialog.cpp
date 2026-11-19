@@ -3,9 +3,13 @@
 #include <borealis.hpp>
 #include <borealis/core/i18n.hpp>
 
+namespace akira::play::views {
+
 using namespace brls::literals;
 
-namespace akira {
+}
+
+namespace akira::play::views {
 
 void quitApp(bool toHbmenu, const std::string& message) {
     auto* dialog = new brls::Dialog(message);

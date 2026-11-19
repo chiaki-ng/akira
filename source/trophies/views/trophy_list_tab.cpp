@@ -379,7 +379,7 @@ TrophyProfileCell::TrophyProfileCell()
     this->setPadding(18, 20, 18, 20);
     this->setFocusable(true);
 
-    levelRing = new ProgressRing();
+    levelRing = new akira::play::views::ProgressRing();
     levelRing->setWidth(104);
     levelRing->setHeight(104);
     levelRing->setThickness(8);

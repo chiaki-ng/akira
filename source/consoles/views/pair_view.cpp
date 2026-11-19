@@ -223,7 +223,7 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
     settings->writeFile();
     settings->logProfileCensus("pair-after");
 
-    auto* accounts = ChiakiCore::current().accounts();
+    auto* accounts = play::ChiakiCore::current().accounts();
     if (!accounts || creds.npsso.empty()) {
         log::warning("Pair push carried no usable NPSSO, nothing to sign in with");
         brls::Application::notify(brls::getStr("akira/hosts/token_refresh_failed", "NPSSO"));

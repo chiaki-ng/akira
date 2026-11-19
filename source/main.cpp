@@ -593,7 +593,7 @@ int main(int argc, char* argv[])
     }
 
     akira::app::CrashReport::stage("core init");
-    std::optional<akira::ChiakiCore> core;
+    std::optional<akira::play::ChiakiCore> core;
     core.emplace(*settings);
     akira::app::CrashReport::stage("post core");
     if (!core->opened())
@@ -643,7 +643,7 @@ int main(int argc, char* argv[])
     brls::Application::registerXMLView("BuildInfoTab", akira::app::views::BuildInfoTab::create);
     brls::Application::registerXMLView("ConfigViewTab", ConfigViewTab::create);
     brls::Application::registerXMLView("NetworkUtilitiesTab", NetworkUtilitiesTab::create);
-    brls::Application::registerXMLView("StreamView", StreamView::create);
+    brls::Application::registerXMLView("StreamView", akira::play::views::StreamView::create);
     brls::Application::registerXMLView("EnterPinView", akira::consoles::views::EnterPinView::create);
 
     platform.prepareVideo();

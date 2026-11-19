@@ -3,7 +3,7 @@
 
 #include <borealis.hpp>
 
-namespace akira::views::stream_nav {
+namespace akira::play::views::stream_nav {
 
 namespace {
     constexpr size_t kNoBase = SIZE_MAX;
@@ -33,7 +33,7 @@ void unwindToBase()
     const size_t depth = brls::Application::getActivitiesStack().size();
     if (depth <= baseDepth || depth <= 1)
     {
-        akira::log::info("stream_nav: unwound to {}", depth);
+        log::info("stream_nav: unwound to {}", depth);
         clearBase();
         return;
     }
@@ -42,4 +42,4 @@ void unwindToBase()
                                    []() { unwindToBase(); });
 }
 
-} // namespace akira::views::stream_nav
+} // namespace akira::play::views::stream_nav

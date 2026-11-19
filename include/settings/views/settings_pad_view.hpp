@@ -42,7 +42,7 @@ private:
 
     SettingsManager*            settings = nullptr;
     akira::input::PadDescription m_pad;
-    akira::input::RumbleProfile  m_profile;
+    akira::play::RumbleProfile  m_profile;
     std::unique_ptr<akira::platform::PadSettingsProvider> m_platform;
 
     std::string                  m_key;

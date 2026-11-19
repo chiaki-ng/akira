@@ -7,6 +7,8 @@
 
 struct NVGcontext;
 
+namespace akira::play::views {
+
 enum class ConnectionStage : int {
     Idle = 0,
     Waking,
@@ -25,5 +27,7 @@ const char* connectionFailureKeyFor(const libchiaking::play::Outcome& outcome);
 const char* quitReasonKey(libchiaking::play::ConsoleQuit::Reason reason);
 void drawConnectionRing(NVGcontext* vg, float cx, float cy, const std::string& label, int stageIndex, int stageTotal);
 void drawConnectionFailure(NVGcontext* vg, float cx, float cy, const std::string& message);
+
+}
 
 #endif // AKIRA_CONNECTION_STAGE_HPP

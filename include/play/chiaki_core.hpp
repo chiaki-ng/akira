@@ -13,7 +13,7 @@
 
 class SettingsManager;
 
-namespace akira {
+namespace akira::play {
 
 class ChiakiCore {
 public:

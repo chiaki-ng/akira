@@ -12,6 +12,8 @@
 
 class SettingsManager;
 
+namespace akira::play::views {
+
 struct RemappableButton {
     uint32_t chiakiButton;
     std::string displayName;
@@ -107,5 +109,7 @@ private:
     std::vector<uint64_t> getDefaultForButton(uint32_t chiakiButton) const;
     static bool isToggleableButton(uint32_t chiakiButton);
 };
+
+}
 
 #endif // AKIRA_CONTROLLER_REMAP_VIEW_HPP

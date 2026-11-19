@@ -5,7 +5,7 @@
 #include <chrono>
 #include <cstdint>
 
-namespace akira::input::gesture {
+namespace akira::play::gesture {
 
 using Clock = std::chrono::steady_clock;
 using TimePoint = Clock::time_point;
@@ -34,6 +34,6 @@ inline int16_t interpolate(int16_t start, int16_t end,
         static_cast<double>(std::max(start, end))));
 }
 
-} // namespace akira::input::gesture
+} // namespace akira::play::gesture
 
 #endif // AKIRA_INPUT_GESTURE_TIMING_HPP

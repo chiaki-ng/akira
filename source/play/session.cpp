@@ -12,6 +12,8 @@
 
 #include <cstring>
 
+namespace akira::play {
+
 Session* Session::GetInstance()
 {
     static Session* instance = new Session();
@@ -62,13 +64,13 @@ void Session::setRumbleCeiling(float ceiling)
         m_haptic_manager->setRumbleCeiling(ceiling);
 }
 
-void Session::setRumbleSource(akira::input::RumbleSource source)
+void Session::setRumbleSource(RumbleSource source)
 {
     if (m_haptic_manager)
         m_haptic_manager->setRumbleSource(source);
 }
 
-void Session::setHapticIntensity(akira::input::HapticIntensity intensity)
+void Session::setHapticIntensity(HapticIntensity intensity)
 {
     if (m_haptic_manager)
         m_haptic_manager->setHapticIntensity(intensity);
@@ -96,12 +98,12 @@ void Session::describeStream(const libchiaking::media::StreamDescription& descri
 {
     if (description.picture)
     {
-        akira::log::info("Stream granted {}x{} at {} fps, {} kbps, {}",
+        log::info("Stream granted {}x{} at {} fps, {} kbps, {}",
             description.picture->width, description.picture->height,
             description.picture->max_fps, description.picture->bitrate_kbps,
             description.picture->codec == libchiaking::media::VideoCodec::h264 ? "H.264" : "HEVC");
     }
-    akira::log::info("Stream audio {} channels at {} Hz", description.audio.channels, description.audio.rate);
+    log::info("Stream audio {} channels at {} Hz", description.audio.channels, description.audio.rate);
     configureAudio(description.audio, false);
 }
 
@@ -110,7 +112,7 @@ bool Session::configureAudio(const libchiaking::media::AudioFormat& format, bool
     auto created = libchiaking::media::AudioDecoder::create(format, raw_pcm);
     if (!created)
     {
-        akira::log::error("Audio decoder rejected {} channels at {} Hz", format.channels, format.rate);
+        log::error("Audio decoder rejected {} channels at {} Hz", format.channels, format.rate);
         m_audio_decoder.reset();
         return false;
     }
@@ -133,7 +135,7 @@ libchiaking::media::VideoResult Session::submitVideo(const libchiaking::media::V
         return {VideoVerdict::dropped, 0};
 
     if (unit.profile_changed() && unit.hevc() != decoder->isHEVC())
-        akira::log::warning("Stream sent {} video to a {} decoder",
+        log::warning("Stream sent {} video to a {} decoder",
             unit.hevc() ? "HEVC" : "H.264", decoder->isHEVC() ? "HEVC" : "H.264");
 
     if (!m_video_worker || !m_video_worker->submit(unit.profile_header(), unit.frame().bytes()))
@@ -145,7 +147,7 @@ libchiaking::media::VideoResult Session::submitVideo(const libchiaking::media::V
         {
             if (const auto version = play->statistics().protocol_version)
             {
-                akira::log::info("Takion version negotiated: {}", *version);
+                log::info("Takion version negotiated: {}", *version);
                 m_takion_version_logged = true;
             }
         }
@@ -156,7 +158,7 @@ libchiaking::media::VideoResult Session::submitVideo(const libchiaking::media::V
     {
         if (m_audio_counts_logged != std::chrono::steady_clock::time_point{})
         {
-            akira::log::info("audio_units formats={} units={} without_decoder={} decode_failures={} samples_queued={}",
+            log::info("audio_units formats={} units={} without_decoder={} decode_failures={} samples_queued={}",
                 m_audio_counts.formats.exchange(0, std::memory_order_relaxed),
                 m_audio_counts.units.exchange(0, std::memory_order_relaxed),
                 m_audio_counts.without_decoder.exchange(0, std::memory_order_relaxed),
@@ -213,15 +215,15 @@ libchiaking::media::AudioResult Session::submitAudio(const libchiaking::media::A
 
 bool Session::InitVideo(int video_width, int video_height)
 {
-    akira::log::info("load InitVideo");
-    akira::app::CrashReport::stage("stream video");
+    log::info("load InitVideo");
+    app::CrashReport::stage("stream video");
     std::lock_guard lock(m_media_mutex);
     this->quit = false;
 
     akira::platform::VideoDecoder* decoder = m_video->decoder();
     if (!decoder || !decoder->initVideo(video_width, video_height))
     {
-        akira::log::error("Failed to initialize video decoder");
+        log::error("Failed to initialize video decoder");
         return false;
     }
 
@@ -234,14 +236,14 @@ bool Session::InitVideo(int video_width, int video_height)
     };
     if (!m_video->startRenderer(video_width, video_height, hooks))
     {
-        akira::log::error("Failed to initialize video renderer");
+        log::error("Failed to initialize video renderer");
         return false;
     }
 
     m_needs_recover = false;
     m_presented = false;
     m_packets_since_frame = 0;
-    m_video_worker = std::make_unique<akira::stream::VideoWorker>(
+    m_video_worker = std::make_unique<VideoWorker>(
         [this](const AVBufferHandle& packet, std::size_t size) {
             akira::platform::VideoDecoder* decoder = m_video->decoder();
             if (!decoder->decode(packet, size) || decoder->lastDecodeCorrupt())
@@ -261,14 +263,14 @@ void Session::checkForStall(akira::platform::VideoDecoder& decoder)
     if (packets % StallPackets != 0)
         return;
     const std::uint32_t episode = packets / StallPackets;
-    akira::log::warning("Video stalled: {} packets without a frame, asking for a keyframe (stall {})", packets, episode);
+    log::warning("Video stalled: {} packets without a frame, asking for a keyframe (stall {})", packets, episode);
     decoder.stalled(episode);
 }
 
 bool Session::FreeVideo()
 {
     this->quit = true;
-    akira::app::CrashReport::stage("stream teardown");
+    app::CrashReport::stage("stream teardown");
 
     m_video_worker.reset();
 
@@ -326,7 +328,7 @@ void Session::updateActualResolution(int width, int height)
 {
     if (width != m_requested_width || height != m_requested_height)
     {
-        akira::log::info("Stream resolution changed: requested {}x{}, actual {}x{} (server downgraded)",
+        log::info("Stream resolution changed: requested {}x{}, actual {}x{} (server downgraded)",
             m_requested_width, m_requested_height, width, height);
     }
 
@@ -395,7 +397,7 @@ void Session::frameArriving(const akira::platform::FrameInfo& frame)
         brls::Application::setRenderSuspended(true);
         updateActualResolution(static_cast<int>(frame.width), static_cast<int>(frame.height));
         SettingsManager::getInstance()->setStreamingActive(true);
-        akira::log::info("First video frame received!");
+        log::info("First video frame received!");
         akira::platform::PlatformFactory::instance().stats().streamStarted(*this);
     }
 
@@ -540,4 +542,6 @@ void Session::startStreamTimer()
 void Session::resetStreamStats()
 {
     detach();
+}
+
 }

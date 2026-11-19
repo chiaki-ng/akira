@@ -23,7 +23,7 @@ namespace akira::consoles {
 class Host;
 }
 
-namespace akira::views {
+namespace akira::play::views {
 
 /*
  * The one screen shown while a stream is being brought up.
@@ -87,9 +87,9 @@ private:
     static constexpr int kFailureLingerMs = 4000;
     std::string failureText;
 
-    std::optional<akira::log::Log::Subscription> logSubscription;
+    std::optional<log::Log::Subscription> logSubscription;
 
-    std::optional<akira::ConnectionLog> connectionLog;
+    std::optional<ConnectionLog> connectionLog;
 
     void addLogLine(const std::string& line);
     void renderLogs(NVGcontext* vg, float x, float y, float width, float height);
@@ -105,6 +105,6 @@ private:
  */
 void startConnecting(std::unique_ptr<ConnectTask> task);
 
-} // namespace akira::views
+} // namespace akira::play::views
 
 #endif // AKIRA_CONNECTING_VIEW_HPP

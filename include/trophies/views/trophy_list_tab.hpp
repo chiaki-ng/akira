@@ -63,7 +63,7 @@ public:
 
 private:
     brls::Label* levelValue = nullptr;
-    ProgressRing* levelRing = nullptr;
+    akira::play::views::ProgressRing* levelRing = nullptr;
     brls::Image* tierImages[4] = {};
     brls::Label* tierCounts[4] = {};
 };

@@ -47,10 +47,10 @@ std::string ExtendedPadSettingsProvider::resolveKey(const SettingsManager& setti
     if (settings.hasRumbleProfile(category))
         return category;
 
-    return input::kRumbleKeyDefault;
+    return play::kRumbleKeyDefault;
 }
 
-input::RumbleProfile ExtendedPadSettingsProvider::resolveProfile(const SettingsManager& settings, uint16_t vendorId,
+play::RumbleProfile ExtendedPadSettingsProvider::resolveProfile(const SettingsManager& settings, uint16_t vendorId,
                                                    uint16_t productId, const uint8_t* address,
                                                    bool switchNative, bool joycon)
 {
@@ -72,7 +72,7 @@ std::string ExtendedPadSettingsProvider::currentKey(const SettingsManager& setti
 std::string ExtendedPadSettingsProvider::rumbleKey(SettingsManager& settings)
 {
     if (!switchNative() && (m_pad.vendor_id != 0 || m_pad.product_id != 0)) {
-        const input::RumbleProfile current = settings.getRumbleProfile(currentKey(settings));
+        const play::RumbleProfile current = settings.getRumbleProfile(currentKey(settings));
         settings.seedRumbleProfile(
             RumbleKeyForModel(m_pad.vendor_id, m_pad.product_id), &current);
     }
@@ -85,19 +85,19 @@ std::optional<std::string> ExtendedPadSettingsProvider::outputSummary(const Sett
     if (!directOutput())
         return std::nullopt;
 
-    const input::RumbleProfile profile = settings.getRumbleProfile(currentKey(settings));
-    return profile.output_mode == input::PadOutputMode::Basic
+    const play::RumbleProfile profile = settings.getRumbleProfile(currentKey(settings));
+    return profile.output_mode == play::PadOutputMode::Basic
                ? "akira/settings/rumble_output_basic"_i18n
                : "akira/settings/rumble_output_native"_i18n;
 }
 
-void ExtendedPadSettingsProvider::useProfile(const input::RumbleProfile& profile)
+void ExtendedPadSettingsProvider::useProfile(const play::RumbleProfile& profile)
 {
     PadOutputInputs driver_in;
     driver_in.supported_pad =
         PadTakesDirectOutput(m_pad.vendor_id, m_pad.product_id);
     driver_in.profile_native =
-        profile.output_mode == input::PadOutputMode::Native;
+        profile.output_mode == play::PadOutputMode::Native;
     driver_in.backend_enabled   = ExtendedInputManager::backendDirectOutputEnabled();
     driver_in.ownership_refused = ExtendedInputManager::outputOwnershipRefused();
 
@@ -124,7 +124,7 @@ bool ExtendedPadSettingsProvider::tunesMotors() const
     return m_driver.driver == PadDriver::MissionControl;
 }
 
-void ExtendedPadSettingsProvider::addOutputRows(brls::Box& content, input::RumbleProfile& profile,
+void ExtendedPadSettingsProvider::addOutputRows(brls::Box& content, play::RumbleProfile& profile,
                                   const Action& store, const Action& reopen)
 {
     auto* card = SettingsPadView::makeCard();
@@ -163,8 +163,8 @@ void ExtendedPadSettingsProvider::addOutputRows(brls::Box& content, input::Rumbl
                static_cast<int>(profile.output_mode),
                [&profile, store, reopen, pad = m_pad](int selected) {
                    const auto chosen = selected == 1
-                                           ? input::PadOutputMode::Basic
-                                           : input::PadOutputMode::Native;
+                                           ? play::PadOutputMode::Basic
+                                           : play::PadOutputMode::Native;
                    if (chosen == profile.output_mode)
                        return;
 
@@ -178,7 +178,7 @@ void ExtendedPadSettingsProvider::addOutputRows(brls::Box& content, input::Rumbl
                    reopen();
                });
 
-    mode->setDetailText(profile.output_mode == input::PadOutputMode::Basic
+    mode->setDetailText(profile.output_mode == play::PadOutputMode::Basic
                             ? "akira/settings/rumble_output_basic_hint"_i18n
                             : "akira/settings/rumble_output_native_hint"_i18n);
     card->addView(mode);
@@ -186,7 +186,7 @@ void ExtendedPadSettingsProvider::addOutputRows(brls::Box& content, input::Rumbl
     content.addView(card);
 }
 
-void ExtendedPadSettingsProvider::addLightbarRows(brls::Box& content, input::RumbleProfile& profile,
+void ExtendedPadSettingsProvider::addLightbarRows(brls::Box& content, play::RumbleProfile& profile,
                                     const Action& store, const Action& reopen)
 {
     auto* card = SettingsPadView::makeCard();
@@ -246,10 +246,10 @@ void ExtendedPadSettingsProvider::addLightbarRows(brls::Box& content, input::Rum
     content.addView(card);
 }
 
-bool ExtendedPadSettingsProvider::previewDirect(const input::RumbleProfile& profile)
+bool ExtendedPadSettingsProvider::previewDirect(const play::RumbleProfile& profile)
 {
     if (!directOutput() || !m_pad.has_address ||
-        profile.output_mode != input::PadOutputMode::Native)
+        profile.output_mode != play::PadOutputMode::Native)
         return false;
 
     constexpr std::int16_t kPreviewLevel = 6000;

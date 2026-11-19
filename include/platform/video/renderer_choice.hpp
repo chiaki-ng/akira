@@ -7,7 +7,7 @@ namespace akira::platform
 
 struct RendererChoice
 {
-    RendererKind kind;
+    play::RendererKind kind;
     const char* label;
 };
 

@@ -45,7 +45,7 @@ std::unique_ptr<HapticsProvider> NxPlatformFactory::createHaptics()
     return std::make_unique<extended::ExtendedHapticsProvider>(m_pads);
 }
 
-std::unique_ptr<FeedbackProvider> NxPlatformFactory::createFeedback(HapticManager& haptics)
+std::unique_ptr<FeedbackProvider> NxPlatformFactory::createFeedback(play::HapticManager& haptics)
 {
     return std::make_unique<extended::ExtendedFeedbackProvider>(m_pads, haptics);
 }

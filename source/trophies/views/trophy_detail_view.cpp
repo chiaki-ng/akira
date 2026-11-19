@@ -415,7 +415,7 @@ SummaryCell::SummaryCell()
 
     topRow->addView(makeStat(&earnedValue, "akira/trophies/summary_earned"_i18n));
 
-    ring = new ProgressRing();
+    ring = new akira::play::views::ProgressRing();
     ring->setWidth(96);
     ring->setHeight(96);
 

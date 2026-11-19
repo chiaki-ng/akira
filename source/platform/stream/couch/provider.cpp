@@ -208,7 +208,7 @@ void CouchStreamControlsProvider::streaming()
     }
 }
 
-void CouchStreamControlsProvider::decorateMenu(StreamMenu& menu)
+void CouchStreamControlsProvider::decorateMenu(play::views::StreamMenu& menu)
 {
     auto view = m_host.lock();
     if (!view)

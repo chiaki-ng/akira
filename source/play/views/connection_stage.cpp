@@ -5,6 +5,8 @@
 
 #include <cmath>
 
+namespace akira::play::views {
+
 ConnectionStage connectionStageOf(libchiaking::play::ConnectStep step)
 {
     using libchiaking::play::ConnectStep;
@@ -113,7 +115,7 @@ const char* quitReasonKey(libchiaking::play::ConsoleQuit::Reason reason)
 
 void drawConnectionFailure(NVGcontext* vg, float cx, float cy, const std::string& message)
 {
-    NVGcolor danger = akira::app::views::active().danger;
+    NVGcolor danger = app::views::active().danger;
 
     nvgBeginPath(vg);
     nvgCircle(vg, cx, cy, 14.0f);
@@ -121,7 +123,7 @@ void drawConnectionFailure(NVGcontext* vg, float cx, float cy, const std::string
     nvgFill(vg);
 
     nvgFontSize(vg, 22.0f);
-    nvgFillColor(vg, akira::app::views::active().text);
+    nvgFillColor(vg, app::views::active().text);
     nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
     nvgText(vg, cx, cy + 54.0f, message.c_str(), nullptr);
 }
@@ -131,13 +133,13 @@ void drawConnectionRing(NVGcontext* vg, float cx, float cy, const std::string& l
 {
     nvgSave(vg);
 
-    NVGcolor accent = akira::app::views::active().accent;
+    NVGcolor accent = app::views::active().accent;
 
     const float radius = 54.0f;
     const float strokeW = 8.0f;
     const float ringCy = cy - 24.0f;
 
-    NVGcolor track = akira::app::views::active().textMuted;
+    NVGcolor track = app::views::active().textMuted;
     track.a = 0.22f;
     nvgBeginPath(vg);
     nvgCircle(vg, cx, ringCy, radius);
@@ -158,15 +160,17 @@ void drawConnectionRing(NVGcontext* vg, float cx, float cy, const std::string& l
     if (stageTotal > 0) {
         std::string count = std::to_string(stageIndex) + " / " + std::to_string(stageTotal);
         nvgFontSize(vg, 26.0f);
-        nvgFillColor(vg, akira::app::views::active().text);
+        nvgFillColor(vg, app::views::active().text);
         nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
         nvgText(vg, cx, ringCy, count.c_str(), nullptr);
     }
 
     nvgFontSize(vg, 20.0f);
-    nvgFillColor(vg, akira::app::views::active().textMuted);
+    nvgFillColor(vg, app::views::active().textMuted);
     nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
     nvgText(vg, cx, ringCy + radius + 28.0f, label.c_str(), nullptr);
 
     nvgRestore(vg);
+}
+
 }

@@ -25,7 +25,7 @@ PsnGatedBox::PsnGatedBox()
     if (!observerInstalled)
     {
         observerInstalled = true;
-        if (auto* accounts = akira::ChiakiCore::current().accounts()) {
+        if (auto* accounts = akira::play::ChiakiCore::current().accounts()) {
             accounts->setStateObserver([]() {
                 brls::sync([]() { PsnGatedBox::evaluateAll(); });
             });
@@ -51,7 +51,7 @@ void PsnGatedBox::evaluateAll()
 
 bool PsnGatedBox::evaluate()
 {
-    auto* accounts = akira::ChiakiCore::current().accounts();
+    auto* accounts = akira::play::ChiakiCore::current().accounts();
     applyState(accounts ? accounts->state() : psn::SessionState::NotLinked);
     return gateOpen;
 }

@@ -326,7 +326,7 @@ void ProfileSwitcherView::confirmRemoveProfile(int64_t id, const std::string& la
         const bool shared = std::ranges::any_of(settings->getProfiles(),
             [&account](const Profile& profile) { return profile.accountId == account; });
         if (!account.empty() && !shared) {
-            if (auto* accounts = akira::ChiakiCore::current().accounts())
+            if (auto* accounts = akira::play::ChiakiCore::current().accounts())
                 accounts->forget(account);
         }
         settings->writeFile();

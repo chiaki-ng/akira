@@ -25,6 +25,8 @@
 #define SWITCH_TOUCHSCREEN_MAX_X 1280
 #define SWITCH_TOUCHSCREEN_MAX_Y 720
 
+namespace akira::play {
+
 struct SyntheticSwipe {
     enum class Phase { IDLE, ACTIVE };
     Phase phase = Phase::IDLE;
@@ -33,21 +35,21 @@ struct SyntheticSwipe {
     int16_t startY = 0;
     int16_t endX = 0;
     int16_t endY = 0;
-    akira::input::gesture::TimePoint startedAt{};
+    gesture::TimePoint startedAt{};
     bool buttonWasPressed = false;
 };
 
 struct PendingBorderTap {
     uint16_t down_x;
     uint16_t down_y;
-    akira::input::gesture::TimePoint downAt;
+    gesture::TimePoint downAt;
     static constexpr int TAP_MAX_MOVE = 80;
 };
 
 struct TouchpadButtonPulse {
     bool scheduled = false;
-    akira::input::gesture::TimePoint pressAt{};
-    akira::input::gesture::TimePoint releaseAt{};
+    gesture::TimePoint pressAt{};
+    gesture::TimePoint releaseAt{};
 };
 
 
@@ -77,13 +79,13 @@ private:
     static int8_t startTouch(libchiaking::controllers::ControllerInput& input, uint16_t x, uint16_t y) noexcept;
 
     bool readTouchScreen(libchiaking::controllers::ControllerInput& input, std::map<uint32_t, int8_t>* finger_id_touch_id,
-        akira::input::gesture::TimePoint now);
+        gesture::TimePoint now);
     bool readSixAxis(libchiaking::controllers::ControllerState& state);
     void updateSyntheticSwipes(libchiaking::controllers::ControllerInput& state, u64 buttons,
-        akira::input::gesture::TimePoint now);
+        gesture::TimePoint now);
     void updateTouchInput(libchiaking::controllers::ControllerInput& input,
         std::map<uint32_t, int8_t>* finger_id_touch_id, u64 buttons,
-        akira::input::gesture::TimePoint now);
+        gesture::TimePoint now);
 
     bool m_is_ps5 = false;
     SDL_Joystick* m_sdl_joystick_ptr[SDL_JOYSTICK_COUNT] = {nullptr};
@@ -103,8 +105,8 @@ private:
     int8_t m_active_click_touch_id = -1;
 
     int m_prev_touch_count = 0;
-    akira::input::gesture::TimePoint m_next_touch_warning{};
-    akira::input::SampleCadence m_motion_cadence{akira::input::MotionPollPeriod};
+    gesture::TimePoint m_next_touch_warning{};
+    SampleCadence m_motion_cadence{MotionPollPeriod};
 
     // Accelerometer zero offset for gyro reset
     float m_accel_zero_x = 0.0f;
@@ -119,5 +121,7 @@ private:
 public:
     void resetMotionControls();
 };
+
+}
 
 #endif // AKIRA_IO_INPUT_MANAGER_HPP

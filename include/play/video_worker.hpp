@@ -13,7 +13,7 @@
 
 #include "util/av_wrappers.hpp"
 
-namespace akira::stream {
+namespace akira::play {
 
 class VideoWorker {
 public:

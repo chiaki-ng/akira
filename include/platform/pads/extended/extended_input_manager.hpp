@@ -115,10 +115,10 @@ public:
     void setGameLightbar(uint8_t red, uint8_t green, uint8_t blue);
     void clearGameLightbar();
 
-    void setConsoleIntensity(akira::input::Ds5EffectIntensity vibration,
-                             akira::input::Ds5EffectIntensity trigger);
-    akira::input::Ds5EffectIntensity consoleVibrationIntensity() const;
-    akira::input::Ds5EffectIntensity consoleTriggerIntensity() const;
+    void setConsoleIntensity(play::Ds5EffectIntensity vibration,
+                             play::Ds5EffectIntensity trigger);
+    play::Ds5EffectIntensity consoleVibrationIntensity() const;
+    play::Ds5EffectIntensity consoleTriggerIntensity() const;
 
     static std::atomic<uint32_t> s_direct_vid_pid;
 
@@ -245,9 +245,9 @@ private:
     uint32_t m_direct_failures   = 0;
     bool     m_direct_logged     = false;
     std::atomic<uint8_t> m_console_vibration{
-        (uint8_t)akira::input::Ds5EffectIntensity::Strong};
+        (uint8_t)play::Ds5EffectIntensity::Strong};
     std::atomic<uint8_t> m_console_trigger{
-        (uint8_t)akira::input::Ds5EffectIntensity::Strong};
+        (uint8_t)play::Ds5EffectIntensity::Strong};
 
     static constexpr uint32_t kGameLightbarSet = 0x01000000u;
     std::atomic<uint32_t> m_game_lightbar{0};

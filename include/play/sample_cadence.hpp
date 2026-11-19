@@ -3,7 +3,7 @@
 
 #include <chrono>
 
-namespace akira::input {
+namespace akira::play {
 
 constexpr auto InputPollPeriod = std::chrono::nanoseconds(8'333'333);
 constexpr auto MotionPollPeriod = std::chrono::nanoseconds(16'666'666);
@@ -44,6 +44,6 @@ private:
     bool m_started = false;
 };
 
-} // namespace akira::input
+} // namespace akira::play
 
 #endif // AKIRA_INPUT_SAMPLE_CADENCE_HPP

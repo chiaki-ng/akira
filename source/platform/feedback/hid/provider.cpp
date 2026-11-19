@@ -5,7 +5,7 @@
 namespace akira::platform::hid
 {
 
-HidFeedbackProvider::HidFeedbackProvider(HapticManager& haptics)
+HidFeedbackProvider::HidFeedbackProvider(play::HapticManager& haptics)
     : m_haptics(haptics)
 {
 }

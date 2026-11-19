@@ -336,7 +336,7 @@ private:
             log::info("Register button clicked for {}", host->getHostName());
 
             auto* settings = SettingsManager::getInstance();
-            auto* accounts = ChiakiCore::current().accounts();
+            auto* accounts = play::ChiakiCore::current().accounts();
             log::info("Register {}: remoteDuid='{}' signedIn={} hasAccountId={} canAuto={}",
                 host->getHostName(), host->getRemoteDuid(),
                 accounts && accounts->state() == psn::SessionState::Valid,
@@ -703,7 +703,7 @@ private:
             dialog->addButton("akira/common/cancel"_i18n, []() {});
             dialog->addButton("akira/common/delete"_i18n, [hostName]() {
                 auto* settings = SettingsManager::getInstance();
-                auto& core = ChiakiCore::current();
+                auto& core = play::ChiakiCore::current();
                 auto* accounts = core.accounts();
                 auto hostIt = settings->getHostsMap()->find(hostName);
                 if (accounts && hostIt != settings->getHostsMap()->end() && hostIt->second->getConsole()) {
@@ -1138,7 +1138,7 @@ void HostListTab::applyProfileMode() {
             return;
         }
         HostListTab::connectionActive = true;
-        akira::views::startConnecting(std::make_unique<cloud::CloudConnectTask>(game));
+        play::views::startConnecting(std::make_unique<cloud::CloudConnectTask>(game));
     });
     shortcutsRail->setLeadingCard([]() -> brls::View* { return new CloudCard(); });
     railSlot->addView(shortcutsRail);
@@ -1200,7 +1200,7 @@ void HostListTab::connectToHost(Host* host) {
     /* Local and remote alike. A local console resolves immediately, so the
      * screen is barely seen - but the activity stack ends up the same shape it
      * does for every other route, which is the point. */
-    akira::views::startConnecting(std::make_unique<akira::views::HostConnectTask>(host));
+    play::views::startConnecting(std::make_unique<play::views::HostConnectTask>(host));
 
     HostListTab::isConnecting = false;
 }
@@ -1227,7 +1227,7 @@ void HostListTab::initFindRemoteButton() {
             return true;
         }
 
-        auto* accounts = ChiakiCore::current().accounts();
+        auto* accounts = play::ChiakiCore::current().accounts();
         const psn::SessionState state = accounts ? accounts->state() : psn::SessionState::NotLinked;
         if (state == psn::SessionState::NotLinked) {
             brls::Application::notify("akira/hosts/no_psn_token"_i18n);

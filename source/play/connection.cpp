@@ -19,7 +19,7 @@
 #include "platform/video/provider.hpp"
 #include "platform/factory.hpp"
 
-namespace akira::stream {
+namespace akira::play {
 
 namespace play = libchiaking::play;
 namespace platform = libchiaking::platform;
@@ -71,7 +71,7 @@ auto Connection::preferencesFor(consoles::Host& host, SettingsManager& settings)
     const auto picture = play::PictureRequest::create(height, fps, bitrate, codec);
     if (!picture)
     {
-        akira::log::error("Stream preferences refused: {}p {} fps {} kbps", height, fps, bitrate);
+        log::error("Stream preferences refused: {}p {} fps {} kbps", height, fps, bitrate);
         return std::nullopt;
     }
 
@@ -79,14 +79,14 @@ auto Connection::preferencesFor(consoles::Host& host, SettingsManager& settings)
     const auto takionVersion = host.getPinnedTakionVersion().value_or(
         static_cast<uint32_t>(std::max(settings.getTakionVersion(target), 0)));
     if (host.getPinnedTakionVersion())
-        akira::log::info("{} is pinned to Takion v{}", host.getHostName(), takionVersion);
+        log::info("{} is pinned to Takion v{}", host.getHostName(), takionVersion);
     auto preferences = tuned(*picture, takionVersion, settings);
     if (preferences && vpn)
     {
         if (auto network = host.homeNetwork(); network.network())
             preferences->home = std::move(network);
         else
-            akira::log::error("Stream over WireGuard has no tunnel network; using the local network");
+            log::error("Stream over WireGuard has no tunnel network; using the local network");
     }
     return preferences;
 }
@@ -106,7 +106,7 @@ auto Connection::cloudPreferencesFor(const cloud::CloudLaunch& launch, SettingsM
     const auto picture = play::PictureRequest::create(height, 60, bitrate, codec);
     if (!picture)
     {
-        akira::log::error("Cloud stream preferences refused: {}p {} kbps", height, bitrate);
+        log::error("Cloud stream preferences refused: {}p {} kbps", height, bitrate);
         return std::nullopt;
     }
     return tuned(*picture,
@@ -129,7 +129,7 @@ auto Connection::tuned(play::PictureRequest picture, std::uint32_t takionVersion
         static_cast<std::size_t>(std::max(settings.getPortGuessingCount(), 0)));
     if (!developer || !internet)
     {
-        akira::log::error("Stream tuning refused: packet loss {} sockets {}", facts.packet_loss_max, facts.nat_probe_sockets);
+        log::error("Stream tuning refused: packet loss {} sockets {}", facts.packet_loss_max, facts.nat_probe_sockets);
         return std::nullopt;
     }
 
@@ -163,7 +163,7 @@ bool Connection::open(Starter starter)
             auto opened = starter(*this, *this, stop);
             if (!opened)
             {
-                akira::log::error("Stream start refused: kind {}", static_cast<int>(opened.error().kind()));
+                log::error("Stream start refused: kind {}", static_cast<int>(opened.error().kind()));
                 post([refusal = opened.error()](Connection&, ConnectionListener& to) { to.onRefused(refusal); });
                 return;
             }
@@ -178,7 +178,7 @@ bool Connection::open(Starter starter)
         });
     if (!started)
     {
-        akira::log::error("Stream input thread did not start");
+        log::error("Stream input thread did not start");
         return false;
     }
     worker = std::move(started).value();
@@ -189,7 +189,7 @@ void Connection::feed(play::Session& running, const platform::StopToken& stop)
 {
     auto& core = ChiakiCore::current();
     platform::Sleeper sleeper(core.threading(), core.clock());
-    const auto period = std::chrono::duration_cast<std::chrono::microseconds>(akira::input::InputPollPeriod);
+    const auto period = std::chrono::duration_cast<std::chrono::microseconds>(InputPollPeriod);
     auto next = core.clock().now_microseconds();
     auto journalDue = next;
 
@@ -218,7 +218,7 @@ void Connection::drainJournal(const play::Session& running)
 {
     const auto& journal = running.journal();
     while (const auto entry = journal->read())
-        akira::log::info("[core] {}", entry->line());
+        log::info("[core] {}", entry->line());
 }
 
 void Connection::sendInput(play::Session& running)
@@ -278,7 +278,7 @@ bool Connection::submitLoginPin(std::string_view pin)
         return false;
     const auto submitted = running->login_pin().submit(std::move(*code));
     if (!submitted)
-        akira::log::error("Login PIN refused: {}", static_cast<int>(submitted.error()));
+        log::error("Login PIN refused: {}", static_cast<int>(submitted.error()));
     return submitted.has_value();
 }
 
@@ -314,7 +314,7 @@ bool Connection::addPlayer(uint8_t slot, std::optional<int64_t> profileId)
         account = libchiaking::AccountId::from_base64(profile->accountId);
         if (!account)
         {
-            akira::log::error("Couch: profile {} has an invalid account id", *profileId);
+            log::error("Couch: profile {} has an invalid account id", *profileId);
             return false;
         }
         label = profile->label();
@@ -328,12 +328,12 @@ bool Connection::addPlayer(uint8_t slot, std::optional<int64_t> profileId)
     entry.profileId = profileId.value_or(0);
     if (!added)
     {
-        akira::log::error("Couch: join for player {} refused: {}", slot + 1, static_cast<int>(added.error()));
+        log::error("Couch: join for player {} refused: {}", slot + 1, static_cast<int>(added.error()));
         entry.phase = SeatPhase::Failed;
         entry.refusal = play::SeatRefusal::not_sent(*seat, play::EndReason::Cause::invalid_state);
         return false;
     }
-    akira::log::info("Couch: requesting player {}", slot + 1);
+    log::info("Couch: requesting player {}", slot + 1);
     entry.phase = SeatPhase::Joining;
     return true;
 }
@@ -346,7 +346,7 @@ void Connection::removePlayer(uint8_t slot)
     seats[slot] = CouchSeat{};
     if (const auto running = session())
     {
-        akira::log::info("Couch: closing pad for player {}", slot + 1);
+        log::info("Couch: closing pad for player {}", slot + 1);
         static_cast<void>(running->seats().remove_player(*seat));
     }
 }
@@ -516,7 +516,7 @@ void Connection::on_seat_left(libchiaking::controllers::SeatNumber seat)
     post([slot = seat.index()](Connection& self, ConnectionListener& to) {
         if (self.seats[slot].phase == SeatPhase::Empty)
             return;
-        akira::log::info("Couch: console dropped player {}", slot + 1);
+        log::info("Couch: console dropped player {}", slot + 1);
         self.seats[slot].phase = SeatPhase::Failed;
         self.seats[slot].dropped = true;
         to.onSeatDropped(slot);
@@ -528,11 +528,11 @@ void Connection::on_seat_refused(const play::SeatRefusal& refusal)
     post([refusal](Connection& self, ConnectionListener& to) {
         if (!refusal.seat())
         {
-            akira::log::error("Couch: no free seat on the console");
+            log::error("Couch: no free seat on the console");
             return;
         }
         const uint8_t slot = refusal.seat()->index();
-        akira::log::error("Couch: join for player {} refused, kind {}", slot + 1, static_cast<int>(refusal.kind()));
+        log::error("Couch: join for player {} refused, kind {}", slot + 1, static_cast<int>(refusal.kind()));
         if (self.seats[slot].phase == SeatPhase::Empty)
             return;
         self.seats[slot].phase = SeatPhase::Failed;

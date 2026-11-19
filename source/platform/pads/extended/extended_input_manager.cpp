@@ -381,7 +381,7 @@ bool ExtendedInputManager::initializeOptional()
     m_subscribed = true;
 
     m_running.store(true, std::memory_order_release);
-    auto started = libchiaking::platform::Thread::start(akira::ChiakiCore::current().threading(),
+    auto started = libchiaking::platform::Thread::start(play::ChiakiCore::current().threading(),
         "extended-input", libchiaking::platform::ThreadRole::input,
         [this](libchiaking::platform::StopToken) { poll(); });
     if (!started) {
@@ -507,13 +507,13 @@ void ExtendedInputManager::loadDirectGatesOnce()
         if (settings == nullptr)
             return;
 
-        const akira::input::RumbleProfile ds =
-            settings->getRumbleProfile(akira::input::kRumbleKeyDualSense);
+        const play::RumbleProfile ds =
+            settings->getRumbleProfile(akira::play::kRumbleKeyDualSense);
 
         s_direct_stream_allowed.store(
-            ds.output_mode == akira::input::PadOutputMode::Native, std::memory_order_release);
+            ds.output_mode == play::PadOutputMode::Native, std::memory_order_release);
         s_direct_haptics_allowed.store(
-            ds.rumble_source != akira::input::RumbleSource::Off,
+            ds.rumble_source != play::RumbleSource::Off,
             std::memory_order_release);
     });
 }
@@ -536,7 +536,7 @@ void ExtendedInputManager::refreshDirectGates(uint16_t vendor_id, uint16_t produ
     if (settings == nullptr)
         return;
 
-    const akira::input::RumbleProfile profile =
+    const play::RumbleProfile profile =
         akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(*settings, vendor_id, product_id, address, false, false);
 
     s_direct_vid_pid.store(((uint32_t)vendor_id << 16) | product_id,
@@ -544,7 +544,7 @@ void ExtendedInputManager::refreshDirectGates(uint16_t vendor_id, uint16_t produ
 
     akira::platform::extended::PadOutputInputs in;
     in.supported_pad     = akira::platform::extended::PadTakesDirectOutput(vendor_id, product_id);
-    in.profile_native    = profile.output_mode == akira::input::PadOutputMode::Native;
+    in.profile_native    = profile.output_mode == play::PadOutputMode::Native;
     in.backend_enabled   = !s_backend_released.load(std::memory_order_acquire);
     in.ownership_refused = outputOwnershipRefused();
 
@@ -556,7 +556,7 @@ void ExtendedInputManager::refreshDirectGates(uint16_t vendor_id, uint16_t produ
         akira::platform::extended::ResolvePadOutput(in).driver == akira::platform::extended::PadDriver::Akira;
 
     s_direct_stream_allowed.store(native, std::memory_order_release);
-    const bool haptics = profile.rumble_source != akira::input::RumbleSource::Off;
+    const bool haptics = profile.rumble_source != play::RumbleSource::Off;
     s_direct_haptics_allowed.store(haptics, std::memory_order_release);
 
     akira::log::info("direct gates for {:04x}:{:04x}: driver={} haptics={}",
@@ -584,8 +584,8 @@ void ExtendedInputManager::setDirectRumble(uint8_t left, uint8_t right)
                           std::memory_order_relaxed);
 }
 
-void ExtendedInputManager::setConsoleIntensity(akira::input::Ds5EffectIntensity vibration,
-                                              akira::input::Ds5EffectIntensity trigger)
+void ExtendedInputManager::setConsoleIntensity(play::Ds5EffectIntensity vibration,
+                                              play::Ds5EffectIntensity trigger)
 {
     const uint8_t was_v = m_console_vibration.exchange((uint8_t)vibration,
                                                        std::memory_order_relaxed);
@@ -600,14 +600,14 @@ void ExtendedInputManager::setConsoleIntensity(akira::input::Ds5EffectIntensity 
                        akira::platform::extended::Ds5IntensityByte(vibration, trigger));
 }
 
-akira::input::Ds5EffectIntensity ExtendedInputManager::consoleVibrationIntensity() const
+play::Ds5EffectIntensity ExtendedInputManager::consoleVibrationIntensity() const
 {
-    return (akira::input::Ds5EffectIntensity)m_console_vibration.load(std::memory_order_relaxed);
+    return (play::Ds5EffectIntensity)m_console_vibration.load(std::memory_order_relaxed);
 }
 
-akira::input::Ds5EffectIntensity ExtendedInputManager::consoleTriggerIntensity() const
+play::Ds5EffectIntensity ExtendedInputManager::consoleTriggerIntensity() const
 {
-    return (akira::input::Ds5EffectIntensity)m_console_trigger.load(std::memory_order_relaxed);
+    return (play::Ds5EffectIntensity)m_console_trigger.load(std::memory_order_relaxed);
 }
 
 void ExtendedInputManager::setGameLightbar(uint8_t red, uint8_t green, uint8_t blue)
@@ -790,7 +790,7 @@ bool ExtendedInputManager::resolveLightbar(uint8_t* rgb) const
     if (ids == 0)
         return false;
 
-    const akira::input::RumbleProfile profile =
+    const play::RumbleProfile profile =
         akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(*settings, (uint16_t)(ids >> 16), (uint16_t)(ids & 0xffff),
                                        m_direct_addr, false, false);
     if (!profile.lightbar_enabled)
@@ -1489,11 +1489,11 @@ void ExtendedInputManager::resolveDirectAddress()
 void ExtendedInputManager::poll()
 {
     uint32_t ticks = 0;
-    akira::input::SampleCadence discovery_cadence(akira::input::DirectDiscoveryPeriod);
+    play::SampleCadence discovery_cadence(play::DirectDiscoveryPeriod);
 
     while (m_running.load(std::memory_order_acquire)) {
         if (!m_direct_addr_valid &&
-            discovery_cadence.due(akira::input::SampleCadence::Clock::now())) {
+            discovery_cadence.due(play::SampleCadence::Clock::now())) {
             resolveDirectAddress();
         }
 

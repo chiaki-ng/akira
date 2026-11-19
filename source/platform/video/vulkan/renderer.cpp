@@ -1437,10 +1437,10 @@ void VulkanRenderer::setDithering(bool enabled)
         akira::log::info("VulkanRenderer: switching dithering to {}", enabled);
 }
 
-void VulkanRenderer::setStatsOverlayMode(StatsOverlayMode mode)
+void VulkanRenderer::setStatsOverlayMode(play::StatsOverlayMode mode)
 {
-    const StatsOverlayMode previous = m_stats_mode.exchange(mode, std::memory_order_relaxed);
-    if (mode == StatsOverlayMode::Off)
+    const play::StatsOverlayMode previous = m_stats_mode.exchange(mode, std::memory_order_relaxed);
+    if (mode == play::StatsOverlayMode::Off)
     {
         std::lock_guard lock(m_ovl_mutex);
         m_ovl_front = -1;
@@ -1886,7 +1886,7 @@ void VulkanRenderer::warmFontAtlas(NVGcontext* vg)
 
 void VulkanRenderer::rebuildOverlayText()
 {
-    const StreamStats m_stats = readStreamStats();
+    const play::StreamStats m_stats = readStreamStats();
     FsrSummary fsr;
     {
         std::lock_guard lock(m_fsr_summary_mutex);
@@ -2289,7 +2289,7 @@ void VulkanRenderer::updateOverlayPlacement()
 bool VulkanRenderer::overlayTouchBegin(float x, float y)
 {
     std::lock_guard<std::mutex> lock(m_overlay_touch_mutex);
-    if (m_stats_mode.load(std::memory_order_relaxed) == StatsOverlayMode::Off)
+    if (m_stats_mode.load(std::memory_order_relaxed) == play::StatsOverlayMode::Off)
         return false;
 
     float ox = m_overlay_x.load(std::memory_order_relaxed);
@@ -2535,7 +2535,7 @@ void VulkanRenderer::drawFullOverlay(NVGcontext* vg)
 
 void VulkanRenderer::updateOverlayTexture()
 {
-    if (m_stats_mode.load(std::memory_order_relaxed) == StatsOverlayMode::Off)
+    if (m_stats_mode.load(std::memory_order_relaxed) == play::StatsOverlayMode::Off)
         return;
     if (!m_initialized.load(std::memory_order_acquire))
         return;
@@ -2612,7 +2612,7 @@ bool VulkanRenderer::settleOverlay(bool wait)
     succeeded(vkResetFences(m_device, 1, &fence), "vkResetFences (overlay)");
     {
         std::lock_guard lock(m_ovl_mutex);
-        if (m_ovl_target == m_ovl_in_flight->target && m_stats_mode.load(std::memory_order_relaxed) != StatsOverlayMode::Off)
+        if (m_ovl_target == m_ovl_in_flight->target && m_stats_mode.load(std::memory_order_relaxed) != play::StatsOverlayMode::Off)
         {
             m_ovl_panel_w = m_ovl_in_flight->width;
             m_ovl_panel_h = m_ovl_in_flight->height;
@@ -2688,7 +2688,7 @@ bool VulkanRenderer::renderOverlay(const OverlayTarget& target, int back)
     nvgFontFaceId(vg, context.font());
     warmFontAtlas(vg);
 
-    if (m_stats_mode.load(std::memory_order_relaxed) == StatsOverlayMode::Compact)
+    if (m_stats_mode.load(std::memory_order_relaxed) == play::StatsOverlayMode::Compact)
         drawCompactOverlay(vg);
     else
         drawFullOverlay(vg);

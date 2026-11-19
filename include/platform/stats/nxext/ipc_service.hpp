@@ -4,7 +4,9 @@
 #include <atomic>
 #include "platform/stats/nxext/nxext_ipc_server.h"
 
+namespace akira::play {
 class Session;
+}
 
 namespace akira::platform::nxext
 {
@@ -12,7 +14,7 @@ namespace akira::platform::nxext
 class IpcStatsService
 {
 public:
-    IpcStatsService(Session* session);
+    IpcStatsService(play::Session* session);
     ~IpcStatsService();
 
     void Start();
@@ -24,7 +26,7 @@ private:
     static void ProcessThreadFunc(void* arg);
     static Result ServiceHandler(void* userdata, const IpcServerRequest* r, u8* out_data, size_t* out_dataSize);
 
-    Session* m_session;
+    play::Session* m_session;
     IpcServer m_server;
     Thread m_thread;
     std::atomic<bool> m_running{false};

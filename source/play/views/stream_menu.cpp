@@ -10,6 +10,8 @@
 #include <cmath>
 #include <format>
 
+namespace akira::play::views {
+
 using namespace brls::literals;
 
 namespace
@@ -437,7 +439,7 @@ void StreamMenu::draw(NVGcontext* vg, float x, float y, float width, float heigh
 
     openT += dt;
 
-    const akira::app::views::Palette& p = akira::app::views::active();
+    const app::views::Palette& p = app::views::active();
     float s = theme.s;
 
     float barE = easeOut(openT / CARD_DURATION);
@@ -479,13 +481,13 @@ void StreamMenu::draw(NVGcontext* vg, float x, float y, float width, float heigh
 
 void StreamMenu::drawScrim(NVGcontext* vg, float x, float y, float w, float h, float e)
 {
-    const akira::app::views::Palette& p = akira::app::views::active();
+    const app::views::Palette& p = app::views::active();
     float s = theme.s;
     float top = h - SCRIM_H * s;
 
-    NVGcolor clear = akira::app::views::withAlpha(p.gradientBottom, 0);
-    NVGcolor mid = fade(akira::app::views::withAlpha(p.gradientBottom, 0xb8), e);
-    NVGcolor deep = fade(akira::app::views::withAlpha(p.backgroundDeep, 0xf0), e);
+    NVGcolor clear = app::views::withAlpha(p.gradientBottom, 0);
+    NVGcolor mid = fade(app::views::withAlpha(p.gradientBottom, 0xb8), e);
+    NVGcolor deep = fade(app::views::withAlpha(p.backgroundDeep, 0xf0), e);
 
     float split = SCRIM_H * s * 0.42f;
 
@@ -502,14 +504,14 @@ void StreamMenu::drawScrim(NVGcontext* vg, float x, float y, float w, float h, f
     nvgFill(vg);
 }
 
-void StreamMenu::drawIdentity(NVGcontext* vg, float x, float y, float e, const akira::app::views::Palette& p)
+void StreamMenu::drawIdentity(NVGcontext* vg, float x, float y, float e, const app::views::Palette& p)
 {
     float s = theme.s;
     float box = 46.0f * s;
     float cy = y + CARD_SIZE * s * 0.5f;
     float by = cy - box * 0.5f;
 
-    akira::app::views::drawGlassSurface(vg, x, by, box, box, 13.0f * s, e, true, p, s);
+    app::views::drawGlassSurface(vg, x, by, box, box, 13.0f * s, e, true, p, s);
 
     int tex = consoleTexture(vg, consolePs5);
     if (tex >= 0)
@@ -574,7 +576,7 @@ void StreamMenu::drawIdentity(NVGcontext* vg, float x, float y, float e, const a
 }
 
 void StreamMenu::drawRail(NVGcontext* vg, float x, float y, float lift, float dt,
-                          const akira::app::views::Palette& p)
+                          const app::views::Palette& p)
 {
     float s = theme.s;
     float step = (CARD_SIZE + CARD_GAP) * s;
@@ -592,7 +594,7 @@ void StreamMenu::drawRail(NVGcontext* vg, float x, float y, float lift, float dt
         nvgBeginPath(vg);
         nvgRoundedRect(vg, selX - grow, y + lift - grow,
                        size + grow * 2.0f, size + grow * 2.0f, r + grow);
-        nvgFillColor(vg, akira::app::views::withAlpha(p.focusA, 0x42));
+        nvgFillColor(vg, app::views::withAlpha(p.focusA, 0x42));
         nvgFill(vg);
     }
 
@@ -611,7 +613,7 @@ void StreamMenu::drawRail(NVGcontext* vg, float x, float y, float lift, float dt
 }
 
 void StreamMenu::drawCard(NVGcontext* vg, StreamCard* card, float x, float y, bool sel,
-                          float e, size_t index, const akira::app::views::Palette& p)
+                          float e, size_t index, const app::views::Palette& p)
 {
     float s = theme.s;
     float size = CARD_SIZE * s;
@@ -625,10 +627,10 @@ void StreamMenu::drawCard(NVGcontext* vg, StreamCard* card, float x, float y, bo
     float cy = y + squash * 0.5f;
     float cs = size - squash;
 
-    akira::app::views::drawGlassSurface(vg, cx, cy, cs, cs, r, e, sel, p, s);
+    app::views::drawGlassSurface(vg, cx, cy, cs, cs, r, e, sel, p, s);
 
     const bool available = card->available();
-    NVGcolor tint = available ? p.textMuted : akira::app::views::withAlpha(p.textDim, 0x62);
+    NVGcolor tint = available ? p.textMuted : app::views::withAlpha(p.textDim, 0x62);
     if (sel && available)
         tint = p.accent;
     else if (card->state() == CardState::Active)
@@ -643,7 +645,7 @@ void StreamMenu::drawCard(NVGcontext* vg, StreamCard* card, float x, float y, bo
     nvgFontFaceId(vg, theme.font_ui);
     nvgFontSize(vg, 11.0f * s);
     nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-    nvgFillColor(vg, fade(!available ? akira::app::views::withAlpha(p.textDim, 0x68)
+    nvgFillColor(vg, fade(!available ? app::views::withAlpha(p.textDim, 0x68)
                                        : (sel ? p.text : p.textMuted), e));
     nvgText(vg, cx + cs * 0.5f, cy + cs * 0.76f, label.c_str(), nullptr);
 
@@ -653,7 +655,7 @@ void StreamMenu::drawCard(NVGcontext* vg, StreamCard* card, float x, float y, bo
 }
 
 void StreamMenu::drawBadge(NVGcontext* vg, float cx, float cy, int count, float e,
-                           const akira::app::views::Palette& p)
+                           const app::views::Palette& p)
 {
     float s = theme.s;
     float r = 10.0f * s;
@@ -798,7 +800,7 @@ void StreamMenu::drawGlyph(NVGcontext* vg, CardGlyph g, float x, float y, float 
 
 void StreamMenu::drawPanel(NVGcontext* vg, float x, float y, float w, float h)
 {
-    const akira::app::views::Palette& p = akira::app::views::active();
+    const app::views::Palette& p = app::views::active();
     float s = theme.s;
     float a = theme.alpha;
 
@@ -806,7 +808,7 @@ void StreamMenu::drawPanel(NVGcontext* vg, float x, float y, float w, float h)
     if (!card)
         return;
 
-    akira::app::views::drawGlassSurface(vg, x, y, w, h, 20.0f * s, a, false, p, s);
+    app::views::drawGlassSurface(vg, x, y, w, h, 20.0f * s, a, false, p, s);
 
     nvgSave(vg);
     nvgScissor(vg, x, y, w, h);
@@ -844,7 +846,7 @@ void StreamMenu::drawOptions(NVGcontext* vg, float x, float y, float w)
 {
     (void)w;
 
-    const akira::app::views::Palette& p = akira::app::views::active();
+    const app::views::Palette& p = app::views::active();
     float s = theme.s;
     float a = theme.alpha;
 
@@ -874,11 +876,11 @@ void StreamMenu::drawOptions(NVGcontext* vg, float x, float y, float w)
             nvgBeginPath(vg);
             nvgRoundedRect(vg, cursor - 3.0f * s, y - 3.0f * s,
                            bw + 6.0f * s, bh + 6.0f * s, 14.0f * s);
-            nvgFillColor(vg, fade(akira::app::views::withAlpha(p.focusA, 0x42), a));
+            nvgFillColor(vg, fade(app::views::withAlpha(p.focusA, 0x42), a));
             nvgFill(vg);
         }
 
-        akira::app::views::drawGlassSurface(vg, cursor, y, bw, bh, 11.0f * s, a,
+        app::views::drawGlassSurface(vg, cursor, y, bw, bh, 11.0f * s, a,
                                     isActive || isCursor, p, s);
 
         nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
@@ -894,7 +896,7 @@ void StreamMenu::drawOptions(NVGcontext* vg, float x, float y, float w)
 }
 
 void StreamMenu::drawHints(NVGcontext* vg, float right, float y, float e,
-                           const akira::app::views::Palette& p)
+                           const app::views::Palette& p)
 {
     float s = theme.s;
     StreamCard* card = selected();
@@ -941,4 +943,6 @@ void StreamMenu::drawHints(NVGcontext* vg, float right, float y, float e,
 
         cursor = gx - r - 18.0f * s;
     }
+}
+
 }

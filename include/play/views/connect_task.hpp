@@ -10,7 +10,7 @@ namespace akira::consoles {
 class Host;
 }
 
-namespace akira::views {
+namespace akira::play::views {
 
 /*
  * What a route reports while it is connecting.
@@ -76,6 +76,6 @@ public:
     }
 };
 
-} // namespace akira::views
+} // namespace akira::play::views
 
 #endif // AKIRA_CONNECT_TASK_HPP

@@ -10,14 +10,14 @@ namespace {
 constexpr std::size_t kUnitKeyLength  = 17;
 constexpr std::size_t kModelKeyLength = 9;
 
-std::uint32_t ScaleForIntensity(std::uint32_t value, input::HapticIntensity intensity)
+std::uint32_t ScaleForIntensity(std::uint32_t value, play::HapticIntensity intensity)
 {
     switch (intensity) {
-        case input::HapticIntensity::VeryWeak:   return value / 5;
-        case input::HapticIntensity::Weak:       return value / 2;
-        case input::HapticIntensity::Strong:     return value * 2;
-        case input::HapticIntensity::VeryStrong: return value * 5;
-        case input::HapticIntensity::Normal:
+        case play::HapticIntensity::VeryWeak:   return value / 5;
+        case play::HapticIntensity::Weak:       return value / 2;
+        case play::HapticIntensity::Strong:     return value * 2;
+        case play::HapticIntensity::VeryStrong: return value * 5;
+        case play::HapticIntensity::Normal:
         default:                          return value;
     }
 }
@@ -74,18 +74,18 @@ bool RumbleKeyIsModel(const std::string& key)
 
 bool RumbleKeyIsCategory(const std::string& key)
 {
-    return key == input::kRumbleKeyDualSense
-        || key == input::kRumbleKeyJoyCon
-        || key == input::kRumbleKeySwitchPro
-        || key == input::kRumbleKeyGeneric;
+    return key == play::kRumbleKeyDualSense
+        || key == play::kRumbleKeyJoyCon
+        || key == play::kRumbleKeySwitchPro
+        || key == play::kRumbleKeyGeneric;
 }
 
 HapticRumble HapticAudioToRumble(const std::int16_t* stereo, std::size_t frames,
-                                 input::HapticIntensity intensity, bool motor_stalls)
+                                 play::HapticIntensity intensity, bool motor_stalls)
 {
     HapticRumble out;
 
-    if (stereo == nullptr || frames == 0 || intensity == input::HapticIntensity::Off)
+    if (stereo == nullptr || frames == 0 || intensity == play::HapticIntensity::Off)
         return out;
 
     std::uint32_t peak_left  = 0;

@@ -26,16 +26,16 @@ public:
     virtual std::string rumbleKey(SettingsManager& settings) = 0;
     virtual std::string currentKey(const SettingsManager& settings) const = 0;
     virtual std::optional<std::string> outputSummary(const SettingsManager& settings) const = 0;
-    virtual void useProfile(const input::RumbleProfile& profile) = 0;
+    virtual void useProfile(const play::RumbleProfile& profile) = 0;
     virtual bool isUnitKey(const std::string& key) const = 0;
     virtual bool directOutput() const = 0;
     virtual bool tunesMotors() const = 0;
 
-    virtual void addOutputRows(brls::Box& content, input::RumbleProfile& profile,
+    virtual void addOutputRows(brls::Box& content, play::RumbleProfile& profile,
                                const Action& store, const Action& reopen) = 0;
-    virtual void addLightbarRows(brls::Box& content, input::RumbleProfile& profile,
+    virtual void addLightbarRows(brls::Box& content, play::RumbleProfile& profile,
                                  const Action& store, const Action& reopen) = 0;
-    virtual bool previewDirect(const input::RumbleProfile& profile) = 0;
+    virtual bool previewDirect(const play::RumbleProfile& profile) = 0;
 };
 
 }

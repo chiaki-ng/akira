@@ -4,7 +4,7 @@
 
 #include <libchiaking/play_types.hpp>
 
-namespace akira::input {
+namespace akira::play {
 
 enum class RemapTarget : std::uint32_t {
     Cross = static_cast<std::uint32_t>(libchiaking::controllers::ControllerButton::cross),

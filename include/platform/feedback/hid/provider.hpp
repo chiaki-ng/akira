@@ -2,7 +2,9 @@
 
 #include "platform/feedback/provider.hpp"
 
+namespace akira::play {
 class HapticManager;
+}
 
 namespace akira::platform::hid
 {
@@ -10,12 +12,12 @@ namespace akira::platform::hid
 class HidFeedbackProvider final : public FeedbackProvider
 {
 public:
-    explicit HidFeedbackProvider(HapticManager& haptics);
+    explicit HidFeedbackProvider(play::HapticManager& haptics);
 
     void apply(const libchiaking::controllers::ControllerFeedback& feedback) override;
 
 private:
-    HapticManager& m_haptics;
+    play::HapticManager& m_haptics;
 };
 
 }

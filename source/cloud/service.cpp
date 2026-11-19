@@ -88,19 +88,19 @@ void Service::followBackgroundWork(bool nowPaused)
 
 auto Service::catalogOf() -> catalog::Catalog&
 {
-    return akira::ChiakiCore::current().chiaki().catalog();
+    return akira::play::ChiakiCore::current().chiaki().catalog();
 }
 
 auto Service::activeUser() const -> User
 {
-    psn::Accounts* accounts = akira::ChiakiCore::current().accounts();
+    psn::Accounts* accounts = akira::play::ChiakiCore::current().accounts();
     User user = accounts ? accounts->activeUser() : nullptr;
     return user && user->has_psn_account() ? user : nullptr;
 }
 
 std::optional<int64_t> Service::trustedNowMs() const
 {
-    if (!akira::ChiakiCore::current().opened())
+    if (!akira::play::ChiakiCore::current().opened())
         return std::nullopt;
     const auto now = catalogOf().trusted_time();
     if (!now)
@@ -454,7 +454,7 @@ void Service::clearCatalogCache()
 
 void Service::refreshInBackground()
 {
-    if (!akira::ChiakiCore::current().opened())
+    if (!akira::play::ChiakiCore::current().opened())
         return;
     if (const Profile* profile = settings->getActiveProfile())
     {
@@ -491,7 +491,7 @@ void Service::refreshActiveProfile(bool force, SnapshotCallback onDone, FetchCal
     }
 
     const int64_t profileId = profile->id;
-    User user = akira::ChiakiCore::current().opened() ? activeUser() : nullptr;
+    User user = akira::play::ChiakiCore::current().opened() ? activeUser() : nullptr;
     if (!user)
     {
         Snapshot snapshot = defaultSnapshotForProfile(true, false);
@@ -656,7 +656,7 @@ void Service::finishRefresh(int64_t profileId, uint64_t generation, Snapshot sna
 
 bool Service::signedIn() const
 {
-    return akira::ChiakiCore::current().opened() && activeUser() != nullptr;
+    return akira::play::ChiakiCore::current().opened() && activeUser() != nullptr;
 }
 
 auto Service::detailOf(const catalog::GameDetails& details) -> GameDetail
@@ -743,7 +743,7 @@ auto Service::sizedImage(const std::string& url, int width) -> std::optional<cat
 void Service::imageOf(const std::string& url, int width, const platform::StopToken& stop, ImageCallback onDone)
 {
     auto image = sizedImage(url, width);
-    if (!image || !akira::ChiakiCore::current().opened())
+    if (!image || !akira::play::ChiakiCore::current().opened())
     {
         brls::sync([onDone]() { onDone({}); });
         return;
@@ -870,7 +870,7 @@ void Service::clearForLaunch(const Game& game, const platform::StopToken& stop, 
     }
 
     const Profile* profile = settings->getActiveProfile();
-    User user = profile && akira::ChiakiCore::current().opened() ? activeUser() : nullptr;
+    User user = profile && akira::play::ChiakiCore::current().opened() ? activeUser() : nullptr;
     if (!user)
     {
         if (onError)

@@ -10,6 +10,8 @@
 #include <memory>
 #include <vector>
 
+namespace akira::play::views {
+
 class StreamMenu : public brls::Box
 {
 public:
@@ -48,15 +50,15 @@ private:
     void syncGeometry(float width, float height);
 
     void drawScrim(NVGcontext* vg, float x, float y, float w, float h, float e);
-    void drawIdentity(NVGcontext* vg, float x, float y, float e, const akira::app::views::Palette& p);
-    void drawRail(NVGcontext* vg, float x, float y, float lift, float dt, const akira::app::views::Palette& p);
+    void drawIdentity(NVGcontext* vg, float x, float y, float e, const app::views::Palette& p);
+    void drawRail(NVGcontext* vg, float x, float y, float lift, float dt, const app::views::Palette& p);
     void drawCard(NVGcontext* vg, StreamCard* card, float x, float y, bool sel, float e,
-                  size_t index, const akira::app::views::Palette& p);
+                  size_t index, const app::views::Palette& p);
     void drawGlyph(NVGcontext* vg, CardGlyph g, float x, float y, float s, NVGcolor c);
-    void drawBadge(NVGcontext* vg, float cx, float cy, int count, float e, const akira::app::views::Palette& p);
+    void drawBadge(NVGcontext* vg, float cx, float cy, int count, float e, const app::views::Palette& p);
     void drawPanel(NVGcontext* vg, float x, float y, float w, float h);
     void drawOptions(NVGcontext* vg, float x, float y, float w);
-    void drawHints(NVGcontext* vg, float right, float y, float e, const akira::app::views::Palette& p);
+    void drawHints(NVGcontext* vg, float right, float y, float e, const app::views::Palette& p);
 
     void handleTap(float px, float py);
     void pulse(size_t index);
@@ -107,5 +109,7 @@ private:
     std::function<void()> onButtonMapping;
     std::function<void()> onPlayers;
 };
+
+}
 
 #endif // AKIRA_STREAM_MENU_HPP

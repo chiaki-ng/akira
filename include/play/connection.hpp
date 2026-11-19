@@ -22,11 +22,16 @@ class Host;
 namespace cloud {
 class CloudLaunch;
 }
+
+namespace akira::play {
+
 class Session;
+
+}
 class SettingsManager;
 enum class TakionTarget : uint8_t;
 
-namespace akira::stream {
+namespace akira::play {
 
 enum class SeatPhase : uint8_t {
     Empty,

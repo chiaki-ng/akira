@@ -15,7 +15,7 @@ class Host;
 }
 namespace akira::platform::extended { class ExtendedPadProvider; }
 
-namespace akira::stream {
+namespace akira::play {
 class Connection;
 }
 
@@ -25,7 +25,7 @@ namespace akira::platform::couch
 class PlayersPanelView : public brls::Box
 {
 public:
-    PlayersPanelView(consoles::Host* host, std::weak_ptr<akira::stream::Connection> connection, akira::platform::extended::ExtendedPadProvider* input,
+    PlayersPanelView(consoles::Host* host, std::weak_ptr<play::Connection> connection, akira::platform::extended::ExtendedPadProvider* input,
                      bool claimImmediately = false);
     ~PlayersPanelView() override;
 
@@ -62,7 +62,7 @@ private:
     int rosterCount() const;
 
     consoles::Host*          m_host    = nullptr;
-    std::weak_ptr<akira::stream::Connection> m_connection;
+    std::weak_ptr<play::Connection> m_connection;
     akira::platform::extended::ExtendedPadProvider* m_input = nullptr;
     brls::Box*     m_panel   = nullptr;
     brls::Box*     m_slots   = nullptr;

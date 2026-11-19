@@ -6,12 +6,12 @@
 #include <algorithm>
 #include <utility>
 
-namespace akira::stream {
+namespace akira::play {
 
 VideoWorker::VideoWorker(Decode decode)
     : decode(std::move(decode))
 {
-    auto started = libchiaking::platform::Thread::start(akira::ChiakiCore::current().threading(), "video",
+    auto started = libchiaking::platform::Thread::start(ChiakiCore::current().threading(), "video",
         libchiaking::platform::ThreadRole::video, [this](libchiaking::platform::StopToken) { run(); });
     if (!started)
         throw app::Exception("Failed to start the video thread");

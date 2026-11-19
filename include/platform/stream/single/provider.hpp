@@ -15,7 +15,7 @@ public:
     void attach() override {}
     bool beforeStart() override;
     void streaming() override {}
-    void decorateMenu(StreamMenu&) override {}
+    void decorateMenu(play::views::StreamMenu&) override {}
 
 private:
     std::weak_ptr<StreamControlsHost> m_host;

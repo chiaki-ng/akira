@@ -27,8 +27,8 @@
 
 namespace {
 
-using akira::input::RemapTarget;
-using akira::input::remapKey;
+using akira::play::RemapTarget;
+using akira::play::remapKey;
 
 ChiakiLogVerbosity chiakiLogVerbosityFromString(const std::string& value)
 {
@@ -63,12 +63,12 @@ akira::log::Level appLogLevel(ChiakiLogVerbosity verbosity)
     }
 }
 
-akira::input::RumbleSource sourceFromLegacyPreset(HapticPreset preset)
+akira::play::RumbleSource sourceFromLegacyPreset(HapticPreset preset)
 {
     switch (preset) {
-        case HapticPreset::Disabled:      return akira::input::RumbleSource::Off;
-        case HapticPreset::ConsoleRumble: return akira::input::RumbleSource::Game;
-        default:                          return akira::input::RumbleSource::Derived;
+        case HapticPreset::Disabled:      return akira::play::RumbleSource::Off;
+        case HapticPreset::ConsoleRumble: return akira::play::RumbleSource::Game;
+        default:                          return akira::play::RumbleSource::Derived;
     }
 }
 
@@ -165,10 +165,10 @@ std::string chiakiButtonToConfigKey(uint32_t button) {
         case remapKey(RemapTarget::Share): return "share";
         case remapKey(RemapTarget::Touchpad): return "touchpad";
         case remapKey(RemapTarget::Ps): return "ps";
-        case SWIPE_TOUCHPAD_UP: return "swipe_up";
-        case SWIPE_TOUCHPAD_DOWN: return "swipe_down";
-        case SWIPE_TOUCHPAD_LEFT: return "swipe_left";
-        case SWIPE_TOUCHPAD_RIGHT: return "swipe_right";
+        case akira::play::SWIPE_TOUCHPAD_UP: return "swipe_up";
+        case akira::play::SWIPE_TOUCHPAD_DOWN: return "swipe_down";
+        case akira::play::SWIPE_TOUCHPAD_LEFT: return "swipe_left";
+        case akira::play::SWIPE_TOUCHPAD_RIGHT: return "swipe_right";
         default: return "";
     }
 }
@@ -188,10 +188,10 @@ uint32_t configKeyToChiakiButton(const std::string& key) {
     if (key == "share") return remapKey(RemapTarget::Share);
     if (key == "touchpad") return remapKey(RemapTarget::Touchpad);
     if (key == "ps") return remapKey(RemapTarget::Ps);
-    if (key == "swipe_up") return SWIPE_TOUCHPAD_UP;
-    if (key == "swipe_down") return SWIPE_TOUCHPAD_DOWN;
-    if (key == "swipe_left") return SWIPE_TOUCHPAD_LEFT;
-    if (key == "swipe_right") return SWIPE_TOUCHPAD_RIGHT;
+    if (key == "swipe_up") return akira::play::SWIPE_TOUCHPAD_UP;
+    if (key == "swipe_down") return akira::play::SWIPE_TOUCHPAD_DOWN;
+    if (key == "swipe_left") return akira::play::SWIPE_TOUCHPAD_LEFT;
+    if (key == "swipe_right") return akira::play::SWIPE_TOUCHPAD_RIGHT;
     return 0;
 }
 
@@ -499,8 +499,8 @@ void SettingsManager::parseTomlFile() {
         zeroCopyVideo = config["video"]["zero_copy"].value_or(false);
         softwareHevc = config["video"]["software_hevc"].value_or(false);
         videoRenderer = config["video"]["renderer"].value_or(std::string("drako3d")) == "vulkan"
-            ? RendererKind::Vulkan
-            : RendererKind::Drako3d;
+            ? akira::play::RendererKind::Vulkan
+            : akira::play::RendererKind::Drako3d;
         localFsrTarget = static_cast<int>(config["video"]["local"]["fsr_target"].value_or(int64_t{0}));
         remoteFsrTarget = static_cast<int>(config["video"]["remote"]["fsr_target"].value_or(int64_t{0}));
         vpnFsrTarget = static_cast<int>(config["video"]["vpn"]["fsr_target"].value_or(int64_t{0}));
@@ -539,10 +539,10 @@ void SettingsManager::parseTomlFile() {
                     continue;
 
                 std::string name(key.str());
-                akira::input::RumbleProfile profile =
-                    (name == akira::input::kRumbleKeySwitch)
-                        ? akira::input::SwitchRumbleProfile()
-                        : akira::input::DefaultRumbleProfile();
+                akira::play::RumbleProfile profile =
+                    (name == akira::play::kRumbleKeySwitch)
+                        ? akira::play::SwitchRumbleProfile()
+                        : akira::play::DefaultRumbleProfile();
 
                 if (auto v = (*entry)["strength"].value<double>())
                     profile.strength = std::max(0.0f, std::min(1.0f, static_cast<float>(*v)));
@@ -560,14 +560,14 @@ void SettingsManager::parseTomlFile() {
                     profile.envelope_decay = std::max(0.50f, std::min(0.95f, static_cast<float>(*v)));
                 if (auto v = (*entry)["haptic_intensity"].value<int64_t>()) {
                     const int64_t clamped = std::max<int64_t>(0, std::min<int64_t>(5, *v));
-                    profile.haptic_intensity = static_cast<akira::input::HapticIntensity>(clamped);
+                    profile.haptic_intensity = static_cast<akira::play::HapticIntensity>(clamped);
                 }
                 if (auto v = (*entry)["direct_output"].value<bool>())
-                    profile.output_mode = *v ? akira::input::PadOutputMode::Native
-                                             : akira::input::PadOutputMode::Basic;
+                    profile.output_mode = *v ? akira::play::PadOutputMode::Native
+                                             : akira::play::PadOutputMode::Basic;
                 if (auto v = (*entry)["output_mode"].value<int64_t>())
-                    profile.output_mode = (*v == 1) ? akira::input::PadOutputMode::Basic
-                                                    : akira::input::PadOutputMode::Native;
+                    profile.output_mode = (*v == 1) ? akira::play::PadOutputMode::Basic
+                                                    : akira::play::PadOutputMode::Native;
 
                 if (auto v = (*entry)["lightbar_enabled"].value<bool>())
                     profile.lightbar_enabled = *v;
@@ -583,11 +583,11 @@ void SettingsManager::parseTomlFile() {
                     source = (*entry)["console_feedback"].value<int64_t>();
                 if (source) {
                     const int64_t clamped = std::max<int64_t>(0, std::min<int64_t>(2, *source));
-                    profile.rumble_source = static_cast<akira::input::RumbleSource>(clamped);
+                    profile.rumble_source = static_cast<akira::play::RumbleSource>(clamped);
                 } else {
                     profile.rumble_source = sourceFromLegacyPreset(globalHaptic);
                     if (globalHaptic == HapticPreset::Weak)
-                        profile.haptic_intensity = akira::input::HapticIntensity::Weak;
+                        profile.haptic_intensity = akira::play::HapticIntensity::Weak;
                 }
 
                 rumbleProfiles[name] = profile;
@@ -603,41 +603,41 @@ void SettingsManager::parseTomlFile() {
                 rumbleEnvelopeAttack = std::max(0.20f, std::min(1.00f, static_cast<float>(*val)));
         }
 
-        if (rumbleProfiles.find(akira::input::kRumbleKeySwitch) == rumbleProfiles.end()) {
-            akira::input::RumbleProfile migrated = akira::input::SwitchRumbleProfile();
+        if (rumbleProfiles.find(akira::play::kRumbleKeySwitch) == rumbleProfiles.end()) {
+            akira::play::RumbleProfile migrated = akira::play::SwitchRumbleProfile();
             migrated.freq_low        = rumbleFreqLow;
             migrated.freq_high       = rumbleFreqHigh;
             migrated.envelope_attack = rumbleEnvelopeAttack;
             migrated.envelope_decay  = rumbleEnvelopeDecay;
 
-            rumbleProfiles[akira::input::kRumbleKeySwitch] = migrated;
+            rumbleProfiles[akira::play::kRumbleKeySwitch] = migrated;
             akira::log::info("rumble profiles: migrated existing settings into the switch profile");
         }
 
         {
-            const auto old_switch = rumbleProfiles.find(akira::input::kRumbleKeySwitch);
-            const akira::input::RumbleProfile inherited =
+            const auto old_switch = rumbleProfiles.find(akira::play::kRumbleKeySwitch);
+            const akira::play::RumbleProfile inherited =
                 old_switch != rumbleProfiles.end() ? old_switch->second
-                                                   : akira::input::SwitchRumbleProfile();
+                                                   : akira::play::SwitchRumbleProfile();
 
-            for (const char* key : { akira::input::kRumbleKeyJoyCon,
-                                     akira::input::kRumbleKeySwitchPro }) {
+            for (const char* key : { akira::play::kRumbleKeyJoyCon,
+                                     akira::play::kRumbleKeySwitchPro }) {
                 if (rumbleProfiles.find(key) == rumbleProfiles.end())
                     rumbleProfiles[key] = inherited;
             }
         }
 
-        if (rumbleProfiles.find(akira::input::kRumbleKeyDualSense) == rumbleProfiles.end()) {
-            akira::input::RumbleProfile ds = akira::input::DefaultRumbleProfile();
+        if (rumbleProfiles.find(akira::play::kRumbleKeyDualSense) == rumbleProfiles.end()) {
+            akira::play::RumbleProfile ds = akira::play::DefaultRumbleProfile();
 
-            ds.output_mode    = akira::input::PadOutputMode::Native;
+            ds.output_mode    = akira::play::PadOutputMode::Native;
             ds.rumble_source  = sourceFromLegacyPreset(globalHaptic);
-            rumbleProfiles[akira::input::kRumbleKeyDualSense] = ds;
+            rumbleProfiles[akira::play::kRumbleKeyDualSense] = ds;
         }
-        if (rumbleProfiles.find(akira::input::kRumbleKeyGeneric) == rumbleProfiles.end())
-            rumbleProfiles[akira::input::kRumbleKeyGeneric] = akira::input::DefaultRumbleProfile();
-        if (rumbleProfiles.find(akira::input::kRumbleKeyDefault) == rumbleProfiles.end())
-            rumbleProfiles[akira::input::kRumbleKeyDefault] = akira::input::DefaultRumbleProfile();
+        if (rumbleProfiles.find(akira::play::kRumbleKeyGeneric) == rumbleProfiles.end())
+            rumbleProfiles[akira::play::kRumbleKeyGeneric] = akira::play::DefaultRumbleProfile();
+        if (rumbleProfiles.find(akira::play::kRumbleKeyDefault) == rumbleProfiles.end())
+            rumbleProfiles[akira::play::kRumbleKeyDefault] = akira::play::DefaultRumbleProfile();
 
         cloudDuid = config["cloud"]["duid"].value<std::string>().value_or("");
         {
@@ -1089,7 +1089,7 @@ toml::table SettingsManager::ownedSettings() {
         video.insert("cloud", std::move(cloudVideo));
         video.insert("zero_copy", zeroCopyVideo);
         video.insert("software_hevc", softwareHevc);
-        video.insert("renderer", videoRenderer == RendererKind::Drako3d ? "drako3d" : "vulkan");
+        video.insert("renderer", videoRenderer == akira::play::RendererKind::Drako3d ? "drako3d" : "vulkan");
         config.insert("video", std::move(video));
     }
 
@@ -1744,15 +1744,15 @@ void SettingsManager::setHaptic(akira::consoles::Host* host, const std::string& 
     setHaptic(host, preset);
 }
 
-akira::input::RumbleProfile SettingsManager::getRumbleProfile(const std::string& key) const
+akira::play::RumbleProfile SettingsManager::getRumbleProfile(const std::string& key) const
 {
     const auto it = rumbleProfiles.find(key);
     if (it != rumbleProfiles.end())
         return it->second;
 
-    return key == akira::input::kRumbleKeySwitch
-               ? akira::input::SwitchRumbleProfile()
-               : akira::input::DefaultRumbleProfile();
+    return key == akira::play::kRumbleKeySwitch
+               ? akira::play::SwitchRumbleProfile()
+               : akira::play::DefaultRumbleProfile();
 }
 
 bool SettingsManager::hasRumbleProfile(const std::string& key) const
@@ -1760,7 +1760,7 @@ bool SettingsManager::hasRumbleProfile(const std::string& key) const
     return rumbleProfiles.find(key) != rumbleProfiles.end();
 }
 
-void SettingsManager::setRumbleProfile(const std::string& key, const akira::input::RumbleProfile& profile)
+void SettingsManager::setRumbleProfile(const std::string& key, const akira::play::RumbleProfile& profile)
 {
     if (key.empty())
         return;
@@ -1769,7 +1769,7 @@ void SettingsManager::setRumbleProfile(const std::string& key, const akira::inpu
 }
 
 bool SettingsManager::seedRumbleProfile(const std::string& key,
-                                        const akira::input::RumbleProfile* inheritFrom)
+                                        const akira::play::RumbleProfile* inheritFrom)
 {
     if (key.empty() || hasRumbleProfile(key))
         return false;
@@ -1779,9 +1779,9 @@ bool SettingsManager::seedRumbleProfile(const std::string& key,
         return true;
     }
 
-    rumbleProfiles[key] = key == akira::input::kRumbleKeySwitch
-                              ? akira::input::SwitchRumbleProfile()
-                              : akira::input::DefaultRumbleProfile();
+    rumbleProfiles[key] = key == akira::play::kRumbleKeySwitch
+                              ? akira::play::SwitchRumbleProfile()
+                              : akira::play::DefaultRumbleProfile();
     return true;
 }
 
@@ -1790,9 +1790,9 @@ void SettingsManager::resetRumbleProfile(const std::string& key)
     if (key.empty())
         return;
 
-    rumbleProfiles[key] = key == akira::input::kRumbleKeySwitch
-                              ? akira::input::SwitchRumbleProfile()
-                              : akira::input::DefaultRumbleProfile();
+    rumbleProfiles[key] = key == akira::play::kRumbleKeySwitch
+                              ? akira::play::SwitchRumbleProfile()
+                              : akira::play::DefaultRumbleProfile();
 }
 
 bool SettingsManager::getDirectRumbleInStream() const { return directRumbleInStream; }
@@ -2152,11 +2152,11 @@ void SettingsManager::setSoftwareHevc(bool enabled) {
     softwareHevc = enabled;
 }
 
-RendererKind SettingsManager::getVideoRenderer() const {
+akira::play::RendererKind SettingsManager::getVideoRenderer() const {
     return videoRenderer;
 }
 
-void SettingsManager::setVideoRenderer(RendererKind renderer) {
+void SettingsManager::setVideoRenderer(akira::play::RendererKind renderer) {
     videoRenderer = renderer;
 }
 
@@ -2545,10 +2545,10 @@ void SettingsManager::setSwipeRightEnabled(bool enabled) { swipeRightEnabled = e
 bool SettingsManager::isButtonEnabled(uint32_t chiakiButton) const {
     switch (chiakiButton) {
         case remapKey(RemapTarget::Touchpad): return touchpadEnabled;
-        case SWIPE_TOUCHPAD_UP: return swipeUpEnabled;
-        case SWIPE_TOUCHPAD_DOWN: return swipeDownEnabled;
-        case SWIPE_TOUCHPAD_LEFT: return swipeLeftEnabled;
-        case SWIPE_TOUCHPAD_RIGHT: return swipeRightEnabled;
+        case akira::play::SWIPE_TOUCHPAD_UP: return swipeUpEnabled;
+        case akira::play::SWIPE_TOUCHPAD_DOWN: return swipeDownEnabled;
+        case akira::play::SWIPE_TOUCHPAD_LEFT: return swipeLeftEnabled;
+        case akira::play::SWIPE_TOUCHPAD_RIGHT: return swipeRightEnabled;
         default: return true;
     }
 }
@@ -2577,10 +2577,10 @@ ButtonMapping SettingsManager::getDefaultButtonMapping() const {
     defaults[remapKey(RemapTarget::Share)]    = {};
     defaults[remapKey(RemapTarget::Touchpad)] = {};
     defaults[remapKey(RemapTarget::Ps)]       = {HidNpadButton_Minus};
-    defaults[SWIPE_TOUCHPAD_UP]    = {};
-    defaults[SWIPE_TOUCHPAD_DOWN]  = {};
-    defaults[SWIPE_TOUCHPAD_LEFT]  = {};
-    defaults[SWIPE_TOUCHPAD_RIGHT] = {};
+    defaults[akira::play::SWIPE_TOUCHPAD_UP]    = {};
+    defaults[akira::play::SWIPE_TOUCHPAD_DOWN]  = {};
+    defaults[akira::play::SWIPE_TOUCHPAD_LEFT]  = {};
+    defaults[akira::play::SWIPE_TOUCHPAD_RIGHT] = {};
     return defaults;
 }
 

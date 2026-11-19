@@ -122,12 +122,12 @@ void TrophyManager::deliverNotLinked(const ErrorCallback& onError)
 
 auto TrophyManager::trophies() -> trophies::Trophies&
 {
-    return akira::ChiakiCore::current().chiaki().trophies();
+    return akira::play::ChiakiCore::current().chiaki().trophies();
 }
 
 auto TrophyManager::catalog() -> catalog::Catalog&
 {
-    return akira::ChiakiCore::current().chiaki().catalog();
+    return akira::play::ChiakiCore::current().chiaki().catalog();
 }
 
 auto TrophyManager::requestFor(psn::Accounts::User user) -> Request
@@ -138,7 +138,7 @@ auto TrophyManager::requestFor(psn::Accounts::User user) -> Request
 
 auto TrophyManager::begin() -> std::optional<Request>
 {
-    psn::Accounts* accounts = akira::ChiakiCore::current().accounts();
+    psn::Accounts* accounts = akira::play::ChiakiCore::current().accounts();
     psn::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
     if (!user || !user->has_psn_account())
         return std::nullopt;
@@ -460,7 +460,7 @@ void TrophyManager::fetchProfile(bool forceRefresh, Callback<Profile> onSuccess,
 void TrophyManager::fetchProfileForAccount(const std::string& accountId,
     Callback<Profile> onSuccess, ErrorCallback onError)
 {
-    akira::ChiakiCore& core = akira::ChiakiCore::current();
+    akira::play::ChiakiCore& core = akira::play::ChiakiCore::current();
     const auto account = libchiaking::AccountId::from_base64(accountId);
     psn::Accounts::User user = core.opened() && account ? core.chiaki().users().find(*account) : nullptr;
     if (!user || !user->has_psn_account())

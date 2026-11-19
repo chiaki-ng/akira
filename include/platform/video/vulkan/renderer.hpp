@@ -49,7 +49,7 @@ public:
     void waitIdle() override;
 
     void updateOverlayTexture() override;
-    void setStatsOverlayMode(StatsOverlayMode mode) override;
+    void setStatsOverlayMode(play::StatsOverlayMode mode) override;
     bool overlayTouchBegin(float x, float y) override;
     void overlayTouchMove(float x, float y) override;
     void overlayTouchEnd() override;

@@ -107,7 +107,7 @@ void UpdateFlow::startDownload(const UpdateInfo& info) {
     content->setAlignItems(brls::AlignItems::CENTER);
     content->setPadding(24.0f, 24.0f, 24.0f, 24.0f);
 
-    auto* ring = new ProgressRing();
+    auto* ring = new play::views::ProgressRing();
     ring->setWidth(84.0f);
     ring->setHeight(84.0f);
     content->addView(ring);
@@ -189,7 +189,7 @@ void UpdateFlow::startDownload(const UpdateInfo& info) {
         finish([tmp]() {
             std::string err;
             if (UpdateManager::getInstance().applyDownloaded(tmp, err))
-                quitApp(true, "akira/update/installed_relaunch"_i18n);
+                play::views::quitApp(true, "akira/update/installed_relaunch"_i18n);
             else
                 showUpdateError("akira/update/install_failed"_i18n + std::string("\n") + err);
         });

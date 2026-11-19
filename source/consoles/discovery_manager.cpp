@@ -131,7 +131,7 @@ void DiscoveryManager::setServiceEnabled(bool enable)
         return;
     }
 
-    if (!ChiakiCore::current().opened())
+    if (!play::ChiakiCore::current().opened())
     {
         log::error("Discovery: the core is not open, nothing to search with");
         return;
@@ -145,7 +145,7 @@ void DiscoveryManager::setServiceEnabled(bool enable)
 
 void DiscoveryManager::linkSavedConsoles()
 {
-    auto& known = ChiakiCore::current().chiaki().consoles();
+    auto& known = play::ChiakiCore::current().chiaki().consoles();
     auto* hostsMap = settings->getHostsMap();
     bool changed = false;
 
@@ -290,7 +290,7 @@ void DiscoveryManager::startSearch()
             sweep.subnets.push_back(subnet.text());
     }
 
-    auto& core = ChiakiCore::current();
+    auto& core = play::ChiakiCore::current();
     auto started = platform::Thread::start(core.threading(), "discovery", platform::ThreadRole::discovery,
         [this, ranges = std::move(ranges), generation, &core](platform::StopToken stop) {
             Lookout lookout{*this, generation};
@@ -374,7 +374,7 @@ void DiscoveryManager::applyView(uint64_t generation, const SeenNetwork& seen)
 
     if (adopted)
     {
-        auto remembered = ChiakiCore::current().chiaki().consoles().remember_saved();
+        auto remembered = play::ChiakiCore::current().chiaki().consoles().remember_saved();
         if (remembered)
             log::info("Discovery: adopted saved registrations, {} console(s) remembered",
                 remembered->consoles.size());
@@ -455,7 +455,7 @@ psn::ActionStatus DiscoveryManager::getRemoteRefreshStatus() const
     std::lock_guard<std::mutex> lock(remoteRefreshMutex);
     if (remoteRefreshInFlight)
         return psn::ActionStatus{psn::ActionState::Busy, 0};
-    const uint64_t now = ChiakiCore::current().clock().now_microseconds();
+    const uint64_t now = play::ChiakiCore::current().clock().now_microseconds();
     if (now < remoteRefreshReadyAtMicroseconds)
         return psn::ActionStatus{psn::ActionState::CoolingDown,
             static_cast<int>((remoteRefreshReadyAtMicroseconds - now + 999'999) / 1'000'000)};
@@ -486,7 +486,7 @@ void DiscoveryManager::refreshRemoteDevices(RemoteRefreshCallback onComplete, bo
         generation = ++remoteGeneration;
     }
 
-    auto& core = ChiakiCore::current();
+    auto& core = play::ChiakiCore::current();
     if (!core.opened())
     {
         finishRemoteRefresh(generation, {false, "core unavailable"});
@@ -506,7 +506,7 @@ void DiscoveryManager::refreshRemoteDevices(RemoteRefreshCallback onComplete, bo
 
 void DiscoveryManager::runRemoteRefresh(const platform::StopToken& stop, uint64_t generation)
 {
-    auto& core = ChiakiCore::current();
+    auto& core = play::ChiakiCore::current();
     auto* accounts = core.accounts();
     if (settings->isLegacyProfileActive() || !accounts)
     {
@@ -699,7 +699,7 @@ void DiscoveryManager::finishRemoteRefresh(uint64_t generation, const RemoteRefr
 
         if (remoteRefreshUserRequested)
         {
-            remoteRefreshReadyAtMicroseconds = ChiakiCore::current().clock().now_microseconds() +
+            remoteRefreshReadyAtMicroseconds = play::ChiakiCore::current().clock().now_microseconds() +
                 static_cast<uint64_t>(result.success ? PSN_REMOTE_COOLDOWN_S : PSN_FAILED_COOLDOWN_S) * 1'000'000;
             remoteRefreshUserRequested = false;
         }

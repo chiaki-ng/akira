@@ -12,6 +12,8 @@
 
 #include "platform/haptics/provider.hpp"
 
+namespace akira::play {
+
 class InputManager;
 
 class HapticManager
@@ -39,8 +41,8 @@ public:
     {
         m_console_vibration.store(wire, std::memory_order_relaxed);
     }
-    void setRumbleSource(akira::input::RumbleSource source) { m_rumble_source = source; }
-    void setHapticIntensity(akira::input::HapticIntensity intensity) { m_profile.haptic_intensity = intensity; }
+    void setRumbleSource(RumbleSource source) { m_rumble_source = source; }
+    void setHapticIntensity(HapticIntensity intensity) { m_profile.haptic_intensity = intensity; }
     void setRumbleCeiling(float ceiling) { m_ceiling = ceiling; }
 
     void setRumbleFreqLow(float freq) { m_freq_low = freq; }
@@ -50,8 +52,8 @@ public:
 
     bool isLocked() const { return m_haptic_lock; }
 
-    const akira::input::RumbleProfile& profile() const { return m_profile; }
-    void setProfile(const akira::input::RumbleProfile& profile) { m_profile = profile; }
+    const RumbleProfile& profile() const { return m_profile; }
+    void setProfile(const RumbleProfile& profile) { m_profile = profile; }
     float consoleVibrationScale() const;
     void emitHaptic(float left, float right);
 
@@ -61,7 +63,7 @@ private:
 
     void emitMotorsLegacy(const uint8_t* buf, size_t buf_size);
 
-    akira::input::RumbleProfile   m_profile;
+    RumbleProfile   m_profile;
 
     void emit(float left, float right);
 
@@ -70,7 +72,7 @@ private:
     float m_rumble_strength = 1.0f;
 
     std::atomic<uint8_t> m_console_vibration{
-        (uint8_t)akira::input::Ds5EffectIntensity::Strong};
+        (uint8_t)Ds5EffectIntensity::Strong};
     float m_freq_low = 140.0f;
     float m_freq_high = 185.0f;
     float m_envelope = 0.0f;
@@ -82,9 +84,9 @@ private:
     std::uint32_t m_haptic_buffers = 0;
     std::uint32_t m_stream_logged = 0;
 
-    akira::input::RumbleSource m_rumble_source = akira::input::RumbleSource::Derived;
+    RumbleSource m_rumble_source = RumbleSource::Derived;
 
-    akira::input::RumbleSource effectiveSource() const;
+    RumbleSource effectiveSource() const;
 
 
 
@@ -93,5 +95,7 @@ private:
     int m_haptic_val = 0;
     std::chrono::system_clock::time_point m_haptic_lock_time;
 };
+
+}
 
 #endif // AKIRA_IO_HAPTIC_MANAGER_HPP

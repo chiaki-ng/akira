@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <cstring>
 
+namespace akira::play {
+
 HapticManager::HapticManager(std::unique_ptr<akira::platform::HapticsProvider> pad)
     : m_pad(std::move(pad))
 {
@@ -19,15 +21,15 @@ HapticManager::~HapticManager()
 }
 
 
-akira::input::RumbleSource HapticManager::effectiveSource() const
+RumbleSource HapticManager::effectiveSource() const
 {
     return m_pad->effectiveSource(m_rumble_source);
 }
 
 float HapticManager::consoleVibrationScale() const
 {
-    return akira::input::Ds5IntensityScale(
-        akira::input::Ds5IntensityFromWire(m_console_vibration.load(std::memory_order_relaxed)));
+    return Ds5IntensityScale(
+        Ds5IntensityFromWire(m_console_vibration.load(std::memory_order_relaxed)));
 }
 
 void HapticManager::emitHaptic(float left, float right)
@@ -55,14 +57,14 @@ void HapticManager::emit(float left, float right)
 void HapticManager::setRumble(uint8_t left, uint8_t right)
 {
     if (SettingsManager::getInstance()->getDebugChiakiLog() && (left > 0 || right > 0))
-        akira::log::info("setRumble: left={}, right={}, strength={:.2f}", left, right, m_rumble_strength);
+        log::info("setRumble: left={}, right={}, strength={:.2f}", left, right, m_rumble_strength);
 
     m_rumble_events++;
     if (m_rumble_events == 1)
-        akira::log::info("rumble events: console sent one while announced as a DualSense"
+        log::info("rumble events: console sent one while announced as a DualSense"
                            " (haptic buffers so far: {})", m_haptic_buffers);
 
-    if (effectiveSource() != akira::input::RumbleSource::Game)
+    if (effectiveSource() != RumbleSource::Game)
         return;
 
     float leftAmp  = (left  > 0) ? ((float)left  / 255.0f) * m_rumble_strength : 0.0f;
@@ -113,19 +115,19 @@ void HapticManager::processHapticAudio(std::span<const std::byte> pcm)
 
     m_haptic_buffers++;
     if (m_haptic_buffers == 1)
-        akira::log::info("haptic stream: first buffer (rumble events so far: {})",
+        log::info("haptic stream: first buffer (rumble events so far: {})",
                            m_rumble_events);
     if (++m_stream_logged >= 600) {
         m_stream_logged = 0;
-        akira::log::info("haptic stream: {} buffers, {} rumble events, source={}",
+        log::info("haptic stream: {} buffers, {} rumble events, source={}",
                            m_haptic_buffers, m_rumble_events, (int)effectiveSource());
     }
 
-    if (effectiveSource() != akira::input::RumbleSource::Derived)
+    if (effectiveSource() != RumbleSource::Derived)
         return;
 
-    if (akira::input::Ds5IntensityFromWire(m_console_vibration.load(std::memory_order_relaxed))
-        == akira::input::Ds5EffectIntensity::Off)
+    if (Ds5IntensityFromWire(m_console_vibration.load(std::memory_order_relaxed))
+        == Ds5EffectIntensity::Off)
         return;
 
     if (m_pad->play(*this, stereo))
@@ -141,7 +143,7 @@ void HapticManager::setHapticRumble(uint8_t left, uint8_t right)
     m_haptic_lock_time = std::chrono::high_resolution_clock::now();
 
 
-    if (m_profile.haptic_intensity == akira::input::HapticIntensity::Off) {
+    if (m_profile.haptic_intensity == HapticIntensity::Off) {
         m_envelope = 0.0f;
         emit(0.0f, 0.0f);
         return;
@@ -183,4 +185,6 @@ void HapticManager::cleanup()
     m_haptic_lock = false;
     m_haptic_val = 0;
     emit(0.0f, 0.0f);
+}
+
 }

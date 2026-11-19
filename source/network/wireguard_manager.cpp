@@ -276,7 +276,7 @@ bool WireGuardManager::connect() {
             } else {
                 std::array<uint8_t, 4> tunnelBytes{};
                 std::memcpy(tunnelBytes.data(), &config.tunnel_ip, tunnelBytes.size());
-                auto& core = akira::ChiakiCore::current();
+                auto& core = akira::play::ChiakiCore::current();
                 auto started = akira::net::TunnelStack::start(*handshaking,
                     libchiaking::platform::IpAddress::ipv4(tunnelBytes), core.threading(), core.clock());
                 if (!started) {
@@ -354,7 +354,7 @@ auto WireGuardManager::homeNetwork(const std::string& consoleAddress) -> libchia
     std::lock_guard<std::mutex> lock(mutex);
     if (!connected || !stack)
         return {};
-    auto& core = akira::ChiakiCore::current();
+    auto& core = akira::play::ChiakiCore::current();
     return libchiaking::consoles::HomeNetwork{std::make_shared<akira::net::RoutingNetworkProvider>(
         core.network(), core.threading(), core.clock(), stack, routesFor(consoleAddress))};
 }
@@ -363,7 +363,7 @@ auto WireGuardManager::discoveryNetwork() -> libchiaking::consoles::HomeNetwork 
     std::lock_guard<std::mutex> lock(mutex);
     if (!connected || !stack)
         return {};
-    auto& core = akira::ChiakiCore::current();
+    auto& core = akira::play::ChiakiCore::current();
     return libchiaking::consoles::HomeNetwork{
         akira::net::RoutingNetworkProvider::tunnelOnly(core.network(), core.threading(), core.clock(), stack)};
 }

@@ -12,11 +12,11 @@ HidPadSettingsProvider::HidPadSettingsProvider(const input::PadDescription& pad)
 
 std::string HidPadSettingsProvider::resolveKey(const SettingsManager& settings, bool joycon)
 {
-    const std::string category = joycon ? input::kRumbleKeyJoyCon : input::kRumbleKeySwitchPro;
+    const std::string category = joycon ? play::kRumbleKeyJoyCon : play::kRumbleKeySwitchPro;
     if (settings.hasRumbleProfile(category))
         return category;
 
-    return input::kRumbleKeyDefault;
+    return play::kRumbleKeyDefault;
 }
 
 std::string HidPadSettingsProvider::rumbleKey(SettingsManager& settings)
