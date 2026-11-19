@@ -137,10 +137,10 @@ void QrSignInView::onSignedIn(SignInOutcome outcome, const Accounts::User& user)
     }
 
     settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-    if (createProfile || !settings->getActiveProfile())
-        settings->setActiveProfileId(settings->addProfile(Profile{}));
+    if (createProfile || !settings->accounts().activeProfile())
+        settings->accounts().setActiveProfileId(settings->accounts().addProfile(Profile{}));
 
-    const Profile* profile = settings->getActiveProfile();
+    const Profile* profile = settings->accounts().activeProfile();
     if (!profile)
         return;
     if (profile->legacy) {

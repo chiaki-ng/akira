@@ -100,7 +100,7 @@ void ProfileSwitcherView::refresh() {
 }
 
 float ProfileSwitcherView::measurePanel() const {
-    size_t count = settings->getProfiles().size();
+    size_t count = settings->accounts().profiles().size();
     float target = ROW_H;
     if (count > 0)
         target += count * ROW_H + SEP_H;
@@ -133,8 +133,8 @@ void ProfileSwitcherView::setExpanded(bool value) {
 void ProfileSwitcherView::rebuildRows() {
     panel->clearViews();
 
-    const auto& profiles = settings->getProfiles();
-    int64_t activeId = settings->getActiveProfileId();
+    const auto& profiles = settings->accounts().profiles();
+    int64_t activeId = settings->accounts().activeProfileId();
 
     for (const auto& p : profiles)
         panel->addView(makeProfileRow(p, p.id == activeId));
@@ -181,7 +181,7 @@ brls::Box* ProfileSwitcherView::makeProfileRow(const Profile& profile, bool isAc
     std::string label = profile.label();
     std::string display = label.empty()
         ? "akira/settings/unnamed_profile"_i18n
-        : settings->maskAccountName(label);
+        : settings->app().maskAccountName(label);
 
     auto* row = new brls::Box(brls::Axis::ROW);
     row->setHeight(ROW_H);
@@ -226,7 +226,7 @@ brls::Box* ProfileSwitcherView::makeProfileRow(const Profile& profile, bool isAc
      * the trash only on inactive rows meant a lone profile - the common case - could
      * never be removed at all.
      */
-    const bool onlyProfile = settings->getProfiles().size() == 1;
+    const bool onlyProfile = settings->accounts().profiles().size() == 1;
 
     if (!isActive || onlyProfile) {
         auto* trash = new brls::Box(brls::Axis::ROW);
@@ -294,13 +294,13 @@ brls::Box* ProfileSwitcherView::makeAddRow() {
 }
 
 void ProfileSwitcherView::selectProfile(int64_t id) {
-    if (id == settings->getActiveProfileId()) {
+    if (id == settings->accounts().activeProfileId()) {
         setExpanded(false);
         return;
     }
 
-    settings->setActiveProfileId(id);
-    settings->writeFile();
+    settings->accounts().setActiveProfileId(id);
+    settings->store().save();
     trophies::TrophyManager::getInstance()->onActiveProfileChanged();
     consoles::views::HostListTab::notifyActiveProfileChanged();
 
@@ -315,7 +315,7 @@ void ProfileSwitcherView::selectProfile(int64_t id) {
 }
 
 void ProfileSwitcherView::confirmRemoveProfile(int64_t id, const std::string& label) {
-    const bool last = settings->getProfiles().size() == 1;
+    const bool last = settings->accounts().profiles().size() == 1;
     auto* dialog = new brls::Dialog(last
         ? "akira/settings/remove_last_profile"_i18n
         : brls::getStr("akira/settings/remove_profile_named", label));
@@ -323,15 +323,16 @@ void ProfileSwitcherView::confirmRemoveProfile(int64_t id, const std::string& la
     dialog->addButton("akira/settings/remove_profile"_i18n, [this, id, dialog]() {
         dialog->close();
         std::string account;
-        settings->readProfile(id, [&account](const Profile& profile) { account = profile.accountId; });
-        settings->removeProfile(id);
-        const bool shared = std::ranges::any_of(settings->getProfiles(),
+        settings->accounts().readProfile(id, [&account](const Profile& profile) { account = profile.accountId; });
+        settings->accounts().removeProfile(id);
+        settings->hosts().forgetProfile(id);
+        const bool shared = std::ranges::any_of(settings->accounts().profiles(),
             [&account](const Profile& profile) { return profile.accountId == account; });
         if (!account.empty() && !shared) {
             if (auto* accounts = play::ChiakiCore::current().accounts())
                 accounts->forget(account);
         }
-        settings->writeFile();
+        settings->store().save();
         trophies::TrophyManager::getInstance()->onActiveProfileChanged();
         consoles::views::HostListTab::notifyActiveProfileChanged();
 
@@ -339,7 +340,7 @@ void ProfileSwitcherView::confirmRemoveProfile(int64_t id, const std::string& la
          * Removing the last profile leaves nothing to configure, and the settings frame
          * would sit on an Account tab with no account. Onboarding owns that state.
          */
-        if (settings->getProfiles().empty()) {
+        if (settings->accounts().profiles().empty()) {
             brls::Application::notify("akira/settings/profile_removed"_i18n);
             /*
              * With no profile there is nothing to configure and nothing to connect to,

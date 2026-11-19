@@ -25,7 +25,7 @@ PlatformFactory& PlatformFactory::instance()
 
 PlatformInfo OuncePlatformFactory::info() const noexcept
 {
-    const bool softwareHevc = settings::SettingsManager::getInstance()->getSoftwareHevc();
+    const bool softwareHevc = settings::SettingsManager::getInstance()->stream().softwareHevc();
     return {"ounce", softwareHevc ? PlatformCapability::fsr_4k | PlatformCapability::hevc : PlatformCapability::fsr_4k};
 }
 
@@ -42,7 +42,7 @@ brls::SwitchPlatform& OuncePlatformFactory::switchPlatform()
 
 void OuncePlatformFactory::prepareVideo()
 {
-    const bool drako3d = settings::SettingsManager::getInstance()->getVideoRenderer() == play::RendererKind::Drako3d
+    const bool drako3d = settings::SettingsManager::getInstance()->stream().videoRenderer() == play::RendererKind::Drako3d
         && drako3d::Drako3dVideoProvider::shadersPresent();
     switchPlatform().setRenderer(drako3d ? brls::SwitchRenderer::Deko3d : brls::SwitchRenderer::Vulkan);
 }

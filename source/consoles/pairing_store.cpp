@@ -1,6 +1,6 @@
 #include "consoles/pairing_store.hpp"
 #include "accounts/profile_tables.hpp"
-#include "settings/settings_manager.hpp"
+#include "settings/settings_store.hpp"
 #include "util/base64.hpp"
 
 #include <algorithm>
@@ -13,9 +13,16 @@ using libchiaking::consoles::ConsoleName;
 using libchiaking::consoles::DeviceUid;
 using libchiaking::consoles::PairingKeys;
 
-PairingStore::PairingStore(settings::SettingsManager& settings)
-    : settings(settings)
+PairingStore::PairingStore(settings::SettingsStore& store)
+    : store(store)
 {
+    read(store.loaded());
+    store.attachLive(*this);
+}
+
+PairingStore::~PairingStore()
+{
+    store.detach(*this);
 }
 
 auto PairingStore::load_saved_consoles() -> libchiaking::Expected<Saved, Error>
@@ -252,7 +259,7 @@ void PairingStore::upsert(const SavedPairing& pairing)
 
 auto PairingStore::persist() -> libchiaking::Expected<void, Error>
 {
-    if (settings.writeStores() != 0)
+    if (!store.saveLive())
         return unexpected(Error::unavailable);
     return {};
 }

@@ -24,20 +24,20 @@ namespace akira::platform::github
 
 void UpdateFlow::checkOnLaunch() {
     settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-    if (!settings->getAutoCheckUpdates())
+    if (!settings->app().autoCheckUpdates())
         return;
     if (app::version::isDev())
         return;
 
     int64_t now = static_cast<int64_t>(std::time(nullptr));
-    int64_t last = settings->getLastUpdateCheck();
+    int64_t last = settings->app().lastUpdateCheck();
     if (last != 0 && now - last < 86400)
         return;
 
-    settings->setLastUpdateCheck(now);
-    settings->writeFile();
+    settings->app().setLastUpdateCheck(now);
+    settings->store().save();
 
-    std::string channel = settings->getUpdateChannel();
+    std::string channel = settings->app().updateChannel();
 
     HttpPool::instance().submit([channel](HttpSession&) {
         UpdateInfo info = UpdateManager::getInstance().checkForUpdate(channel);
@@ -49,15 +49,15 @@ void UpdateFlow::checkOnLaunch() {
 
 void UpdateFlow::simulate() {
     settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-    std::string initial = settings->getDevUpdateServer();
+    std::string initial = settings->developer().updateServer();
 
     brls::Application::getImeManager()->openForText(
         [settings](std::string text) {
             if (text.empty())
                 return;
 
-            settings->setDevUpdateServer(text);
-            settings->writeFile();
+            settings->developer().setUpdateServer(text);
+            settings->store().save();
 
             std::string base = text;
             if (base.rfind("http://", 0) != 0 && base.rfind("https://", 0) != 0)
@@ -65,7 +65,7 @@ void UpdateFlow::simulate() {
 
             UpdateInfo info;
             info.available = true;
-            info.channel = settings->getUpdateChannel();
+            info.channel = settings->app().updateChannel();
             info.version = "9.9.9";
             info.tag = "v9.9.9";
             info.notes = "Developer-simulated update from " + base;

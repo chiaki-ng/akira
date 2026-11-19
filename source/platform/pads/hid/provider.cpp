@@ -31,9 +31,9 @@ play::RumbleProfile HidPadProvider::primaryRumbleProfile() const
     auto* settings = settings::SettingsManager::getInstance();
     const std::vector<input::PadDescription> pads = scanPads();
     if (pads.empty())
-        return settings->getRumbleProfile(play::kRumbleKeyDefault);
-    return settings->getRumbleProfile(
-        HidPadSettingsProvider::resolveKey(*settings, pads.front().kind == input::PadPathKind::JoyCon));
+        return settings->controllers().rumbleProfile(play::kRumbleKeyDefault);
+    return settings->controllers().rumbleProfile(
+        HidPadSettingsProvider::resolveKey(settings->controllers(), pads.front().kind == input::PadPathKind::JoyCon));
 }
 
 std::vector<input::PadDescription> HidPadProvider::scanPads() const

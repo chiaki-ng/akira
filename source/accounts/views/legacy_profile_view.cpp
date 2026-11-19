@@ -156,10 +156,10 @@ void LegacyProfileView::create() {
     profile.accountId = m_account_id;
     profile.onlineId = m_name;
 
-    const int64_t id = settings->addProfile(profile);
-    settings->setActiveProfileId(id);
-    settings->refreshLegacyGate();
-    settings->writeFile();
+    const int64_t id = settings->accounts().addProfile(profile);
+    settings->accounts().setActiveProfileId(id);
+    settings->accounts().refreshLegacyGate();
+    settings->store().save();
 
     brls::Application::notify("akira/profile_setup/created"_i18n);
     brls::Application::popActivity();

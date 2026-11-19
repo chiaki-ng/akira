@@ -32,7 +32,7 @@ SettingsUpdatesView::~SettingsUpdatesView() {
 }
 
 void SettingsUpdatesView::initChannelSelector() {
-    bool powerUser = settings->getPowerUserMenuUnlocked();
+    bool powerUser = settings->developer().powerUserMenuUnlocked();
 
     std::vector<std::string> options = { "akira/update/channel_stable"_i18n };
     std::vector<std::string> codes = { "stable" };
@@ -41,7 +41,7 @@ void SettingsUpdatesView::initChannelSelector() {
         codes.push_back("rc");
     }
 
-    std::string current = settings->getUpdateChannel();
+    std::string current = settings->app().updateChannel();
     int currentIndex = 0;
     for (size_t i = 0; i < codes.size(); i++) {
         if (codes[i] == current) {
@@ -59,18 +59,18 @@ void SettingsUpdatesView::initChannelSelector() {
             std::string code = (selected >= 0 && selected < static_cast<int>(codes.size()))
                                    ? codes[selected]
                                    : std::string("stable");
-            settings->setUpdateChannel(code);
-            settings->writeFile();
+            settings->app().setUpdateChannel(code);
+            settings->store().save();
         });
 }
 
 void SettingsUpdatesView::initAutoCheckToggle() {
     autoCheckToggle->init(
         "akira/update/auto_check"_i18n,
-        settings->getAutoCheckUpdates(),
+        settings->app().autoCheckUpdates(),
         [this](bool isOn) {
-            settings->setAutoCheckUpdates(isOn);
-            settings->writeFile();
+            settings->app().setAutoCheckUpdates(isOn);
+            settings->store().save();
         });
 }
 
@@ -88,7 +88,7 @@ void SettingsUpdatesView::runCheck() {
     checking = true;
     checkNowCell->setDetailText("akira/update/checking"_i18n);
 
-    std::string channel = settings->getUpdateChannel();
+    std::string channel = settings->app().updateChannel();
 
     auto guard = alive;
     HttpPool::instance().submit([this, guard, channel](HttpSession&) {

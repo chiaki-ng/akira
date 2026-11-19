@@ -38,10 +38,10 @@ SettingsPadView::SettingsPadView(const akira::input::PadDescription& pad)
     settings = SettingsManager::getInstance();
 
     m_platform = akira::platform::PlatformFactory::instance().createPadSettings(pad);
-    m_key = m_platform->rumbleKey(*settings);
+    m_key = m_platform->rumbleKey(settings->controllers());
 
-    settings->seedRumbleProfile(m_key);
-    m_profile = settings->getRumbleProfile(m_key);
+    settings->controllers().seedRumbleProfile(m_key);
+    m_profile = settings->controllers().rumbleProfile(m_key);
     m_platform->useProfile(m_profile);
 
     setAxis(brls::Axis::COLUMN);
@@ -319,10 +319,10 @@ void SettingsPadView::buildGyroRow()
     };
 
     gyro->init("akira/settings/gyro_source"_i18n, options,
-               static_cast<int>(settings->getGyroSource()),
+               static_cast<int>(settings->controllers().gyroSource()),
                [this](int selected) {
-                   settings->setGyroSource(static_cast<GyroSource>(selected));
-                   settings->writeFile();
+                   settings->controllers().setGyroSource(static_cast<play::GyroSource>(selected));
+                   settings->store().save();
                });
 
     card->addView(gyro);
@@ -350,9 +350,9 @@ void SettingsPadView::buildActionRows()
     reset->setText("akira/settings/rumble_reset"_i18n);
     reset->setDetailText("akira/settings/rumble_reset_hint"_i18n);
     reset->registerClickAction([this](brls::View*) {
-        settings->resetRumbleProfile(m_key);
-        m_profile = settings->getRumbleProfile(m_key);
-        settings->writeFile();
+        settings->controllers().resetRumbleProfile(m_key);
+        m_profile = settings->controllers().rumbleProfile(m_key);
+        settings->store().save();
 
         reopen();
         return true;
@@ -364,8 +364,8 @@ void SettingsPadView::buildActionRows()
 
 void SettingsPadView::store()
 {
-    settings->setRumbleProfile(m_key, m_profile);
-    settings->writeFile();
+    settings->controllers().setRumbleProfile(m_key, m_profile);
+    settings->store().save();
 }
 
 static void ReopenWhenSettled(const akira::input::PadDescription& pad, int attempts_left)

@@ -5,6 +5,7 @@
 #include "settings/settings_manager.hpp"
 #include "play/swipe_direction.hpp"
 #include "play/remap_target.hpp"
+#include "play/switch_button.hpp"
 #include "platform/factory.hpp"
 #include <borealis.hpp>
 #include <cmath>
@@ -14,6 +15,12 @@
 #include "log/log.hpp"
 
 namespace akira::play {
+
+static_assert(bits(SwitchButton::A) == HidNpadButton_A && bits(SwitchButton::B) == HidNpadButton_B);
+static_assert(bits(SwitchButton::StickL) == HidNpadButton_StickL && bits(SwitchButton::Minus) == HidNpadButton_Minus);
+static_assert(bits(SwitchButton::Left) == HidNpadButton_Left && bits(SwitchButton::Down) == HidNpadButton_Down);
+static_assert(bits(SwitchButton::StickLLeft) == HidNpadButton_StickLLeft && bits(SwitchButton::StickRDown) == HidNpadButton_StickRDown);
+static_assert(bits(SwitchButton::LeftSL) == HidNpadButton_LeftSL && bits(SwitchButton::RightSR) == HidNpadButton_RightSR);
 
 InputManager::InputManager()
     : m_pads(akira::platform::PlatformFactory::instance().pads())
@@ -120,10 +127,10 @@ void InputManager::applyPadInput(akira::input::Pad& pad, libchiaking::controller
         pad.readButtons(state);
         pad.readTriggers(state);
     } else {
-    const settings::ButtonMapping& mapping = settings::SettingsManager::getInstance()->getButtonMapping();
+    const play::ButtonMapping& mapping = settings::SettingsManager::getInstance()->controllers().buttonMapping();
     for (const auto& [chiakiBtn, combo] : mapping) {
         if (combo.size() <= 1) continue;
-        if (!settings::SettingsManager::getInstance()->isButtonEnabled(chiakiBtn))
+        if (!settings::SettingsManager::getInstance()->controllers().isButtonEnabled(chiakiBtn))
             continue;
         bool allHeld = true;
         for (uint64_t hidBtn : combo) {
@@ -139,7 +146,7 @@ void InputManager::applyPadInput(akira::input::Pad& pad, libchiaking::controller
         SWIPE_TOUCHPAD_LEFT, SWIPE_TOUCHPAD_RIGHT
     };
     for (int i = 0; i < 4; i++) {
-        if (!settings::SettingsManager::getInstance()->isButtonEnabled(swipeConstants[i]))
+        if (!settings::SettingsManager::getInstance()->controllers().isButtonEnabled(swipeConstants[i]))
             continue;
         if (m_swipes[i].phase == SyntheticSwipe::Phase::ACTIVE) {
             auto it = mapping.find(swipeConstants[i]);
@@ -159,7 +166,7 @@ void InputManager::applyPadInput(akira::input::Pad& pad, libchiaking::controller
     for (const auto& [chiakiBtn, combo] : mapping) {
         if (combo.empty()) continue;
         if (chiakiBtn & 0xFF000000) continue;
-        if (!settings::SettingsManager::getInstance()->isButtonEnabled(chiakiBtn))
+        if (!settings::SettingsManager::getInstance()->controllers().isButtonEnabled(chiakiBtn))
             continue;
 
         if (combo.size() == 1 && (consumedButtons & combo[0]))
@@ -606,7 +613,7 @@ void InputManager::updateSyntheticSwipes(libchiaking::controllers::ControllerInp
         {0, (int16_t)(padMaxY / 2), padMaxX, (int16_t)(padMaxY / 2)},
     };
 
-    const settings::ButtonMapping& mapping = settings::SettingsManager::getInstance()->getButtonMapping();
+    const play::ButtonMapping& mapping = settings::SettingsManager::getInstance()->controllers().buttonMapping();
 
     akira::input::Pad* pad = m_pads.current();
     if (!pad)
@@ -619,7 +626,7 @@ void InputManager::updateSyntheticSwipes(libchiaking::controllers::ControllerInp
     for (int i = 0; i < 4; i++) {
         SyntheticSwipe& swipe = m_swipes[i];
 
-        if (!settings::SettingsManager::getInstance()->isButtonEnabled(swipeConstants[i])) {
+        if (!settings::SettingsManager::getInstance()->controllers().isButtonEnabled(swipeConstants[i])) {
             swipe.buttonWasPressed = false;
             if (swipe.phase == SyntheticSwipe::Phase::ACTIVE) {
                 log::info("Swipe {}: disabled mid-swipe, stopping touch_id={}", swipeNames[i], swipe.touchId);

@@ -11,11 +11,11 @@ class HidPadSettingsProvider final : public PadSettingsProvider
 public:
     explicit HidPadSettingsProvider(const input::PadDescription& pad);
 
-    static std::string resolveKey(const settings::SettingsManager& settings, bool joycon);
+    static std::string resolveKey(const play::ControllerSettings& settings, bool joycon);
 
-    std::string rumbleKey(settings::SettingsManager& settings) override;
-    std::string currentKey(const settings::SettingsManager& settings) const override;
-    std::optional<std::string> outputSummary(const settings::SettingsManager&) const override { return std::nullopt; }
+    std::string rumbleKey(play::ControllerSettings& settings) override;
+    std::string currentKey(const play::ControllerSettings& settings) const override;
+    std::optional<std::string> outputSummary(const play::ControllerSettings&) const override { return std::nullopt; }
     void useProfile(const play::RumbleProfile&) override {}
     bool isUnitKey(const std::string&) const override { return false; }
     bool directOutput() const override { return false; }

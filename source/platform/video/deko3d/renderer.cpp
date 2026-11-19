@@ -140,8 +140,8 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
     m_overlay_cmdmem.emplace();
     m_overlay_cmdmem->allocate(*m_pool_data, OverlayCmdSliceSize);
 
-    float saved_x = settings::SettingsManager::getInstance()->getStatsOverlayX();
-    float saved_y = settings::SettingsManager::getInstance()->getStatsOverlayY();
+    float saved_x = settings::SettingsManager::getInstance()->stream().statsOverlayX();
+    float saved_y = settings::SettingsManager::getInstance()->stream().statsOverlayY();
     if (saved_x >= 0.0f && saved_y >= 0.0f)
     {
         m_overlay_norm_x.store(saved_x, std::memory_order_relaxed);
@@ -154,7 +154,7 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
         writeDitherUniform();
     }
 
-    bool dithering = settings::SettingsManager::getInstance()->getEnableDithering();
+    bool dithering = settings::SettingsManager::getInstance()->stream().ditheringEnabled();
     if (!compileVideoShaders(dithering))
     {
         log::error("Failed to compile video shaders");
@@ -220,9 +220,9 @@ bool Deko3dRenderer::setupTextures(const VideoFrame& frame)
     initializePlaneLayout(m_chroma_layout, DkImageFormat_RG8_Unorm,
         m_frame_width / 2, m_frame_height / 2, m_frame_format.chromaPitch);
 
-    bool easuSetting = settings::SettingsManager::getInstance()->getEasuEnabled();
-    bool rcasSetting = settings::SettingsManager::getInstance()->getRcasEnabled();
-    int targetH = settings::SettingsManager::getInstance()->getEasuTargetHeight();
+    bool easuSetting = settings::SettingsManager::getInstance()->streamState().easuEnabled();
+    bool rcasSetting = settings::SettingsManager::getInstance()->stream().rcasEnabled();
+    int targetH = settings::SettingsManager::getInstance()->streamState().easuTargetHeight();
     int targetW = (targetH * 16) / 9;
     bool easuNeeded = easuSetting && targetH > 0 && (m_frame_width < targetW || m_frame_height < targetH);
     m_fsr_pending = easuNeeded || rcasSetting;
@@ -339,7 +339,7 @@ void Deko3dRenderer::writeDitherUniform()
     if (!m_dither_uniform)
         return;
 
-    const std::array<float, 4> constants{ settings::SettingsManager::getInstance()->getDitheringStrength(), 0.0f, 0.0f, 0.0f };
+    const std::array<float, 4> constants{ settings::SettingsManager::getInstance()->stream().ditheringStrength(), 0.0f, 0.0f, 0.0f };
     memcpy(m_dither_uniform.getCpuAddr(), constants.data(), sizeof(constants));
 }
 
@@ -388,12 +388,12 @@ void Deko3dRenderer::initFsr()
     m_queue.waitIdle();
 
     m_easu_enabled = false;
-    m_rcas_enabled = settings::SettingsManager::getInstance()->getRcasEnabled();
-    m_fsr_sharpness = settings::SettingsManager::getInstance()->getRcasSharpness();
+    m_rcas_enabled = settings::SettingsManager::getInstance()->stream().rcasEnabled();
+    m_fsr_sharpness = settings::SettingsManager::getInstance()->stream().rcasSharpness();
 
-    int targetH = settings::SettingsManager::getInstance()->getEasuTargetHeight();
+    int targetH = settings::SettingsManager::getInstance()->streamState().easuTargetHeight();
     int targetW = (targetH * 16) / 9;
-    if (settings::SettingsManager::getInstance()->getEasuEnabled() && targetH > 0 &&
+    if (settings::SettingsManager::getInstance()->streamState().easuEnabled() && targetH > 0 &&
         (m_frame_width < targetW || m_frame_height < targetH))
     {
         m_easu_enabled = true;
@@ -419,7 +419,7 @@ void Deko3dRenderer::initFsr()
     if (!ensureVertexShaderCompiled())
         return;
 
-    bool dithering = settings::SettingsManager::getInstance()->getEnableDithering();
+    bool dithering = settings::SettingsManager::getInstance()->stream().ditheringEnabled();
 
     if (m_easu_enabled)
     {
@@ -1432,7 +1432,7 @@ void Deko3dRenderer::overlayTouchEnd()
     if (sw <= 0.0f || sh <= 0.0f)
         return;
 
-    settings::SettingsManager::getInstance()->setStatsOverlayPosition(
+    settings::SettingsManager::getInstance()->stream().setStatsOverlayPosition(
         m_overlay_x.load(std::memory_order_relaxed) / sw,
         m_overlay_y.load(std::memory_order_relaxed) / sh);
     m_overlay_pos_dirty.store(true, std::memory_order_relaxed);

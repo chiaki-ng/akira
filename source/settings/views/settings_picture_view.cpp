@@ -32,7 +32,7 @@ SettingsPictureView::SettingsPictureView() {
      * created solely by a PSN device lookup. A port-forwarded manual host deliberately
      * keeps the local profile, so nothing here is left silently steering it.
      */
-    if (settings->isLegacyProfileActive()) {
+    if (settings->accounts().isLegacyProfileActive()) {
         if (remoteHeader) remoteHeader->setVisibility(brls::Visibility::GONE);
         if (remoteSection) remoteSection->setVisibility(brls::Visibility::GONE);
         if (cloudHeader) cloudHeader->setVisibility(brls::Visibility::GONE);
@@ -59,16 +59,16 @@ SettingsPictureView::SettingsPictureView() {
 
 std::vector<SettingsPictureView::ResolutionPreset> SettingsPictureView::resolutionPresets() {
     std::vector<ResolutionPreset> presets = {
-        {"akira/settings/res_360p"_i18n, VideoResolution::P360, 0},
-        {"akira/settings/res_540p"_i18n, VideoResolution::P540, 0},
-        {"akira/settings/res_720p"_i18n, VideoResolution::P720, 0},
-        {"akira/settings/res_1080p"_i18n, VideoResolution::P1080, 0},
-        {"720p (FSR)", VideoResolution::P540, 720},
-        {"1080p (FSR)", VideoResolution::P720, 1080},
+        {"akira/settings/res_360p"_i18n, play::VideoResolution::P360, 0},
+        {"akira/settings/res_540p"_i18n, play::VideoResolution::P540, 0},
+        {"akira/settings/res_720p"_i18n, play::VideoResolution::P720, 0},
+        {"akira/settings/res_1080p"_i18n, play::VideoResolution::P1080, 0},
+        {"720p (FSR)", play::VideoResolution::P540, 720},
+        {"1080p (FSR)", play::VideoResolution::P720, 1080},
     };
     if (akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::fsr_4k)) {
-        presets.push_back({"1440p (FSR)", VideoResolution::P1080, 1440});
-        presets.push_back({"2160p (FSR)", VideoResolution::P1080, 2160});
+        presets.push_back({"1440p (FSR)", play::VideoResolution::P1080, 1440});
+        presets.push_back({"2160p (FSR)", play::VideoResolution::P1080, 2160});
     }
     return presets;
 }
@@ -80,7 +80,7 @@ std::vector<std::string> SettingsPictureView::presetLabels(const std::vector<Res
     return labels;
 }
 
-int SettingsPictureView::presetIndex(const std::vector<ResolutionPreset>& presets, VideoResolution resolution,
+int SettingsPictureView::presetIndex(const std::vector<ResolutionPreset>& presets, play::VideoResolution resolution,
     bool fsr, int fsrTarget) {
     const int target = fsr ? fsrTarget : 0;
     const auto matches = [&](int wanted) {
@@ -101,16 +101,16 @@ void SettingsPictureView::initLocalResolutionSelector() {
     localResolutionSelector->init(
         "akira/settings/local_resolution"_i18n,
         presetLabels(presets),
-        presetIndex(presets, settings->getLocalVideoResolution(), settings->getLocalFsrEnabled(),
-            settings->getFsrTarget(SettingsManager::StreamProfile::Local)),
+        presetIndex(presets, settings->stream().localVideoResolution(), settings->stream().localFsrEnabled(),
+            settings->stream().fsrTarget(play::StreamProfile::Local)),
         [](int selected) {},
         [this, presets](int selected) {
             const ResolutionPreset& preset = presets.at(static_cast<std::size_t>(selected));
-            settings->setLocalVideoResolution(preset.resolution);
-            settings->setLocalFsrEnabled(preset.fsrTarget > 0);
-            settings->setFsrTarget(SettingsManager::StreamProfile::Local, preset.fsrTarget);
+            settings->stream().setLocalVideoResolution(preset.resolution);
+            settings->stream().setLocalFsrEnabled(preset.fsrTarget > 0);
+            settings->stream().setFsrTarget(play::StreamProfile::Local, preset.fsrTarget);
             updateLocalBitrateSlider();
-            settings->writeFile();
+            settings->store().save();
             log::info("Local resolution set to {}", preset.label);
         }
     );
@@ -120,7 +120,7 @@ void SettingsPictureView::initLocalFpsSelector() {
     std::vector<std::string> options = {"akira/settings/fps_30"_i18n, "akira/settings/fps_60"_i18n};
 
     int currentIndex = 1;
-    if (settings->getLocalVideoFPS() == VideoFps::Fps30) {
+    if (settings->stream().localVideoFps() == play::VideoFps::Fps30) {
         currentIndex = 0;
     }
 
@@ -130,26 +130,26 @@ void SettingsPictureView::initLocalFpsSelector() {
         currentIndex,
         [](int selected) {},
         [this](int selected) {
-            auto preset = selected == 0 ? VideoFps::Fps30 : VideoFps::Fps60;
-            settings->setLocalVideoFPS(preset);
-            settings->writeFile();
-            log::info("Local FPS set to {}", SettingsManager::fpsToString(preset));
+            auto preset = selected == 0 ? play::VideoFps::Fps30 : play::VideoFps::Fps60;
+            settings->stream().setLocalVideoFps(preset);
+            settings->store().save();
+            log::info("Local FPS set to {}", play::toString(preset));
         }
     );
 }
 
 void SettingsPictureView::initLocalBitrateSlider() {
-    auto resolution = settings->getLocalVideoResolution();
-    int maxBitrate = settings->getMaxBitrateForResolution(resolution);
-    int minBitrate = settings->getMinBitrateForResolution(resolution);
-    int currentBitrate = settings->getLocalVideoBitrate();
+    auto resolution = settings->stream().localVideoResolution();
+    int maxBitrate = settings->stream().maxBitrate(resolution);
+    int minBitrate = settings->stream().minBitrate(resolution);
+    int currentBitrate = settings->stream().localVideoBitrate();
 
     bool needsSave = false;
     if (currentBitrate < minBitrate) { currentBitrate = minBitrate; needsSave = true; }
     if (currentBitrate > maxBitrate) { currentBitrate = maxBitrate; needsSave = true; }
     if (needsSave) {
-        settings->setLocalVideoBitrate(currentBitrate);
-        settings->writeFile();
+        settings->stream().setLocalVideoBitrate(currentBitrate);
+        settings->store().save();
     }
 
     float normalizedValue = static_cast<float>(currentBitrate - minBitrate) / (maxBitrate - minBitrate);
@@ -162,15 +162,15 @@ void SettingsPictureView::initLocalBitrateSlider() {
         "akira/settings/local_bitrate"_i18n,
         normalizedValue,
         [this](float value) {
-            auto resolution = settings->getLocalVideoResolution();
-            int maxBitrate = settings->getMaxBitrateForResolution(resolution);
-            int minBitrate = settings->getMinBitrateForResolution(resolution);
+            auto resolution = settings->stream().localVideoResolution();
+            int maxBitrate = settings->stream().maxBitrate(resolution);
+            int minBitrate = settings->stream().minBitrate(resolution);
             int bitrate = minBitrate + static_cast<int>(value * (maxBitrate - minBitrate));
             bitrate = ((bitrate + 250) / 500) * 500;
             bitrate = std::clamp(bitrate, minBitrate, maxBitrate);
-            settings->setLocalVideoBitrate(bitrate);
+            settings->stream().setLocalVideoBitrate(bitrate);
             localBitrateSlider->detail->setText(brls::getStr("akira/settings/kbps", bitrate));
-            settings->writeFile();
+            settings->store().save();
             log::info("Local bitrate set to {}", bitrate);
         }
     );
@@ -179,12 +179,12 @@ void SettingsPictureView::initLocalBitrateSlider() {
 }
 
 void SettingsPictureView::updateLocalBitrateSlider() {
-    auto resolution = settings->getLocalVideoResolution();
-    int defaultBitrate = SettingsManager::getDefaultBitrateForResolution(resolution);
-    int maxBitrate = settings->getMaxBitrateForResolution(resolution);
-    int minBitrate = settings->getMinBitrateForResolution(resolution);
+    auto resolution = settings->stream().localVideoResolution();
+    int defaultBitrate = settings->stream().defaultBitrate(resolution);
+    int maxBitrate = settings->stream().maxBitrate(resolution);
+    int minBitrate = settings->stream().minBitrate(resolution);
 
-    settings->setLocalVideoBitrate(defaultBitrate);
+    settings->stream().setLocalVideoBitrate(defaultBitrate);
 
     float normalizedValue = static_cast<float>(defaultBitrate - minBitrate) / (maxBitrate - minBitrate);
     localBitrateSlider->slider->setProgress(normalizedValue);
@@ -196,16 +196,16 @@ void SettingsPictureView::initRemoteResolutionSelector() {
     remoteResolutionSelector->init(
         "akira/settings/remote_resolution"_i18n,
         presetLabels(presets),
-        presetIndex(presets, settings->getRemoteVideoResolution(), settings->getRemoteFsrEnabled(),
-            settings->getFsrTarget(SettingsManager::StreamProfile::Remote)),
+        presetIndex(presets, settings->stream().remoteVideoResolution(), settings->stream().remoteFsrEnabled(),
+            settings->stream().fsrTarget(play::StreamProfile::Remote)),
         [](int selected) {},
         [this, presets](int selected) {
             const ResolutionPreset& preset = presets.at(static_cast<std::size_t>(selected));
-            settings->setRemoteVideoResolution(preset.resolution);
-            settings->setRemoteFsrEnabled(preset.fsrTarget > 0);
-            settings->setFsrTarget(SettingsManager::StreamProfile::Remote, preset.fsrTarget);
+            settings->stream().setRemoteVideoResolution(preset.resolution);
+            settings->stream().setRemoteFsrEnabled(preset.fsrTarget > 0);
+            settings->stream().setFsrTarget(play::StreamProfile::Remote, preset.fsrTarget);
             updateRemoteBitrateSlider();
-            settings->writeFile();
+            settings->store().save();
             log::info("Remote resolution set to {}", preset.label);
         }
     );
@@ -215,7 +215,7 @@ void SettingsPictureView::initRemoteFpsSelector() {
     std::vector<std::string> options = {"akira/settings/fps_30"_i18n, "akira/settings/fps_60"_i18n};
 
     int currentIndex = 1;
-    if (settings->getRemoteVideoFPS() == VideoFps::Fps30) {
+    if (settings->stream().remoteVideoFps() == play::VideoFps::Fps30) {
         currentIndex = 0;
     }
 
@@ -225,26 +225,26 @@ void SettingsPictureView::initRemoteFpsSelector() {
         currentIndex,
         [](int selected) {},
         [this](int selected) {
-            auto preset = selected == 0 ? VideoFps::Fps30 : VideoFps::Fps60;
-            settings->setRemoteVideoFPS(preset);
-            settings->writeFile();
-            log::info("Remote FPS set to {}", SettingsManager::fpsToString(preset));
+            auto preset = selected == 0 ? play::VideoFps::Fps30 : play::VideoFps::Fps60;
+            settings->stream().setRemoteVideoFps(preset);
+            settings->store().save();
+            log::info("Remote FPS set to {}", play::toString(preset));
         }
     );
 }
 
 void SettingsPictureView::initRemoteBitrateSlider() {
-    auto resolution = settings->getRemoteVideoResolution();
-    int maxBitrate = settings->getMaxBitrateForResolution(resolution);
-    int minBitrate = settings->getMinBitrateForResolution(resolution);
-    int currentBitrate = settings->getRemoteVideoBitrate();
+    auto resolution = settings->stream().remoteVideoResolution();
+    int maxBitrate = settings->stream().maxBitrate(resolution);
+    int minBitrate = settings->stream().minBitrate(resolution);
+    int currentBitrate = settings->stream().remoteVideoBitrate();
 
     bool needsSave = false;
     if (currentBitrate < minBitrate) { currentBitrate = minBitrate; needsSave = true; }
     if (currentBitrate > maxBitrate) { currentBitrate = maxBitrate; needsSave = true; }
     if (needsSave) {
-        settings->setRemoteVideoBitrate(currentBitrate);
-        settings->writeFile();
+        settings->stream().setRemoteVideoBitrate(currentBitrate);
+        settings->store().save();
     }
 
     float normalizedValue = static_cast<float>(currentBitrate - minBitrate) / (maxBitrate - minBitrate);
@@ -257,15 +257,15 @@ void SettingsPictureView::initRemoteBitrateSlider() {
         "akira/settings/remote_bitrate"_i18n,
         normalizedValue,
         [this](float value) {
-            auto resolution = settings->getRemoteVideoResolution();
-            int maxBitrate = settings->getMaxBitrateForResolution(resolution);
-            int minBitrate = settings->getMinBitrateForResolution(resolution);
+            auto resolution = settings->stream().remoteVideoResolution();
+            int maxBitrate = settings->stream().maxBitrate(resolution);
+            int minBitrate = settings->stream().minBitrate(resolution);
             int bitrate = minBitrate + static_cast<int>(value * (maxBitrate - minBitrate));
             bitrate = ((bitrate + 250) / 500) * 500;
             bitrate = std::clamp(bitrate, minBitrate, maxBitrate);
-            settings->setRemoteVideoBitrate(bitrate);
+            settings->stream().setRemoteVideoBitrate(bitrate);
             remoteBitrateSlider->detail->setText(brls::getStr("akira/settings/kbps", bitrate));
-            settings->writeFile();
+            settings->store().save();
             log::info("Remote bitrate set to {}", bitrate);
         }
     );
@@ -274,12 +274,12 @@ void SettingsPictureView::initRemoteBitrateSlider() {
 }
 
 void SettingsPictureView::updateRemoteBitrateSlider() {
-    auto resolution = settings->getRemoteVideoResolution();
-    int defaultBitrate = SettingsManager::getDefaultBitrateForResolution(resolution);
-    int maxBitrate = settings->getMaxBitrateForResolution(resolution);
-    int minBitrate = settings->getMinBitrateForResolution(resolution);
+    auto resolution = settings->stream().remoteVideoResolution();
+    int defaultBitrate = settings->stream().defaultBitrate(resolution);
+    int maxBitrate = settings->stream().maxBitrate(resolution);
+    int minBitrate = settings->stream().minBitrate(resolution);
 
-    settings->setRemoteVideoBitrate(defaultBitrate);
+    settings->stream().setRemoteVideoBitrate(defaultBitrate);
 
     float normalizedValue = static_cast<float>(defaultBitrate - minBitrate) / (maxBitrate - minBitrate);
     remoteBitrateSlider->slider->setProgress(normalizedValue);
@@ -291,16 +291,16 @@ void SettingsPictureView::initVpnResolutionSelector() {
     vpnResolutionSelector->init(
         "akira/settings/vpn_resolution"_i18n,
         presetLabels(presets),
-        presetIndex(presets, settings->getVpnVideoResolution(), settings->getVpnFsrEnabled(),
-            settings->getFsrTarget(SettingsManager::StreamProfile::Vpn)),
+        presetIndex(presets, settings->stream().vpnVideoResolution(), settings->stream().vpnFsrEnabled(),
+            settings->stream().fsrTarget(play::StreamProfile::Vpn)),
         [](int selected) {},
         [this, presets](int selected) {
             const ResolutionPreset& preset = presets.at(static_cast<std::size_t>(selected));
-            settings->setVpnVideoResolution(preset.resolution);
-            settings->setVpnFsrEnabled(preset.fsrTarget > 0);
-            settings->setFsrTarget(SettingsManager::StreamProfile::Vpn, preset.fsrTarget);
+            settings->stream().setVpnVideoResolution(preset.resolution);
+            settings->stream().setVpnFsrEnabled(preset.fsrTarget > 0);
+            settings->stream().setFsrTarget(play::StreamProfile::Vpn, preset.fsrTarget);
             updateVpnBitrateSlider();
-            settings->writeFile();
+            settings->store().save();
             log::info("Vpn resolution set to {}", preset.label);
         }
     );
@@ -310,7 +310,7 @@ void SettingsPictureView::initVpnFpsSelector() {
     std::vector<std::string> options = {"akira/settings/fps_30"_i18n, "akira/settings/fps_60"_i18n};
 
     int currentIndex = 0;
-    if (settings->getVpnVideoFPS() == VideoFps::Fps60) {
+    if (settings->stream().vpnVideoFps() == play::VideoFps::Fps60) {
         currentIndex = 1;
     }
 
@@ -320,10 +320,10 @@ void SettingsPictureView::initVpnFpsSelector() {
         currentIndex,
         [](int selected) {},
         [this](int selected) {
-            auto preset = selected == 0 ? VideoFps::Fps30 : VideoFps::Fps60;
-            settings->setVpnVideoFPS(preset);
-            settings->writeFile();
-            log::info("VPN FPS set to {}", SettingsManager::fpsToString(preset));
+            auto preset = selected == 0 ? play::VideoFps::Fps30 : play::VideoFps::Fps60;
+            settings->stream().setVpnVideoFps(preset);
+            settings->store().save();
+            log::info("VPN FPS set to {}", play::toString(preset));
         }
     );
 }
@@ -332,11 +332,11 @@ void SettingsPictureView::initVpnBitrateSlider() {
     const int VPN_MIN_BITRATE = 2000;
     const int VPN_MAX_BITRATE = 15000;
 
-    int currentBitrate = settings->getVpnVideoBitrate();
+    int currentBitrate = settings->stream().vpnVideoBitrate();
 
     if (currentBitrate < VPN_MIN_BITRATE) currentBitrate = VPN_MIN_BITRATE;
     if (currentBitrate > VPN_MAX_BITRATE) currentBitrate = VPN_MAX_BITRATE;
-    settings->setVpnVideoBitrate(currentBitrate);
+    settings->stream().setVpnVideoBitrate(currentBitrate);
 
     float normalizedValue = static_cast<float>(currentBitrate - VPN_MIN_BITRATE) / (VPN_MAX_BITRATE - VPN_MIN_BITRATE);
     normalizedValue = std::max(0.0f, std::min(1.0f, normalizedValue));
@@ -353,9 +353,9 @@ void SettingsPictureView::initVpnBitrateSlider() {
             int bitrate = VPN_MIN_BITRATE + static_cast<int>(value * (VPN_MAX_BITRATE - VPN_MIN_BITRATE));
             bitrate = ((bitrate + 250) / 500) * 500;
             bitrate = std::clamp(bitrate, VPN_MIN_BITRATE, VPN_MAX_BITRATE);
-            settings->setVpnVideoBitrate(bitrate);
+            settings->stream().setVpnVideoBitrate(bitrate);
             vpnBitrateSlider->detail->setText(brls::getStr("akira/settings/kbps", bitrate));
-            settings->writeFile();
+            settings->store().save();
             log::info("VPN bitrate set to {}", bitrate);
         }
     );
@@ -368,7 +368,7 @@ void SettingsPictureView::updateVpnBitrateSlider() {
     const int VPN_MAX_BITRATE = 15000;
     const int VPN_DEFAULT_BITRATE = 5000;
 
-    settings->setVpnVideoBitrate(VPN_DEFAULT_BITRATE);
+    settings->stream().setVpnVideoBitrate(VPN_DEFAULT_BITRATE);
 
     float normalizedValue = static_cast<float>(VPN_DEFAULT_BITRATE - VPN_MIN_BITRATE) / (VPN_MAX_BITRATE - VPN_MIN_BITRATE);
     vpnBitrateSlider->slider->setProgress(normalizedValue);
@@ -390,10 +390,10 @@ void SettingsPictureView::initCloudResolutionSelector(bool pscloud,
     }
 
     int currentIndex;
-    if (settings->getCloudFsrEnabled(pscloud)) {
+    if (settings->cloud().fsrEnabled(pscloud)) {
         currentIndex = 2;
     } else {
-        int currentResolution = settings->getCloudVideoResolution(pscloud);
+        int currentResolution = settings->cloud().videoResolution(pscloud);
         if (hevcTiers && currentResolution >= 2160)
             currentIndex = 4;
         else if (hevcTiers && currentResolution >= 1440)
@@ -420,10 +420,10 @@ void SettingsPictureView::initCloudResolutionSelector(bool pscloud,
                 case 4: resolution = 2160; break;
                 default: resolution = 1080; break;
             }
-            settings->setCloudVideoResolution(pscloud, resolution);
-            settings->setCloudFsrEnabled(pscloud, fsr);
+            settings->cloud().setVideoResolution(pscloud, resolution);
+            settings->cloud().setFsrEnabled(pscloud, fsr);
             updateCloudBitrateSlider(pscloud, slider);
-            settings->writeFile();
+            settings->store().save();
             log::info("{} resolution set to {}p{}",
                 pscloud ? "PS5 cloud" : "PS Now", resolution, fsr ? " (FSR)" : "");
         }
@@ -431,17 +431,17 @@ void SettingsPictureView::initCloudResolutionSelector(bool pscloud,
 }
 
 void SettingsPictureView::initCloudBitrateSlider(bool pscloud, brls::SliderCell* slider) {
-    auto resolution = SettingsManager::intToResolution(settings->getCloudVideoResolution(pscloud));
-    int maxBitrate = settings->getMaxBitrateForResolution(resolution);
-    int minBitrate = settings->getMinBitrateForResolution(resolution);
-    int currentBitrate = settings->getCloudVideoBitrate(pscloud);
+    auto resolution = play::resolutionFromHeight(settings->cloud().videoResolution(pscloud));
+    int maxBitrate = settings->stream().maxBitrate(resolution);
+    int minBitrate = settings->stream().minBitrate(resolution);
+    int currentBitrate = settings->cloud().videoBitrate(pscloud);
 
     bool needsSave = false;
     if (currentBitrate < minBitrate) { currentBitrate = minBitrate; needsSave = true; }
     if (currentBitrate > maxBitrate) { currentBitrate = maxBitrate; needsSave = true; }
     if (needsSave) {
-        settings->setCloudVideoBitrate(pscloud, currentBitrate);
-        settings->writeFile();
+        settings->cloud().setVideoBitrate(pscloud, currentBitrate);
+        settings->store().save();
     }
 
     float normalizedValue = static_cast<float>(currentBitrate - minBitrate) / (maxBitrate - minBitrate);
@@ -454,15 +454,15 @@ void SettingsPictureView::initCloudBitrateSlider(bool pscloud, brls::SliderCell*
         pscloud ? "akira/settings/pscloud_bitrate"_i18n : "akira/settings/psnow_bitrate"_i18n,
         normalizedValue,
         [this, pscloud, slider](float value) {
-            auto resolution = SettingsManager::intToResolution(settings->getCloudVideoResolution(pscloud));
-            int maxBitrate = settings->getMaxBitrateForResolution(resolution);
-            int minBitrate = settings->getMinBitrateForResolution(resolution);
+            auto resolution = play::resolutionFromHeight(settings->cloud().videoResolution(pscloud));
+            int maxBitrate = settings->stream().maxBitrate(resolution);
+            int minBitrate = settings->stream().minBitrate(resolution);
             int bitrate = minBitrate + static_cast<int>(value * (maxBitrate - minBitrate));
             bitrate = ((bitrate + 250) / 500) * 500;
             bitrate = std::clamp(bitrate, minBitrate, maxBitrate);
-            settings->setCloudVideoBitrate(pscloud, bitrate);
+            settings->cloud().setVideoBitrate(pscloud, bitrate);
             slider->detail->setText(brls::getStr("akira/settings/kbps", bitrate));
-            settings->writeFile();
+            settings->store().save();
             log::info("{} bitrate set to {}", pscloud ? "PS5 cloud" : "PS Now", bitrate);
         }
     );
@@ -471,12 +471,12 @@ void SettingsPictureView::initCloudBitrateSlider(bool pscloud, brls::SliderCell*
 }
 
 void SettingsPictureView::updateCloudBitrateSlider(bool pscloud, brls::SliderCell* slider) {
-    auto resolution = SettingsManager::intToResolution(settings->getCloudVideoResolution(pscloud));
-    int defaultBitrate = SettingsManager::getDefaultBitrateForResolution(resolution);
-    int maxBitrate = settings->getMaxBitrateForResolution(resolution);
-    int minBitrate = settings->getMinBitrateForResolution(resolution);
+    auto resolution = play::resolutionFromHeight(settings->cloud().videoResolution(pscloud));
+    int defaultBitrate = settings->stream().defaultBitrate(resolution);
+    int maxBitrate = settings->stream().maxBitrate(resolution);
+    int minBitrate = settings->stream().minBitrate(resolution);
 
-    settings->setCloudVideoBitrate(pscloud, defaultBitrate);
+    settings->cloud().setVideoBitrate(pscloud, defaultBitrate);
 
     float normalizedValue = static_cast<float>(defaultBitrate - minBitrate) / (maxBitrate - minBitrate);
     slider->slider->setProgress(normalizedValue);
@@ -484,14 +484,14 @@ void SettingsPictureView::updateCloudBitrateSlider(bool pscloud, brls::SliderCel
 }
 
 void SettingsPictureView::initEnableDitheringToggle() {
-    bool currentValue = settings->getEnableDithering();
+    bool currentValue = settings->stream().ditheringEnabled();
 
     enableDitheringToggle->init(
         "akira/settings/enable_dithering"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->setEnableDithering(isOn);
-            settings->writeFile();
+            settings->stream().setDitheringEnabled(isOn);
+            settings->store().save();
         }
     );
 }
@@ -500,7 +500,7 @@ void SettingsPictureView::initDitheringStrengthSlider() {
     constexpr float MIN_STRENGTH = 1.0f;
     constexpr float MAX_STRENGTH = 10.0f;
 
-    float current = settings->getDitheringStrength();
+    float current = settings->stream().ditheringStrength();
     float normalized = (current - MIN_STRENGTH) / (MAX_STRENGTH - MIN_STRENGTH);
     normalized = std::max(0.0f, std::min(1.0f, normalized));
 
@@ -515,9 +515,9 @@ void SettingsPictureView::initDitheringStrengthSlider() {
             constexpr float MAX_STRENGTH = 10.0f;
             float strength = MIN_STRENGTH + value * (MAX_STRENGTH - MIN_STRENGTH);
             strength = static_cast<float>(static_cast<int>(strength));
-            settings->setDitheringStrength(strength);
+            settings->stream().setDitheringStrength(strength);
             ditheringStrengthSlider->detail->setText(std::format("{}", static_cast<int>(strength)));
-            settings->writeFile();
+            settings->store().save();
         }
     );
 
@@ -525,20 +525,20 @@ void SettingsPictureView::initDitheringStrengthSlider() {
 }
 
 void SettingsPictureView::initRcasEnabledToggle() {
-    bool currentValue = settings->getRcasEnabled();
+    bool currentValue = settings->stream().rcasEnabled();
 
     rcasEnabledToggle->init(
         "RCAS (Sharpening)",
         currentValue,
         [this](bool isOn) {
-            settings->setRcasEnabled(isOn);
-            settings->writeFile();
+            settings->stream().setRcasEnabled(isOn);
+            settings->store().save();
         }
     );
 }
 
 void SettingsPictureView::initRcasSharpnessSlider() {
-    float current = settings->getRcasSharpness();
+    float current = settings->stream().rcasSharpness();
     float normalized = 1.0f - (current / 2.0f);
 
     rcasSharpnessSlider->detail->setWidth(100);
@@ -549,10 +549,10 @@ void SettingsPictureView::initRcasSharpnessSlider() {
         normalized,
         [this](float value) {
             float sharpness = (1.0f - value) * 2.0f;
-            settings->setRcasSharpness(sharpness);
+            settings->stream().setRcasSharpness(sharpness);
             int percent = static_cast<int>(value * 100.0f);
             rcasSharpnessSlider->detail->setText(std::format("{}%", percent));
-            settings->writeFile();
+            settings->store().save();
         }
     );
 
@@ -567,15 +567,15 @@ void SettingsPictureView::initRendererSection() {
     if (choosable) {
         std::vector<std::string> labels;
         std::ranges::transform(choices, std::back_inserter(labels), &akira::platform::RendererChoice::label);
-        const auto current = std::ranges::find(choices, settings->getVideoRenderer(), &akira::platform::RendererChoice::kind);
+        const auto current = std::ranges::find(choices, settings->stream().videoRenderer(), &akira::platform::RendererChoice::kind);
         rendererChoice->init(
             "akira/settings/renderer_choice"_i18n,
             labels,
             current == choices.end() ? 0 : static_cast<int>(std::distance(choices.begin(), current)),
             [](int selected) {},
             [this, choices](int selected) {
-                settings->setVideoRenderer(choices.at(static_cast<std::size_t>(selected)).kind);
-                settings->writeFile();
+                settings->stream().setVideoRenderer(choices.at(static_cast<std::size_t>(selected)).kind);
+                settings->store().save();
                 log::info("Renderer set to {} for the next launch", choices.at(static_cast<std::size_t>(selected)).label);
             });
     } else {

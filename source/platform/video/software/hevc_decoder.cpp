@@ -30,9 +30,9 @@ void HevcDecoder::addSetting(brls::Box& group)
 {
     auto* settings = settings::SettingsManager::getInstance();
     auto* cell = new brls::BooleanCell();
-    cell->init("akira/settings/software_hevc"_i18n, settings->getSoftwareHevc(), [settings](bool isOn) {
-        settings->setSoftwareHevc(isOn);
-        settings->writeFile();
+    cell->init("akira/settings/software_hevc"_i18n, settings->stream().softwareHevc(), [settings](bool isOn) {
+        settings->stream().setSoftwareHevc(isOn);
+        settings->store().save();
         log::info("Software HEVC set to {}", isOn ? "on" : "off");
     });
     cell->setId("settings/softwareHevc");

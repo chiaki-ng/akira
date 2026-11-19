@@ -55,12 +55,11 @@ Connection::~Connection()
 auto Connection::preferencesFor(consoles::Host& host, settings::SettingsManager& settings) -> std::optional<play::Preferences>
 {
     const bool vpn = !host.isRemote() && network::WireGuardManager::instance().isConnected();
-    uint32_t height = static_cast<uint32_t>(settings::SettingsManager::resolutionToInt(
-        vpn ? settings.getVpnVideoResolution() : settings.getVideoResolution(&host)));
-    const auto fps = static_cast<uint32_t>(settings::SettingsManager::fpsToInt(
-        vpn ? settings.getVpnVideoFPS() : settings.getVideoFPS(&host)));
-    const auto bitrate = static_cast<uint32_t>(std::clamp(
-        vpn ? settings.getVpnVideoBitrate() : settings.getVideoBitrate(&host),
+    const auto& stream = settings.stream();
+    const auto profile = vpn ? StreamProfile::Vpn : host.isRemote() ? StreamProfile::Remote : StreamProfile::Local;
+    uint32_t height = static_cast<uint32_t>(akira::play::toInt(stream.videoResolution(profile)));
+    const auto fps = static_cast<uint32_t>(akira::play::toInt(stream.videoFps(profile)));
+    const auto bitrate = static_cast<uint32_t>(std::clamp(stream.videoBitrate(profile),
         static_cast<int>(play::PictureRequest::minimum_bitrate_kbps),
         static_cast<int>(play::PictureRequest::maximum_bitrate_kbps)));
     const auto codec = host.isPS5() && akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::hevc)
@@ -77,7 +76,7 @@ auto Connection::preferencesFor(consoles::Host& host, settings::SettingsManager&
 
     const auto target = host.isPS5() ? settings::TakionTarget::PS5 : settings::TakionTarget::PS4;
     const auto takionVersion = host.getPinnedTakionVersion().value_or(
-        static_cast<uint32_t>(std::max(settings.getTakionVersion(target), 0)));
+        static_cast<uint32_t>(std::max(settings.developer().takionVersion(target), 0)));
     if (host.getPinnedTakionVersion())
         log::info("{} is pinned to Takion v{}", host.getHostName(), takionVersion);
     auto preferences = tuned(*picture, takionVersion, settings);
@@ -97,10 +96,10 @@ auto Connection::cloudPreferencesFor(const cloud::CloudLaunch& launch, settings:
     const bool ps5Cloud = launch.ps5();
     const auto codec = ps5Cloud && akira::platform::PlatformFactory::instance().supplies(akira::platform::PlatformCapability::hevc)
         ? libchiaking::media::VideoCodec::h265 : libchiaking::media::VideoCodec::h264;
-    auto height = static_cast<uint32_t>(settings.getCloudVideoResolution(ps5Cloud));
+    auto height = static_cast<uint32_t>(settings.cloud().videoResolution(ps5Cloud));
     if (codec == libchiaking::media::VideoCodec::h264)
         height = std::min(height, play::PictureRequest::maximum_h264_height);
-    const auto bitrate = static_cast<uint32_t>(std::clamp(settings.getCloudVideoBitrate(ps5Cloud),
+    const auto bitrate = static_cast<uint32_t>(std::clamp(settings.cloud().videoBitrate(ps5Cloud),
         static_cast<int>(play::PictureRequest::minimum_bitrate_kbps),
         static_cast<int>(play::PictureRequest::maximum_bitrate_kbps)));
     const auto picture = play::PictureRequest::create(height, 60, bitrate, codec);
@@ -110,7 +109,7 @@ auto Connection::cloudPreferencesFor(const cloud::CloudLaunch& launch, settings:
         return std::nullopt;
     }
     return tuned(*picture,
-        static_cast<uint32_t>(std::max(settings.getTakionVersion(ps5Cloud ? settings::TakionTarget::PS5Cloud : settings::TakionTarget::PSNow), 0)),
+        static_cast<uint32_t>(std::max(settings.developer().takionVersion(ps5Cloud ? settings::TakionTarget::PS5Cloud : settings::TakionTarget::PSNow), 0)),
         settings);
 }
 
@@ -120,13 +119,13 @@ auto Connection::tuned(play::PictureRequest picture, std::uint32_t takionVersion
     play::DeveloperTuning::Facts facts;
     if (takionVersion > 0)
         facts.protocol_version = takionVersion;
-    facts.packet_loss_max = settings.getPacketLossMax();
-    facts.keyframe_on_lost_frame = settings.getRequestIdrOnFecFailure();
-    facts.nat_probe_sockets = static_cast<std::size_t>(std::clamp(settings.getPortGuessingSocks(), 0,
+    facts.packet_loss_max = settings.stream().packetLossMax();
+    facts.keyframe_on_lost_frame = settings.stream().requestIdrOnFecFailure();
+    facts.nat_probe_sockets = static_cast<std::size_t>(std::clamp(settings.network().portGuessingSocks(), 0,
         static_cast<int>(play::DeveloperTuning::maximum_nat_probe_sockets)));
     const auto developer = play::DeveloperTuning::create(facts);
-    const auto internet = play::InternetOptions::create(settings.getPortGuessing(),
-        static_cast<std::size_t>(std::max(settings.getPortGuessingCount(), 0)));
+    const auto internet = play::InternetOptions::create(settings.network().portGuessing(),
+        static_cast<std::size_t>(std::max(settings.network().portGuessingCount(), 0)));
     if (!developer || !internet)
     {
         log::error("Stream tuning refused: packet loss {} sockets {}", facts.packet_loss_max, facts.nat_probe_sockets);
@@ -308,7 +307,7 @@ bool Connection::addPlayer(uint8_t slot, std::optional<int64_t> profileId)
     std::string label;
     if (ps5)
     {
-        const accounts::Profile* profile = profileId ? settings->findProfile(*profileId) : nullptr;
+        const accounts::Profile* profile = profileId ? settings->accounts().findProfile(*profileId) : nullptr;
         if (!profile)
             return false;
         account = libchiaking::AccountId::from_base64(profile->accountId);
@@ -394,8 +393,8 @@ auto Connection::couchProfileChoices(uint8_t slot) const -> std::vector<CouchPro
     if (!ps5 || !settings || slot == 0 || slot >= seatCount)
         return choices;
 
-    const int64_t activeProfileId = settings->getActiveProfileId();
-    for (const accounts::Profile& profile : settings->getProfiles())
+    const int64_t activeProfileId = settings->accounts().activeProfileId();
+    for (const accounts::Profile& profile : settings->accounts().profiles())
     {
         if (profile.id == activeProfileId || profile.accountId.empty())
             continue;

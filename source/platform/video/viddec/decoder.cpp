@@ -109,7 +109,7 @@ void ViddecDecoder::publishStats(std::chrono::steady_clock::time_point now)
 
     const std::uint32_t heldPeak = m_hardware ? m_hardware->takeHeldPeak() : 0;
     const std::uint64_t reused = m_hardware ? m_hardware->reusedWhileHeld() : 0;
-    if (settings::SettingsManager::getInstance()->getChiakiLogVerbosity() != settings::ChiakiLogVerbosity::Normal)
+    if (settings::SettingsManager::getInstance()->developer().chiakiLogVerbosity() != settings::ChiakiLogVerbosity::Normal)
         log::info("ViddecDecoder: last {} ms submitted {} failed {} emitted {} held peak {} slots reused while held {}",
         elapsed_ms, m_window_submitted, m_window_failed, m_frames_emitted, heldPeak, reused);
     m_window_submitted = 0;

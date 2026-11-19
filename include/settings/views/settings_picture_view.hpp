@@ -44,7 +44,7 @@ private:
 
     struct ResolutionPreset {
         std::string label;
-        VideoResolution resolution;
+        play::VideoResolution resolution;
         int fsrTarget;
     };
 
@@ -52,7 +52,7 @@ private:
 
     static std::vector<ResolutionPreset> resolutionPresets();
     static std::vector<std::string> presetLabels(const std::vector<ResolutionPreset>& presets);
-    static int presetIndex(const std::vector<ResolutionPreset>& presets, VideoResolution resolution, bool fsr,
+    static int presetIndex(const std::vector<ResolutionPreset>& presets, play::VideoResolution resolution, bool fsr,
         int fsrTarget);
 
     void initLocalResolutionSelector();

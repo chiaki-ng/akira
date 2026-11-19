@@ -38,47 +38,47 @@ SettingsGeneralView::SettingsGeneralView() {
 }
 
 void SettingsGeneralView::initConnectionShowStagesToggle() {
-    bool currentValue = settings->getConnectionShowStages();
+    bool currentValue = settings->app().connectionShowStages();
 
     connectionShowStagesToggle->init(
         "akira/settings/connection_stages"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->setConnectionShowStages(isOn);
-            settings->writeFile();
+            settings->app().setConnectionShowStages(isOn);
+            settings->store().save();
         }
     );
 }
 
 void SettingsGeneralView::initHolepunchRetryToggle() {
-    bool currentValue = settings->getHolepunchRetry();
+    bool currentValue = settings->network().holepunchRetry();
 
     holepunchRetryToggle->init(
         "akira/settings/holepunch_retry"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->setHolepunchRetry(isOn);
-            settings->writeFile();
+            settings->network().setHolepunchRetry(isOn);
+            settings->store().save();
             log::info("Holepunch retry set to {}", isOn ? "true" : "false");
         }
     );
 }
 
 void SettingsGeneralView::initRequestIdrOnFecFailureToggle() {
-    bool currentValue = settings->getRequestIdrOnFecFailure();
+    bool currentValue = settings->stream().requestIdrOnFecFailure();
 
     requestIdrOnFecFailureToggle->init(
         "akira/settings/request_idr"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->setRequestIdrOnFecFailure(isOn);
-            settings->writeFile();
+            settings->stream().setRequestIdrOnFecFailure(isOn);
+            settings->store().save();
         }
     );
 }
 
 void SettingsGeneralView::initPacketLossMaxSlider() {
-    float currentValue = settings->getPacketLossMax();
+    float currentValue = settings->stream().packetLossMax();
     int currentPercent = static_cast<int>(currentValue * 100.0f);
 
     packetLossMaxSlider->detail->setWidth(60);
@@ -88,9 +88,9 @@ void SettingsGeneralView::initPacketLossMaxSlider() {
         currentValue,
         [this](float value) {
             int percent = static_cast<int>(value * 100.0f);
-            settings->setPacketLossMax(value);
+            settings->stream().setPacketLossMax(value);
             packetLossMaxSlider->detail->setText(brls::getStr("akira/settings/percent_format", percent));
-            settings->writeFile();
+            settings->store().save();
         }
     );
     packetLossMaxSlider->detail->setText(brls::getStr("akira/settings/percent_format", currentPercent));
@@ -106,7 +106,7 @@ void SettingsGeneralView::initLanguageSelector() {
         "akira/settings/lang_zh_hans"_i18n,
     };
 
-    std::string currentLocale = settings->getDebugLocale();
+    std::string currentLocale = settings->app().debugLocale();
     int currentIndex = 0;
     for (size_t i = 1; i < localeCodes.size(); i++) {
         if (localeCodes[i] == currentLocale) {
@@ -122,8 +122,8 @@ void SettingsGeneralView::initLanguageSelector() {
         [](int selected) {},
         [this](int selected) {
             std::string locale = (selected > 0 && selected < (int)localeCodes.size()) ? localeCodes[selected] : "";
-            settings->setDebugLocale(locale);
-            settings->writeFile();
+            settings->app().setDebugLocale(locale);
+            settings->store().save();
         }
     );
 }
@@ -139,7 +139,7 @@ void SettingsGeneralView::initThemeSelector() {
         ids.emplace_back(p.id);
     }
 
-    std::string current = settings->getUiTheme();
+    std::string current = settings->app().uiTheme();
     int currentIndex = 0;
     for (size_t i = 0; i < ids.size(); i++) {
         if (ids[i] == current) {
@@ -157,8 +157,8 @@ void SettingsGeneralView::initThemeSelector() {
             std::string id = (selected >= 0 && selected < static_cast<int>(ids.size()))
                                  ? ids[selected]
                                  : std::string("playstation");
-            settings->setUiTheme(id);
-            settings->writeFile();
+            settings->app().setUiTheme(id);
+            settings->store().save();
 
             auto* dialog = new brls::Dialog("akira/settings/theme_restart"_i18n);
             dialog->setCancelable(false);
@@ -235,7 +235,7 @@ void SettingsGeneralView::rebuildSubnetsUI() {
         subnetsBox->addView(defaultRow);
     }
 
-    std::vector<std::string> subnets = splitSubnets(settings->getDiscoverySubnets());
+    std::vector<std::string> subnets = splitSubnets(settings->network().discoverySubnets());
 
     for (const std::string& subnet : subnets) {
         auto* row = new brls::Box();
@@ -301,7 +301,7 @@ void SettingsGeneralView::initCustomDnsCell() {
 }
 
 void SettingsGeneralView::refreshCustomDnsCell() {
-    const auto servers = settings->getCustomDnsServers();
+    const auto servers = settings->network().customDnsServers();
     customDnsCell->setDetailText(servers.empty() ? "akira/settings/custom_dns_system"_i18n
                                                  : network::CustomDns::formatServers(servers));
 }
@@ -324,12 +324,12 @@ void SettingsGeneralView::promptAddSubnet() {
                 return;
             }
             std::string normalized = consoles::normalizeSweepCidr(text);
-            std::vector<std::string> subnets = splitSubnets(settings->getDiscoverySubnets());
+            std::vector<std::string> subnets = splitSubnets(settings->network().discoverySubnets());
             if (std::find(subnets.begin(), subnets.end(), normalized) != subnets.end())
                 return;
             subnets.push_back(normalized);
-            settings->setDiscoverySubnets(joinSubnets(subnets));
-            settings->writeFile();
+            settings->network().setDiscoverySubnets(joinSubnets(subnets));
+            settings->store().save();
             restartDiscovery();
             scheduleSubnetsRebuild();
         },
@@ -339,15 +339,15 @@ void SettingsGeneralView::promptAddSubnet() {
 }
 
 void SettingsGeneralView::removeSubnet(const std::string& value) {
-    std::vector<std::string> subnets = splitSubnets(settings->getDiscoverySubnets());
+    std::vector<std::string> subnets = splitSubnets(settings->network().discoverySubnets());
     for (auto it = subnets.begin(); it != subnets.end(); ++it) {
         if (*it == value) {
             subnets.erase(it);
             break;
         }
     }
-    settings->setDiscoverySubnets(joinSubnets(subnets));
-    settings->writeFile();
+    settings->network().setDiscoverySubnets(joinSubnets(subnets));
+    settings->store().save();
     restartDiscovery();
     scheduleSubnetsRebuild();
 }
@@ -368,9 +368,9 @@ void SettingsGeneralView::initVersionUnlock() {
         lastPowerUserClick = now;
         powerUserClickCount++;
 
-        if (powerUserClickCount >= 7 && !settings->getPowerUserMenuUnlocked()) {
-            settings->setPowerUserMenuUnlocked(true);
-            settings->writeFile();
+        if (powerUserClickCount >= 7 && !settings->developer().powerUserMenuUnlocked()) {
+            settings->developer().setPowerUserMenuUnlocked(true);
+            settings->store().save();
             brls::Application::notify("akira/settings/power_user_unlocked"_i18n);
             log::info("Power User Menu unlocked");
             powerUserClickCount = 0;

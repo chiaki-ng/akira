@@ -20,17 +20,17 @@ void NxextStatsProvider::initToggle(brls::BooleanCell& cell) const
     auto* settings = settings::SettingsManager::getInstance();
     cell.init(
         "akira/settings/ipc_stats"_i18n,
-        settings->getIpcStatsEnabled(),
+        settings->developer().ipcStatsEnabled(),
         [settings](bool isOn) {
-            settings->setIpcStatsEnabled(isOn);
-            settings->writeFile();
+            settings->developer().setIpcStatsEnabled(isOn);
+            settings->store().save();
             log::info("IPC Stats set to {}", isOn ? "true" : "false");
         });
 }
 
 void NxextStatsProvider::streamStarted(play::Session& session)
 {
-    if (!settings::SettingsManager::getInstance()->getIpcStatsEnabled())
+    if (!settings::SettingsManager::getInstance()->developer().ipcStatsEnabled())
         return;
     if (!m_ipc_service)
     {

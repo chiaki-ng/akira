@@ -15,12 +15,16 @@
 #include <libchiaking/consoles.hpp>
 
 #include "cloud/cloud_launch.hpp"
-#include "settings/settings_manager.hpp"
+#include "consoles/host_record.hpp"
+#include "consoles/host_type.hpp"
 #include "registration.hpp"
 
-// Forward declarations
-namespace akira::settings {
-class SettingsManager;
+namespace akira::accounts {
+class AccountSettings;
+}
+
+namespace akira::app {
+class AppSettings;
 }
 
 namespace akira::consoles {
@@ -34,15 +38,8 @@ enum HostRegisterError {
     HOST_REGISTER_ERROR_HOLEPUNCH = 4
 };
 
-enum class HostType {
-    Discovered = 0,
-    Auto = 1,
-    Manual = 2,
-    Remote = 3
-};
-
 class Host {
-    friend class settings::SettingsManager;
+    friend class HostCatalog;
     friend class DiscoveryManager;
 
 public:
@@ -63,9 +60,6 @@ public:
         NotSaved
     };
 
-    static constexpr std::array<std::uint32_t, 2> ps4TakionVersions{9, 12};
-    static constexpr std::array<std::uint32_t, 4> ps5TakionVersions{12, 15, 19, 20};
-
     using PairingCallback = std::function<void(PairingOutcome)>;
     using PairingStageCallback = std::function<void(int index, int total)>;
 
@@ -84,7 +78,8 @@ private:
 
     static constexpr int internetPairingStages = 4;
 
-    settings::SettingsManager* settings = nullptr;
+    const accounts::AccountSettings& accountSettings;
+    const app::AppSettings& appSettings;
 
     int haptic = -1;  // -1=inherit from global, 0=disabled, 1=weak, 2=strong
 
@@ -126,8 +121,14 @@ private:
                           const PairingStageCallback& stage, int index);
 
 public:
-    explicit Host(const std::string& name);
+    Host(HostRecord record, const accounts::AccountSettings& accounts, const app::AppSettings& app);
     ~Host();
+
+    Host(const Host&) = delete;
+    Host& operator=(const Host&) = delete;
+
+    HostRecord record() const;
+    static bool isValidAddress(const std::string& address);
 
     // Host info getters
     std::string getHostName() const { return hostName; }
@@ -152,6 +153,7 @@ public:
 
     // Status checks
     bool isDiscovered() const { return discovered; }
+    void setDiscovered(bool value) { discovered = value; }
     bool isRegistered() const { return hasRpKey(); }
     bool hasRpKey() const;
     bool isReady() const { return presence == Presence::ready; }
@@ -206,6 +208,10 @@ public:
     bool hasLegacyRegistration(int64_t profileId) const;
     void removeRegistrationsForProfile(int64_t profileId);
     int64_t getConsoleId() const { return consoleId; }
+
+private:
+    static bool isValidIpv4(const std::string& address);
+    static bool isValidFqdn(const std::string& address);
 };
 
 }

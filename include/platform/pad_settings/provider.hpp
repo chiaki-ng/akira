@@ -11,8 +11,8 @@ namespace brls
 class Box;
 }
 
-namespace akira::settings {
-class SettingsManager;
+namespace akira::play {
+class ControllerSettings;
 }
 
 namespace akira::platform
@@ -25,9 +25,9 @@ public:
 
     virtual ~PadSettingsProvider() = default;
 
-    virtual std::string rumbleKey(settings::SettingsManager& settings) = 0;
-    virtual std::string currentKey(const settings::SettingsManager& settings) const = 0;
-    virtual std::optional<std::string> outputSummary(const settings::SettingsManager& settings) const = 0;
+    virtual std::string rumbleKey(play::ControllerSettings& settings) = 0;
+    virtual std::string currentKey(const play::ControllerSettings& settings) const = 0;
+    virtual std::optional<std::string> outputSummary(const play::ControllerSettings& settings) const = 0;
     virtual void useProfile(const play::RumbleProfile& profile) = 0;
     virtual bool isUnitKey(const std::string& key) const = 0;
     virtual bool directOutput() const = 0;

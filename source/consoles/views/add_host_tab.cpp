@@ -66,28 +66,28 @@ void AddHostTab::onSaveClicked() {
         return;
     }
 
-    if (!settings::SettingsManager::isValidHostAddress(addr)) {
+    if (!Host::isValidAddress(addr)) {
         statusLabel->setText("akira/add_host/error_invalid_ip"_i18n);
         statusLabel->setTextColor(app::views::active().danger);
         return;
     }
 
-    auto* hostsMap = settings->getHostsMap();
+    auto* hostsMap = &settings->hosts().entries();
     if (hostsMap->find(name) != hostsMap->end()) {
         statusLabel->setText("akira/add_host/error_duplicate_name"_i18n);
         statusLabel->setTextColor(app::views::active().danger);
         return;
     }
 
-    Host* host = settings->getOrCreateHost(name);
+    Host* host = settings->hosts().getOrCreate(name);
     host->setHostType(HostType::Manual);
-    settings->setHostAddr(host, addr);
-    settings->setDiscovered(host, true);
+    host->setHostAddr(addr);
+    host->setDiscovered(true);
 
     host->setFirmware(Host::Firmware::newest(targetIndex == 0 ? libchiaking::consoles::Generation::ps4
                                                               : libchiaking::consoles::Generation::ps5));
 
-    settings->writeFile();
+    settings->store().save();
 
     statusLabel->setText("akira/add_host/success"_i18n);
     statusLabel->setTextColor(app::views::active().success);

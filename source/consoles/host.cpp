@@ -1,19 +1,86 @@
 #include "consoles/host.hpp"
 #include "play/chiaki_core.hpp"
-#include "settings/settings_manager.hpp"
+#include "accounts/account_settings.hpp"
+#include "app/app_settings.hpp"
+#include "play/takion_pins.hpp"
 #include "network/wireguard_manager.hpp"
 #include "log/log.hpp"
 
 #include <borealis.hpp>
 #include <algorithm>
 #include <ranges>
+#include <regex>
 
 namespace akira::consoles {
 
-Host::Host(const std::string& name)
-    : hostName(name)
+Host::Host(HostRecord record, const accounts::AccountSettings& accounts, const app::AppSettings& app)
+    : accountSettings(accounts),
+      appSettings(app),
+      haptic(record.haptic),
+      consolePIN(std::move(record.consolePin)),
+      pinnedTakionVersion(record.pinnedTakionVersion),
+      hostName(std::move(record.nickname)),
+      hardwareId(record.hardwareId),
+      hostAddr(std::move(record.hostAddr)),
+      serverNickname(std::move(record.serverNickname)),
+      remoteDuid(std::move(record.remoteDuid)),
+      firmware(record.firmware),
+      consoleId(record.consoleId),
+      legacyRegistrations(std::move(record.legacyRegistrations)),
+      hostType(record.hostType)
 {
-    settings = settings::SettingsManager::getInstance();
+}
+
+HostRecord Host::record() const
+{
+    HostRecord saved;
+    saved.nickname = hostName;
+    saved.serverNickname = serverNickname;
+    saved.consoleId = consoleId;
+    saved.hostType = hostType;
+    saved.hostAddr = getHostAddr();
+    saved.firmware = getFirmware();
+    saved.hardwareId = hardwareId;
+    saved.consolePin = consolePIN;
+    saved.haptic = haptic;
+    saved.pinnedTakionVersion = pinnedTakionVersion;
+    saved.remoteDuid = remoteDuid;
+    for (const Registration& registration : legacyRegistrations)
+        saved.legacyRegistrations.push_back(registration.clone());
+    return saved;
+}
+
+bool Host::isValidAddress(const std::string& address)
+{
+    return isValidIpv4(address) || isValidFqdn(address);
+}
+
+bool Host::isValidIpv4(const std::string& address)
+{
+    static const std::regex ipv4Regex(R"(^(\d+)\.(\d+)\.(\d+)\.(\d+)$)");
+    std::smatch match;
+    if (!std::regex_match(address, match, ipv4Regex))
+        return false;
+    for (int i = 1; i <= 4; i++) {
+        if (std::stoi(match[i].str()) > 255)
+            return false;
+    }
+    return true;
+}
+
+bool Host::isValidFqdn(const std::string& address)
+{
+    if (address.empty() || address.length() > 253)
+        return false;
+    if (address.front() == '.' || address.back() == '.')
+        return false;
+    if (address.front() == '-' || address.back() == '-')
+        return false;
+    // TLDs must contain at least one letter - reject pure numeric strings like "192.168.50.266"
+    if (!std::ranges::any_of(address, [](unsigned char c) { return std::isalpha(c); }))
+        return false;
+    static const std::regex fqdnRegex(R"(^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$)");
+    return std::regex_match(address, fqdnRegex);
 }
 
 Host::~Host()
@@ -69,14 +136,12 @@ std::expected<void, Host::AddressRefusal> Host::moveTo(const std::string& addres
 
 std::span<const std::uint32_t> Host::pinnableTakionVersions() const
 {
-    if (isPS5())
-        return ps5TakionVersions;
-    return ps4TakionVersions;
+    return play::TakionPins::pinnable(isPS5());
 }
 
 bool Host::isPinnableTakionVersion(std::uint32_t version) const
 {
-    return std::ranges::contains(pinnableTakionVersions(), version);
+    return play::TakionPins::isPinnable(isPS5(), version);
 }
 
 bool Host::needsAccountId() const
@@ -87,7 +152,7 @@ bool Host::needsAccountId() const
 
 bool Host::hasRpKey() const
 {
-    const accounts::Profile* profile = settings ? settings->getActiveProfile() : nullptr;
+    const accounts::Profile* profile = accountSettings.activeProfile();
     if (!profile)
         return false;
     if (hasLegacyRegistration(profile->id))
@@ -216,7 +281,7 @@ HostRegisterError Host::registerHost(int pin, PairingCallback done)
     pairingThread = platform::Thread{};
 
     log::info("Registering to host `{}` `{}` as `{}`", hostName, getHostAddr(),
-        settings->maskAccountName(user->online_id()));
+        appSettings.maskAccountName(user->online_id()));
 
     auto work = [this, &core, user, found = console, address = std::move(address), firmware = *known,
                  pinHolder = std::make_shared<consoles::PairingPin>(std::move(*parsedPin)), generation,
@@ -263,12 +328,12 @@ HostRegisterError Host::registerHost(int pin, PairingCallback done)
 
 bool Host::canPairOverInternet() const
 {
-    if (settings->isLegacyProfileActive())
+    if (accountSettings.isLegacyProfileActive())
         return false;
     auto* accounts = play::ChiakiCore::current().accounts();
     if (!accounts || accounts->state() != accounts::SessionState::Valid)
         return false;
-    return !settings->getPsnAccountId(const_cast<Host*>(this)).empty();
+    return !accountSettings.psnAccountId().empty();
 }
 
 HostRegisterError Host::registerOverInternet(PairingStageCallback stage, PairingCallback done)
@@ -279,7 +344,7 @@ HostRegisterError Host::registerOverInternet(PairingStageCallback stage, Pairing
     auto& core = play::ChiakiCore::current();
     auto* accounts = core.accounts();
     auto user = accounts ? accounts->activeUser() : nullptr;
-    if (!user || settings->isLegacyProfileActive())
+    if (!user || accountSettings.isLegacyProfileActive())
         return HOST_REGISTER_ERROR_SETTING_PSNACCOUNTID;
 
     const uint64_t generation = pairingGeneration->fetch_add(1) + 1;
@@ -406,7 +471,7 @@ void Host::finishPairing(PairingOutcome outcome, std::shared_ptr<libchiaking::co
         linkConsole(paired);
         firmware = paired->firmware();
         serverNickname = paired->name();
-        if (const accounts::Profile* profile = settings->getActiveProfile())
+        if (const accounts::Profile* profile = accountSettings.activeProfile())
             removeRegistrationsForProfile(profile->id);
         log::info("Register Success {}", hostName);
     }

@@ -130,7 +130,7 @@ void StreamView::setupCallbacks()
 
     exitSubscription = brls::Application::getExitEvent()->subscribe([weak]() {
         if (auto self = weak.lock()) {
-            if (self->sessionStarted && self->settings->getSleepOnExit() && !self->host->isCloud() && self->connection) {
+            if (self->sessionStarted && self->settings->app().sleepOnExit() && !self->host->isCloud() && self->connection) {
                 self->connection->leave(true);
             }
         }
@@ -227,16 +227,16 @@ void StreamView::startStream()
 
     try
     {
-        auto profile = settings::SettingsManager::StreamProfile::Local;
+        auto profile = play::StreamProfile::Local;
         if (host->isCloud()) {
-            profile = settings::SettingsManager::StreamProfile::Cloud;
-            settings->setActiveCloudPscloud(host->cloudLaunch()->ps5());
+            profile = play::StreamProfile::Cloud;
+            settings->streamState().setCloudPscloud(host->cloudLaunch()->ps5());
         }
         else if (host->isRemote())
-            profile = settings::SettingsManager::StreamProfile::Remote;
+            profile = play::StreamProfile::Remote;
         else if (network::WireGuardManager::instance().isConnected())
-            profile = settings::SettingsManager::StreamProfile::Vpn;
-        settings->setActiveStreamProfile(profile);
+            profile = play::StreamProfile::Vpn;
+        settings->streamState().setProfile(profile);
 
         if (!controllerReady)
         {
@@ -390,7 +390,7 @@ void StreamView::stopStream()
 
     streamActive = false;
 
-    settings->setStreamingActive(false);
+    settings->streamState().setActive(false);
     connection.reset();
 
     session->FreeController();
@@ -463,7 +463,7 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
 {
     static int drawCount = 0;
     ++drawCount;
-    if (settings->getDebugRenderLog() && drawCount % 60 == 0) {
+    if (settings->developer().renderLog() && drawCount % 60 == 0) {
         log::info("StreamView::draw #{}: streamActive={}, sessionStarted={}, menuOpen={}",
             drawCount, streamActive, sessionStarted, menuOpen);
     }
@@ -483,7 +483,7 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
         nvgFillColor(vg, nvgRGBA(0, 0, 0, 255));
         nvgFill(vg);
 
-        if (settings->getConnectionShowStages()) {
+        if (settings->app().connectionShowStages()) {
             ConnectionStage stage = static_cast<ConnectionStage>(currentStage.load());
             int raw = static_cast<int>(stage);
             int idx = raw < 1 ? 1 : (raw > 6 ? 6 : raw);
@@ -541,7 +541,7 @@ void StreamView::draw(NVGcontext* vg, float x, float y, float width, float heigh
         nvgFillColor(vg, nvgRGBA(0, 0, 0, 255));
         nvgFill(vg);
 
-        if (settings->getConnectionShowStages()) {
+        if (settings->app().connectionShowStages()) {
             ConnectionStage stage = static_cast<ConnectionStage>(currentStage.load());
             int raw = static_cast<int>(stage);
             int idx = raw < 1 ? 1 : (raw > 6 ? 6 : raw);
@@ -921,7 +921,7 @@ void StreamView::onLoginPinNeeded(bool pinIncorrect)
     }
 
     if (!pinIncorrect) {
-        std::string savedPin = settings->getConsolePIN(host);
+        std::string savedPin = host->getConsolePIN();
         if (!savedPin.empty() && connection) {
             log::info("Using saved Console PIN for auto-login");
             connection->submitLoginPin(savedPin);
@@ -943,8 +943,8 @@ void StreamView::onLoginPinNeeded(bool pinIncorrect)
             self->loginPinEnteredThisSession = true;
         }
 
-        settingsPtr->setConsolePIN(hostPtr, pin);
-        settingsPtr->writeFile();
+        hostPtr->setConsolePIN(pin);
+        settingsPtr->store().save();
     });
 
     pinView->setOnCancel([weak]() {
@@ -1005,7 +1005,7 @@ void StreamView::showDisconnectMenu()
     {
         akira::platform::VideoRenderer* renderer = session->getVideoRenderer();
         if (renderer && renderer->takeOverlayPositionDirty())
-            settings::SettingsManager::getInstance()->writeFile();
+            settings::SettingsManager::getInstance()->store().save();
     }
     menuOpen = true;
     if (connection)
@@ -1149,7 +1149,7 @@ void StreamView::onFocusChanged(bool focused)
     if (!focused)
         return;
 
-    if (intentionalDisconnect || !settings->getAutoReconnect() || !sessionStarted || host->isCloud())
+    if (intentionalDisconnect || !settings->network().autoReconnect() || !sessionStarted || host->isCloud())
         return;
 
     const auto state = connection ? connection->state() : std::nullopt;

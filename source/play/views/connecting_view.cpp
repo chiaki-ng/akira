@@ -1,4 +1,5 @@
 #include "play/views/connecting_view.hpp"
+#include "log/log_files.hpp"
 #include "play/views/stream_nav.hpp"
 #include "log/log.hpp"
 
@@ -103,12 +104,12 @@ void ConnectingView::setupAndStart()
     }
 
     settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-    if (settings->getHideAccountName())
+    if (settings->app().hideAccountName())
     {
-        for (const accounts::Profile& profile : settings->getProfiles())
+        for (const accounts::Profile& profile : settings->accounts().profiles())
         {
-            logMasks.emplace_back(profile.onlineId, settings->maskAccountName(profile.onlineId));
-            logMasks.emplace_back(profile.accountId, settings->maskAccountName(profile.accountId));
+            logMasks.emplace_back(profile.onlineId, settings->app().maskAccountName(profile.onlineId));
+            logMasks.emplace_back(profile.accountId, settings->app().maskAccountName(profile.accountId));
         }
     }
 
@@ -166,10 +167,10 @@ void ConnectingView::addLogLine(const std::string& line)
 
 void ConnectingView::switchToConnectionLog()
 {
-    if (!settings::SettingsManager::getInstance()->getEnableFileLogging())
+    if (!settings::SettingsManager::getInstance()->developer().fileLogging())
         return;
 
-    const std::string logPath = settings::SettingsManager::getConnectionLogFilePath(task->logKind());
+    const std::string logPath = log::LogFiles::connectionLogPath(task->logKind());
     connectionLog = log::ConnectionLog::open(logPath);
     if (connectionLog)
         log::info("Switched to connection log: {}", logPath);
@@ -242,7 +243,7 @@ void ConnectingView::failed(const std::string& error)
      * while linking" is worth more than the last error string the stack
      * produced - and the ring is already showing which stage that was.
      */
-    if (settings::SettingsManager::getInstance()->getConnectionShowStages()) {
+    if (settings::SettingsManager::getInstance()->app().connectionShowStages()) {
         const auto stage = static_cast<ConnectionStage>(currentStage.load());
         failureText = brls::getStr(connectionFailureKeyForStage(stage));
         settled.store(true);
@@ -334,7 +335,7 @@ void ConnectingView::draw(NVGcontext* vg, float x, float y, float width, float h
         return;
     }
 
-    if (settings::SettingsManager::getInstance()->getConnectionShowStages()) {
+    if (settings::SettingsManager::getInstance()->app().connectionShowStages()) {
         if (steppedRoute.load()) {
             std::string label;
             {
@@ -375,8 +376,8 @@ void ConnectingView::askAboutFileLogging(std::unique_ptr<ConnectTask> task)
     dialog->setCancelable(false);
     dialog->addButton("akira/connection/file_logging_turn_off"_i18n, [pending]() {
         settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-        settings->setEnableFileLogging(false);
-        settings->writeFile();
+        settings->developer().setFileLogging(false);
+        settings->store().save();
         log::AppLog::close();
         open(std::move(*pending));
     });
@@ -388,7 +389,7 @@ void ConnectingView::askAboutFileLogging(std::unique_ptr<ConnectTask> task)
 
 void startConnecting(std::unique_ptr<ConnectTask> task)
 {
-    if (settings::SettingsManager::getInstance()->getEnableFileLogging())
+    if (settings::SettingsManager::getInstance()->developer().fileLogging())
         ConnectingView::askAboutFileLogging(std::move(task));
     else
         ConnectingView::open(std::move(task));

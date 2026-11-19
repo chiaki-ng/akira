@@ -45,10 +45,10 @@ SettingsPowerUserView::SettingsPowerUserView() {
 void SettingsPowerUserView::initUnlockBitrateMaxToggle() {
     unlockBitrateMaxToggle->init(
         "akira/settings/unlock_bitrate_max"_i18n,
-        settings->getUnlockBitrateMax(),
+        settings->stream().unlockBitrateMax(),
         [this](bool isOn) {
-            settings->setUnlockBitrateMax(isOn);
-            settings->writeFile();
+            settings->stream().setUnlockBitrateMax(isOn);
+            settings->store().save();
             log::info("Unlock Bitrate Max set to {}", isOn ? "true" : "false");
         }
     );
@@ -57,10 +57,10 @@ void SettingsPowerUserView::initUnlockBitrateMaxToggle() {
 void SettingsPowerUserView::initHideAccountNameToggle() {
     hideAccountNameToggle->init(
         "akira/settings/hide_account_name"_i18n,
-        settings->getHideAccountName(),
+        settings->app().hideAccountName(),
         [this](bool isOn) {
-            settings->setHideAccountName(isOn);
-            settings->writeFile();
+            settings->app().setHideAccountName(isOn);
+            settings->store().save();
             consoles::views::HostListTab::notifyAccountNameDisplayChanged();
         }
     );
@@ -69,31 +69,31 @@ void SettingsPowerUserView::initHideAccountNameToggle() {
 void SettingsPowerUserView::initAutoReconnectToggle() {
     autoReconnectToggle->init(
         "akira/settings/auto_reconnect"_i18n,
-        settings->getAutoReconnect(),
+        settings->network().autoReconnect(),
         [this](bool isOn) {
-            settings->setAutoReconnect(isOn);
-            settings->writeFile();
+            settings->network().setAutoReconnect(isOn);
+            settings->store().save();
             log::info("Auto Reconnect set to {}", isOn ? "true" : "false");
         }
     );
 }
 
 void SettingsPowerUserView::initPortGuessingToggle() {
-    bool currentValue = settings->getPortGuessing();
+    bool currentValue = settings->network().portGuessing();
 
     portGuessingToggle->init(
         "akira/settings/port_guessing"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->setPortGuessing(isOn);
-            settings->writeFile();
+            settings->network().setPortGuessing(isOn);
+            settings->store().save();
             log::info("Port Guessing set to {}", isOn ? "true" : "false");
         }
     );
 }
 
 void SettingsPowerUserView::initPortGuessingCountSlider() {
-    int current = settings->getPortGuessingCount();
+    int current = settings->network().portGuessingCount();
     constexpr int minVal = 1;
     constexpr int maxVal = 75;
     float normalized = static_cast<float>(current - minVal) / (maxVal - minVal);
@@ -107,9 +107,9 @@ void SettingsPowerUserView::initPortGuessingCountSlider() {
         [this](float value) {
             int count = static_cast<int>(1 + value * 74);
             count = std::max(1, std::min(75, count));
-            settings->setPortGuessingCount(count);
+            settings->network().setPortGuessingCount(count);
             portGuessingCountSlider->detail->setText(std::format("{}", count));
-            settings->writeFile();
+            settings->store().save();
         }
     );
     portGuessingCountSlider->detail->setText(std::format("{}", current));
@@ -117,7 +117,7 @@ void SettingsPowerUserView::initPortGuessingCountSlider() {
 }
 
 void SettingsPowerUserView::initPortGuessingSocksSlider() {
-    int current = settings->getPortGuessingSocks();
+    int current = settings->network().portGuessingSocks();
     constexpr int minVal = 1;
     constexpr int maxVal = 250;
     float normalized = static_cast<float>(current - minVal) / (maxVal - minVal);
@@ -131,9 +131,9 @@ void SettingsPowerUserView::initPortGuessingSocksSlider() {
         [this](float value) {
             int count = static_cast<int>(1 + value * 249);
             count = std::max(1, std::min(250, count));
-            settings->setPortGuessingSocks(count);
+            settings->network().setPortGuessingSocks(count);
             portGuessingSocksSlider->detail->setText(std::format("{}", count));
-            settings->writeFile();
+            settings->store().save();
         }
     );
     portGuessingSocksSlider->detail->setText(std::format("{}", current));

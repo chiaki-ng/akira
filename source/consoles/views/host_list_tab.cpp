@@ -108,7 +108,7 @@ private:
 static void setAutoRegStage(int index, int total) {
     if (!s_autoRegStageLabel)
         return;
-    if (!settings::SettingsManager::getInstance()->getConnectionShowStages())
+    if (!settings::SettingsManager::getInstance()->app().connectionShowStages())
         return;
     std::string name;
     switch (index) {
@@ -340,10 +340,10 @@ private:
             log::info("Register {}: remoteDuid='{}' signedIn={} hasAccountId={} canAuto={}",
                 host->getHostName(), host->getRemoteDuid(),
                 accounts && accounts->state() == accounts::SessionState::Valid,
-                !settings->getPsnAccountId(host).empty(), host->canPairOverInternet());
+                !settings->accounts().psnAccountId().empty(), host->canPairOverInternet());
             bool needsAccountId = host->needsAccountId();
-            std::string accountId = settings->getPsnAccountId(host);
-            std::string onlineId = settings->getPsnOnlineId(host);
+            std::string accountId = settings->accounts().psnAccountId();
+            std::string onlineId = settings->accounts().psnOnlineId();
 
             if (needsAccountId && accountId.empty()) {
                 auto* dialog = new brls::Dialog("akira/hosts/psn_account_id_required_register"_i18n);
@@ -407,7 +407,7 @@ private:
                     case Host::PairingOutcome::Paired:
                         brls::Application::notify("akira/hosts/registration_success"_i18n);
                         hostPtr->setNeedsLink(false);
-                        settings::SettingsManager::getInstance()->writeFile();
+                        settings::SettingsManager::getInstance()->store().save();
                         if (HostListTab::currentInstance) {
                             HostListTab::currentInstance->updateHostItem(hostPtr);
                         }
@@ -454,7 +454,7 @@ private:
     }
 
     static void showAutoRegProgress(Host* host) {
-        bool showStages = settings::SettingsManager::getInstance()->getConnectionShowStages();
+        bool showStages = settings::SettingsManager::getInstance()->app().connectionShowStages();
 
         auto* box = new AutoRegProgressBox(showStages);
         box->setAxis(brls::Axis::COLUMN);
@@ -535,7 +535,7 @@ private:
                 if (outcome == Host::PairingOutcome::Paired) {
                     brls::Application::notify("akira/hosts/registration_success"_i18n);
                     hostPtr->setNeedsLink(false);
-                    settings::SettingsManager::getInstance()->writeFile();
+                    settings::SettingsManager::getInstance()->store().save();
                     if (HostListTab::currentInstance) {
                         HostListTab::currentInstance->updateHostItem(hostPtr);
                     }
@@ -562,7 +562,7 @@ private:
 
     static std::vector<std::pair<std::string, Host*>> linkableHosts() {
         std::vector<std::pair<std::string, Host*>> hosts;
-        for (auto& [name, h] : *settings::SettingsManager::getInstance()->getHostsMap()) {
+        for (auto& [name, h] : settings::SettingsManager::getInstance()->hosts().entries()) {
             if (h && h->hasRpKey() && !h->isRemote())
                 hosts.emplace_back(name, h.get());
         }
@@ -601,12 +601,12 @@ private:
                     }
 
                     if (oldName != remoteName) {
-                        settings->renameHost(oldName, remoteName);
+                        settings->hosts().rename(oldName, remoteName);
                     }
                     remoteHost->copyRegistrationFrom(localHost);
                     remoteHost->setNeedsLink(false);
                     localHost->setRemoteDuid(remoteHost->getRemoteDuid());
-                    settings->writeFile();
+                    settings->store().save();
 
                     brls::Application::notify(brls::getStr("akira/hosts/linked_to", remoteName));
 
@@ -624,15 +624,15 @@ private:
     }
 
     void doConsolePIN() {
-            std::string current = settings::SettingsManager::getInstance()->getConsolePIN(host);
+            std::string current = host->getConsolePIN();
             brls::Application::getImeManager()->openForText(
                 [this](std::string text) {
                     if (!text.empty() && (text.length() != 4 || !std::ranges::all_of(text, ::isdigit))) {
                         brls::Application::notify("akira/host_settings/console_pin_invalid"_i18n);
                         return;
                     }
-                    settings::SettingsManager::getInstance()->setConsolePIN(host, text);
-                    settings::SettingsManager::getInstance()->writeFile();
+                    host->setConsolePIN(text);
+                    settings::SettingsManager::getInstance()->store().save();
                     brls::Application::notify("akira/host_settings/console_pin_saved"_i18n);
                 },
                 "akira/host_settings/console_pin"_i18n, "akira/host_settings/console_pin_hint"_i18n, 4, current, 0);
@@ -644,7 +644,7 @@ private:
         brls::Application::getImeManager()->openForText(
             [target](std::string text) {
                 if (text.empty() || text == target->getHostAddr()) return;
-                if (!settings::SettingsManager::isValidHostAddress(text)) {
+                if (!Host::isValidAddress(text)) {
                     brls::Application::notify("akira/hosts/address_invalid"_i18n);
                     return;
                 }
@@ -654,7 +654,7 @@ private:
                             : "akira/hosts/address_not_saved"_i18n);
                     return;
                 }
-                settings::SettingsManager::getInstance()->writeFile();
+                settings::SettingsManager::getInstance()->store().save();
                 brls::Application::notify(brls::getStr("akira/hosts/address_saved", target->getHostName(), text));
                 if (HostListTab::currentInstance)
                     HostListTab::currentInstance->updateHostItem(target);
@@ -665,7 +665,7 @@ private:
 
     void doTakionPin() {
         const auto versions = host->pinnableTakionVersions();
-        const int configured = settings::SettingsManager::getInstance()->getTakionVersion(
+        const int configured = settings::SettingsManager::getInstance()->developer().takionVersion(
             host->isPS5() ? settings::TakionTarget::PS5 : settings::TakionTarget::PS4);
         const std::string fallback = configured > 0
             ? "v" + std::to_string(configured)
@@ -690,7 +690,7 @@ private:
                     brls::Application::notify(
                         brls::getStr("akira/hosts/takion_pinned", target->getHostName(), std::to_string(version)));
                 }
-                settings::SettingsManager::getInstance()->writeFile();
+                settings::SettingsManager::getInstance()->store().save();
             });
         brls::Application::pushActivity(new brls::Activity(dropdown));
     }
@@ -705,15 +705,15 @@ private:
                 auto* settings = settings::SettingsManager::getInstance();
                 auto& core = play::ChiakiCore::current();
                 auto* accounts = core.accounts();
-                auto hostIt = settings->getHostsMap()->find(hostName);
-                if (accounts && hostIt != settings->getHostsMap()->end() && hostIt->second->getConsole()) {
+                auto hostIt = settings->hosts().entries().find(hostName);
+                if (accounts && hostIt != settings->hosts().entries().end() && hostIt->second->getConsole()) {
                     if (const auto user = accounts->activeUser()) {
                         if (!core.chiaki().consoles().unpair(user->account_id(), *hostIt->second->getConsole()))
                             log::error("Could not forget the pairing with {}", hostName);
                     }
                 }
-                settings->removeActiveProfileRegistration(hostName);
-                settings->writeFile();
+                settings->hosts().removeActiveProfileRegistration(hostName);
+                settings->store().save();
                 brls::Application::notify("akira/hosts/host_deleted"_i18n);
                 if (HostListTab::currentInstance) {
                     // If this was the last host, give focus to Find Remote button first
@@ -1030,7 +1030,7 @@ HostListTab::HostListTab() {
     profileChip = new accounts::views::ProfileChipView();
     chipSlot->addView(profileChip);
     profileChip->registerClickAction([this](brls::View*) {
-        const auto& profiles = settings->getProfiles();
+        const auto& profiles = settings->accounts().profiles();
         if (profiles.empty()) {
             brls::Application::notify("akira/hosts/no_profiles_add"_i18n);
             return true;
@@ -1052,10 +1052,10 @@ HostListTab::HostListTab() {
             if (lbl.empty())
                 lbl = "akira/settings/unnamed_profile"_i18n;
             else
-                lbl = settings->maskAccountName(lbl);
+                lbl = settings->app().maskAccountName(lbl);
             names.push_back(lbl);
             ids.push_back(profiles[i].id);
-            if (profiles[i].id == settings->getActiveProfileId())
+            if (profiles[i].id == settings->accounts().activeProfileId())
                 selected = static_cast<int>(i);
         }
 
@@ -1065,8 +1065,8 @@ HostListTab::HostListTab() {
                 if (sel < 0 || sel >= static_cast<int>(ids.size()))
                     return;
                 auto* s = settings::SettingsManager::getInstance();
-                s->setActiveProfileId(ids[sel]);
-                s->writeFile();
+                s->accounts().setActiveProfileId(ids[sel]);
+                s->store().save();
                 trophies::TrophyManager::getInstance()->onActiveProfileChanged();
                 brls::sync([] { accounts::views::QrSignInView::openIfSignInExpired(); });
 #if AKIRA_CLOUD
@@ -1109,7 +1109,7 @@ HostListTab::HostListTab() {
  * on purpose: called once at construction and again on every switch.
  */
 void HostListTab::applyProfileMode() {
-    const bool legacy = settings->isLegacyProfileActive();
+    const bool legacy = settings->accounts().isLegacyProfileActive();
 
     if (findRemoteBtn)
         findRemoteBtn->setVisibility(legacy ? brls::Visibility::GONE : brls::Visibility::VISIBLE);
@@ -1171,8 +1171,8 @@ void HostListTab::connectToHost(Host* host) {
     auto* settings = settings::SettingsManager::getInstance();
     bool isPS5 = host->isPS5();
     bool needsAccountId = host->needsAccountId();
-    std::string accountId = settings->getPsnAccountId(host);
-    std::string onlineId = settings->getPsnOnlineId(host);
+    std::string accountId = settings->accounts().psnAccountId();
+    std::string onlineId = settings->accounts().psnOnlineId();
 
     if (host->isPsnRemotePlayDisabled()) {
         log::warning("Connect {}: PSN reports remote play disabled for this account",
@@ -1400,7 +1400,7 @@ void HostListTab::syncHostList() {
      * Listing a console the user cannot use is worse than not listing it: the whole
      * screen becomes the same starting state a fresh install shows.
      */
-    const bool noProfile = settings->getProfiles().empty();
+    const bool noProfile = settings->accounts().profiles().empty();
     if (noProfile)
         entrancePlayed = false;
 
@@ -1410,7 +1410,7 @@ void HostListTab::syncHostList() {
     const int perRow = 6;
     int col = 0;
     brls::Box* row = nullptr;
-    auto* hostsMap = settings->getHostsMap();
+    auto* hostsMap = &settings->hosts().entries();
     if (hostsMap && !noProfile) {
         for (auto& [name, host] : *hostsMap) {
             if (!host) {
@@ -1424,7 +1424,7 @@ void HostListTab::syncHostList() {
              * toml. They are inert without a token, but they would still list and then
              * dead-end on click.
              */
-            if (host->isRemote() && settings->isLegacyProfileActive())
+            if (host->isRemote() && settings->accounts().isLegacyProfileActive())
                 continue;
             if (col == 0) {
                 row = new brls::Box();
@@ -1443,11 +1443,11 @@ void HostListTab::syncHostList() {
 
     bool hasHosts = !hostItems.empty();
 
-    if (settings->getDevFakeHosts()) {
+    if (settings->developer().fakeHosts()) {
         static std::vector<Host*> fakeHosts;
         if (fakeHosts.empty()) {
             for (int i = 1; i <= 20; i++) {
-                Host* h = new Host("PS5-Debug-" + std::to_string(i));
+                Host* h = new Host(HostRecord{.nickname = "PS5-Debug-" + std::to_string(i)}, settings->accounts(), settings->app());
                 h->setFirmware(Host::Firmware::newest(libchiaking::consoles::Generation::ps5));
                 h->setPresence((i % 4 == 0) ? Host::Presence::rest_mode : Host::Presence::ready);
                 h->setHostType((i % 2 == 0) ? HostType::Auto : HostType::Manual);

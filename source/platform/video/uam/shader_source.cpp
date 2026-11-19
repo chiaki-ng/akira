@@ -84,7 +84,7 @@ std::string UamShaderSource::fragmentDefines(const deko3d::VideoFragmentVariant&
         defines += "#define FSR_PASS\n";
     if (variant.dithering)
         defines += std::format("#define DITHER_NOISE\n#define DITHER_STRENGTH {:.1f}\n",
-            settings::SettingsManager::getInstance()->getDitheringStrength());
+            settings::SettingsManager::getInstance()->stream().ditheringStrength());
     return defines;
 }
 

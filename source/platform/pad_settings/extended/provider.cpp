@@ -4,7 +4,7 @@
 
 #include <borealis.hpp>
 
-#include "settings/settings_manager.hpp"
+#include "play/controller_settings.hpp"
 #include "platform/pads/extended/ps_output.hpp"
 #include "platform/pads/extended/rumble_keys.hpp"
 #include "platform/pads/extended/extended_input_manager.hpp"
@@ -27,7 +27,7 @@ std::uint8_t ExtendedPadSettingsProvider::nextPreviewSequence()
     return seq++;
 }
 
-std::string ExtendedPadSettingsProvider::resolveKey(const settings::SettingsManager& settings, uint16_t vendorId, uint16_t productId,
+std::string ExtendedPadSettingsProvider::resolveKey(const play::ControllerSettings& settings, uint16_t vendorId, uint16_t productId,
                                       const uint8_t* address, bool switchNative, bool joycon)
 {
     if (address != nullptr) {
@@ -50,11 +50,11 @@ std::string ExtendedPadSettingsProvider::resolveKey(const settings::SettingsMana
     return play::kRumbleKeyDefault;
 }
 
-play::RumbleProfile ExtendedPadSettingsProvider::resolveProfile(const settings::SettingsManager& settings, uint16_t vendorId,
+play::RumbleProfile ExtendedPadSettingsProvider::resolveProfile(const play::ControllerSettings& settings, uint16_t vendorId,
                                                    uint16_t productId, const uint8_t* address,
                                                    bool switchNative, bool joycon)
 {
-    return settings.getRumbleProfile(resolveKey(settings, vendorId, productId, address, switchNative, joycon));
+    return settings.rumbleProfile(resolveKey(settings, vendorId, productId, address, switchNative, joycon));
 }
 
 bool ExtendedPadSettingsProvider::switchNative() const
@@ -62,17 +62,17 @@ bool ExtendedPadSettingsProvider::switchNative() const
     return m_pad.kind == input::PadPathKind::JoyCon || m_pad.kind == input::PadPathKind::SwitchPro;
 }
 
-std::string ExtendedPadSettingsProvider::currentKey(const settings::SettingsManager& settings) const
+std::string ExtendedPadSettingsProvider::currentKey(const play::ControllerSettings& settings) const
 {
     return resolveKey(settings, m_pad.vendor_id, m_pad.product_id,
                       m_pad.has_address ? m_pad.bt_addr : nullptr,
                       switchNative(), m_pad.kind == input::PadPathKind::JoyCon);
 }
 
-std::string ExtendedPadSettingsProvider::rumbleKey(settings::SettingsManager& settings)
+std::string ExtendedPadSettingsProvider::rumbleKey(play::ControllerSettings& settings)
 {
     if (!switchNative() && (m_pad.vendor_id != 0 || m_pad.product_id != 0)) {
-        const play::RumbleProfile current = settings.getRumbleProfile(currentKey(settings));
+        const play::RumbleProfile current = settings.rumbleProfile(currentKey(settings));
         settings.seedRumbleProfile(
             RumbleKeyForModel(m_pad.vendor_id, m_pad.product_id), &current);
     }
@@ -80,12 +80,12 @@ std::string ExtendedPadSettingsProvider::rumbleKey(settings::SettingsManager& se
     return currentKey(settings);
 }
 
-std::optional<std::string> ExtendedPadSettingsProvider::outputSummary(const settings::SettingsManager& settings) const
+std::optional<std::string> ExtendedPadSettingsProvider::outputSummary(const play::ControllerSettings& settings) const
 {
     if (!directOutput())
         return std::nullopt;
 
-    const play::RumbleProfile profile = settings.getRumbleProfile(currentKey(settings));
+    const play::RumbleProfile profile = settings.rumbleProfile(currentKey(settings));
     return profile.output_mode == play::PadOutputMode::Basic
                ? "akira/settings/rumble_output_basic"_i18n
                : "akira/settings/rumble_output_native"_i18n;

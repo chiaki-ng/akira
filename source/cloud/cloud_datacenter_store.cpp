@@ -1,5 +1,6 @@
 #include "cloud/cloud_datacenter_store.hpp"
-#include "settings/settings_manager.hpp"
+#include "cloud/saved_datacenters.hpp"
+#include "settings/settings_store.hpp"
 
 #include <chrono>
 #include <utility>
@@ -9,8 +10,8 @@ namespace akira::cloud {
 using libchiaking::unexpected;
 using libchiaking::play::DatacenterName;
 
-CloudDatacenterStore::CloudDatacenterStore(settings::SettingsManager& settings)
-    : settings(settings)
+CloudDatacenterStore::CloudDatacenterStore(SavedDatacenters& saved, settings::SettingsStore& store)
+    : saved(saved), store(store)
 {
 }
 
@@ -18,7 +19,7 @@ auto CloudDatacenterStore::load(ServiceGeneration service)
     -> libchiaking::Expected<std::vector<Measurement>, Error>
 {
     std::vector<Measurement> measurements;
-    for (const Datacenter& datacenter : settings.getCloudDatacenters(pscloud(service))) {
+    for (const Datacenter& datacenter : saved.datacenters(pscloud(service))) {
         auto name = DatacenterName::parse(datacenter.name);
         if (!name || !datacenter.measured)
             continue;
@@ -60,8 +61,8 @@ auto CloudDatacenterStore::save(ServiceGeneration service, std::span<const Measu
         datacenter.measuredAtMs = measurement.measured_at().time_since_epoch().count();
         datacenters.push_back(std::move(datacenter));
     }
-    settings.setCloudDatacenters(pscloud(service), std::move(datacenters));
-    if (settings.writeStores() != 0)
+    saved.setDatacenters(pscloud(service), std::move(datacenters));
+    if (!store.saveLive())
         return unexpected(Error::unavailable);
     return {};
 }

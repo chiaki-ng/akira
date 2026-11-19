@@ -14,15 +14,15 @@ class ExtendedPadSettingsProvider final : public PadSettingsProvider
 public:
     explicit ExtendedPadSettingsProvider(const input::PadDescription& pad);
 
-    static std::string resolveKey(const settings::SettingsManager& settings, uint16_t vendorId, uint16_t productId,
+    static std::string resolveKey(const play::ControllerSettings& settings, uint16_t vendorId, uint16_t productId,
                                   const uint8_t* address, bool switchNative, bool joycon);
 
-    static play::RumbleProfile resolveProfile(const settings::SettingsManager& settings, uint16_t vendorId, uint16_t productId,
+    static play::RumbleProfile resolveProfile(const play::ControllerSettings& settings, uint16_t vendorId, uint16_t productId,
                                                const uint8_t* address, bool switchNative, bool joycon);
 
-    std::string rumbleKey(settings::SettingsManager& settings) override;
-    std::string currentKey(const settings::SettingsManager& settings) const override;
-    std::optional<std::string> outputSummary(const settings::SettingsManager& settings) const override;
+    std::string rumbleKey(play::ControllerSettings& settings) override;
+    std::string currentKey(const play::ControllerSettings& settings) const override;
+    std::optional<std::string> outputSummary(const play::ControllerSettings& settings) const override;
     void useProfile(const play::RumbleProfile& profile) override;
     bool isUnitKey(const std::string& key) const override;
     bool directOutput() const override;

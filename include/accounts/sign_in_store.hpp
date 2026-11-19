@@ -9,18 +9,26 @@
 #include <libchiaking/users.hpp>
 #include <toml++/toml.hpp>
 
+#include "settings/section.hpp"
+
 namespace akira::settings {
-class SettingsManager;
+class SettingsStore;
 }
 
 namespace akira::accounts {
 
-class SignInStore final : public libchiaking::users::CredentialStore {
+class AccountSettings;
+
+class SignInStore final : public libchiaking::users::CredentialStore, public settings::Section {
 public:
     using SavedSignIn = libchiaking::users::SavedSignIn;
     using SavedHomeUser = libchiaking::users::SavedHomeUser;
 
-    explicit SignInStore(settings::SettingsManager& settings);
+    SignInStore(const AccountSettings& accounts, settings::SettingsStore& store);
+    ~SignInStore() override;
+
+    SignInStore(const SignInStore&) = delete;
+    SignInStore& operator=(const SignInStore&) = delete;
 
     [[nodiscard]] auto load_saved_users()
         -> libchiaking::Expected<std::vector<SavedSignIn>, Error> override;
@@ -31,8 +39,7 @@ public:
     [[nodiscard]] auto remove(libchiaking::AccountId account)
         -> libchiaking::Expected<void, Error> override;
 
-    void read(const toml::table& config);
-    void write(toml::table& config) const;
+    void write(toml::table& config) const override;
 
 private:
     using Time = SavedSignIn::Time;
@@ -47,9 +54,11 @@ private:
         -> std::optional<SavedSignIn>;
     static auto rowOf(const SavedSignIn& user) -> toml::table;
 
+    void read(const toml::table& config);
     auto persist() -> libchiaking::Expected<void, Error>;
 
-    settings::SettingsManager& settings;
+    const AccountSettings& accounts;
+    settings::SettingsStore& store;
     mutable std::mutex mutex;
     std::vector<SavedSignIn> rows;
 };

@@ -4,6 +4,7 @@
  */
 
 #include "log/log.hpp"
+#include "log/log_files.hpp"
 #include <switch.h>
 #include <borealis.hpp>
 #include <borealis/core/thread_pool.hpp>
@@ -62,7 +63,7 @@ extern "C" {
 }
 
 static void ffmpeg_log_callback(void*, int level, const char* fmt, va_list vl) {
-    if (akira::settings::SettingsManager::getInstance()->getSilenceAllLogs() || !akira::settings::SettingsManager::getInstance()->getDebugFfmpegLog())
+    if (akira::settings::SettingsManager::getInstance()->developer().silenceAllLogs() || !akira::settings::SettingsManager::getInstance()->developer().ffmpegLog())
         return;
     if (level > av_log_get_level())
         return;
@@ -162,7 +163,7 @@ public:
 };
 
 static void startSonyDnsStartupCheck() {
-    if (akira::settings::SettingsManager::getInstance()->isLegacyProfileActive())
+    if (akira::settings::SettingsManager::getInstance()->accounts().isLegacyProfileActive())
         return;
 
     brls::async([] {
@@ -201,7 +202,7 @@ static void startSonyDnsStartupCheck() {
 
 void initCustomTheme()
 {
-    akira::app::views::setActiveTheme(akira::settings::SettingsManager::getInstance()->getUiTheme());
+    akira::app::views::setActiveTheme(akira::settings::SettingsManager::getInstance()->app().uiTheme());
     akira::app::views::applyToBorealis();
 }
 
@@ -357,12 +358,12 @@ void akiraOpenTrophies()
      * Also guarded here, not only at registration: the action is registered once per view
      * but the active profile can change under it.
      */
-    if (akira::settings::SettingsManager::getInstance()->isLegacyProfileActive()) {
+    if (akira::settings::SettingsManager::getInstance()->accounts().isLegacyProfileActive()) {
         brls::Application::notify("akira/trophies/no_psn_token"_i18n);
         return;
     }
 
-    if (!akira::settings::SettingsManager::getInstance()->getActiveProfileTrophiesEnabled()) {
+    if (!akira::settings::SettingsManager::getInstance()->accounts().activeProfileTrophiesEnabled()) {
         brls::Application::notify("akira/trophies/disabled_for_profile"_i18n);
         return;
     }
@@ -378,7 +379,7 @@ void akiraOpenTrophies()
 
 void akiraOpenSettings()
 {
-    if (akira::settings::SettingsManager::getInstance()->getProfiles().empty()) {
+    if (akira::settings::SettingsManager::getInstance()->accounts().profiles().empty()) {
         auto* setupFrame = new brls::AppletFrame(new akira::accounts::views::ProfileSetupView(false, true));
         akira::app::views::decorateAkiraHeader(setupFrame);
         brls::Application::pushActivity(new brls::Activity(setupFrame));
@@ -395,7 +396,7 @@ void akira::app::views::registerAkiraTabActions(brls::View* view)
      * Trophies need a PSN token, so in legacy the action is not registered at all rather
      * than opening a screen that can only tell the user no.
      */
-    if (!akira::settings::SettingsManager::getInstance()->isLegacyProfileActive())
+    if (!akira::settings::SettingsManager::getInstance()->accounts().isLegacyProfileActive())
     {
         view->registerAction("akira/tabs/trophies"_i18n, brls::ControllerButton::BUTTON_LB, [](brls::View*) {
             akiraOpenTrophies();
@@ -526,9 +527,9 @@ int main(int argc, char* argv[])
     const Result mainPlaced = akira::app::WorkerCores::placeMainThread();
     akira::app::CrashReport::stage("settings");
     auto* settings = akira::settings::SettingsManager::getInstance();
-    settings->applyChiakiLogVerbosity();
-    if (settings->getEnableFileLogging())
-        akira::log::AppLog::open(akira::settings::SettingsManager::getLogFilePath());
+    settings->developer().applyChiakiLogVerbosity();
+    if (settings->developer().fileLogging())
+        akira::log::AppLog::open(akira::log::LogFiles::appLogPath());
     akira::app::CrashReport::stage("log open");
     akira::log::info("akira {} starting", AKIRA_VERSION_STRING);
     akira::log::info("main thread core {} placement {:#x}", svcGetCurrentProcessorNumber(), mainPlaced);
@@ -547,7 +548,7 @@ int main(int argc, char* argv[])
 
     av_log_set_callback(ffmpeg_log_callback);
 
-    std::string overrideLocale = settings->getDebugLocale();
+    std::string overrideLocale = settings->app().debugLocale();
     if (!overrideLocale.empty()) {
         brls::Platform::APP_LOCALE_DEFAULT = overrideLocale;
     } else {
@@ -679,7 +680,7 @@ int main(int argc, char* argv[])
     akira::log::info("Application exiting");
 
     akira::consoles::DiscoveryManager::getInstance()->setServiceEnabled(false);
-    for (auto& [name, host] : *settings->getHostsMap())
+    for (auto& [name, host] : settings->hosts().entries())
     {
         if (host)
         {

@@ -22,14 +22,14 @@ SettingsControllerView::SettingsControllerView() {
 }
 
 void SettingsControllerView::initSleepOnExitToggle() {
-    bool currentValue = settings->getSleepOnExit();
+    bool currentValue = settings->app().sleepOnExit();
 
     sleepOnExitToggle->init(
         "akira/settings/sleep_on_exit"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->setSleepOnExit(isOn);
-            settings->writeFile();
+            settings->app().setSleepOnExit(isOn);
+            settings->store().save();
         }
     );
 }

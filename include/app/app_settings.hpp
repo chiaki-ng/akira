@@ -1,0 +1,61 @@
+#pragma once
+
+#include <cstdint>
+#include <string>
+
+#include "settings/section.hpp"
+
+namespace akira::settings {
+class SettingsStore;
+}
+
+namespace akira::app {
+
+class AppSettings final : public settings::Section {
+public:
+    explicit AppSettings(settings::SettingsStore& store);
+    ~AppSettings() override;
+
+    AppSettings(const AppSettings&) = delete;
+    AppSettings& operator=(const AppSettings&) = delete;
+
+    void write(toml::table& config) const override;
+
+    const std::string& uiTheme() const { return theme; }
+    void setUiTheme(const std::string& id) { theme = id; }
+    bool hideAccountName() const { return hideName; }
+    void setHideAccountName(bool enabled) { hideName = enabled; }
+    std::string maskAccountName(const std::string& name) const;
+    bool connectionShowStages() const { return showStages; }
+    void setConnectionShowStages(bool show) { showStages = show; }
+    bool sleepOnExit() const { return sleepWhenExiting; }
+    void setSleepOnExit(bool enabled) { sleepWhenExiting = enabled; }
+    const std::string& debugLocale() const { return locale; }
+    void setDebugLocale(const std::string& value) { locale = value; }
+
+    const std::string& updateChannel() const { return channel; }
+    void setUpdateChannel(const std::string& value) { channel = value; }
+    bool autoCheckUpdates() const { return autoCheck; }
+    void setAutoCheckUpdates(bool enabled) { autoCheck = enabled; }
+    int64_t lastUpdateCheck() const { return lastCheck; }
+    void setLastUpdateCheck(int64_t epochSeconds) { lastCheck = epochSeconds; }
+    const std::string& updateInstallPath() const { return installPath; }
+    void setUpdateInstallPath(const std::string& path) { installPath = path; }
+
+private:
+    void read(const toml::table& config);
+
+    settings::SettingsStore& store;
+
+    std::string theme = "playstation";
+    bool hideName = false;
+    bool showStages = true;
+    bool sleepWhenExiting = false;
+    std::string locale;
+    std::string channel = "stable";
+    bool autoCheck = true;
+    int64_t lastCheck = 0;
+    std::string installPath;
+};
+
+}

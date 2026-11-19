@@ -147,21 +147,21 @@ void ControllerRemapView::buildUI()
             auto* toggle = new brls::BooleanCell();
             toggle->init(
                 remappableButtons[i].displayName + "akira/remap/enabled_suffix"_i18n,
-                settings->isButtonEnabled(target),
+                settings->controllers().isButtonEnabled(target),
                 [this, target](bool isOn) {
                     switch (target) {
                         case remapKey(RemapTarget::Touchpad):
-                            settings->setTouchpadEnabled(isOn); break;
+                            settings->controllers().setTouchpadEnabled(isOn); break;
                         case SWIPE_TOUCHPAD_UP:
-                            settings->setSwipeUpEnabled(isOn); break;
+                            settings->controllers().setSwipeUpEnabled(isOn); break;
                         case SWIPE_TOUCHPAD_DOWN:
-                            settings->setSwipeDownEnabled(isOn); break;
+                            settings->controllers().setSwipeDownEnabled(isOn); break;
                         case SWIPE_TOUCHPAD_LEFT:
-                            settings->setSwipeLeftEnabled(isOn); break;
+                            settings->controllers().setSwipeLeftEnabled(isOn); break;
                         case SWIPE_TOUCHPAD_RIGHT:
-                            settings->setSwipeRightEnabled(isOn); break;
+                            settings->controllers().setSwipeRightEnabled(isOn); break;
                     }
-                    settings->writeFile();
+                    settings->store().save();
                 }
             );
             listContainer->addView(toggle);
@@ -185,13 +185,13 @@ void ControllerRemapView::buildUI()
 
 void ControllerRemapView::loadMappings()
 {
-    currentMapping = settings->getButtonMapping();
+    currentMapping = settings->controllers().buttonMapping();
 }
 
 void ControllerRemapView::saveMappings()
 {
-    settings->setButtonMapping(currentMapping);
-    settings->writeFile();
+    settings->controllers().setButtonMapping(currentMapping);
+    settings->store().save();
 }
 
 void ControllerRemapView::updateCellDisplay(int index)
@@ -525,15 +525,15 @@ void ControllerRemapView::draw(NVGcontext* vg, float x, float y, float width, fl
 
 void ControllerRemapView::resetAllToDefaults()
 {
-    currentMapping = settings->getDefaultButtonMapping();
+    currentMapping = settings->controllers().defaultButtonMapping();
     saveMappings();
 
-    settings->setTouchpadEnabled(true);
-    settings->setSwipeUpEnabled(true);
-    settings->setSwipeDownEnabled(true);
-    settings->setSwipeLeftEnabled(true);
-    settings->setSwipeRightEnabled(true);
-    settings->writeFile();
+    settings->controllers().setTouchpadEnabled(true);
+    settings->controllers().setSwipeUpEnabled(true);
+    settings->controllers().setSwipeDownEnabled(true);
+    settings->controllers().setSwipeLeftEnabled(true);
+    settings->controllers().setSwipeRightEnabled(true);
+    settings->store().save();
 
     for (auto& [btn, toggle] : enableToggles)
         toggle->setOn(true, true);
@@ -563,7 +563,7 @@ bool ControllerRemapView::isToggleableButton(uint32_t chiakiButton)
 
 void ControllerRemapView::resetSingleToDefault(uint32_t chiakiButton)
 {
-    auto defaults = settings->getDefaultButtonMapping();
+    auto defaults = settings->controllers().defaultButtonMapping();
     auto it = defaults.find(chiakiButton);
     if (it != defaults.end()) {
         currentMapping[chiakiButton] = it->second;
@@ -576,7 +576,7 @@ void ControllerRemapView::resetSingleToDefault(uint32_t chiakiButton)
 
 bool ControllerRemapView::isDefaultMapping(uint32_t chiakiButton) const
 {
-    auto defaults = settings->getDefaultButtonMapping();
+    auto defaults = settings->controllers().defaultButtonMapping();
     auto defIt = defaults.find(chiakiButton);
     auto curIt = currentMapping.find(chiakiButton);
 
@@ -616,7 +616,7 @@ bool ControllerRemapView::hasConflict(uint32_t chiakiButton) const
 
 std::vector<uint64_t> ControllerRemapView::getDefaultForButton(uint32_t chiakiButton) const
 {
-    auto defaults = settings->getDefaultButtonMapping();
+    auto defaults = settings->controllers().defaultButtonMapping();
     auto it = defaults.find(chiakiButton);
     if (it != defaults.end()) return it->second;
     return {};

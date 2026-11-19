@@ -95,7 +95,7 @@ auto Accounts::activeUser() -> User
     std::optional<libchiaking::AccountId> account;
     std::string name;
     bool legacy = false;
-    settings.readProfile(settings.getActiveProfileId(), [&](const Profile& profile) {
+    settings.accounts().readProfile(settings.accounts().activeProfileId(), [&](const Profile& profile) {
         account = libchiaking::AccountId::from_base64(profile.accountId);
         name = profile.onlineId;
         legacy = profile.legacy;
@@ -410,7 +410,7 @@ void Accounts::keepAlive(const platform::StopToken& stop)
 
 auto Accounts::keepEveryoneSignedIn(const platform::StopToken& stop) -> bool
 {
-    if (settings.isLegacyProfileActive()) {
+    if (settings.accounts().isLegacyProfileActive()) {
         log::debug("PSN keep-alive: legacy profile active, nothing to renew");
         return true;
     }

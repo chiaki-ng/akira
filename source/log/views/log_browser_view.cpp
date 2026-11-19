@@ -1,4 +1,5 @@
 #include "log/views/log_browser_view.hpp"
+#include "log/log_files.hpp"
 
 #include "settings/settings_manager.hpp"
 #include "app/views/theme.hpp"
@@ -433,7 +434,7 @@ private:
 } // namespace
 
 LogBrowserView::LogBrowserView()
-    : LogBrowserView(settings::SettingsManager::LOG_DIR, settings::SettingsManager::LOG_DIR)
+    : LogBrowserView(log::LogFiles::directory, log::LogFiles::directory)
 {
 }
 

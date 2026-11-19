@@ -59,7 +59,7 @@ SettingsAccountView::SettingsAccountView() {
     profileSwitcher = new ProfileSwitcherView();
     profileSwitcher->onProfileChanged = [this]() {
         updateCredentialsDisplay();
-        trophiesEnabledCell->setOn(settings->getActiveProfileTrophiesEnabled(), false);
+        trophiesEnabledCell->setOn(settings->accounts().activeProfileTrophiesEnabled(), false);
         /*
          * A legacy <-> normal switch changes which screens exist, and this frame built
          * its menu bar once in its constructor.
@@ -71,10 +71,10 @@ SettingsAccountView::SettingsAccountView() {
 
     trophiesEnabledCell->init(
         "akira/settings/trophies_enabled"_i18n,
-        settings->getActiveProfileTrophiesEnabled(),
+        settings->accounts().activeProfileTrophiesEnabled(),
         [this](bool isOn) {
-            settings->setActiveProfileTrophiesEnabled(isOn);
-            settings->writeFile();
+            settings->accounts().setActiveProfileTrophiesEnabled(isOn);
+            settings->store().save();
         });
 
     applyLegacyVisibility();
@@ -108,13 +108,13 @@ void SettingsAccountView::willDisappear(bool resetState) {
 }
 
 void SettingsAccountView::initAuthSection() {
-    std::string currentAccountId = settings->getPsnAccountId(nullptr);
+    std::string currentAccountId = settings->accounts().psnAccountId();
     psnAccountIdInput->init(
         "akira/settings/psn_account_id"_i18n,
         currentAccountId,
         [this](std::string text) {
-            std::string current = settings->getPsnAccountId(nullptr);
-            if (text == current || text == settings->maskAccountName(current))
+            std::string current = settings->accounts().psnAccountId();
+            if (text == current || text == settings->app().maskAccountName(current))
                 return;
             /*
              * chiaki decodes this into a fixed 8-byte buffer, so a wrong-length value
@@ -125,8 +125,8 @@ void SettingsAccountView::initAuthSection() {
                 psnAccountIdInput->setValue(current);
                 return;
             }
-            settings->setPsnAccountId(nullptr, text);
-            settings->writeFile();
+            settings->accounts().setPsnAccountId(text);
+            settings->store().save();
             if (profileSwitcher) profileSwitcher->refresh();
             consoles::views::HostListTab::notifyActiveProfileChanged();
             log::info("PSN Account ID set");
@@ -135,16 +135,16 @@ void SettingsAccountView::initAuthSection() {
         "akira/settings/psn_account_id_hint"_i18n
     );
 
-    std::string currentOnlineId = settings->getPsnOnlineId(nullptr);
+    std::string currentOnlineId = settings->accounts().psnOnlineId();
     psnOnlineIdInput->init(
         "akira/settings/online_id"_i18n,
         currentOnlineId,
         [this](std::string text) {
-            std::string current = settings->getPsnOnlineId(nullptr);
-            if (text == current || text == settings->maskAccountName(current))
+            std::string current = settings->accounts().psnOnlineId();
+            if (text == current || text == settings->app().maskAccountName(current))
                 return;
-            settings->setPsnOnlineId(nullptr, text);
-            settings->writeFile();
+            settings->accounts().setPsnOnlineId(text);
+            settings->store().save();
             if (profileSwitcher) profileSwitcher->refresh();
             consoles::views::HostListTab::notifyActiveProfileChanged();
             log::info("PSN Online ID set");
@@ -153,15 +153,15 @@ void SettingsAccountView::initAuthSection() {
         ""
     );
 
-    std::string currentPort = std::format("{}", settings->getCompanionPort());
+    std::string currentPort = std::format("{}", settings->network().companionPort());
     companionPortInput->init(
         "akira/settings/companion_port"_i18n,
         currentPort,
         [this](std::string text) {
             int port = std::atoi(text.c_str());
             if (port > 0 && port <= 65535) {
-                settings->setCompanionPort(port);
-                settings->writeFile();
+                settings->network().setCompanionPort(port);
+                settings->store().save();
                 log::info("Companion port set to {}", port);
             } else {
                 brls::Application::notify("akira/settings/invalid_port"_i18n);
@@ -230,7 +230,7 @@ void SettingsAccountView::initAuthSection() {
         dialog->addButton("akira/settings/clear_all"_i18n, [this, dialog]() {
             dialog->close();
             if (auto* accounts = play::ChiakiCore::current().accounts())
-                accounts->forget(settings->getPsnAccountId(nullptr));
+                accounts->forget(settings->accounts().psnAccountId());
             updateCredentialsDisplay();
             brls::Application::notify("akira/settings/psn_data_cleared"_i18n);
         });
@@ -241,7 +241,7 @@ void SettingsAccountView::initAuthSection() {
 }
 
 void SettingsAccountView::applyLegacyVisibility() {
-    if (!settings->isLegacyProfileActive())
+    if (!settings->accounts().isLegacyProfileActive())
         return;
 
     /*
@@ -281,11 +281,11 @@ std::string SettingsAccountView::censorString(const std::string& str) {
 }
 
 void SettingsAccountView::updateCredentialsDisplay() {
-    bool maskNames = settings->getHideAccountName() && !credentialsRevealed;
-    std::string accountId = settings->getPsnAccountId(nullptr);
-    std::string onlineId = settings->getPsnOnlineId(nullptr);
-    psnAccountIdInput->setValue(maskNames ? settings->maskAccountName(accountId) : accountId);
-    psnOnlineIdInput->setValue(maskNames ? settings->maskAccountName(onlineId) : onlineId);
+    bool maskNames = settings->app().hideAccountName() && !credentialsRevealed;
+    std::string accountId = settings->accounts().psnAccountId();
+    std::string onlineId = settings->accounts().psnOnlineId();
+    psnAccountIdInput->setValue(maskNames ? settings->app().maskAccountName(accountId) : accountId);
+    psnOnlineIdInput->setValue(maskNames ? settings->app().maskAccountName(onlineId) : onlineId);
 
     auto* accounts = play::ChiakiCore::current().accounts();
     const Accounts::User user = accounts ? accounts->activeUser() : nullptr;
@@ -307,7 +307,7 @@ void SettingsAccountView::updateCredentialsDisplay() {
     credSsoExpiryCell->setText("akira/settings/sso_expires"_i18n);
     credSsoExpiryCell->setDetailText(expiryText(held, CredentialKind::app_token));
     credDuidCell->setText("akira/settings/duid"_i18n);
-    credDuidCell->setDetailText(censorString(settings->getCloudDuid()));
+    credDuidCell->setDetailText(censorString(settings->cloud().duid()));
 }
 
 std::string SettingsAccountView::secretText(const Accounts::User& user, CredentialKind kind) {

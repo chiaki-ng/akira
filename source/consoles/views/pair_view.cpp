@@ -78,7 +78,7 @@ PairView::PairView(bool createProfile) : createProfile(createProfile) {
 
     setFocusable(true);
 
-    listenPort = settings::SettingsManager::getInstance()->getCompanionPort();
+    listenPort = settings::SettingsManager::getInstance()->network().companionPort();
     const auto& palette = app::views::active();
     std::string ip = PairListener::localIpv4();
     if (addrIpLabel) {
@@ -178,18 +178,18 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
     settings::SettingsManager* settings = settings::SettingsManager::getInstance();
 
     log::info("Pair push: create={} active={} onlineId={} accountId={} npsso={} refresh={} mobile={}",
-        createProfile, settings->getActiveProfileId(), !creds.onlineId.empty(),
+        createProfile, settings->accounts().activeProfileId(), !creds.onlineId.empty(),
         !creds.accountId.empty(), !creds.npsso.empty(), !creds.refreshToken.empty(),
         creds.hasMobile);
-    settings->logProfileCensus("pair-before");
+    settings->accounts().logProfileCensus("pair-before");
 
-    if (createProfile || !settings->getActiveProfile()) {
+    if (createProfile || !settings->accounts().activeProfile()) {
         accounts::Profile fresh;
-        int64_t id = settings->addProfile(fresh);
-        settings->setActiveProfileId(id);
+        int64_t id = settings->accounts().addProfile(fresh);
+        settings->accounts().setActiveProfileId(id);
     }
 
-    accounts::Profile* profile = settings->getActiveProfile();
+    accounts::Profile* profile = settings->accounts().activeProfile();
 
     /*
      * Switching an existing profile between modes is not supported: delete it and add a
@@ -215,13 +215,13 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
     }
 
     if (!creds.onlineId.empty())
-        settings->setPsnOnlineId(nullptr, creds.onlineId);
+        settings->accounts().setPsnOnlineId(creds.onlineId);
     if (!creds.accountId.empty())
-        settings->setPsnAccountId(nullptr, creds.accountId);
+        settings->accounts().setPsnAccountId(creds.accountId);
 
-    settings->refreshLegacyGate();
-    settings->writeFile();
-    settings->logProfileCensus("pair-after");
+    settings->accounts().refreshLegacyGate();
+    settings->store().save();
+    settings->accounts().logProfileCensus("pair-after");
 
     auto* accounts = play::ChiakiCore::current().accounts();
     if (!accounts || creds.npsso.empty()) {
@@ -230,7 +230,7 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
         return;
     }
 
-    const int64_t profileId = settings->getActiveProfileId();
+    const int64_t profileId = settings->accounts().activeProfileId();
     accounts->signIn(profileId, creds.npsso, creds.duid,
         [profileId](accounts::SignInOutcome outcome, const accounts::Accounts::User& user) {
             if (outcome != accounts::SignInOutcome::SignedIn || !user) {
@@ -246,12 +246,12 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
 
 void PairView::adoptSignedInUser(int64_t profileId, const accounts::Accounts::User& user) {
     settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-    settings->updateProfile(profileId, [&user](accounts::Profile& profile) {
+    settings->accounts().updateProfile(profileId, [&user](accounts::Profile& profile) {
         profile.accountId = accounts::Accounts::base64Of(user->account_id());
         profile.onlineId = user->online_id();
     });
-    settings->refreshLegacyGate();
-    settings->writeFile();
+    settings->accounts().refreshLegacyGate();
+    settings->store().save();
 
     trophies::TrophyManager::getInstance()->onActiveProfileChanged();
     /*

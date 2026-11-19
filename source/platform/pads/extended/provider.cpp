@@ -74,13 +74,13 @@ play::RumbleProfile ExtendedPadProvider::primaryRumbleProfile() const
     auto* settings = settings::SettingsManager::getInstance();
     const std::vector<input::PadDescription> pads = scanPads();
     if (pads.empty())
-        return settings->getRumbleProfile(play::kRumbleKeyDefault);
+        return settings->controllers().rumbleProfile(play::kRumbleKeyDefault);
 
     const input::PadDescription& pad = pads.front();
     const bool switchNative = pad.kind == input::PadPathKind::JoyCon
                            || pad.kind == input::PadPathKind::SwitchPro;
 
-    return akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(*settings, pad.vendor_id, pad.product_id,
+    return akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(settings->controllers(), pad.vendor_id, pad.product_id,
                                           pad.has_address ? pad.bt_addr : nullptr,
                                           switchNative,
                                           pad.kind == input::PadPathKind::JoyCon);

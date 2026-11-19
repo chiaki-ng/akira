@@ -1,5 +1,5 @@
 #include "log/core_log.hpp"
-#include "settings/settings_manager.hpp"
+#include "settings/chiaki_log_verbosity.hpp"
 #include "log/log.hpp"
 
 namespace akira::log {

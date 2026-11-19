@@ -1,6 +1,7 @@
 #include "accounts/sign_in_store.hpp"
 #include "accounts/profile_tables.hpp"
-#include "settings/settings_manager.hpp"
+#include "accounts/account_settings.hpp"
+#include "settings/settings_store.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -15,9 +16,16 @@ using libchiaking::users::DeviceId;
 using libchiaking::users::Region;
 namespace auth = libchiaking::users;
 
-SignInStore::SignInStore(settings::SettingsManager& settings)
-    : settings(settings)
+SignInStore::SignInStore(const AccountSettings& accounts, settings::SettingsStore& store)
+    : accounts(accounts), store(store)
 {
+    read(store.loaded());
+    store.attachLive(*this);
+}
+
+SignInStore::~SignInStore()
+{
+    store.detach(*this);
 }
 
 auto SignInStore::load_saved_users() -> libchiaking::Expected<std::vector<SavedSignIn>, Error>
@@ -33,7 +41,7 @@ auto SignInStore::load_saved_users() -> libchiaking::Expected<std::vector<SavedS
 auto SignInStore::load_home_users() -> libchiaking::Expected<std::vector<SavedHomeUser>, Error>
 {
     std::vector<SavedHomeUser> users;
-    for (const Profile& profile : settings.profilesSnapshot()) {
+    for (const Profile& profile : accounts.profilesSnapshot()) {
         if (!profile.legacy || profile.onlineId.empty())
             continue;
         const auto account = libchiaking::AccountId::from_base64(profile.accountId);
@@ -98,7 +106,7 @@ void SignInStore::write(toml::table& config) const
 
 auto SignInStore::persist() -> libchiaking::Expected<void, Error>
 {
-    if (settings.writeStores() != 0)
+    if (!store.saveLive())
         return unexpected(Error::unavailable);
     return {};
 }

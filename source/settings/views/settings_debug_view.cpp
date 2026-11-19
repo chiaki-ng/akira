@@ -32,62 +32,62 @@ SettingsDebugView::SettingsDebugView() {
 void SettingsDebugView::initSilenceAllLogsToggle() {
     silenceAllLogsToggle->init(
         "akira/settings/silence_all_logs"_i18n,
-        settings->getSilenceAllLogs(),
+        settings->developer().silenceAllLogs(),
         [this](bool isOn) {
-            settings->setSilenceAllLogs(isOn);
-            settings->writeFile();
+            settings->developer().setSilenceAllLogs(isOn);
+            settings->store().save();
         }
     );
 }
 
 void SettingsDebugView::initEnableFileLoggingToggle() {
-    bool currentValue = settings->getEnableFileLogging();
+    bool currentValue = settings->developer().fileLogging();
 
     enableFileLoggingToggle->init(
         "akira/settings/file_logging"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->setEnableFileLogging(isOn);
-            settings->writeFile();
+            settings->developer().setFileLogging(isOn);
+            settings->store().save();
         }
     );
 }
 
 void SettingsDebugView::initDebugLwipLogToggle() {
-    bool currentValue = settings->getDebugLwipLog();
+    bool currentValue = settings->developer().lwipLog();
 
     debugLwipLogToggle->init(
         "akira/settings/lwip_log"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->setDebugLwipLog(isOn);
-            settings->writeFile();
+            settings->developer().setLwipLog(isOn);
+            settings->store().save();
         }
     );
 }
 
 void SettingsDebugView::initDebugWireguardLogToggle() {
-    bool currentValue = settings->getDebugWireguardLog();
+    bool currentValue = settings->developer().wireguardLog();
 
     debugWireguardLogToggle->init(
         "akira/settings/wireguard_log"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->setDebugWireguardLog(isOn);
-            settings->writeFile();
+            settings->developer().setWireguardLog(isOn);
+            settings->store().save();
         }
     );
 }
 
 void SettingsDebugView::initDebugRenderLogToggle() {
-    bool currentValue = settings->getDebugRenderLog();
+    bool currentValue = settings->developer().renderLog();
 
     debugRenderLogToggle->init(
         "akira/settings/render_log"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->setDebugRenderLog(isOn);
-            settings->writeFile();
+            settings->developer().setRenderLog(isOn);
+            settings->store().save();
         }
     );
 }
@@ -99,7 +99,7 @@ void SettingsDebugView::initChiakiLogLevelSelector() {
         "akira/settings/chiaki_log_debug"_i18n,
         "akira/settings/chiaki_log_trace"_i18n,
     };
-    const int current = static_cast<int>(settings->getChiakiLogVerbosity());
+    const int current = static_cast<int>(settings->developer().chiakiLogVerbosity());
 
     chiakiLogLevelSelector->init(
         "akira/settings/chiaki_log"_i18n,
@@ -110,33 +110,33 @@ void SettingsDebugView::initChiakiLogLevelSelector() {
             if (selected < static_cast<int>(ChiakiLogVerbosity::Normal) ||
                 selected > static_cast<int>(ChiakiLogVerbosity::Trace))
                 selected = static_cast<int>(ChiakiLogVerbosity::Normal);
-            settings->setChiakiLogVerbosity(static_cast<ChiakiLogVerbosity>(selected));
-            settings->writeFile();
+            settings->developer().setChiakiLogVerbosity(static_cast<ChiakiLogVerbosity>(selected));
+            settings->store().save();
         });
 }
 
 void SettingsDebugView::initDebugDiscoveryLogToggle() {
-    bool currentValue = settings->getDebugDiscoveryLog();
+    bool currentValue = settings->developer().discoveryLog();
 
     debugDiscoveryLogToggle->init(
         "akira/settings/discovery_log"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->setDebugDiscoveryLog(isOn);
-            settings->writeFile();
+            settings->developer().setDiscoveryLog(isOn);
+            settings->store().save();
         }
     );
 }
 
 void SettingsDebugView::initDebugFfmpegLogToggle() {
-    bool currentValue = settings->getDebugFfmpegLog();
+    bool currentValue = settings->developer().ffmpegLog();
 
     debugFfmpegLogToggle->init(
         "akira/settings/ffmpeg_log"_i18n,
         currentValue,
         [this](bool isOn) {
-            settings->setDebugFfmpegLog(isOn);
-            settings->writeFile();
+            settings->developer().setFfmpegLog(isOn);
+            settings->store().save();
         }
     );
 }

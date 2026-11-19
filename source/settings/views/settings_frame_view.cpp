@@ -142,7 +142,7 @@ void SettingsFrameView::buildMenus() {
     menus.push_back({"akira/settings/menu_config"_i18n, {{"", []() -> brls::Box* { return new ConfigViewTab(); }}}});
     menus.push_back({"akira/settings/menu_network"_i18n, {{"", []() -> brls::Box* { return new network::views::NetworkUtilitiesTab(); }}}});
 
-    if (SettingsManager::getInstance()->getPowerUserMenuUnlocked()) {
+    if (SettingsManager::getInstance()->developer().powerUserMenuUnlocked()) {
         menus.push_back({"akira/settings/menu_power_user"_i18n, {{"", []() -> brls::Box* { return new SettingsPowerUserView(); }}}});
         menus.push_back({"akira/settings/menu_developer"_i18n, {{"", []() -> brls::Box* { return new SettingsDeveloperView(); }}}});
     }

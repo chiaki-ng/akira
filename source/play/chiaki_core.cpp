@@ -42,25 +42,25 @@ ChiakiCore::ChiakiCore(settings::SettingsManager& settings)
           .diagnostics = &coreLog,
       })),
       recordStore((app::CrashReport::stage("core records"), recordRoot)),
-      datacenters((app::CrashReport::stage("core datacenters"), settings)),
+      datacenters((app::CrashReport::stage("core datacenters"), settings.cloud().datacenters()), settings.store()),
       chiakiNg((app::CrashReport::stage("core open"), libchiaking::ChiakiNg::open(
-          factory, libchiaking::ChiakiNg::Stores{settings.signIns(), settings.pairings(), datacenters, nullptr,
+          factory, libchiaking::ChiakiNg::Stores{settings.accounts().signIns(), settings.consoles().pairings(), datacenters, nullptr,
                                                  recordStore})))
 {
     app::CrashReport::stage("core ready");
     if (instance != nullptr)
         std::terminate();
     instance = this;
-    settings.setCoreLog(&coreLog);
+    settings.developer().setCoreLog(&coreLog);
     app::CrashReport::stage("core duid");
-    settings.ensureCloudDuid(random());
+    settings.cloud().ensureDuid(random());
     app::CrashReport::stage("core remember saved");
     rememberSaved();
 }
 
 ChiakiCore::~ChiakiCore()
 {
-    settings.setCoreLog(nullptr);
+    settings.developer().setCoreLog(nullptr);
     instance = nullptr;
 }
 

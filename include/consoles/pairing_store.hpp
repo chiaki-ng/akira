@@ -10,20 +10,26 @@
 #include <libchiaking/consoles.hpp>
 #include <toml++/toml.hpp>
 
+#include "settings/section.hpp"
+
 namespace akira::settings {
-class SettingsManager;
+class SettingsStore;
 }
 
 namespace akira::consoles {
 
-class PairingStore final : public libchiaking::consoles::ConsoleStore {
+class PairingStore final : public libchiaking::consoles::ConsoleStore, public settings::Section {
 public:
     using SavedConsole = libchiaking::consoles::SavedConsole;
     using SavedPairing = libchiaking::consoles::SavedPairing;
     using HardwareId = libchiaking::consoles::HardwareId;
     using Firmware = libchiaking::consoles::Firmware;
 
-    explicit PairingStore(settings::SettingsManager& settings);
+    explicit PairingStore(settings::SettingsStore& store);
+    ~PairingStore() override;
+
+    PairingStore(const PairingStore&) = delete;
+    PairingStore& operator=(const PairingStore&) = delete;
 
     [[nodiscard]] auto load_saved_consoles() -> libchiaking::Expected<Saved, Error> override;
     [[nodiscard]] auto save(const SavedConsole& console) -> libchiaking::Expected<void, Error> override;
@@ -36,8 +42,7 @@ public:
         -> libchiaking::Expected<void, Error>;
     auto knows(HardwareId console) const -> bool;
 
-    void read(const toml::table& config);
-    void write(toml::table& config) const;
+    void write(toml::table& config) const override;
 
     static auto firmwareOf(std::string_view text) -> std::optional<Firmware>;
     static auto textOf(Firmware firmware) -> std::string_view;
@@ -69,9 +74,10 @@ private:
 
     void upsert(const SavedConsole& console);
     void upsert(const SavedPairing& pairing);
+    void read(const toml::table& config);
     auto persist() -> libchiaking::Expected<void, Error>;
 
-    settings::SettingsManager& settings;
+    settings::SettingsStore& store;
     mutable std::mutex mutex;
     std::vector<SavedConsole> consoles;
     std::vector<SavedPairing> pairings;

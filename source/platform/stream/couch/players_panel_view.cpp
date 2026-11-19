@@ -240,14 +240,14 @@ std::string WithAccount(const std::string& text, const consoles::Host* host, con
         return text;
     std::string account;
     if (slot == 0) {
-        if (const accounts::Profile* active = settings::SettingsManager::getInstance()->getActiveProfile(); active && !active->accountId.empty())
+        if (const accounts::Profile* active = settings::SettingsManager::getInstance()->accounts().activeProfile(); active && !active->accountId.empty())
             account = active->label();
     } else if (connection) {
         account = connection->couchSeat(slot).accountLabel;
     }
     if (account.empty())
         return text + " - no PSN account configured";
-    return text + " - PSN: " + settings::SettingsManager::getInstance()->maskAccountName(account);
+    return text + " - PSN: " + settings::SettingsManager::getInstance()->app().maskAccountName(account);
 }
 
 } // namespace
@@ -588,7 +588,7 @@ void PlayersPanelView::populateProfilePicker()
         loadProfileAvatar(choice.profileId, choice.accountId, choice.avatarUrl, avatar);
 
         auto* name = new brls::Label();
-        name->setText(settings::SettingsManager::getInstance()->maskAccountName(choice.label));
+        name->setText(settings::SettingsManager::getInstance()->app().maskAccountName(choice.label));
         name->setFontSize(cardWidth < 170.0f ? 16 : 18);
         name->setTextColor(app::views::active().text);
         name->setMarginBottom(0);
@@ -639,10 +639,10 @@ void PlayersPanelView::loadProfileAvatar(int64_t profileId, const std::string& a
                 return;
 
             settings::SettingsManager* settings = settings::SettingsManager::getInstance();
-            if (accounts::Profile* saved = settings->findProfile(profileId); saved && saved->avatarUrl != url)
+            if (accounts::Profile* saved = settings->accounts().findProfile(profileId); saved && saved->avatarUrl != url)
             {
                 saved->avatarUrl = url;
-                settings->writeFile();
+                settings->store().save();
             }
             loadProfileAvatarUrl(profileId, url, image);
         },

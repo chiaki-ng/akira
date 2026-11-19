@@ -168,7 +168,7 @@ void McPsNativePath::readButtons(libchiaking::controllers::ControllerState& stat
     for (const ButtonMap& m : kButtons) {
         if (!(m_report.buttons & m.ps))
             continue;
-        if (!settings->isButtonEnabled(m.button))
+        if (!settings->controllers().isButtonEnabled(m.button))
             continue;
         state.buttons |= m.button;
     }

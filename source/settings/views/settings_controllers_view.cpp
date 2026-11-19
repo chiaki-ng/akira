@@ -15,10 +15,10 @@ std::string SettingsControllersView::tierSummary(const akira::input::PadDescript
     auto* settings = SettingsManager::getInstance();
     const auto padSettings = akira::platform::PlatformFactory::instance().createPadSettings(pad);
 
-    if (auto summary = padSettings->outputSummary(*settings))
+    if (auto summary = padSettings->outputSummary(settings->controllers()))
         return *summary;
 
-    const std::string key = padSettings->currentKey(*settings);
+    const std::string key = padSettings->currentKey(settings->controllers());
 
     if (key == play::kRumbleKeySwitch)
         return "akira/settings/rumble_tier_switch"_i18n;
@@ -91,8 +91,8 @@ void SettingsControllersView::rebuild()
     }
 
     for (const akira::input::PadDescription& pad : pads) {
-        settings->seedRumbleProfile(
-            akira::platform::PlatformFactory::instance().createPadSettings(pad)->rumbleKey(*settings));
+        settings->controllers().seedRumbleProfile(
+            akira::platform::PlatformFactory::instance().createPadSettings(pad)->rumbleKey(settings->controllers()));
 
         auto* cell = new brls::DetailCell();
         cell->setMarginLeft(15.0f);
@@ -109,7 +109,7 @@ void SettingsControllersView::rebuild()
         list->addView(cell);
     }
 
-    settings->writeFile();
+    settings->store().save();
 }
 
 }

@@ -1,4 +1,5 @@
 #include "settings/views/settings_developer_view.hpp"
+#include "log/log_files.hpp"
 #include "consoles/views/host_list_tab.hpp"
 #include "log/views/log_browser_view.hpp"
 #include "platform/factory.hpp"
@@ -85,7 +86,7 @@ SettingsDeveloperView::~SettingsDeveloperView() {
 
 void SettingsDeveloperView::initTakionSelector(brls::SelectorCell* cell, TakionTarget target, std::string title,
     std::vector<std::uint32_t> implemented) {
-    const int current = settings->getTakionVersion(target);
+    const int current = settings->developer().takionVersion(target);
     std::vector<int> versions{0};
     for (const std::uint32_t version : implemented)
         versions.push_back(static_cast<int>(version));
@@ -99,8 +100,8 @@ void SettingsDeveloperView::initTakionSelector(brls::SelectorCell* cell, TakionT
     const auto selected = std::ranges::find(versions, current);
     cell->init(std::move(title), labels, static_cast<int>(selected - versions.begin()),
         [this, target, versions](int index) {
-            settings->setTakionVersion(target, versions[static_cast<size_t>(index)]);
-            settings->writeFile();
+            settings->developer().setTakionVersion(target, versions[static_cast<size_t>(index)]);
+            settings->store().save();
         });
 }
 
@@ -111,10 +112,10 @@ SettingsDeveloperView::SettingsDeveloperView() {
 
     fakeHostsToggle->init(
         "akira/settings/dev_fake_hosts"_i18n,
-        settings->getDevFakeHosts(),
+        settings->developer().fakeHosts(),
         [this](bool isOn) {
-            settings->setDevFakeHosts(isOn);
-            settings->writeFile();
+            settings->developer().setFakeHosts(isOn);
+            settings->store().save();
             consoles::views::HostListTab::notifyActiveProfileChanged();
         });
 
@@ -142,7 +143,7 @@ SettingsDeveloperView::SettingsDeveloperView() {
         simulateUpdateCell->setVisibility(brls::Visibility::GONE);
     tlsVerifyProbeCell->setText("akira/settings/dev_tls_verify_probe"_i18n);
     logBrowserCell->setText("akira/settings/dev_logs"_i18n);
-    logBrowserCell->setDetailText(SettingsManager::LOG_DIR);
+    logBrowserCell->setDetailText(log::LogFiles::directory);
     logBrowserCell->registerClickAction([](brls::View*) {
         brls::Application::pushActivity(
             new brls::Activity(new log::views::LogBrowserView()),

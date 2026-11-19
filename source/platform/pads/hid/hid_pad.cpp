@@ -66,12 +66,12 @@ std::optional<HidSixAxisSensorState> HidPad::readGyro()
     const bool leftConnected  = attrib & HidNpadAttribute_IsLeftConnected;
     const bool rightConnected = attrib & HidNpadAttribute_IsRightConnected;
 
-    switch (settings::SettingsManager::getInstance()->getGyroSource()) {
-        case settings::GyroSource::Left:
+    switch (settings::SettingsManager::getInstance()->controllers().gyroSource()) {
+        case play::GyroSource::Left:
             return leftConnected ? readSixAxis(m_sixaxis[JoyDualLeft]) : std::nullopt;
-        case settings::GyroSource::Right:
+        case play::GyroSource::Right:
             return rightConnected ? readSixAxis(m_sixaxis[JoyDualRight]) : std::nullopt;
-        case settings::GyroSource::Auto:
+        case play::GyroSource::Auto:
         default:
             if (leftConnected)
                 return readSixAxis(m_sixaxis[JoyDualLeft]);

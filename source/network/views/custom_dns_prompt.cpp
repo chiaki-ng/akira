@@ -19,14 +19,14 @@ void CustomDnsPrompt::open(std::function<void()> onSaved)
                 reject();
                 return;
             }
-            settings->setCustomDnsServers(std::move(*servers));
-            settings->writeFile();
+            settings->network().setCustomDnsServers(std::move(*servers));
+            settings->store().save();
             if (onSaved)
                 onSaved();
         },
         "akira/settings/custom_dns_prompt"_i18n,
         "akira/settings/custom_dns_placeholder"_i18n,
-        31, CustomDns::formatServers(settings->getCustomDnsServers()), 0);
+        31, CustomDns::formatServers(settings->network().customDnsServers()), 0);
 }
 
 void CustomDnsPrompt::reject()

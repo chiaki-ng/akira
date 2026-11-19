@@ -5,6 +5,7 @@
 
 #include "cloud/service.hpp"
 #include "consoles/host.hpp"
+#include "settings/settings_manager.hpp"
 
 #include <string>
 
@@ -79,7 +80,8 @@ void CloudConnectTask::handOver(const std::shared_ptr<CallbackState>& state, std
     if (state->stop.stop_requested() || !state->sink)
         return;
 
-    auto host = std::make_shared<consoles::Host>(launch->name());
+    auto* settings = settings::SettingsManager::getInstance();
+    auto host = std::make_shared<consoles::Host>(consoles::HostRecord{.nickname = launch->name()}, settings->accounts(), settings->app());
     host->setCloudLaunch(*launch);
     state->sink->succeeded(host.get(), host);
 }

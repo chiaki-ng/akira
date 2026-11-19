@@ -375,9 +375,9 @@ VulkanRenderer::FsrConfig VulkanRenderer::fsrConfig(int inputWidth, int inputHei
 {
     auto* settings = settings::SettingsManager::getInstance();
     FsrConfig config{
-        .rcas = settings->getRcasEnabled(),
-        .dithering = settings->getEnableDithering(),
-        .sharpness = settings->getRcasSharpness(),
+        .rcas = settings->stream().rcasEnabled(),
+        .dithering = settings->stream().ditheringEnabled(),
+        .sharpness = settings->stream().rcasSharpness(),
         .inputWidth = inputWidth,
         .inputHeight = inputHeight,
         .display = display,
@@ -385,9 +385,9 @@ VulkanRenderer::FsrConfig VulkanRenderer::fsrConfig(int inputWidth, int inputHei
 
     const int displayWidth = static_cast<int>(display.width);
     const int displayHeight = static_cast<int>(display.height);
-    const int targetH = settings->getEasuTargetHeight();
+    const int targetH = settings->streamState().easuTargetHeight();
     const int targetW = (targetH * 16) / 9;
-    if (settings->getEasuEnabled() && targetH > 0 && (inputWidth < targetW || inputHeight < targetH))
+    if (settings->streamState().easuEnabled() && targetH > 0 && (inputWidth < targetW || inputHeight < targetH))
     {
         config.easu = true;
         config.targetWidth = targetW;
@@ -437,15 +437,15 @@ bool VulkanRenderer::initialize(int frame_width, int frame_height)
     if (!queryCapabilities() || !createSharedObjects())
         return false;
 
-    const float saved_x = settings::SettingsManager::getInstance()->getStatsOverlayX();
-    const float saved_y = settings::SettingsManager::getInstance()->getStatsOverlayY();
+    const float saved_x = settings::SettingsManager::getInstance()->stream().statsOverlayX();
+    const float saved_y = settings::SettingsManager::getInstance()->stream().statsOverlayY();
     if (saved_x >= 0.0f && saved_y >= 0.0f)
     {
         m_overlay_norm_x.store(saved_x, std::memory_order_relaxed);
         m_overlay_norm_y.store(saved_y, std::memory_order_relaxed);
     }
 
-    m_dithering_enabled.store(settings::SettingsManager::getInstance()->getEnableDithering(), std::memory_order_relaxed);
+    m_dithering_enabled.store(settings::SettingsManager::getInstance()->stream().ditheringEnabled(), std::memory_order_relaxed);
     m_initialized.store(true, std::memory_order_release);
     log::info("VulkanRenderer: initialized (dithering={})", m_dithering_enabled.load());
     return true;
@@ -1254,7 +1254,7 @@ std::optional<VulkanRenderer::Pipeline> VulkanRenderer::createPipeline(const Pip
 
     const std::array<std::uint32_t, 2> constants{
         key.dithering ? VK_TRUE : VK_FALSE,
-        std::bit_cast<std::uint32_t>(settings::SettingsManager::getInstance()->getDitheringStrength()),
+        std::bit_cast<std::uint32_t>(settings::SettingsManager::getInstance()->stream().ditheringStrength()),
     };
     const std::array entries{
         VkSpecializationMapEntry{ 0, 0, sizeof(std::uint32_t) },
@@ -1528,10 +1528,10 @@ void VulkanRenderer::renderVideo()
         if (m_fsr)
             retire(Retired{ .fsr = std::move(m_fsr) });
         auto* settings = settings::SettingsManager::getInstance();
-        const int targetH = settings->getEasuTargetHeight();
+        const int targetH = settings->streamState().easuTargetHeight();
         const int targetW = (targetH * 16) / 9;
-        const bool easuNeeded = settings->getEasuEnabled() && targetH > 0 && (width < targetW || height < targetH);
-        m_fsr_pending = easuNeeded || settings->getRcasEnabled();
+        const bool easuNeeded = settings->streamState().easuEnabled() && targetH > 0 && (width < targetW || height < targetH);
+        m_fsr_pending = easuNeeded || settings->stream().rcasEnabled();
         m_configured_width = width;
         m_configured_height = height;
         publishFsrSummary(nullptr);
@@ -2338,7 +2338,7 @@ void VulkanRenderer::overlayTouchEnd()
     if (sw <= 0.0f || sh <= 0.0f)
         return;
 
-    settings::SettingsManager::getInstance()->setStatsOverlayPosition(
+    settings::SettingsManager::getInstance()->stream().setStatsOverlayPosition(
         m_overlay_x.load(std::memory_order_relaxed) / sw,
         m_overlay_y.load(std::memory_order_relaxed) / sh);
     m_overlay_pos_dirty.store(true, std::memory_order_relaxed);
