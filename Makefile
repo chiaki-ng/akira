@@ -93,6 +93,21 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/cloud/fetch_progress.cpp \
                 $(CURDIR)/source/consoles/pair_crypto.cpp \
                 $(CURDIR)/source/log/log.cpp \
+                $(CURDIR)/source/log/core_log.cpp \
+                $(CURDIR)/source/settings/settings_store.cpp \
+                $(CURDIR)/source/settings/developer_settings.cpp \
+                $(CURDIR)/source/play/stream_settings.cpp \
+                $(CURDIR)/source/play/controller_settings.cpp \
+                $(CURDIR)/source/cloud/cloud_settings.cpp \
+                $(CURDIR)/source/cloud/saved_datacenters.cpp \
+                $(CURDIR)/source/network/network_settings.cpp \
+                $(CURDIR)/source/network/custom_dns.cpp \
+                $(CURDIR)/source/accounts/account_settings.cpp \
+                $(CURDIR)/source/accounts/sign_in_store.cpp \
+                $(CURDIR)/source/accounts/profile_tables.cpp \
+                $(CURDIR)/source/consoles/console_settings.cpp \
+                $(CURDIR)/source/consoles/pairing_store.cpp \
+                $(CURDIR)/source/app/app_settings.cpp \
                 $(CURDIR)/source/network/dns_client.cpp \
                 $(CURDIR)/source/platform/video/viddec/h264_sps.cpp \
                 $(TEST_PLATFORM_SRC)
@@ -102,7 +117,18 @@ CORE_TEST_SRC := $(CORE_DIR)/src/platform/crypto/provider.cpp \
                  $(CORE_DIR)/src/platform/crypto/openssl/provider.cpp \
                  $(CORE_DIR)/src/platform/crypto/openssl/pairing_primitives.cpp \
                  $(CORE_DIR)/src/platform/random/darwin.cpp \
-                 $(CORE_DIR)/src/platform/memory/secure_zero_darwin.cpp
+                 $(CORE_DIR)/src/platform/memory/secure_zero_darwin.cpp \
+                 $(CORE_DIR)/src/platform/net/address.cpp \
+                 $(CORE_DIR)/src/platform/net/posix.cpp \
+                 $(CORE_DIR)/src/core/utils/text/ascii.cpp \
+                 $(CORE_DIR)/src/core/users/model/account_id.cpp \
+                 $(CORE_DIR)/src/core/users/model/account_context.cpp \
+                 $(CORE_DIR)/src/core/users/model/device_id.cpp \
+                 $(CORE_DIR)/src/core/consoles/model/console/hardware_id.cpp \
+                 $(CORE_DIR)/src/core/consoles/model/console/console_name.cpp \
+                 $(CORE_DIR)/src/core/consoles/model/console/device_uid.cpp \
+                 $(CORE_DIR)/src/core/consoles/model/console/host.cpp \
+                 $(CORE_DIR)/src/core/consoles/model/pairing/pairing.cpp
 JSONC_PREFIX ?= $(shell pkg-config --variable=prefix json-c 2>/dev/null || echo /opt/homebrew)
 SIMDUTF_PREFIX ?= $(shell pkg-config --variable=prefix simdutf 2>/dev/null || echo /opt/homebrew)
 OPENSSL_PREFIX ?= $(shell pkg-config --variable=prefix openssl 2>/dev/null || echo /opt/homebrew/opt/openssl@3)
@@ -198,7 +224,7 @@ test: platform
 	fi
 	@mkdir -p "$(CURDIR)/build/tests/$(PLATFORM)"
 	@printf "$(GREEN)[*]$(NC) Building host tests...\n"
-	@c++ -std=c++23 -g -O0 -Wall -Wextra -Wno-unused-parameter \
+	@c++ -std=c++23 -g -O0 -Wall -Wextra -Wno-unused-parameter -DAKIRA_MUTE_CORE_LOGS=0 \
 		-I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" \
 		-I"$(CURDIR)/library/tomlplusplus/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(OPENSSL_PREFIX)/include" \
 		$(TEST_SRC) $(CORE_TEST_SRC) -L"$(JSONC_PREFIX)/lib" -ljson-c -L"$(SIMDUTF_PREFIX)/lib" -lsimdutf \
