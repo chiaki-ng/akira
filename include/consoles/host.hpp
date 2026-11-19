@@ -132,7 +132,6 @@ public:
     Host& operator=(const Host&) = delete;
 
     HostRecord record() const;
-    static bool isValidAddress(const std::string& address);
 
     // Host info getters
     std::string getHostName() const { return hostName; }
@@ -212,10 +211,6 @@ public:
     bool hasLegacyRegistration(int64_t profileId) const;
     void removeRegistrationsForProfile(int64_t profileId);
     int64_t getConsoleId() const { return consoleId; }
-
-private:
-    static bool isValidIpv4(const std::string& address);
-    static bool isValidFqdn(const std::string& address);
 };
 
 }

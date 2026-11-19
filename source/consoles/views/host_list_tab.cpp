@@ -17,6 +17,7 @@
 #include "consoles/views/pair_view.hpp"
 #include "accounts/views/profile_setup_view.hpp"
 #include "accounts/views/qr_sign_in_view.hpp"
+#include "consoles/console_address.hpp"
 #include "consoles/host.hpp"
 #include "trophies/trophy_manager.hpp"
 #include "play/chiaki_core.hpp"
@@ -645,7 +646,7 @@ private:
         brls::Application::getImeManager()->openForText(
             [target](std::string text) {
                 if (text.empty() || text == target->getHostAddr()) return;
-                if (!Host::isValidAddress(text)) {
+                if (!ConsoleAddress::parse(text)) {
                     brls::Application::notify("akira/hosts/address_invalid"_i18n);
                     return;
                 }

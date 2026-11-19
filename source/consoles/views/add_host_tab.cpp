@@ -1,6 +1,7 @@
 #include "consoles/views/add_host_tab.hpp"
 #include "app/view_services.hpp"
 #include "app/views/theme.hpp"
+#include "consoles/console_address.hpp"
 #include "consoles/host.hpp"
 #include "log/log.hpp"
 
@@ -67,7 +68,7 @@ void AddHostTab::onSaveClicked() {
         return;
     }
 
-    if (!Host::isValidAddress(addr)) {
+    if (!ConsoleAddress::parse(addr)) {
         statusLabel->setText("akira/add_host/error_invalid_ip"_i18n);
         statusLabel->setTextColor(app::views::active().danger);
         return;

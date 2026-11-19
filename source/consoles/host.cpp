@@ -9,7 +9,6 @@
 #include <borealis.hpp>
 #include <algorithm>
 #include <ranges>
-#include <regex>
 
 namespace akira::consoles {
 
@@ -48,39 +47,6 @@ HostRecord Host::record() const
     for (const Registration& registration : legacyRegistrations)
         saved.legacyRegistrations.push_back(registration.clone());
     return saved;
-}
-
-bool Host::isValidAddress(const std::string& address)
-{
-    return isValidIpv4(address) || isValidFqdn(address);
-}
-
-bool Host::isValidIpv4(const std::string& address)
-{
-    static const std::regex ipv4Regex(R"(^(\d+)\.(\d+)\.(\d+)\.(\d+)$)");
-    std::smatch match;
-    if (!std::regex_match(address, match, ipv4Regex))
-        return false;
-    for (int i = 1; i <= 4; i++) {
-        if (std::stoi(match[i].str()) > 255)
-            return false;
-    }
-    return true;
-}
-
-bool Host::isValidFqdn(const std::string& address)
-{
-    if (address.empty() || address.length() > 253)
-        return false;
-    if (address.front() == '.' || address.back() == '.')
-        return false;
-    if (address.front() == '-' || address.back() == '-')
-        return false;
-    // TLDs must contain at least one letter - reject pure numeric strings like "192.168.50.266"
-    if (!std::ranges::any_of(address, [](unsigned char c) { return std::isalpha(c); }))
-        return false;
-    static const std::regex fqdnRegex(R"(^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$)");
-    return std::regex_match(address, fqdnRegex);
 }
 
 Host::~Host()
