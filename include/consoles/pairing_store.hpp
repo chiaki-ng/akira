@@ -10,7 +10,9 @@
 #include <libchiaking/consoles.hpp>
 #include <toml++/toml.hpp>
 
+namespace akira::settings {
 class SettingsManager;
+}
 
 namespace akira::consoles {
 
@@ -21,7 +23,7 @@ public:
     using HardwareId = libchiaking::consoles::HardwareId;
     using Firmware = libchiaking::consoles::Firmware;
 
-    explicit PairingStore(SettingsManager& settings);
+    explicit PairingStore(settings::SettingsManager& settings);
 
     [[nodiscard]] auto load_saved_consoles() -> libchiaking::Expected<Saved, Error> override;
     [[nodiscard]] auto save(const SavedConsole& console) -> libchiaking::Expected<void, Error> override;
@@ -69,7 +71,7 @@ private:
     void upsert(const SavedPairing& pairing);
     auto persist() -> libchiaking::Expected<void, Error>;
 
-    SettingsManager& settings;
+    settings::SettingsManager& settings;
     mutable std::mutex mutex;
     std::vector<SavedConsole> consoles;
     std::vector<SavedPairing> pairings;

@@ -51,7 +51,7 @@ void CloudShortcutsRail::setLeadingCard(std::function<brls::View*()> factory)
 
 void CloudShortcutsRail::removeShortcut(const std::string& productId)
 {
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
     std::vector<Game> games = settings->getCloudShortcuts();
     games.erase(std::remove_if(games.begin(), games.end(),
                     [&](const Game& g) { return g.productId == productId; }),
@@ -71,8 +71,8 @@ void CloudShortcutsRail::refresh()
     railRow->clearViews();
     const int myGen = ++refreshGen;
 
-    std::vector<Game> games = SettingsManager::getInstance()->getCloudShortcuts();
-    bool hasProfile = !SettingsManager::getInstance()->getProfiles().empty();
+    std::vector<Game> games = settings::SettingsManager::getInstance()->getCloudShortcuts();
+    bool hasProfile = !settings::SettingsManager::getInstance()->getProfiles().empty();
     brls::View* lead = (hasProfile && leadingCardFactory) ? leadingCardFactory() : nullptr;
     if (!lead && games.empty())
     {

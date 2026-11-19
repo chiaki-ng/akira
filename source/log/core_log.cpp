@@ -8,7 +8,7 @@ using libchiaking::platform::LogRecord;
 using libchiaking::platform::LogSeverity;
 
 CoreLog::CoreLog() noexcept
-    : mask(maskFor(ChiakiLogVerbosity::Normal, false))
+    : mask(maskFor(settings::ChiakiLogVerbosity::Normal, false))
 {
 }
 
@@ -39,12 +39,12 @@ void CoreLog::write(LogRecord record) noexcept
     }
 }
 
-void CoreLog::follow(ChiakiLogVerbosity verbosity, bool streaming, bool silenced) noexcept
+void CoreLog::follow(settings::ChiakiLogVerbosity verbosity, bool streaming, bool silenced) noexcept
 {
     mask.store(silenced ? std::uint8_t{0} : maskFor(verbosity, streaming), std::memory_order_relaxed);
 }
 
-auto CoreLog::maskFor(ChiakiLogVerbosity verbosity, bool streaming) noexcept -> std::uint8_t
+auto CoreLog::maskFor(settings::ChiakiLogVerbosity verbosity, bool streaming) noexcept -> std::uint8_t
 {
     constexpr bool muted = AKIRA_MUTE_CORE_LOGS != 0;
     constexpr std::uint8_t warnings = bit(LogSeverity::error) | bit(LogSeverity::warning);
@@ -56,13 +56,13 @@ auto CoreLog::maskFor(ChiakiLogVerbosity verbosity, bool streaming) noexcept -> 
         return 0;
 
     switch (verbosity) {
-        case ChiakiLogVerbosity::Info:
+        case settings::ChiakiLogVerbosity::Info:
             return info;
-        case ChiakiLogVerbosity::Debug:
+        case settings::ChiakiLogVerbosity::Debug:
             return debug;
-        case ChiakiLogVerbosity::Trace:
+        case settings::ChiakiLogVerbosity::Trace:
             return everything;
-        case ChiakiLogVerbosity::Normal:
+        case settings::ChiakiLogVerbosity::Normal:
             break;
     }
     return streaming ? warnings : info;

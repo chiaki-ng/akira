@@ -33,7 +33,7 @@ void ExtendedHapticsProvider::prepare(play::HapticManager& haptics)
     if (!path.available)
         return;
 
-    haptics.setProfile(akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(*SettingsManager::getInstance(), 
+    haptics.setProfile(akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(*settings::SettingsManager::getInstance(), 
         path.vendorId, path.productId, path.hasAddress ? path.address.data() : nullptr,
         path.switchNative, path.kind == input::PadPathKind::JoyCon));
 }
@@ -165,7 +165,7 @@ void ExtendedHapticsProvider::emitMotorsFromWaveform(play::HapticManager& haptic
 
     if (++m_native_logged >= kNativeHapticLogInterval) {
         m_native_logged = 0;
-        if (SettingsManager::getInstance()->getDebugChiakiLog()) {
+        if (settings::SettingsManager::getInstance()->getDebugChiakiLog()) {
             akira::log::info("haptic->rumble: raw={}/{} scaled={}/{} out={}/{}{}",
                                r.raw_left, r.raw_right, r.left, r.right,
                                (int)(m_native_env_left * 255.0f),

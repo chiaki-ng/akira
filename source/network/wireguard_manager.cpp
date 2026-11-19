@@ -22,7 +22,7 @@ WireGuardManager& WireGuardManager::instance() {
 }
 
 static void wg_lib_log_callback(const char* msg) {
-    if (SettingsManager::getInstance()->getDebugWireguardLog())
+    if (settings::SettingsManager::getInstance()->getDebugWireguardLog())
         log::info("WG-LIB: {}", msg);
 }
 

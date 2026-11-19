@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+namespace akira::settings::views {
+
 using namespace brls::literals;
 
 SettingsDebugView::SettingsDebugView() {
@@ -22,7 +24,7 @@ SettingsDebugView::SettingsDebugView() {
     initDebugFfmpegLogToggle();
 
     openDiscoveryLogBtn->registerClickAction([](brls::View*) {
-        brls::Application::pushActivity(new brls::Activity(new akira::consoles::views::DiscoveryLogView()));
+        brls::Application::pushActivity(new brls::Activity(new consoles::views::DiscoveryLogView()));
         return true;
     });
 }
@@ -137,4 +139,6 @@ void SettingsDebugView::initDebugFfmpegLogToggle() {
             settings->writeFile();
         }
     );
+}
+
 }

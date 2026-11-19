@@ -27,7 +27,7 @@ private:
     BRLS_BIND(brls::DetailCell, checkNowCell, "settings/checkForUpdates");
     BRLS_BIND(brls::Label, versionLabel, "settings/updateCurrentVersion");
 
-    SettingsManager* settings = nullptr;
+    settings::SettingsManager* settings = nullptr;
     bool checking = false;
 
     void initChannelSelector();

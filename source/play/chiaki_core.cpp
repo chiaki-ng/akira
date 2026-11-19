@@ -26,7 +26,7 @@ auto ChiakiCore::threadPlacement() noexcept -> platform::horizon::ThreadPlacemen
     return policy;
 }
 
-ChiakiCore::ChiakiCore(SettingsManager& settings)
+ChiakiCore::ChiakiCore(settings::SettingsManager& settings)
     : settings(settings),
       threadingProvider((app::CrashReport::stage("core threading"), threadPlacement())),
       httpProvider((app::CrashReport::stage("core http"), transportSettings()), threadingProvider, steadyClock, &coreLog),

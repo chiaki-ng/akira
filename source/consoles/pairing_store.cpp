@@ -13,7 +13,7 @@ using libchiaking::consoles::ConsoleName;
 using libchiaking::consoles::DeviceUid;
 using libchiaking::consoles::PairingKeys;
 
-PairingStore::PairingStore(SettingsManager& settings)
+PairingStore::PairingStore(settings::SettingsManager& settings)
     : settings(settings)
 {
 }

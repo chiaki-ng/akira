@@ -175,7 +175,7 @@ std::string UpdateManager::resolveInstallPath() const {
         return g_selfPath;
     }
 
-    std::string configured = SettingsManager::getInstance()->getUpdateInstallPath();
+    std::string configured = settings::SettingsManager::getInstance()->getUpdateInstallPath();
     if (!configured.empty())
         return configured;
 

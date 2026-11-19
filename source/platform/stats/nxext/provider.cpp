@@ -17,7 +17,7 @@ NxextStatsProvider::~NxextStatsProvider() = default;
 
 void NxextStatsProvider::initToggle(brls::BooleanCell& cell) const
 {
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
     cell.init(
         "akira/settings/ipc_stats"_i18n,
         settings->getIpcStatsEnabled(),
@@ -30,7 +30,7 @@ void NxextStatsProvider::initToggle(brls::BooleanCell& cell) const
 
 void NxextStatsProvider::streamStarted(play::Session& session)
 {
-    if (!SettingsManager::getInstance()->getIpcStatsEnabled())
+    if (!settings::SettingsManager::getInstance()->getIpcStatsEnabled())
         return;
     if (!m_ipc_service)
     {

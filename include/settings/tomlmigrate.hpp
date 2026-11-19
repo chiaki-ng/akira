@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace tomlmigrate {
+namespace akira::settings::tomlmigrate {
 
 using Version = std::int64_t;
 

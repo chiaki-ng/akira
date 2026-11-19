@@ -6,6 +6,8 @@
 
 #include <borealis/core/i18n.hpp>
 
+namespace akira::settings::views {
+
 using namespace brls::literals;
 
 std::string SettingsControllersView::tierSummary(const akira::input::PadDescription& pad)
@@ -18,9 +20,9 @@ std::string SettingsControllersView::tierSummary(const akira::input::PadDescript
 
     const std::string key = padSettings->currentKey(*settings);
 
-    if (key == akira::play::kRumbleKeySwitch)
+    if (key == play::kRumbleKeySwitch)
         return "akira/settings/rumble_tier_switch"_i18n;
-    if (key == akira::play::kRumbleKeyDefault)
+    if (key == play::kRumbleKeyDefault)
         return "akira/settings/rumble_tier_default"_i18n;
     if (padSettings->isUnitKey(key))
         return "akira/settings/rumble_tier_unit"_i18n;
@@ -108,4 +110,6 @@ void SettingsControllersView::rebuild()
     }
 
     settings->writeFile();
+}
+
 }

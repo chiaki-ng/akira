@@ -21,7 +21,9 @@
 #include "cloud/models.hpp"
 #include "app/background_work.hpp"
 
+namespace akira::settings {
 class SettingsManager;
+}
 
 namespace akira::cloud {
 
@@ -163,7 +165,7 @@ private:
     bool isCurrent(int64_t profileId, uint64_t generation) const;
     void followBackgroundWork(bool paused);
 
-    SettingsManager* settings = nullptr;
+    settings::SettingsManager* settings = nullptr;
 
     mutable std::mutex mutex;
     std::map<int64_t, Entry> entries;

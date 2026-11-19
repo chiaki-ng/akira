@@ -14,6 +14,8 @@
 
 #include "settings/settings_manager.hpp"
 
+namespace akira::settings::views {
+
 class SettingsDeveloperView : public brls::Box {
 public:
     SettingsDeveloperView();
@@ -37,5 +39,7 @@ private:
     SettingsManager* settings = nullptr;
     std::shared_ptr<std::atomic<bool>> alive = std::make_shared<std::atomic<bool>>(true);
 };
+
+}
 
 #endif // AKIRA_SETTINGS_DEVELOPER_VIEW_HPP

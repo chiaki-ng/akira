@@ -15,7 +15,7 @@ using libchiaking::users::DeviceId;
 using libchiaking::users::Region;
 namespace auth = libchiaking::users;
 
-SignInStore::SignInStore(SettingsManager& settings)
+SignInStore::SignInStore(settings::SettingsManager& settings)
     : settings(settings)
 {
 }

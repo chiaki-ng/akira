@@ -44,7 +44,7 @@ std::string cloudSummary(const cloud::Status& status)
 
 ProfileChipView::ProfileChipView() {
     this->inflateFromXMLRes("xml/profile_chip.xml");
-    settings = SettingsManager::getInstance();
+    settings = settings::SettingsManager::getInstance();
 
     const auto& pal = app::views::active();
 

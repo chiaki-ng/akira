@@ -16,7 +16,9 @@
 #include "host.hpp"
 #include "accounts/accounts.hpp"
 
+namespace akira::settings {
 class SettingsManager;
+}
 
 namespace akira::consoles {
 
@@ -107,7 +109,7 @@ private:
     void processMainPs4Remote();
     void finishRemoteRefresh(uint64_t generation, const RemoteRefreshResult& result);
 
-    SettingsManager* settings = nullptr;
+    settings::SettingsManager* settings = nullptr;
     bool serviceEnabled = false;
 
     brls::Event<bool>::Subscription focusSubscription;

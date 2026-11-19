@@ -3,7 +3,7 @@
 
 #include <string>
 
-namespace akira {
+namespace akira::settings {
 
 struct SettingDescription {
     std::string title;

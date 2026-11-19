@@ -47,7 +47,7 @@ void popToHome() {
 }
 
 ProfileSwitcherView::ProfileSwitcherView() {
-    settings = SettingsManager::getInstance();
+    settings = settings::SettingsManager::getInstance();
 
     const auto& palette = app::views::active();
 

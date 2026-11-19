@@ -56,7 +56,7 @@ void HapticManager::emit(float left, float right)
 
 void HapticManager::setRumble(uint8_t left, uint8_t right)
 {
-    if (SettingsManager::getInstance()->getDebugChiakiLog() && (left > 0 || right > 0))
+    if (settings::SettingsManager::getInstance()->getDebugChiakiLog() && (left > 0 || right > 0))
         log::info("setRumble: left={}, right={}, strength={:.2f}", left, right, m_rumble_strength);
 
     m_rumble_events++;

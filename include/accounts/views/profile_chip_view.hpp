@@ -25,7 +25,7 @@ private:
     BRLS_BIND(brls::Box, dot, "chip/dot");
     BRLS_BIND(brls::Label, cloudLabel, "chip/cloud");
 
-    SettingsManager* settings = nullptr;
+    settings::SettingsManager* settings = nullptr;
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 };
 

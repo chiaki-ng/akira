@@ -17,7 +17,7 @@ using namespace brls::literals;
 SettingsUpdatesView::SettingsUpdatesView() {
     this->inflateFromXMLRes("xml/settings/updates.xml");
 
-    settings = SettingsManager::getInstance();
+    settings = settings::SettingsManager::getInstance();
 
     versionLabel->setText(std::string("Akira ") + app::version::string() +
                           " (" + app::version::channel() + ")");

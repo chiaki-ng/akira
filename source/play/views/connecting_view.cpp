@@ -102,7 +102,7 @@ void ConnectingView::setupAndStart()
         });
     }
 
-    SettingsManager* settings = SettingsManager::getInstance();
+    settings::SettingsManager* settings = settings::SettingsManager::getInstance();
     if (settings->getHideAccountName())
     {
         for (const accounts::Profile& profile : settings->getProfiles())
@@ -166,10 +166,10 @@ void ConnectingView::addLogLine(const std::string& line)
 
 void ConnectingView::switchToConnectionLog()
 {
-    if (!SettingsManager::getInstance()->getEnableFileLogging())
+    if (!settings::SettingsManager::getInstance()->getEnableFileLogging())
         return;
 
-    const std::string logPath = SettingsManager::getConnectionLogFilePath(task->logKind());
+    const std::string logPath = settings::SettingsManager::getConnectionLogFilePath(task->logKind());
     connectionLog = ConnectionLog::open(logPath);
     if (connectionLog)
         log::info("Switched to connection log: {}", logPath);
@@ -242,7 +242,7 @@ void ConnectingView::failed(const std::string& error)
      * while linking" is worth more than the last error string the stack
      * produced - and the ring is already showing which stage that was.
      */
-    if (SettingsManager::getInstance()->getConnectionShowStages()) {
+    if (settings::SettingsManager::getInstance()->getConnectionShowStages()) {
         const auto stage = static_cast<ConnectionStage>(currentStage.load());
         failureText = brls::getStr(connectionFailureKeyForStage(stage));
         settled.store(true);
@@ -334,7 +334,7 @@ void ConnectingView::draw(NVGcontext* vg, float x, float y, float width, float h
         return;
     }
 
-    if (SettingsManager::getInstance()->getConnectionShowStages()) {
+    if (settings::SettingsManager::getInstance()->getConnectionShowStages()) {
         if (steppedRoute.load()) {
             std::string label;
             {
@@ -374,7 +374,7 @@ void ConnectingView::askAboutFileLogging(std::unique_ptr<ConnectTask> task)
     auto* dialog = new brls::Dialog("akira/connection/file_logging_warning"_i18n);
     dialog->setCancelable(false);
     dialog->addButton("akira/connection/file_logging_turn_off"_i18n, [pending]() {
-        SettingsManager* settings = SettingsManager::getInstance();
+        settings::SettingsManager* settings = settings::SettingsManager::getInstance();
         settings->setEnableFileLogging(false);
         settings->writeFile();
         AppLog::close();
@@ -388,7 +388,7 @@ void ConnectingView::askAboutFileLogging(std::unique_ptr<ConnectTask> task)
 
 void startConnecting(std::unique_ptr<ConnectTask> task)
 {
-    if (SettingsManager::getInstance()->getEnableFileLogging())
+    if (settings::SettingsManager::getInstance()->getEnableFileLogging())
         ConnectingView::askAboutFileLogging(std::move(task));
     else
         ConnectingView::open(std::move(task));

@@ -17,6 +17,8 @@
 
 #include <borealis/core/i18n.hpp>
 
+namespace akira::settings::views {
+
 using namespace brls::literals;
 
 SettingsFrameView* SettingsFrameView::currentInstance = nullptr;
@@ -68,7 +70,7 @@ SettingsFrameView::SettingsFrameView() {
 
     descBody = new brls::Label();
     descBody->setFontSize(15.0f);
-    descBody->setTextColor(akira::app::views::active().textMuted);
+    descBody->setTextColor(app::views::active().textMuted);
     descBody->setWidthPercentage(100.0f);
     descPanel->addView(descBody);
 
@@ -129,16 +131,16 @@ void SettingsFrameView::onActiveProfileChanged() {
 void SettingsFrameView::buildMenus() {
     menus.clear();
 
-    menus.push_back({"akira/settings/menu_account"_i18n, {{"", []() -> brls::Box* { return new akira::accounts::views::SettingsAccountView(); }}}});
+    menus.push_back({"akira/settings/menu_account"_i18n, {{"", []() -> brls::Box* { return new accounts::views::SettingsAccountView(); }}}});
     menus.push_back({"akira/settings/menu_general"_i18n, {{"", []() -> brls::Box* { return new SettingsGeneralView(); }}}});
     for (auto& menu : akira::platform::PlatformFactory::instance().updates().settingsMenus())
         menus.push_back({std::move(menu.title), {{"", std::move(menu.create)}}});
     menus.push_back({"akira/settings/menu_quality"_i18n, {{"", []() -> brls::Box* { return new SettingsPictureView(); }}}});
     menus.push_back({"akira/settings/menu_controls"_i18n, {{"", []() -> brls::Box* { return new SettingsControllerView(); }}}});
     menus.push_back({"akira/settings/menu_debug"_i18n, {{"", []() -> brls::Box* { return new SettingsDebugView(); }}}});
-    menus.push_back({"akira/settings/menu_build_info"_i18n, {{"", []() -> brls::Box* { return new akira::app::views::BuildInfoTab(); }}}});
+    menus.push_back({"akira/settings/menu_build_info"_i18n, {{"", []() -> brls::Box* { return new app::views::BuildInfoTab(); }}}});
     menus.push_back({"akira/settings/menu_config"_i18n, {{"", []() -> brls::Box* { return new ConfigViewTab(); }}}});
-    menus.push_back({"akira/settings/menu_network"_i18n, {{"", []() -> brls::Box* { return new akira::network::views::NetworkUtilitiesTab(); }}}});
+    menus.push_back({"akira/settings/menu_network"_i18n, {{"", []() -> brls::Box* { return new network::views::NetworkUtilitiesTab(); }}}});
 
     if (SettingsManager::getInstance()->getPowerUserMenuUnlocked()) {
         menus.push_back({"akira/settings/menu_power_user"_i18n, {{"", []() -> brls::Box* { return new SettingsPowerUserView(); }}}});
@@ -148,13 +150,13 @@ void SettingsFrameView::buildMenus() {
 
 void SettingsFrameView::renderMenuBar() {
     menuBar->clearViews();
-    NVGcolor accent = akira::app::views::active().accent;
+    NVGcolor accent = app::views::active().accent;
     for (size_t i = 0; i < menus.size(); i++) {
         auto* lbl = new brls::Label();
         lbl->setText(menus[i].label);
         lbl->setFontSize(18.0f);
         lbl->setMarginRight(28.0f);
-        lbl->setTextColor(static_cast<int>(i) == activeMenu ? accent : akira::app::views::active().textDim);
+        lbl->setTextColor(static_cast<int>(i) == activeMenu ? accent : app::views::active().textDim);
         menuBar->addView(lbl);
     }
 }
@@ -167,13 +169,13 @@ void SettingsFrameView::renderSubBar() {
     if (!hasNamed)
         return;
 
-    NVGcolor accent = akira::app::views::active().accent;
+    NVGcolor accent = app::views::active().accent;
     for (size_t i = 0; i < subs.size(); i++) {
         auto* lbl = new brls::Label();
         lbl->setText(subs[i].name);
         lbl->setFontSize(15.0f);
         lbl->setMarginRight(22.0f);
-        lbl->setTextColor(static_cast<int>(i) == activeSub ? accent : akira::app::views::active().textDim);
+        lbl->setTextColor(static_cast<int>(i) == activeSub ? accent : app::views::active().textDim);
         subBar->addView(lbl);
     }
 }
@@ -195,7 +197,7 @@ void SettingsFrameView::switchMenu(int delta) {
     activeSub = 0;
     renderMenuBar();
     renderSubBar();
-    akira::app::views::motion::crossfade(contentHolder, contentFade, [this]() { loadContent(true); });
+    app::views::motion::crossfade(contentHolder, contentFade, [this]() { loadContent(true); });
 }
 
 void SettingsFrameView::switchSub(int delta) {
@@ -204,14 +206,14 @@ void SettingsFrameView::switchSub(int delta) {
         return;
     activeSub = ((activeSub + delta) % s + s) % s;
     renderSubBar();
-    akira::app::views::motion::crossfade(contentHolder, contentFade, [this]() { loadContent(true); });
+    app::views::motion::crossfade(contentHolder, contentFade, [this]() { loadContent(true); });
 }
 
 void SettingsFrameView::updateDescriptionFromFocus() {
     brls::View* f = brls::Application::getCurrentFocus();
     while (f) {
-        akira::SettingDescription d;
-        if (akira::lookupSettingDescription(f->getId(), d)) {
+        SettingDescription d;
+        if (settings::lookupSettingDescription(f->getId(), d)) {
             if (!d.title.empty() || !d.body.empty()) {
                 descTitle->setText(d.title);
                 descBody->setText(d.body);
@@ -237,4 +239,6 @@ void SettingsFrameView::showDescPanel(bool show) {
     descPanel->setVisibility(show ? brls::Visibility::VISIBLE : brls::Visibility::GONE);
     if (contentHolder)
         contentHolder->setWidthPercentage(show ? 70.0f : 100.0f);
+}
+
 }

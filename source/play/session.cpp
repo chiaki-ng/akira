@@ -279,7 +279,7 @@ bool Session::FreeVideo()
     akira::platform::PlatformFactory::instance().stats().streamStopped();
 
     m_first_frame_received = false;
-    SettingsManager::getInstance()->setStreamingActive(false);
+    settings::SettingsManager::getInstance()->setStreamingActive(false);
 
     {
         std::lock_guard lock(m_media_mutex);
@@ -396,7 +396,7 @@ void Session::frameArriving(const akira::platform::FrameInfo& frame)
         m_first_frame_received = true;
         brls::Application::setRenderSuspended(true);
         updateActualResolution(static_cast<int>(frame.width), static_cast<int>(frame.height));
-        SettingsManager::getInstance()->setStreamingActive(true);
+        settings::SettingsManager::getInstance()->setStreamingActive(true);
         log::info("First video frame received!");
         akira::platform::PlatformFactory::instance().stats().streamStarted(*this);
     }

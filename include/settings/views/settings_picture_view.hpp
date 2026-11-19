@@ -8,6 +8,8 @@
 
 #include "settings/settings_manager.hpp"
 
+namespace akira::settings::views {
+
 class SettingsPictureView : public brls::Box {
 public:
     SettingsPictureView();
@@ -75,5 +77,7 @@ private:
     void initRcasSharpnessSlider();
     void initRendererSection();
 };
+
+}
 
 #endif // AKIRA_SETTINGS_PICTURE_VIEW_HPP

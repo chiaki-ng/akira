@@ -72,7 +72,7 @@ void DiscoveryLogView::refreshLog()
     std::vector<std::string> lines = DiscoveryManager::getDiscoveryLogSnapshot();
 
     if (statusLabel) {
-        if (!SettingsManager::getInstance()->getDebugDiscoveryLog())
+        if (!settings::SettingsManager::getInstance()->getDebugDiscoveryLog())
             statusLabel->setText("akira/settings/discovery_log_off"_i18n);
         else
             statusLabel->setText(std::to_string(lines.size()));

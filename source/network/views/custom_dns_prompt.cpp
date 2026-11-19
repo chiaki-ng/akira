@@ -11,7 +11,7 @@ using namespace brls::literals;
 
 void CustomDnsPrompt::open(std::function<void()> onSaved)
 {
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
     brls::Application::getImeManager()->openForText(
         [settings, onSaved = std::move(onSaved)](std::string text) {
             auto servers = CustomDns::parseServers(text);

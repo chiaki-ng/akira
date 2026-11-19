@@ -72,7 +72,7 @@ private:
     std::shared_ptr<Connection> connection;
     std::optional<ConnectionLog> connectionLog;
     libchiaking::play::ConsoleHandover handover = libchiaking::play::ConsoleHandover::fresh;
-    SettingsManager* settings = nullptr;
+    settings::SettingsManager* settings = nullptr;
     bool streamActive = false;
     bool sessionStarted = false;
     bool sessionPreStarted = false;

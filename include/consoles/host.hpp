@@ -19,7 +19,9 @@
 #include "registration.hpp"
 
 // Forward declarations
+namespace akira::settings {
 class SettingsManager;
+}
 
 namespace akira::consoles {
 
@@ -40,7 +42,7 @@ enum class HostType {
 };
 
 class Host {
-    friend class ::SettingsManager;
+    friend class settings::SettingsManager;
     friend class DiscoveryManager;
 
 public:
@@ -82,7 +84,7 @@ private:
 
     static constexpr int internetPairingStages = 4;
 
-    SettingsManager* settings = nullptr;
+    settings::SettingsManager* settings = nullptr;
 
     int haptic = -1;  // -1=inherit from global, 0=disabled, 1=weak, 2=strong
 

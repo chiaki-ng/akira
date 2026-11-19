@@ -28,7 +28,7 @@ namespace akira::platform::software
 
 void HevcDecoder::addSetting(brls::Box& group)
 {
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
     auto* cell = new brls::BooleanCell();
     cell->init("akira/settings/software_hevc"_i18n, settings->getSoftwareHevc(), [settings](bool isOn) {
         settings->setSoftwareHevc(isOn);

@@ -15,7 +15,7 @@
 #include "m010_record_fsr_targets.hpp"
 #include "m011_default_drako3d_renderer.hpp"
 
-namespace chiaki_migrations {
+namespace akira::settings::migrations {
 
 inline tomlmigrate::Migrator buildSettingsMigrator() {
     tomlmigrate::Options opts;

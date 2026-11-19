@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace chiaki_migrations {
+namespace akira::settings::migrations {
 
 inline void move_key(toml::table& doc, const char* from, toml::table& dest, const char* to) {
     auto it = doc.find(from);

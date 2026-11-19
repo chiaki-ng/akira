@@ -6,6 +6,8 @@
 #include <borealis/core/i18n.hpp>
 #include <algorithm>
 
+namespace akira::settings::views {
+
 using namespace brls::literals;
 
 SettingsControllerView::SettingsControllerView() {
@@ -53,8 +55,10 @@ void SettingsControllerView::initButtonMappingCell() {
     buttonMappingCell->setDetailText("akira/common/configure"_i18n);
 
     buttonMappingCell->registerClickAction([](brls::View*) {
-        auto* remapView = new akira::play::views::ControllerRemapView();
+        auto* remapView = new play::views::ControllerRemapView();
         brls::Application::pushActivity(new brls::Activity(remapView), brls::TransitionAnimation::NONE);
         return true;
     });
+}
+
 }

@@ -8,6 +8,8 @@
 
 #include "platform/factory.hpp"
 
+namespace akira::settings::views {
+
 using namespace brls::literals;
 
 SettingsPictureView::SettingsPictureView() {
@@ -109,7 +111,7 @@ void SettingsPictureView::initLocalResolutionSelector() {
             settings->setFsrTarget(SettingsManager::StreamProfile::Local, preset.fsrTarget);
             updateLocalBitrateSlider();
             settings->writeFile();
-            akira::log::info("Local resolution set to {}", preset.label);
+            log::info("Local resolution set to {}", preset.label);
         }
     );
 }
@@ -131,7 +133,7 @@ void SettingsPictureView::initLocalFpsSelector() {
             auto preset = selected == 0 ? VideoFps::Fps30 : VideoFps::Fps60;
             settings->setLocalVideoFPS(preset);
             settings->writeFile();
-            akira::log::info("Local FPS set to {}", SettingsManager::fpsToString(preset));
+            log::info("Local FPS set to {}", SettingsManager::fpsToString(preset));
         }
     );
 }
@@ -169,7 +171,7 @@ void SettingsPictureView::initLocalBitrateSlider() {
             settings->setLocalVideoBitrate(bitrate);
             localBitrateSlider->detail->setText(brls::getStr("akira/settings/kbps", bitrate));
             settings->writeFile();
-            akira::log::info("Local bitrate set to {}", bitrate);
+            log::info("Local bitrate set to {}", bitrate);
         }
     );
 
@@ -204,7 +206,7 @@ void SettingsPictureView::initRemoteResolutionSelector() {
             settings->setFsrTarget(SettingsManager::StreamProfile::Remote, preset.fsrTarget);
             updateRemoteBitrateSlider();
             settings->writeFile();
-            akira::log::info("Remote resolution set to {}", preset.label);
+            log::info("Remote resolution set to {}", preset.label);
         }
     );
 }
@@ -226,7 +228,7 @@ void SettingsPictureView::initRemoteFpsSelector() {
             auto preset = selected == 0 ? VideoFps::Fps30 : VideoFps::Fps60;
             settings->setRemoteVideoFPS(preset);
             settings->writeFile();
-            akira::log::info("Remote FPS set to {}", SettingsManager::fpsToString(preset));
+            log::info("Remote FPS set to {}", SettingsManager::fpsToString(preset));
         }
     );
 }
@@ -264,7 +266,7 @@ void SettingsPictureView::initRemoteBitrateSlider() {
             settings->setRemoteVideoBitrate(bitrate);
             remoteBitrateSlider->detail->setText(brls::getStr("akira/settings/kbps", bitrate));
             settings->writeFile();
-            akira::log::info("Remote bitrate set to {}", bitrate);
+            log::info("Remote bitrate set to {}", bitrate);
         }
     );
 
@@ -299,7 +301,7 @@ void SettingsPictureView::initVpnResolutionSelector() {
             settings->setFsrTarget(SettingsManager::StreamProfile::Vpn, preset.fsrTarget);
             updateVpnBitrateSlider();
             settings->writeFile();
-            akira::log::info("Vpn resolution set to {}", preset.label);
+            log::info("Vpn resolution set to {}", preset.label);
         }
     );
 }
@@ -321,7 +323,7 @@ void SettingsPictureView::initVpnFpsSelector() {
             auto preset = selected == 0 ? VideoFps::Fps30 : VideoFps::Fps60;
             settings->setVpnVideoFPS(preset);
             settings->writeFile();
-            akira::log::info("VPN FPS set to {}", SettingsManager::fpsToString(preset));
+            log::info("VPN FPS set to {}", SettingsManager::fpsToString(preset));
         }
     );
 }
@@ -354,7 +356,7 @@ void SettingsPictureView::initVpnBitrateSlider() {
             settings->setVpnVideoBitrate(bitrate);
             vpnBitrateSlider->detail->setText(brls::getStr("akira/settings/kbps", bitrate));
             settings->writeFile();
-            akira::log::info("VPN bitrate set to {}", bitrate);
+            log::info("VPN bitrate set to {}", bitrate);
         }
     );
 
@@ -422,7 +424,7 @@ void SettingsPictureView::initCloudResolutionSelector(bool pscloud,
             settings->setCloudFsrEnabled(pscloud, fsr);
             updateCloudBitrateSlider(pscloud, slider);
             settings->writeFile();
-            akira::log::info("{} resolution set to {}p{}",
+            log::info("{} resolution set to {}p{}",
                 pscloud ? "PS5 cloud" : "PS Now", resolution, fsr ? " (FSR)" : "");
         }
     );
@@ -461,7 +463,7 @@ void SettingsPictureView::initCloudBitrateSlider(bool pscloud, brls::SliderCell*
             settings->setCloudVideoBitrate(pscloud, bitrate);
             slider->detail->setText(brls::getStr("akira/settings/kbps", bitrate));
             settings->writeFile();
-            akira::log::info("{} bitrate set to {}", pscloud ? "PS5 cloud" : "PS Now", bitrate);
+            log::info("{} bitrate set to {}", pscloud ? "PS5 cloud" : "PS Now", bitrate);
         }
     );
 
@@ -574,7 +576,7 @@ void SettingsPictureView::initRendererSection() {
             [this, choices](int selected) {
                 settings->setVideoRenderer(choices.at(static_cast<std::size_t>(selected)).kind);
                 settings->writeFile();
-                akira::log::info("Renderer set to {} for the next launch", choices.at(static_cast<std::size_t>(selected)).label);
+                log::info("Renderer set to {} for the next launch", choices.at(static_cast<std::size_t>(selected)).label);
             });
     } else {
         rendererChoice->setVisibility(brls::Visibility::GONE);
@@ -590,4 +592,6 @@ void SettingsPictureView::initRendererSection() {
         rendererHeader->setVisibility(brls::Visibility::GONE);
         rendererSection->setVisibility(brls::Visibility::GONE);
     }
+}
+
 }

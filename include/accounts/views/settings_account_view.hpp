@@ -45,7 +45,7 @@ private:
 
     PsnActionButton refreshTokenGate;
 
-    SettingsManager* settings = nullptr;
+    settings::SettingsManager* settings = nullptr;
     ProfileSwitcherView* profileSwitcher = nullptr;
     bool credentialsRevealed = false;
 

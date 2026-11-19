@@ -503,7 +503,7 @@ void ExtendedInputManager::loadDirectGatesOnce()
 {
     static std::once_flag once;
     std::call_once(once, []() {
-        auto* settings = SettingsManager::getInstance();
+        auto* settings = settings::SettingsManager::getInstance();
         if (settings == nullptr)
             return;
 
@@ -532,7 +532,7 @@ bool ExtendedInputManager::directStreamAllowed()
 void ExtendedInputManager::refreshDirectGates(uint16_t vendor_id, uint16_t product_id,
                                              const uint8_t* address)
 {
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
     if (settings == nullptr)
         return;
 
@@ -782,7 +782,7 @@ bool ExtendedInputManager::resolveLightbar(uint8_t* rgb) const
     if (!m_direct_addr_valid || rgb == nullptr)
         return false;
 
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
     if (settings == nullptr)
         return false;
 

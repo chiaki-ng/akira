@@ -120,10 +120,10 @@ void InputManager::applyPadInput(akira::input::Pad& pad, libchiaking::controller
         pad.readButtons(state);
         pad.readTriggers(state);
     } else {
-    const ButtonMapping& mapping = SettingsManager::getInstance()->getButtonMapping();
+    const settings::ButtonMapping& mapping = settings::SettingsManager::getInstance()->getButtonMapping();
     for (const auto& [chiakiBtn, combo] : mapping) {
         if (combo.size() <= 1) continue;
-        if (!SettingsManager::getInstance()->isButtonEnabled(chiakiBtn))
+        if (!settings::SettingsManager::getInstance()->isButtonEnabled(chiakiBtn))
             continue;
         bool allHeld = true;
         for (uint64_t hidBtn : combo) {
@@ -139,7 +139,7 @@ void InputManager::applyPadInput(akira::input::Pad& pad, libchiaking::controller
         SWIPE_TOUCHPAD_LEFT, SWIPE_TOUCHPAD_RIGHT
     };
     for (int i = 0; i < 4; i++) {
-        if (!SettingsManager::getInstance()->isButtonEnabled(swipeConstants[i]))
+        if (!settings::SettingsManager::getInstance()->isButtonEnabled(swipeConstants[i]))
             continue;
         if (m_swipes[i].phase == SyntheticSwipe::Phase::ACTIVE) {
             auto it = mapping.find(swipeConstants[i]);
@@ -159,7 +159,7 @@ void InputManager::applyPadInput(akira::input::Pad& pad, libchiaking::controller
     for (const auto& [chiakiBtn, combo] : mapping) {
         if (combo.empty()) continue;
         if (chiakiBtn & 0xFF000000) continue;
-        if (!SettingsManager::getInstance()->isButtonEnabled(chiakiBtn))
+        if (!settings::SettingsManager::getInstance()->isButtonEnabled(chiakiBtn))
             continue;
 
         if (combo.size() == 1 && (consumedButtons & combo[0]))
@@ -606,7 +606,7 @@ void InputManager::updateSyntheticSwipes(libchiaking::controllers::ControllerInp
         {0, (int16_t)(padMaxY / 2), padMaxX, (int16_t)(padMaxY / 2)},
     };
 
-    const ButtonMapping& mapping = SettingsManager::getInstance()->getButtonMapping();
+    const settings::ButtonMapping& mapping = settings::SettingsManager::getInstance()->getButtonMapping();
 
     akira::input::Pad* pad = m_pads.current();
     if (!pad)
@@ -619,7 +619,7 @@ void InputManager::updateSyntheticSwipes(libchiaking::controllers::ControllerInp
     for (int i = 0; i < 4; i++) {
         SyntheticSwipe& swipe = m_swipes[i];
 
-        if (!SettingsManager::getInstance()->isButtonEnabled(swipeConstants[i])) {
+        if (!settings::SettingsManager::getInstance()->isButtonEnabled(swipeConstants[i])) {
             swipe.buttonWasPressed = false;
             if (swipe.phase == SyntheticSwipe::Phase::ACTIVE) {
                 log::info("Swipe {}: disabled mid-swipe, stopping touch_id={}", swipeNames[i], swipe.touchId);

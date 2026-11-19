@@ -52,7 +52,7 @@ SettingsAccountView::SettingsAccountView() {
     this->inflateFromXMLRes("xml/settings/account.xml");
 
     currentInstance = this;
-    settings = SettingsManager::getInstance();
+    settings = settings::SettingsManager::getInstance();
 
     initAuthSection();
 
@@ -64,8 +64,8 @@ SettingsAccountView::SettingsAccountView() {
          * A legacy <-> normal switch changes which screens exist, and this frame built
          * its menu bar once in its constructor.
          */
-        if (SettingsFrameView::currentInstance)
-            SettingsFrameView::currentInstance->onActiveProfileChanged();
+        if (settings::views::SettingsFrameView::currentInstance)
+            settings::views::SettingsFrameView::currentInstance->onActiveProfileChanged();
     };
     profileCardSlot->addView(profileSwitcher);
 

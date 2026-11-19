@@ -65,7 +65,7 @@ DiscoveryManager* DiscoveryManager::getInstance()
 
 DiscoveryManager::DiscoveryManager()
 {
-    settings = SettingsManager::getInstance();
+    settings = settings::SettingsManager::getInstance();
     backgroundSubscription = app::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
 }
 

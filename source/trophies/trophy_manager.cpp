@@ -36,7 +36,7 @@ TrophyManager* TrophyManager::getInstance()
 
 TrophyManager::TrophyManager()
 {
-    settings = SettingsManager::getInstance();
+    settings = settings::SettingsManager::getInstance();
     dropLegacyCache();
 }
 

@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+namespace akira::settings::views {
+
 class SettingsFrameView : public brls::Box {
 public:
     SettingsFrameView();
@@ -58,5 +60,7 @@ private:
     void updateDescriptionFromFocus();
     void showDescPanel(bool show);
 };
+
+}
 
 #endif // AKIRA_SETTINGS_FRAME_VIEW_HPP

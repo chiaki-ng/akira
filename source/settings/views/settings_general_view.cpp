@@ -17,6 +17,8 @@
 #include "app/views/theme.hpp"
 #include "network/custom_dns.hpp"
 
+namespace akira::settings::views {
+
 using namespace brls::literals;
 
 SettingsGeneralView::SettingsGeneralView() {
@@ -57,7 +59,7 @@ void SettingsGeneralView::initHolepunchRetryToggle() {
         [this](bool isOn) {
             settings->setHolepunchRetry(isOn);
             settings->writeFile();
-            akira::log::info("Holepunch retry set to {}", isOn ? "true" : "false");
+            log::info("Holepunch retry set to {}", isOn ? "true" : "false");
         }
     );
 }
@@ -127,12 +129,12 @@ void SettingsGeneralView::initLanguageSelector() {
 }
 
 void SettingsGeneralView::initThemeSelector() {
-    int count = akira::app::views::themeCount();
+    int count = app::views::themeCount();
 
     std::vector<std::string> options;
     std::vector<std::string> ids;
     for (int i = 0; i < count; i++) {
-        const akira::app::views::Palette& p = akira::app::views::themeAt(i);
+        const app::views::Palette& p = app::views::themeAt(i);
         options.emplace_back(p.name);
         ids.emplace_back(p.id);
     }
@@ -189,7 +191,7 @@ static std::string joinSubnets(const std::vector<std::string>& v) {
 }
 
 static void restartDiscovery() {
-    akira::consoles::DiscoveryManager* dm = akira::consoles::DiscoveryManager::getInstance();
+    consoles::DiscoveryManager* dm = consoles::DiscoveryManager::getInstance();
     if (dm->isServiceEnabled()) {
         dm->setServiceEnabled(false);
         dm->setServiceEnabled(true);
@@ -208,7 +210,7 @@ void SettingsGeneralView::scheduleSubnetsRebuild() {
 void SettingsGeneralView::rebuildSubnetsUI() {
     subnetsBox->clearViews();
 
-    std::string localCidr = akira::consoles::DiscoveryManager::getInstance()->getLocalSubnetCidr();
+    std::string localCidr = consoles::DiscoveryManager::getInstance()->getLocalSubnetCidr();
     if (!localCidr.empty()) {
         auto* defaultRow = new brls::Box();
         defaultRow->setAxis(brls::Axis::ROW);
@@ -221,13 +223,13 @@ void SettingsGeneralView::rebuildSubnetsUI() {
         auto* label = new brls::Label();
         label->setText(localCidr);
         label->setFontSize(18);
-        label->setTextColor(akira::app::views::active().text);
+        label->setTextColor(app::views::active().text);
         defaultRow->addView(label);
 
         auto* tag = new brls::Label();
         tag->setText("akira/settings/this_network"_i18n);
         tag->setFontSize(14);
-        tag->setTextColor(akira::app::views::active().textDim);
+        tag->setTextColor(app::views::active().textDim);
         defaultRow->addView(tag);
 
         subnetsBox->addView(defaultRow);
@@ -255,13 +257,13 @@ void SettingsGeneralView::rebuildSubnetsUI() {
         auto* label = new brls::Label();
         label->setText(subnet);
         label->setFontSize(18);
-        label->setTextColor(akira::app::views::active().text);
+        label->setTextColor(app::views::active().text);
         row->addView(label);
 
         auto* remove = new brls::Label();
         remove->setText("akira/settings/remove"_i18n);
         remove->setFontSize(16);
-        remove->setTextColor(akira::app::views::active().danger);
+        remove->setTextColor(app::views::active().danger);
         row->addView(remove);
 
         subnetsBox->addView(row);
@@ -283,7 +285,7 @@ void SettingsGeneralView::rebuildSubnetsUI() {
     auto* addLabel = new brls::Label();
     addLabel->setText("akira/settings/add_subnet"_i18n);
     addLabel->setFontSize(18);
-    addLabel->setTextColor(akira::app::views::active().accent);
+    addLabel->setTextColor(app::views::active().accent);
     addRow->addView(addLabel);
     subnetsBox->addView(addRow);
     addSubnetRow = addRow;
@@ -301,11 +303,11 @@ void SettingsGeneralView::initCustomDnsCell() {
 void SettingsGeneralView::refreshCustomDnsCell() {
     const auto servers = settings->getCustomDnsServers();
     customDnsCell->setDetailText(servers.empty() ? "akira/settings/custom_dns_system"_i18n
-                                                 : akira::network::CustomDns::formatServers(servers));
+                                                 : network::CustomDns::formatServers(servers));
 }
 
 void SettingsGeneralView::promptCustomDns() {
-    akira::network::views::CustomDnsPrompt::open([this]() { refreshCustomDnsCell(); });
+    network::views::CustomDnsPrompt::open([this]() { refreshCustomDnsCell(); });
 }
 
 void SettingsGeneralView::promptAddSubnet() {
@@ -313,7 +315,7 @@ void SettingsGeneralView::promptAddSubnet() {
         [this](std::string text) {
             if (text.empty())
                 return;
-            if (!akira::consoles::isValidSweepCidr(text)) {
+            if (!consoles::isValidSweepCidr(text)) {
                 brls::sync([]() {
                     auto* dialog = new brls::Dialog("akira/settings/subnet_invalid"_i18n);
                     dialog->addButton("akira/common/ok"_i18n, [dialog]() { dialog->close(); });
@@ -321,7 +323,7 @@ void SettingsGeneralView::promptAddSubnet() {
                 });
                 return;
             }
-            std::string normalized = akira::consoles::normalizeSweepCidr(text);
+            std::string normalized = consoles::normalizeSweepCidr(text);
             std::vector<std::string> subnets = splitSubnets(settings->getDiscoverySubnets());
             if (std::find(subnets.begin(), subnets.end(), normalized) != subnets.end())
                 return;
@@ -353,7 +355,7 @@ void SettingsGeneralView::removeSubnet(const std::string& value) {
 void SettingsGeneralView::initVersionUnlock() {
     lastPowerUserClick = std::chrono::steady_clock::now();
 
-    versionLabel->setText(std::string("Akira ") + akira::app::version::string());
+    versionLabel->setText(std::string("Akira ") + app::version::string());
 
     versionLabel->registerClickAction([this](brls::View*) {
         auto now = std::chrono::steady_clock::now();
@@ -370,10 +372,12 @@ void SettingsGeneralView::initVersionUnlock() {
             settings->setPowerUserMenuUnlocked(true);
             settings->writeFile();
             brls::Application::notify("akira/settings/power_user_unlocked"_i18n);
-            akira::log::info("Power User Menu unlocked");
+            log::info("Power User Menu unlocked");
             powerUserClickCount = 0;
         }
 
         return true;
     });
+}
+
 }

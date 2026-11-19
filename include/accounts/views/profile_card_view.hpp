@@ -33,7 +33,7 @@ private:
     BRLS_BIND(brls::Image, silverImg, "profileCard/silverImg");
     BRLS_BIND(brls::Image, bronzeImg, "profileCard/bronzeImg");
 
-    SettingsManager* settings = nullptr;
+    settings::SettingsManager* settings = nullptr;
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 };
 

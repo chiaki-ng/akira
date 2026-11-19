@@ -13,7 +13,7 @@ namespace akira::consoles {
 Host::Host(const std::string& name)
     : hostName(name)
 {
-    settings = SettingsManager::getInstance();
+    settings = settings::SettingsManager::getInstance();
 }
 
 Host::~Host()

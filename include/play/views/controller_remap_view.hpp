@@ -10,7 +10,9 @@
 #include <switch.h>
 #include "play/remap_target.hpp"
 
+namespace akira::settings {
 class SettingsManager;
+}
 
 namespace akira::play::views {
 
@@ -58,7 +60,7 @@ private:
 
     std::map<uint64_t, brls::Image*> captureIcons;
 
-    SettingsManager* settings = nullptr;
+    settings::SettingsManager* settings = nullptr;
     std::vector<RemappableButton> remappableButtons;
     std::vector<brls::DetailCell*> detailCells;
     std::vector<brls::Box*> switchIconBoxes;

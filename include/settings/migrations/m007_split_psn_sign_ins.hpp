@@ -10,7 +10,7 @@
 
 #include "util/base64.hpp"
 
-namespace chiaki_migrations {
+namespace akira::settings::migrations {
 
 inline void register_m007_split_psn_sign_ins(tomlmigrate::Migrator& m) {
     m.step(7, "move PSN tokens out of profiles into sign-ins keyed by account",

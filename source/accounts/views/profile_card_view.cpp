@@ -47,7 +47,7 @@ std::string cloudSummary(const cloud::Status& status)
 
 ProfileCardView::ProfileCardView() {
     this->inflateFromXMLRes("xml/profile_card.xml");
-    settings = SettingsManager::getInstance();
+    settings = settings::SettingsManager::getInstance();
 
     this->setAlignItems(brls::AlignItems::CENTER);
     this->setBackgroundColor(app::views::active().surface);

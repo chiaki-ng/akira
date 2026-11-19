@@ -15,6 +15,8 @@
 #include <cstdint>
 #include <ranges>
 
+namespace akira::settings::views {
+
 using namespace brls::literals;
 
 namespace {
@@ -36,7 +38,7 @@ void runTlsVerifyProbe(HttpSession& session, brls::DetailCell* cell, std::shared
         { "https://untrusted-root.badssl.com/", false, "untrusted root" },
     };
 
-    akira::log::info("tlsprobe: ===== TLS verification probe (certinfo path) =====");
+    log::info("tlsprobe: ===== TLS verification probe (certinfo path) =====");
     show("running...");
     int failures = 0;
     int done = 0;
@@ -52,7 +54,7 @@ void runTlsVerifyProbe(HttpSession& session, brls::DetailCell* cell, std::shared
         bool asExpected = (connected == c.expectOk);
         if (!asExpected) failures++;
 
-        akira::log::info("tlsprobe: {} {} -> {} ({})",
+        log::info("tlsprobe: {} {} -> {} ({})",
             asExpected ? "PASS" : "FAIL", c.what,
             connected ? "connected" : "rejected",
             res.error.empty() ? "no transport error" : res.error);
@@ -65,12 +67,12 @@ void runTlsVerifyProbe(HttpSession& session, brls::DetailCell* cell, std::shared
 
     if (failures == 0)
     {
-        akira::log::info("tlsprobe: ===== all cases as expected: the service verifies this path =====");
+        log::info("tlsprobe: ===== all cases as expected: the service verifies this path =====");
         show("PASS - service verifies CA, hostname and expiry");
     }
     else
     {
-        akira::log::error("tlsprobe: ===== {} case(s) UNEXPECTED: do not rely on the service here =====", failures);
+        log::error("tlsprobe: ===== {} case(s) UNEXPECTED: do not rely on the service here =====", failures);
         show(fmt::format("FAIL - {} of 5 unexpected, see log", failures));
     }
 }
@@ -113,7 +115,7 @@ SettingsDeveloperView::SettingsDeveloperView() {
         [this](bool isOn) {
             settings->setDevFakeHosts(isOn);
             settings->writeFile();
-            akira::consoles::views::HostListTab::notifyActiveProfileChanged();
+            consoles::views::HostListTab::notifyActiveProfileChanged();
         });
 
     using libchiaking::play::DeveloperTuning;
@@ -154,4 +156,6 @@ SettingsDeveloperView::SettingsDeveloperView() {
         });
         return true;
     });
+}
+
 }

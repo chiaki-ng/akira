@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <format>
 
+namespace akira::settings::views {
+
 using namespace brls::literals;
 
 SettingsPowerUserView::SettingsPowerUserView() {
@@ -33,7 +35,7 @@ SettingsPowerUserView::SettingsPowerUserView() {
     });
 
     flushTrophyCacheBtn->registerClickAction([](brls::View*) {
-        akira::trophies::TrophyManager::getInstance()->flushCache();
+        trophies::TrophyManager::getInstance()->flushCache();
         brls::Application::notify("akira/settings/trophy_cache_flushed"_i18n);
         return true;
     });
@@ -47,7 +49,7 @@ void SettingsPowerUserView::initUnlockBitrateMaxToggle() {
         [this](bool isOn) {
             settings->setUnlockBitrateMax(isOn);
             settings->writeFile();
-            akira::log::info("Unlock Bitrate Max set to {}", isOn ? "true" : "false");
+            log::info("Unlock Bitrate Max set to {}", isOn ? "true" : "false");
         }
     );
 }
@@ -59,7 +61,7 @@ void SettingsPowerUserView::initHideAccountNameToggle() {
         [this](bool isOn) {
             settings->setHideAccountName(isOn);
             settings->writeFile();
-            akira::consoles::views::HostListTab::notifyAccountNameDisplayChanged();
+            consoles::views::HostListTab::notifyAccountNameDisplayChanged();
         }
     );
 }
@@ -71,7 +73,7 @@ void SettingsPowerUserView::initAutoReconnectToggle() {
         [this](bool isOn) {
             settings->setAutoReconnect(isOn);
             settings->writeFile();
-            akira::log::info("Auto Reconnect set to {}", isOn ? "true" : "false");
+            log::info("Auto Reconnect set to {}", isOn ? "true" : "false");
         }
     );
 }
@@ -85,7 +87,7 @@ void SettingsPowerUserView::initPortGuessingToggle() {
         [this](bool isOn) {
             settings->setPortGuessing(isOn);
             settings->writeFile();
-            akira::log::info("Port Guessing set to {}", isOn ? "true" : "false");
+            log::info("Port Guessing set to {}", isOn ? "true" : "false");
         }
     );
 }
@@ -139,7 +141,9 @@ void SettingsPowerUserView::initPortGuessingSocksSlider() {
 }
 
 void SettingsPowerUserView::runGhashBenchmark() {
-    auto* benchmarkView = new akira::app::views::BenchmarkView();
+    auto* benchmarkView = new app::views::BenchmarkView();
     brls::Application::pushActivity(new brls::Activity(benchmarkView));
     benchmarkView->startBenchmark();
+}
+
 }

@@ -163,7 +163,7 @@ void McPsNativePath::readButtons(libchiaking::controllers::ControllerState& stat
     if (!m_report_valid)
         return;
 
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
 
     for (const ButtonMap& m : kButtons) {
         if (!(m_report.buttons & m.ps))

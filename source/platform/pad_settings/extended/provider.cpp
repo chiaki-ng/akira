@@ -27,7 +27,7 @@ std::uint8_t ExtendedPadSettingsProvider::nextPreviewSequence()
     return seq++;
 }
 
-std::string ExtendedPadSettingsProvider::resolveKey(const SettingsManager& settings, uint16_t vendorId, uint16_t productId,
+std::string ExtendedPadSettingsProvider::resolveKey(const settings::SettingsManager& settings, uint16_t vendorId, uint16_t productId,
                                       const uint8_t* address, bool switchNative, bool joycon)
 {
     if (address != nullptr) {
@@ -50,7 +50,7 @@ std::string ExtendedPadSettingsProvider::resolveKey(const SettingsManager& setti
     return play::kRumbleKeyDefault;
 }
 
-play::RumbleProfile ExtendedPadSettingsProvider::resolveProfile(const SettingsManager& settings, uint16_t vendorId,
+play::RumbleProfile ExtendedPadSettingsProvider::resolveProfile(const settings::SettingsManager& settings, uint16_t vendorId,
                                                    uint16_t productId, const uint8_t* address,
                                                    bool switchNative, bool joycon)
 {
@@ -62,14 +62,14 @@ bool ExtendedPadSettingsProvider::switchNative() const
     return m_pad.kind == input::PadPathKind::JoyCon || m_pad.kind == input::PadPathKind::SwitchPro;
 }
 
-std::string ExtendedPadSettingsProvider::currentKey(const SettingsManager& settings) const
+std::string ExtendedPadSettingsProvider::currentKey(const settings::SettingsManager& settings) const
 {
     return resolveKey(settings, m_pad.vendor_id, m_pad.product_id,
                       m_pad.has_address ? m_pad.bt_addr : nullptr,
                       switchNative(), m_pad.kind == input::PadPathKind::JoyCon);
 }
 
-std::string ExtendedPadSettingsProvider::rumbleKey(SettingsManager& settings)
+std::string ExtendedPadSettingsProvider::rumbleKey(settings::SettingsManager& settings)
 {
     if (!switchNative() && (m_pad.vendor_id != 0 || m_pad.product_id != 0)) {
         const play::RumbleProfile current = settings.getRumbleProfile(currentKey(settings));
@@ -80,7 +80,7 @@ std::string ExtendedPadSettingsProvider::rumbleKey(SettingsManager& settings)
     return currentKey(settings);
 }
 
-std::optional<std::string> ExtendedPadSettingsProvider::outputSummary(const SettingsManager& settings) const
+std::optional<std::string> ExtendedPadSettingsProvider::outputSummary(const settings::SettingsManager& settings) const
 {
     if (!directOutput())
         return std::nullopt;
@@ -127,8 +127,8 @@ bool ExtendedPadSettingsProvider::tunesMotors() const
 void ExtendedPadSettingsProvider::addOutputRows(brls::Box& content, play::RumbleProfile& profile,
                                   const Action& store, const Action& reopen)
 {
-    auto* card = SettingsPadView::makeCard();
-    card->addView(SettingsPadView::makeHeading("akira/settings/rumble_output_heading"_i18n));
+    auto* card = settings::views::SettingsPadView::makeCard();
+    card->addView(settings::views::SettingsPadView::makeHeading("akira/settings/rumble_output_heading"_i18n));
 
     if (m_driver.reason == PadDriverReason::Released) {
         auto* row = new brls::DetailCell();
@@ -140,7 +140,7 @@ void ExtendedPadSettingsProvider::addOutputRows(brls::Box& content, play::Rumble
             brls::Application::getTheme()["brls/text_disabled"]);
         card->addView(row);
 
-        auto* why = SettingsPadView::makeHeading("akira/settings/rumble_output_released_hint"_i18n);
+        auto* why = settings::views::SettingsPadView::makeHeading("akira/settings/rumble_output_released_hint"_i18n);
         why->setMarginLeft(15.0f);
         why->setMarginRight(15.0f);
         why->setMarginBottom(6.0f);
@@ -189,8 +189,8 @@ void ExtendedPadSettingsProvider::addOutputRows(brls::Box& content, play::Rumble
 void ExtendedPadSettingsProvider::addLightbarRows(brls::Box& content, play::RumbleProfile& profile,
                                     const Action& store, const Action& reopen)
 {
-    auto* card = SettingsPadView::makeCard();
-    card->addView(SettingsPadView::makeHeading("akira/settings/lightbar_heading"_i18n));
+    auto* card = settings::views::SettingsPadView::makeCard();
+    card->addView(settings::views::SettingsPadView::makeHeading("akira/settings/lightbar_heading"_i18n));
 
     auto* on = new brls::BooleanCell();
     on->setMarginLeft(15.0f);
@@ -235,7 +235,7 @@ void ExtendedPadSettingsProvider::addLightbarRows(brls::Box& content, play::Rumb
     card->addView(picker);
     card->addView(swatch);
 
-    auto* how = SettingsPadView::makeHeading(m_driver.driver == PadDriver::Akira
+    auto* how = settings::views::SettingsPadView::makeHeading(m_driver.driver == PadDriver::Akira
                                 ? "akira/settings/lightbar_hint"_i18n
                                 : "akira/settings/lightbar_idle"_i18n);
     how->setMarginLeft(15.0f);

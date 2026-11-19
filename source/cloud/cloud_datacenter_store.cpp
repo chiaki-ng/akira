@@ -9,7 +9,7 @@ namespace akira::cloud {
 using libchiaking::unexpected;
 using libchiaking::play::DatacenterName;
 
-CloudDatacenterStore::CloudDatacenterStore(SettingsManager& settings)
+CloudDatacenterStore::CloudDatacenterStore(settings::SettingsManager& settings)
     : settings(settings)
 {
 }

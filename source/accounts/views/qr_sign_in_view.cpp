@@ -136,7 +136,7 @@ void QrSignInView::onSignedIn(SignInOutcome outcome, const Accounts::User& user)
         return;
     }
 
-    SettingsManager* settings = SettingsManager::getInstance();
+    settings::SettingsManager* settings = settings::SettingsManager::getInstance();
     if (createProfile || !settings->getActiveProfile())
         settings->setActiveProfileId(settings->addProfile(Profile{}));
 

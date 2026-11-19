@@ -149,16 +149,16 @@ std::optional<HidSixAxisSensorState> HosPadPath::readGyro()
         bool leftConnected  = attrib & HidNpadAttribute_IsLeftConnected;
         bool rightConnected = attrib & HidNpadAttribute_IsRightConnected;
 
-        switch (SettingsManager::getInstance()->getGyroSource()) {
-            case GyroSource::Left:
+        switch (settings::SettingsManager::getInstance()->getGyroSource()) {
+            case settings::GyroSource::Left:
                 if (!leftConnected) return std::nullopt;
                 index = 0;
                 break;
-            case GyroSource::Right:
+            case settings::GyroSource::Right:
                 if (!rightConnected) return std::nullopt;
                 index = 1;
                 break;
-            case GyroSource::Auto:
+            case settings::GyroSource::Auto:
             default:
                 if (leftConnected)       index = 0;
                 else if (rightConnected) index = 1;

@@ -32,7 +32,7 @@ private:
     void confirmRemoveProfile(int64_t id, const std::string& label);
     void addProfileFlow();
 
-    SettingsManager* settings = nullptr;
+    settings::SettingsManager* settings = nullptr;
     ProfileCardView* card = nullptr;
     brls::Box* header = nullptr;
     brls::Box* panel = nullptr;

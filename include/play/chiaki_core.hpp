@@ -11,7 +11,9 @@
 #include "log/core_log.hpp"
 #include "accounts/accounts.hpp"
 
+namespace akira::settings {
 class SettingsManager;
+}
 
 namespace akira::play {
 
@@ -21,7 +23,7 @@ public:
 
     static constexpr const char* recordRoot = "sdmc:/switch/akira";
 
-    explicit ChiakiCore(SettingsManager& settings);
+    explicit ChiakiCore(settings::SettingsManager& settings);
     ~ChiakiCore();
 
     ChiakiCore(const ChiakiCore&) = delete;
@@ -52,7 +54,7 @@ private:
 
     static ChiakiCore* instance;
 
-    SettingsManager& settings;
+    settings::SettingsManager& settings;
     libchiaking::platform::horizon::ThreadingProvider threadingProvider;
     libchiaking::platform::SteadyClock steadyClock;
     libchiaking::platform::SystemClock systemClock;

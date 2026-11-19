@@ -373,7 +373,7 @@ VkShaderStageFlags VulkanRenderer::pushStages(Program program)
 
 VulkanRenderer::FsrConfig VulkanRenderer::fsrConfig(int inputWidth, int inputHeight, VkExtent2D display)
 {
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
     FsrConfig config{
         .rcas = settings->getRcasEnabled(),
         .dithering = settings->getEnableDithering(),
@@ -437,15 +437,15 @@ bool VulkanRenderer::initialize(int frame_width, int frame_height)
     if (!queryCapabilities() || !createSharedObjects())
         return false;
 
-    const float saved_x = SettingsManager::getInstance()->getStatsOverlayX();
-    const float saved_y = SettingsManager::getInstance()->getStatsOverlayY();
+    const float saved_x = settings::SettingsManager::getInstance()->getStatsOverlayX();
+    const float saved_y = settings::SettingsManager::getInstance()->getStatsOverlayY();
     if (saved_x >= 0.0f && saved_y >= 0.0f)
     {
         m_overlay_norm_x.store(saved_x, std::memory_order_relaxed);
         m_overlay_norm_y.store(saved_y, std::memory_order_relaxed);
     }
 
-    m_dithering_enabled.store(SettingsManager::getInstance()->getEnableDithering(), std::memory_order_relaxed);
+    m_dithering_enabled.store(settings::SettingsManager::getInstance()->getEnableDithering(), std::memory_order_relaxed);
     m_initialized.store(true, std::memory_order_release);
     akira::log::info("VulkanRenderer: initialized (dithering={})", m_dithering_enabled.load());
     return true;
@@ -1254,7 +1254,7 @@ std::optional<VulkanRenderer::Pipeline> VulkanRenderer::createPipeline(const Pip
 
     const std::array<std::uint32_t, 2> constants{
         key.dithering ? VK_TRUE : VK_FALSE,
-        std::bit_cast<std::uint32_t>(SettingsManager::getInstance()->getDitheringStrength()),
+        std::bit_cast<std::uint32_t>(settings::SettingsManager::getInstance()->getDitheringStrength()),
     };
     const std::array entries{
         VkSpecializationMapEntry{ 0, 0, sizeof(std::uint32_t) },
@@ -1527,7 +1527,7 @@ void VulkanRenderer::renderVideo()
             width, height);
         if (m_fsr)
             retire(Retired{ .fsr = std::move(m_fsr) });
-        auto* settings = SettingsManager::getInstance();
+        auto* settings = settings::SettingsManager::getInstance();
         const int targetH = settings->getEasuTargetHeight();
         const int targetW = (targetH * 16) / 9;
         const bool easuNeeded = settings->getEasuEnabled() && targetH > 0 && (width < targetW || height < targetH);
@@ -2338,7 +2338,7 @@ void VulkanRenderer::overlayTouchEnd()
     if (sw <= 0.0f || sh <= 0.0f)
         return;
 
-    SettingsManager::getInstance()->setStatsOverlayPosition(
+    settings::SettingsManager::getInstance()->setStatsOverlayPosition(
         m_overlay_x.load(std::memory_order_relaxed) / sw,
         m_overlay_y.load(std::memory_order_relaxed) / sh);
     m_overlay_pos_dirty.store(true, std::memory_order_relaxed);

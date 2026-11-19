@@ -23,7 +23,7 @@ namespace akira::platform::github
 {
 
 void UpdateFlow::checkOnLaunch() {
-    SettingsManager* settings = SettingsManager::getInstance();
+    settings::SettingsManager* settings = settings::SettingsManager::getInstance();
     if (!settings->getAutoCheckUpdates())
         return;
     if (app::version::isDev())
@@ -48,7 +48,7 @@ void UpdateFlow::checkOnLaunch() {
 }
 
 void UpdateFlow::simulate() {
-    SettingsManager* settings = SettingsManager::getInstance();
+    settings::SettingsManager* settings = settings::SettingsManager::getInstance();
     std::string initial = settings->getDevUpdateServer();
 
     brls::Application::getImeManager()->openForText(

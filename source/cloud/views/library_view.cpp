@@ -279,7 +279,7 @@ private:
 
 LibraryView::LibraryView()
 {
-    if (auto saved = LibraryListing::filterNamed(SettingsManager::getInstance()->getCloudFilter()))
+    if (auto saved = LibraryListing::filterNamed(settings::SettingsManager::getInstance()->getCloudFilter()))
         listing.pick(*saved);
 
     this->setAxis(brls::Axis::COLUMN);
@@ -341,7 +341,7 @@ LibraryView::LibraryView()
     actions->addView(searchButton);
     updateSearchButton();
 
-    sortState = SettingsManager::getInstance()->getCloudSortState();
+    sortState = settings::SettingsManager::getInstance()->getCloudSortState();
 
     sortButton = new brls::Button();
     sortButton->setMarginRight(8);
@@ -848,7 +848,7 @@ void LibraryView::rebuildFilterControls()
 void LibraryView::pickFilter(LibraryFilter filter)
 {
     listing.pick(filter);
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
     settings->setCloudFilter(std::string(LibraryListing::key(filter)));
     settings->writeFile();
     applyFilter();
@@ -932,8 +932,8 @@ void LibraryView::openSortPicker()
             if (!*guard)
                 return;
             sortState = sel;
-            SettingsManager::getInstance()->setCloudSortState(sortState);
-            SettingsManager::getInstance()->writeFile();
+            settings::SettingsManager::getInstance()->setCloudSortState(sortState);
+            settings::SettingsManager::getInstance()->writeFile();
             updateSortButton();
             applyFilter();
         },
@@ -995,7 +995,7 @@ void LibraryView::toggleShortcut(const Game& game)
 {
     if (!game.launchable())
         return;
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
     std::vector<Game> shortcuts = settings->getCloudShortcuts();
     auto it = std::find_if(shortcuts.begin(), shortcuts.end(),
         [&](const Game& g) { return g.productId == game.productId; });

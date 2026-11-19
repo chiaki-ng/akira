@@ -6,7 +6,7 @@
 
 #include <string>
 
-namespace chiaki_migrations {
+namespace akira::settings::migrations {
 
 inline toml::array datacenter_rows_from_json(const std::string& json) {
     toml::array rows;

@@ -3,6 +3,8 @@
 
 #include <borealis.hpp>
 
+namespace akira::settings::views {
+
 class ConfigViewTab : public brls::Box {
 public:
     ConfigViewTab();
@@ -22,5 +24,7 @@ private:
     std::string censorValue(const std::string& value);
     std::string processLine(const std::string& line);
 };
+
+}
 
 #endif

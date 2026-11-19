@@ -12,7 +12,7 @@ using namespace brls::literals;
 AddHostTab::AddHostTab() {
     this->inflateFromXMLRes("xml/tabs/add_host.xml");
 
-    settings = SettingsManager::getInstance();
+    settings = settings::SettingsManager::getInstance();
 
     hostNameInput->init(
         "akira/add_host/console_name"_i18n,
@@ -66,7 +66,7 @@ void AddHostTab::onSaveClicked() {
         return;
     }
 
-    if (!SettingsManager::isValidHostAddress(addr)) {
+    if (!settings::SettingsManager::isValidHostAddress(addr)) {
         statusLabel->setText("akira/add_host/error_invalid_ip"_i18n);
         statusLabel->setTextColor(app::views::active().danger);
         return;

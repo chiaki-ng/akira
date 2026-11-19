@@ -52,12 +52,12 @@ Connection::~Connection()
     ending.reset();
 }
 
-auto Connection::preferencesFor(consoles::Host& host, SettingsManager& settings) -> std::optional<play::Preferences>
+auto Connection::preferencesFor(consoles::Host& host, settings::SettingsManager& settings) -> std::optional<play::Preferences>
 {
     const bool vpn = !host.isRemote() && network::WireGuardManager::instance().isConnected();
-    uint32_t height = static_cast<uint32_t>(SettingsManager::resolutionToInt(
+    uint32_t height = static_cast<uint32_t>(settings::SettingsManager::resolutionToInt(
         vpn ? settings.getVpnVideoResolution() : settings.getVideoResolution(&host)));
-    const auto fps = static_cast<uint32_t>(SettingsManager::fpsToInt(
+    const auto fps = static_cast<uint32_t>(settings::SettingsManager::fpsToInt(
         vpn ? settings.getVpnVideoFPS() : settings.getVideoFPS(&host)));
     const auto bitrate = static_cast<uint32_t>(std::clamp(
         vpn ? settings.getVpnVideoBitrate() : settings.getVideoBitrate(&host),
@@ -75,7 +75,7 @@ auto Connection::preferencesFor(consoles::Host& host, SettingsManager& settings)
         return std::nullopt;
     }
 
-    const auto target = host.isPS5() ? TakionTarget::PS5 : TakionTarget::PS4;
+    const auto target = host.isPS5() ? settings::TakionTarget::PS5 : settings::TakionTarget::PS4;
     const auto takionVersion = host.getPinnedTakionVersion().value_or(
         static_cast<uint32_t>(std::max(settings.getTakionVersion(target), 0)));
     if (host.getPinnedTakionVersion())
@@ -91,7 +91,7 @@ auto Connection::preferencesFor(consoles::Host& host, SettingsManager& settings)
     return preferences;
 }
 
-auto Connection::cloudPreferencesFor(const cloud::CloudLaunch& launch, SettingsManager& settings)
+auto Connection::cloudPreferencesFor(const cloud::CloudLaunch& launch, settings::SettingsManager& settings)
     -> std::optional<play::Preferences>
 {
     const bool ps5Cloud = launch.ps5();
@@ -110,11 +110,11 @@ auto Connection::cloudPreferencesFor(const cloud::CloudLaunch& launch, SettingsM
         return std::nullopt;
     }
     return tuned(*picture,
-        static_cast<uint32_t>(std::max(settings.getTakionVersion(ps5Cloud ? TakionTarget::PS5Cloud : TakionTarget::PSNow), 0)),
+        static_cast<uint32_t>(std::max(settings.getTakionVersion(ps5Cloud ? settings::TakionTarget::PS5Cloud : settings::TakionTarget::PSNow), 0)),
         settings);
 }
 
-auto Connection::tuned(play::PictureRequest picture, std::uint32_t takionVersion, SettingsManager& settings)
+auto Connection::tuned(play::PictureRequest picture, std::uint32_t takionVersion, settings::SettingsManager& settings)
     -> std::optional<play::Preferences>
 {
     play::DeveloperTuning::Facts facts;
@@ -303,7 +303,7 @@ bool Connection::addPlayer(uint8_t slot, std::optional<int64_t> profileId)
     if (!seat || seat->is_first() || !running)
         return false;
 
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
     std::optional<libchiaking::AccountId> account;
     std::string label;
     if (ps5)
@@ -390,7 +390,7 @@ bool Connection::seatPlaying(uint8_t slot) const
 auto Connection::couchProfileChoices(uint8_t slot) const -> std::vector<CouchProfileChoice>
 {
     std::vector<CouchProfileChoice> choices;
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
     if (!ps5 || !settings || slot == 0 || slot >= seatCount)
         return choices;
 

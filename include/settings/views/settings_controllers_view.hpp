@@ -8,6 +8,8 @@
 
 #include "platform/pads/pad.hpp"
 
+namespace akira::settings::views {
+
 class SettingsControllersView : public brls::Box {
 public:
     SettingsControllersView();
@@ -19,5 +21,7 @@ private:
 
     brls::Box* list = nullptr;
 };
+
+}
 
 #endif // AKIRA_SETTINGS_CONTROLLERS_VIEW_HPP

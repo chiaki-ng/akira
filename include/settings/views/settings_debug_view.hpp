@@ -7,6 +7,8 @@
 
 #include "settings/settings_manager.hpp"
 
+namespace akira::settings::views {
+
 class SettingsDebugView : public brls::Box {
 public:
     SettingsDebugView();
@@ -33,5 +35,7 @@ private:
     void initDebugDiscoveryLogToggle();
     void initDebugFfmpegLogToggle();
 };
+
+}
 
 #endif // AKIRA_SETTINGS_DEBUG_VIEW_HPP

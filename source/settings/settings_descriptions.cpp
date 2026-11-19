@@ -11,7 +11,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace akira {
+namespace akira::settings {
 
 static const auto kHelpFiles = std::to_array<const char*>({
     "general", "quality", "controls", "debug", "account", "poweruser", "developer",

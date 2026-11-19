@@ -4,7 +4,7 @@
 
 #include <string>
 
-namespace chiaki_migrations {
+namespace akira::settings::migrations {
 
 inline void register_m001_unify_psn_auth(tomlmigrate::Migrator& m) {
     m.step(1, "unify psn auth: promote per-host creds to global, backfill per-host",

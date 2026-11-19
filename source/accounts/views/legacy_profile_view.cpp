@@ -149,7 +149,7 @@ void LegacyProfileView::create() {
         return;
     }
 
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
 
     Profile profile;
     profile.legacy = true;

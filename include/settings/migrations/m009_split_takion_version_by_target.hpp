@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace chiaki_migrations {
+namespace akira::settings::migrations {
 
 inline void register_m009_split_takion_version_by_target(tomlmigrate::Migrator& m) {
     m.step(9, "split the Takion version override into one per stream target",

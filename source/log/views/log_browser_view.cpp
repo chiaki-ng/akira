@@ -431,7 +431,7 @@ private:
 } // namespace
 
 LogBrowserView::LogBrowserView()
-    : LogBrowserView(SettingsManager::LOG_DIR, SettingsManager::LOG_DIR)
+    : LogBrowserView(akira::settings::SettingsManager::LOG_DIR, akira::settings::SettingsManager::LOG_DIR)
 {
 }
 

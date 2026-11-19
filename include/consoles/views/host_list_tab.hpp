@@ -60,7 +60,7 @@ private:
 
     accounts::views::PsnActionButton findRemoteGate;
 
-    SettingsManager* settings = nullptr;
+    settings::SettingsManager* settings = nullptr;
     DiscoveryManager* discovery = nullptr;
 
     bool entrancePlayed = false;

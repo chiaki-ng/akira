@@ -7,6 +7,8 @@
 
 #include "settings/settings_manager.hpp"
 
+namespace akira::settings::views {
+
 class SettingsPowerUserView : public brls::Box {
 public:
     SettingsPowerUserView();
@@ -32,5 +34,7 @@ private:
     void initPortGuessingSocksSlider();
     void runGhashBenchmark();
 };
+
+}
 
 #endif // AKIRA_SETTINGS_POWERUSER_VIEW_HPP

@@ -38,7 +38,7 @@ public:
     RenewedObserver renewed;
 };
 
-Accounts::Accounts(libchiaking::ChiakiNg& chiaki, SettingsManager& settings,
+Accounts::Accounts(libchiaking::ChiakiNg& chiaki, settings::SettingsManager& settings,
                    platform::ThreadingProvider& threading, platform::ClockProvider& clock,
                    platform::SecureRandomProvider& random)
     : chiaki(chiaki),

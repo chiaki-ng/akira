@@ -23,7 +23,9 @@
 #include "accounts/accounts.hpp"
 #include "accounts/status.hpp"
 
+namespace akira::settings {
 class SettingsManager;
+}
 
 namespace akira::trophies {
 
@@ -121,7 +123,7 @@ private:
     void logLibrary(const std::vector<Title>& titles) const;
     void runStaleCheck();
 
-    SettingsManager* settings = nullptr;
+    settings::SettingsManager* settings = nullptr;
 
     brls::RepeatingTimer staleTimer;
     bool autoRefreshStarted = false;

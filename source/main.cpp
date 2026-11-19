@@ -62,7 +62,7 @@ extern "C" {
 }
 
 static void ffmpeg_log_callback(void*, int level, const char* fmt, va_list vl) {
-    if (SettingsManager::getInstance()->getSilenceAllLogs() || !SettingsManager::getInstance()->getDebugFfmpegLog())
+    if (akira::settings::SettingsManager::getInstance()->getSilenceAllLogs() || !akira::settings::SettingsManager::getInstance()->getDebugFfmpegLog())
         return;
     if (level > av_log_get_level())
         return;
@@ -162,7 +162,7 @@ public:
 };
 
 static void startSonyDnsStartupCheck() {
-    if (SettingsManager::getInstance()->isLegacyProfileActive())
+    if (akira::settings::SettingsManager::getInstance()->isLegacyProfileActive())
         return;
 
     brls::async([] {
@@ -201,7 +201,7 @@ static void startSonyDnsStartupCheck() {
 
 void initCustomTheme()
 {
-    akira::app::views::setActiveTheme(SettingsManager::getInstance()->getUiTheme());
+    akira::app::views::setActiveTheme(akira::settings::SettingsManager::getInstance()->getUiTheme());
     akira::app::views::applyToBorealis();
 }
 
@@ -357,12 +357,12 @@ void akiraOpenTrophies()
      * Also guarded here, not only at registration: the action is registered once per view
      * but the active profile can change under it.
      */
-    if (SettingsManager::getInstance()->isLegacyProfileActive()) {
+    if (akira::settings::SettingsManager::getInstance()->isLegacyProfileActive()) {
         brls::Application::notify("akira/trophies/no_psn_token"_i18n);
         return;
     }
 
-    if (!SettingsManager::getInstance()->getActiveProfileTrophiesEnabled()) {
+    if (!akira::settings::SettingsManager::getInstance()->getActiveProfileTrophiesEnabled()) {
         brls::Application::notify("akira/trophies/disabled_for_profile"_i18n);
         return;
     }
@@ -378,13 +378,13 @@ void akiraOpenTrophies()
 
 void akiraOpenSettings()
 {
-    if (SettingsManager::getInstance()->getProfiles().empty()) {
+    if (akira::settings::SettingsManager::getInstance()->getProfiles().empty()) {
         auto* setupFrame = new brls::AppletFrame(new akira::accounts::views::ProfileSetupView(false, true));
         akira::app::views::decorateAkiraHeader(setupFrame);
         brls::Application::pushActivity(new brls::Activity(setupFrame));
         return;
     }
-    auto* frame = new brls::AppletFrame(new SettingsFrameView());
+    auto* frame = new brls::AppletFrame(new akira::settings::views::SettingsFrameView());
     akira::app::views::decorateAkiraHeader(frame);
     brls::Application::pushActivity(new brls::Activity(frame));
 }
@@ -395,7 +395,7 @@ void akira::app::views::registerAkiraTabActions(brls::View* view)
      * Trophies need a PSN token, so in legacy the action is not registered at all rather
      * than opening a screen that can only tell the user no.
      */
-    if (!SettingsManager::getInstance()->isLegacyProfileActive())
+    if (!akira::settings::SettingsManager::getInstance()->isLegacyProfileActive())
     {
         view->registerAction("akira/tabs/trophies"_i18n, brls::ControllerButton::BUTTON_LB, [](brls::View*) {
             akiraOpenTrophies();
@@ -525,10 +525,10 @@ int main(int argc, char* argv[])
     akira::log::Log::process().setLevel(akira::log::Level::info);
     const Result mainPlaced = akira::app::WorkerCores::placeMainThread();
     akira::app::CrashReport::stage("settings");
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = akira::settings::SettingsManager::getInstance();
     settings->applyChiakiLogVerbosity();
     if (settings->getEnableFileLogging())
-        akira::AppLog::open(SettingsManager::getLogFilePath());
+        akira::AppLog::open(akira::settings::SettingsManager::getLogFilePath());
     akira::app::CrashReport::stage("log open");
     akira::log::info("akira {} starting", AKIRA_VERSION_STRING);
     akira::log::info("main thread core {} placement {:#x}", svcGetCurrentProcessorNumber(), mainPlaced);
@@ -641,7 +641,7 @@ int main(int argc, char* argv[])
     brls::Application::registerXMLView("TrophyListTab", akira::trophies::views::TrophyListTab::create);
     brls::Application::registerXMLView("AddHostTab", akira::consoles::views::AddHostTab::create);
     brls::Application::registerXMLView("BuildInfoTab", akira::app::views::BuildInfoTab::create);
-    brls::Application::registerXMLView("ConfigViewTab", ConfigViewTab::create);
+    brls::Application::registerXMLView("ConfigViewTab", akira::settings::views::ConfigViewTab::create);
     brls::Application::registerXMLView("NetworkUtilitiesTab", akira::network::views::NetworkUtilitiesTab::create);
     brls::Application::registerXMLView("StreamView", akira::play::views::StreamView::create);
     brls::Application::registerXMLView("EnterPinView", akira::consoles::views::EnterPinView::create);

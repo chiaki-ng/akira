@@ -15,6 +15,8 @@
 #include "platform/pads/pad.hpp"
 #include "platform/pad_settings/provider.hpp"
 
+namespace akira::settings::views {
+
 class SettingsPadView : public brls::Box {
 public:
     SettingsPadView(const akira::input::PadDescription& pad);
@@ -42,12 +44,14 @@ private:
 
     SettingsManager*            settings = nullptr;
     akira::input::PadDescription m_pad;
-    akira::play::RumbleProfile  m_profile;
+    play::RumbleProfile  m_profile;
     std::unique_ptr<akira::platform::PadSettingsProvider> m_platform;
 
     std::string                  m_key;
 
     std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 };
+
+}
 
 #endif // AKIRA_SETTINGS_PAD_VIEW_HPP

@@ -11,7 +11,7 @@
 
 #include "util/base64.hpp"
 
-namespace chiaki_migrations {
+namespace akira::settings::migrations {
 
 inline void register_m008_nest_account_data_in_profiles(tomlmigrate::Migrator& m) {
     m.step(8, "move sign-ins and pairings under the profile that owns their account",

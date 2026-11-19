@@ -5,7 +5,9 @@
 
 #include <libchiaking/platform/platform.hpp>
 
+namespace akira::settings {
 enum class ChiakiLogVerbosity;
+}
 
 namespace akira {
 
@@ -14,7 +16,7 @@ public:
     CoreLog() noexcept;
 
     void write(libchiaking::platform::LogRecord record) noexcept override;
-    void follow(ChiakiLogVerbosity verbosity, bool streaming, bool silenced) noexcept;
+    void follow(settings::ChiakiLogVerbosity verbosity, bool streaming, bool silenced) noexcept;
 
 private:
     static constexpr auto bit(libchiaking::platform::LogSeverity severity) noexcept -> std::uint8_t
@@ -22,7 +24,7 @@ private:
         return static_cast<std::uint8_t>(1u << static_cast<unsigned>(severity));
     }
 
-    static auto maskFor(ChiakiLogVerbosity verbosity, bool streaming) noexcept -> std::uint8_t;
+    static auto maskFor(settings::ChiakiLogVerbosity verbosity, bool streaming) noexcept -> std::uint8_t;
 
     std::atomic<std::uint8_t> mask;
 };

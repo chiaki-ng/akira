@@ -5,7 +5,9 @@
 
 #include <libchiaking/play_types.hpp>
 
+namespace akira::settings {
 class SettingsManager;
+}
 
 namespace akira::cloud {
 
@@ -14,7 +16,7 @@ public:
     using Measurement = libchiaking::play::DatacenterMeasurement;
     using ServiceGeneration = libchiaking::catalog::ServiceGeneration;
 
-    explicit CloudDatacenterStore(SettingsManager& settings);
+    explicit CloudDatacenterStore(settings::SettingsManager& settings);
 
     [[nodiscard]] auto load(ServiceGeneration service)
         -> libchiaking::Expected<std::vector<Measurement>, Error> override;
@@ -24,7 +26,7 @@ public:
 private:
     static auto pscloud(ServiceGeneration service) noexcept -> bool;
 
-    SettingsManager& settings;
+    settings::SettingsManager& settings;
 };
 
 }

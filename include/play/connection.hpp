@@ -28,8 +28,12 @@ namespace akira::play {
 class Session;
 
 }
+namespace akira::settings {
 class SettingsManager;
+}
+namespace akira::settings {
 enum class TakionTarget : uint8_t;
+}
 
 namespace akira::play {
 
@@ -85,8 +89,8 @@ public:
     Connection(const Connection&) = delete;
     Connection& operator=(const Connection&) = delete;
 
-    static auto preferencesFor(consoles::Host& host, SettingsManager& settings) -> std::optional<libchiaking::play::Preferences>;
-    static auto cloudPreferencesFor(const cloud::CloudLaunch& launch, SettingsManager& settings)
+    static auto preferencesFor(consoles::Host& host, settings::SettingsManager& settings) -> std::optional<libchiaking::play::Preferences>;
+    static auto cloudPreferencesFor(const cloud::CloudLaunch& launch, settings::SettingsManager& settings)
         -> std::optional<libchiaking::play::Preferences>;
     static auto consoleStarter(std::shared_ptr<libchiaking::consoles::Console> console,
                                std::shared_ptr<libchiaking::users::PsUser> player,
@@ -117,7 +121,7 @@ private:
     auto session() const -> std::shared_ptr<libchiaking::play::Session>;
     void post(std::function<void(Connection&, ConnectionListener&)> work);
     void routeCouchFeedback(const libchiaking::controllers::ControllerFeedback& feedback);
-    static auto tuned(libchiaking::play::PictureRequest picture, std::uint32_t takionVersion, SettingsManager& settings)
+    static auto tuned(libchiaking::play::PictureRequest picture, std::uint32_t takionVersion, settings::SettingsManager& settings)
         -> std::optional<libchiaking::play::Preferences>;
 
     void on_stream_description(const libchiaking::media::StreamDescription& description) override;

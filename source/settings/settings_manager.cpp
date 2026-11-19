@@ -25,10 +25,12 @@
 #include <regex>
 #include <sys/stat.h>
 
+namespace akira::settings {
+
 namespace {
 
-using akira::play::RemapTarget;
-using akira::play::remapKey;
+using play::RemapTarget;
+using play::remapKey;
 
 ChiakiLogVerbosity chiakiLogVerbosityFromString(const std::string& value)
 {
@@ -52,23 +54,23 @@ const char* chiakiLogVerbosityToString(ChiakiLogVerbosity verbosity)
     }
 }
 
-akira::log::Level appLogLevel(ChiakiLogVerbosity verbosity)
+log::Level appLogLevel(ChiakiLogVerbosity verbosity)
 {
     switch (verbosity) {
-        case ChiakiLogVerbosity::Debug: return akira::log::Level::debug;
-        case ChiakiLogVerbosity::Trace: return akira::log::Level::verbose;
+        case ChiakiLogVerbosity::Debug: return log::Level::debug;
+        case ChiakiLogVerbosity::Trace: return log::Level::verbose;
         case ChiakiLogVerbosity::Normal:
         case ChiakiLogVerbosity::Info:
-        default:                        return akira::log::Level::info;
+        default:                        return log::Level::info;
     }
 }
 
-akira::play::RumbleSource sourceFromLegacyPreset(HapticPreset preset)
+play::RumbleSource sourceFromLegacyPreset(HapticPreset preset)
 {
     switch (preset) {
-        case HapticPreset::Disabled:      return akira::play::RumbleSource::Off;
-        case HapticPreset::ConsoleRumble: return akira::play::RumbleSource::Game;
-        default:                          return akira::play::RumbleSource::Derived;
+        case HapticPreset::Disabled:      return play::RumbleSource::Off;
+        case HapticPreset::ConsoleRumble: return play::RumbleSource::Game;
+        default:                          return play::RumbleSource::Derived;
     }
 }
 
@@ -165,10 +167,10 @@ std::string chiakiButtonToConfigKey(uint32_t button) {
         case remapKey(RemapTarget::Share): return "share";
         case remapKey(RemapTarget::Touchpad): return "touchpad";
         case remapKey(RemapTarget::Ps): return "ps";
-        case akira::play::SWIPE_TOUCHPAD_UP: return "swipe_up";
-        case akira::play::SWIPE_TOUCHPAD_DOWN: return "swipe_down";
-        case akira::play::SWIPE_TOUCHPAD_LEFT: return "swipe_left";
-        case akira::play::SWIPE_TOUCHPAD_RIGHT: return "swipe_right";
+        case play::SWIPE_TOUCHPAD_UP: return "swipe_up";
+        case play::SWIPE_TOUCHPAD_DOWN: return "swipe_down";
+        case play::SWIPE_TOUCHPAD_LEFT: return "swipe_left";
+        case play::SWIPE_TOUCHPAD_RIGHT: return "swipe_right";
         default: return "";
     }
 }
@@ -188,15 +190,15 @@ uint32_t configKeyToChiakiButton(const std::string& key) {
     if (key == "share") return remapKey(RemapTarget::Share);
     if (key == "touchpad") return remapKey(RemapTarget::Touchpad);
     if (key == "ps") return remapKey(RemapTarget::Ps);
-    if (key == "swipe_up") return akira::play::SWIPE_TOUCHPAD_UP;
-    if (key == "swipe_down") return akira::play::SWIPE_TOUCHPAD_DOWN;
-    if (key == "swipe_left") return akira::play::SWIPE_TOUCHPAD_LEFT;
-    if (key == "swipe_right") return akira::play::SWIPE_TOUCHPAD_RIGHT;
+    if (key == "swipe_up") return play::SWIPE_TOUCHPAD_UP;
+    if (key == "swipe_down") return play::SWIPE_TOUCHPAD_DOWN;
+    if (key == "swipe_left") return play::SWIPE_TOUCHPAD_LEFT;
+    if (key == "swipe_right") return play::SWIPE_TOUCHPAD_RIGHT;
     return 0;
 }
 
-std::vector<akira::cloud::Game> readShortcuts(const toml::array* arr) {
-    std::vector<akira::cloud::Game> out;
+std::vector<cloud::Game> readShortcuts(const toml::array* arr) {
+    std::vector<cloud::Game> out;
     if (!arr)
         return out;
 
@@ -204,7 +206,7 @@ std::vector<akira::cloud::Game> readShortcuts(const toml::array* arr) {
         const auto* t = node.as_table();
         if (!t) continue;
 
-        akira::cloud::Game g;
+        cloud::Game g;
         g.productId = (*t)["product_id"].value<std::string>().value_or("");
         g.name = (*t)["name"].value<std::string>().value_or("");
         if (g.productId.empty() || g.name.empty()) continue;
@@ -227,9 +229,9 @@ std::vector<akira::cloud::Game> readShortcuts(const toml::array* arr) {
     return out;
 }
 
-toml::array shortcutsToToml(const std::vector<akira::cloud::Game>& shortcuts) {
+toml::array shortcutsToToml(const std::vector<cloud::Game>& shortcuts) {
     toml::array arr;
-    for (const akira::cloud::Game& g : shortcuts) {
+    for (const cloud::Game& g : shortcuts) {
         toml::table t;
         t.insert("product_id", g.productId);
         t.insert("name", g.name);
@@ -251,8 +253,8 @@ toml::array shortcutsToToml(const std::vector<akira::cloud::Game>& shortcuts) {
     return arr;
 }
 
-std::vector<akira::cloud::Datacenter> readDatacenters(const toml::array* arr) {
-    std::vector<akira::cloud::Datacenter> out;
+std::vector<cloud::Datacenter> readDatacenters(const toml::array* arr) {
+    std::vector<cloud::Datacenter> out;
     if (!arr)
         return out;
 
@@ -260,7 +262,7 @@ std::vector<akira::cloud::Datacenter> readDatacenters(const toml::array* arr) {
         const auto* t = node.as_table();
         if (!t) continue;
 
-        akira::cloud::Datacenter dc;
+        cloud::Datacenter dc;
         dc.name = (*t)["name"].value<std::string>().value_or("");
         if (dc.name.empty()) continue;
 
@@ -285,9 +287,9 @@ std::vector<akira::cloud::Datacenter> readDatacenters(const toml::array* arr) {
     return out;
 }
 
-toml::array datacentersToToml(const std::vector<akira::cloud::Datacenter>& datacenters) {
+toml::array datacentersToToml(const std::vector<cloud::Datacenter>& datacenters) {
     toml::array arr;
-    for (const akira::cloud::Datacenter& dc : datacenters) {
+    for (const cloud::Datacenter& dc : datacenters) {
         toml::table t;
         t.insert("name", dc.name);
         t.insert("rtt", dc.rttMs);
@@ -317,7 +319,7 @@ SettingsManager::SettingsManager() {
     buttonMapping = getDefaultButtonMapping();
 }
 
-void SettingsManager::setCoreLog(akira::CoreLog* log) {
+void SettingsManager::setCoreLog(CoreLog* log) {
     coreLog = log;
     updateChiakiLogMask();
 }
@@ -334,7 +336,7 @@ void SettingsManager::ensureCloudDuid(libchiaking::platform::SecureRandomProvide
 
     std::array<std::byte, 16> randomBytes{};
     if (!random.fill_bytes(randomBytes)) {
-        akira::log::error("Failed to generate cloud DUID");
+        log::error("Failed to generate cloud DUID");
         cloudDuid.clear();
         return;
     }
@@ -343,7 +345,7 @@ void SettingsManager::ensureCloudDuid(libchiaking::platform::SecureRandomProvide
         std::format_to(std::back_inserter(generated), "{:02x}", std::to_integer<unsigned>(byte));
     cloudDuid = std::move(generated);
     if (writeFile() != 0)
-        akira::log::error("Failed to persist cloud DUID");
+        log::error("Failed to persist cloud DUID");
 }
 
 SettingsManager* SettingsManager::getInstance() {
@@ -429,16 +431,16 @@ void SettingsManager::parseFile() {
     if (fileExists(TOML_CONFIG_FILE)) {
         parseTomlFile();
     } else if (fileExists(LEGACY_CONFIG_FILE)) {
-        akira::log::info("Migrating from legacy config format");
+        log::info("Migrating from legacy config format");
         parseLegacyFile();
         writeFile();
     } else {
-        akira::log::info("No config file found, using defaults");
+        log::info("No config file found, using defaults");
     }
 }
 
 void SettingsManager::parseTomlFile() {
-    akira::log::info("Parsing TOML config file: {}", TOML_CONFIG_FILE);
+    log::info("Parsing TOML config file: {}", TOML_CONFIG_FILE);
 
     try {
         auto config = toml::parse_file(TOML_CONFIG_FILE);
@@ -449,9 +451,9 @@ void SettingsManager::parseTomlFile() {
         const int64_t configVersion = config["version"].value_or(int64_t{0});
         try {
             configMigrated =
-                chiaki_migrations::buildSettingsMigrator().migrate(config).changed();
+                migrations::buildSettingsMigrator().migrate(config).changed();
         } catch (const tomlmigrate::MigrationError& err) {
-            akira::log::error(
+            log::error(
                 "Config migration skipped, loading fields as-is: {}", err.what());
         }
 
@@ -499,8 +501,8 @@ void SettingsManager::parseTomlFile() {
         zeroCopyVideo = config["video"]["zero_copy"].value_or(false);
         softwareHevc = config["video"]["software_hevc"].value_or(false);
         videoRenderer = config["video"]["renderer"].value_or(std::string("drako3d")) == "vulkan"
-            ? akira::play::RendererKind::Vulkan
-            : akira::play::RendererKind::Drako3d;
+            ? play::RendererKind::Vulkan
+            : play::RendererKind::Drako3d;
         localFsrTarget = static_cast<int>(config["video"]["local"]["fsr_target"].value_or(int64_t{0}));
         remoteFsrTarget = static_cast<int>(config["video"]["remote"]["fsr_target"].value_or(int64_t{0}));
         vpnFsrTarget = static_cast<int>(config["video"]["vpn"]["fsr_target"].value_or(int64_t{0}));
@@ -539,10 +541,10 @@ void SettingsManager::parseTomlFile() {
                     continue;
 
                 std::string name(key.str());
-                akira::play::RumbleProfile profile =
-                    (name == akira::play::kRumbleKeySwitch)
-                        ? akira::play::SwitchRumbleProfile()
-                        : akira::play::DefaultRumbleProfile();
+                play::RumbleProfile profile =
+                    (name == play::kRumbleKeySwitch)
+                        ? play::SwitchRumbleProfile()
+                        : play::DefaultRumbleProfile();
 
                 if (auto v = (*entry)["strength"].value<double>())
                     profile.strength = std::max(0.0f, std::min(1.0f, static_cast<float>(*v)));
@@ -560,14 +562,14 @@ void SettingsManager::parseTomlFile() {
                     profile.envelope_decay = std::max(0.50f, std::min(0.95f, static_cast<float>(*v)));
                 if (auto v = (*entry)["haptic_intensity"].value<int64_t>()) {
                     const int64_t clamped = std::max<int64_t>(0, std::min<int64_t>(5, *v));
-                    profile.haptic_intensity = static_cast<akira::play::HapticIntensity>(clamped);
+                    profile.haptic_intensity = static_cast<play::HapticIntensity>(clamped);
                 }
                 if (auto v = (*entry)["direct_output"].value<bool>())
-                    profile.output_mode = *v ? akira::play::PadOutputMode::Native
-                                             : akira::play::PadOutputMode::Basic;
+                    profile.output_mode = *v ? play::PadOutputMode::Native
+                                             : play::PadOutputMode::Basic;
                 if (auto v = (*entry)["output_mode"].value<int64_t>())
-                    profile.output_mode = (*v == 1) ? akira::play::PadOutputMode::Basic
-                                                    : akira::play::PadOutputMode::Native;
+                    profile.output_mode = (*v == 1) ? play::PadOutputMode::Basic
+                                                    : play::PadOutputMode::Native;
 
                 if (auto v = (*entry)["lightbar_enabled"].value<bool>())
                     profile.lightbar_enabled = *v;
@@ -583,11 +585,11 @@ void SettingsManager::parseTomlFile() {
                     source = (*entry)["console_feedback"].value<int64_t>();
                 if (source) {
                     const int64_t clamped = std::max<int64_t>(0, std::min<int64_t>(2, *source));
-                    profile.rumble_source = static_cast<akira::play::RumbleSource>(clamped);
+                    profile.rumble_source = static_cast<play::RumbleSource>(clamped);
                 } else {
                     profile.rumble_source = sourceFromLegacyPreset(globalHaptic);
                     if (globalHaptic == HapticPreset::Weak)
-                        profile.haptic_intensity = akira::play::HapticIntensity::Weak;
+                        profile.haptic_intensity = play::HapticIntensity::Weak;
                 }
 
                 rumbleProfiles[name] = profile;
@@ -603,41 +605,41 @@ void SettingsManager::parseTomlFile() {
                 rumbleEnvelopeAttack = std::max(0.20f, std::min(1.00f, static_cast<float>(*val)));
         }
 
-        if (rumbleProfiles.find(akira::play::kRumbleKeySwitch) == rumbleProfiles.end()) {
-            akira::play::RumbleProfile migrated = akira::play::SwitchRumbleProfile();
+        if (rumbleProfiles.find(play::kRumbleKeySwitch) == rumbleProfiles.end()) {
+            play::RumbleProfile migrated = play::SwitchRumbleProfile();
             migrated.freq_low        = rumbleFreqLow;
             migrated.freq_high       = rumbleFreqHigh;
             migrated.envelope_attack = rumbleEnvelopeAttack;
             migrated.envelope_decay  = rumbleEnvelopeDecay;
 
-            rumbleProfiles[akira::play::kRumbleKeySwitch] = migrated;
-            akira::log::info("rumble profiles: migrated existing settings into the switch profile");
+            rumbleProfiles[play::kRumbleKeySwitch] = migrated;
+            log::info("rumble profiles: migrated existing settings into the switch profile");
         }
 
         {
-            const auto old_switch = rumbleProfiles.find(akira::play::kRumbleKeySwitch);
-            const akira::play::RumbleProfile inherited =
+            const auto old_switch = rumbleProfiles.find(play::kRumbleKeySwitch);
+            const play::RumbleProfile inherited =
                 old_switch != rumbleProfiles.end() ? old_switch->second
-                                                   : akira::play::SwitchRumbleProfile();
+                                                   : play::SwitchRumbleProfile();
 
-            for (const char* key : { akira::play::kRumbleKeyJoyCon,
-                                     akira::play::kRumbleKeySwitchPro }) {
+            for (const char* key : { play::kRumbleKeyJoyCon,
+                                     play::kRumbleKeySwitchPro }) {
                 if (rumbleProfiles.find(key) == rumbleProfiles.end())
                     rumbleProfiles[key] = inherited;
             }
         }
 
-        if (rumbleProfiles.find(akira::play::kRumbleKeyDualSense) == rumbleProfiles.end()) {
-            akira::play::RumbleProfile ds = akira::play::DefaultRumbleProfile();
+        if (rumbleProfiles.find(play::kRumbleKeyDualSense) == rumbleProfiles.end()) {
+            play::RumbleProfile ds = play::DefaultRumbleProfile();
 
-            ds.output_mode    = akira::play::PadOutputMode::Native;
+            ds.output_mode    = play::PadOutputMode::Native;
             ds.rumble_source  = sourceFromLegacyPreset(globalHaptic);
-            rumbleProfiles[akira::play::kRumbleKeyDualSense] = ds;
+            rumbleProfiles[play::kRumbleKeyDualSense] = ds;
         }
-        if (rumbleProfiles.find(akira::play::kRumbleKeyGeneric) == rumbleProfiles.end())
-            rumbleProfiles[akira::play::kRumbleKeyGeneric] = akira::play::DefaultRumbleProfile();
-        if (rumbleProfiles.find(akira::play::kRumbleKeyDefault) == rumbleProfiles.end())
-            rumbleProfiles[akira::play::kRumbleKeyDefault] = akira::play::DefaultRumbleProfile();
+        if (rumbleProfiles.find(play::kRumbleKeyGeneric) == rumbleProfiles.end())
+            rumbleProfiles[play::kRumbleKeyGeneric] = play::DefaultRumbleProfile();
+        if (rumbleProfiles.find(play::kRumbleKeyDefault) == rumbleProfiles.end())
+            rumbleProfiles[play::kRumbleKeyDefault] = play::DefaultRumbleProfile();
 
         cloudDuid = config["cloud"]["duid"].value<std::string>().value_or("");
         {
@@ -659,10 +661,10 @@ void SettingsManager::parseTomlFile() {
         if (auto val = config["network"]["discovery_subnets"].value<std::string>())
             discoverySubnets = *val;
         if (auto val = config["network"]["custom_dns"].value<std::string>()) {
-            if (auto servers = akira::network::CustomDns::parseServers(*val))
+            if (auto servers = network::CustomDns::parseServers(*val))
                 setCustomDnsServers(std::move(*servers));
             else
-                akira::log::warning("Ignoring invalid network.custom_dns \"{}\"", *val);
+                log::warning("Ignoring invalid network.custom_dns \"{}\"", *val);
         }
         if (auto val = config["network"]["companion_port"].value<int64_t>())
             companionPort = static_cast<int>(*val);
@@ -758,7 +760,7 @@ void SettingsManager::parseTomlFile() {
             if (auto val = (*mappingTable)["swipe_right_enabled"].value<bool>())
                 swipeRightEnabled = *val;
 
-            akira::log::info("Loaded button mapping from config");
+            log::info("Loaded button mapping from config");
         }
 
         if (auto* profilesArr = config["profiles"].as_array()) {
@@ -766,7 +768,7 @@ void SettingsManager::parseTomlFile() {
                 auto* pt = elem.as_table();
                 if (!pt) continue;
 
-                akira::accounts::Profile profile;
+                accounts::Profile profile;
                 profile.id = (*pt)["profile_id"].value<int64_t>().value_or(0);
                 if (profile.id <= 0) continue;
 
@@ -846,30 +848,30 @@ void SettingsManager::parseTomlFile() {
         signInStore.read(config);
         pairingStore.read(config);
 
-        akira::log::info("Loaded {} profile(s), {} console(s) from TOML config",
+        log::info("Loaded {} profile(s), {} console(s) from TOML config",
             profiles.size(), hosts.size());
         logProfileCensus("load");
 
         refreshLegacyGate();
 
         if (configMigrated) {
-            akira::log::info("Config migrated to current schema, rewriting");
+            log::info("Config migrated to current schema, rewriting");
             backupConfig(configVersion);
             writeFile();
         }
     } catch (const toml::parse_error& err) {
-        akira::log::error("Failed to parse TOML config: {}", err.what());
+        log::error("Failed to parse TOML config: {}", err.what());
     } catch (const std::exception& err) {
-        akira::log::error("Failed to load TOML config: {}", err.what());
+        log::error("Failed to load TOML config: {}", err.what());
     }
 }
 
 void SettingsManager::parseLegacyFile() {
-    akira::log::info("Parsing legacy config file: {}", LEGACY_CONFIG_FILE);
+    log::info("Parsing legacy config file: {}", LEGACY_CONFIG_FILE);
 
     std::ifstream configFile(LEGACY_CONFIG_FILE);
     if (!configFile.is_open()) {
-        akira::log::error("Failed to open legacy config file");
+        log::error("Failed to open legacy config file");
         return;
     }
 
@@ -942,7 +944,7 @@ void SettingsManager::parseLegacyFile() {
                 if (cleanName != value && hosts.find(cleanName) != hosts.end()) {
                     akira::consoles::Host* existing = hosts[cleanName].get();
                     if (existing->hostType == akira::consoles::HostType::Manual && migratedType != akira::consoles::HostType::Manual) {
-                        akira::log::info("Skipping {} - Manual host {} already exists", value, cleanName);
+                        log::info("Skipping {} - Manual host {} already exists", value, cleanName);
                         currentHost = nullptr;
                         break;
                     }
@@ -1024,7 +1026,7 @@ void SettingsManager::parseLegacyFile() {
     configFile.close();
     libchiaking::memory::secure_zero(std::span<std::byte>{legacyRegistKey});
     libchiaking::memory::secure_zero(std::span<std::byte>{legacyKey});
-    akira::log::info("Loaded {} host(s) from legacy config", hosts.size());
+    log::info("Loaded {} host(s) from legacy config", hosts.size());
 }
 
 std::mutex SettingsManager::writeMutex;
@@ -1033,7 +1035,7 @@ std::atomic<uint64_t> SettingsManager::writeSeq{0};
 int SettingsManager::writeFile() {
     std::lock_guard<std::mutex> writeLock(writeMutex);
 
-    akira::log::info("Writing config file: {}", TOML_CONFIG_FILE);
+    log::info("Writing config file: {}", TOML_CONFIG_FILE);
 
     ensureConfigDir();
     owned = ownedSettings();
@@ -1043,7 +1045,7 @@ int SettingsManager::writeFile() {
 int SettingsManager::writeStores() {
     std::lock_guard<std::mutex> writeLock(writeMutex);
 
-    akira::log::info("Writing the stores to {}", TOML_CONFIG_FILE);
+    log::info("Writing the stores to {}", TOML_CONFIG_FILE);
 
     ensureConfigDir();
     return persist(owned);
@@ -1052,7 +1054,7 @@ int SettingsManager::writeStores() {
 toml::table SettingsManager::ownedSettings() {
     toml::table config;
 
-    config.insert("version", chiaki_migrations::buildSettingsMigrator().latest_version());
+    config.insert("version", migrations::buildSettingsMigrator().latest_version());
 
     {
         auto videoProfile = [](const std::string& resolution, int fps, int bitrate, bool fsr, int fsrTarget) {
@@ -1089,7 +1091,7 @@ toml::table SettingsManager::ownedSettings() {
         video.insert("cloud", std::move(cloudVideo));
         video.insert("zero_copy", zeroCopyVideo);
         video.insert("software_hevc", softwareHevc);
-        video.insert("renderer", videoRenderer == akira::play::RendererKind::Drako3d ? "drako3d" : "vulkan");
+        video.insert("renderer", videoRenderer == play::RendererKind::Drako3d ? "drako3d" : "vulkan");
         config.insert("video", std::move(video));
     }
 
@@ -1127,7 +1129,7 @@ toml::table SettingsManager::ownedSettings() {
         network.insert("port_guessing_count", portGuessingCount);
         network.insert("port_guessing_socks", portGuessingSocks);
         if (!discoverySubnets.empty()) network.insert("discovery_subnets", discoverySubnets);
-        if (!customDnsServers.empty()) network.insert("custom_dns", akira::network::CustomDns::formatServers(customDnsServers));
+        if (!customDnsServers.empty()) network.insert("custom_dns", network::CustomDns::formatServers(customDnsServers));
         network.insert("companion_port", companionPort);
         config.insert("network", std::move(network));
     }
@@ -1249,7 +1251,7 @@ toml::table SettingsManager::ownedSettings() {
     {
         std::lock_guard<std::recursive_mutex> profileLock(profileMutex);
         toml::array profilesArr;
-        for (const akira::accounts::Profile& p : profiles) {
+        for (const accounts::Profile& p : profiles) {
             toml::table pt;
             pt.insert("profile_id", p.id);
             if (!p.onlineId.empty()) pt.insert("online_id", p.onlineId);
@@ -1334,14 +1336,14 @@ int SettingsManager::persist(toml::table config) {
     {
         std::ofstream configFile(tmpPath, std::ios::out | std::ios::trunc);
         if (!configFile.is_open()) {
-            akira::log::error("Failed to open config file for writing");
+            log::error("Failed to open config file for writing");
             return -1;
         }
         configFile << config;
         configFile.flush();
         configFile.close();
         if (configFile.fail()) {
-            akira::log::error("Failed to flush config to {}", tmpPath);
+            log::error("Failed to flush config to {}", tmpPath);
             std::remove(tmpPath.c_str());
             return -1;
         }
@@ -1349,7 +1351,7 @@ int SettingsManager::persist(toml::table config) {
 
     std::remove(TOML_CONFIG_FILE);
     if (std::rename(tmpPath.c_str(), TOML_CONFIG_FILE) != 0) {
-        akira::log::error("Failed to move config into place");
+        log::error("Failed to move config into place");
         std::remove(tmpPath.c_str());
         return -1;
     }
@@ -1500,13 +1502,13 @@ bool SettingsManager::isValidHostAddress(const std::string& addr) {
 
 std::string SettingsManager::getHostName(akira::consoles::Host* host) {
     if (host) return host->getHostName();
-    akira::log::error("Cannot getHostName from nullptr");
+    log::error("Cannot getHostName from nullptr");
     return "";
 }
 
 std::string SettingsManager::getHostAddr(akira::consoles::Host* host) {
     if (host) return host->getHostAddr();
-    akira::log::error("Cannot getHostAddr from nullptr");
+    log::error("Cannot getHostAddr from nullptr");
     return "";
 }
 
@@ -1514,7 +1516,7 @@ void SettingsManager::setHostAddr(akira::consoles::Host* host, const std::string
     if (host) {
         host->hostAddr = addr;
     } else {
-        akira::log::error("Cannot setHostAddr on nullptr");
+        log::error("Cannot setHostAddr on nullptr");
     }
 }
 
@@ -1526,7 +1528,7 @@ void SettingsManager::setDiscovered(akira::consoles::Host* host, bool value) {
 
 std::string SettingsManager::getPsnOnlineId(akira::consoles::Host* host) {
     (void)host;
-    const akira::accounts::Profile* ap = getActiveProfile();
+    const accounts::Profile* ap = getActiveProfile();
     return ap ? ap->onlineId : "";
 }
 
@@ -1537,7 +1539,7 @@ void SettingsManager::setPsnOnlineId(akira::consoles::Host* host, const std::str
 
 std::string SettingsManager::getPsnAccountId(akira::consoles::Host* host) {
     (void)host;
-    const akira::accounts::Profile* ap = getActiveProfile();
+    const accounts::Profile* ap = getActiveProfile();
     return ap ? ap->accountId : "";
 }
 
@@ -1555,7 +1557,7 @@ void SettingsManager::setConsolePIN(akira::consoles::Host* host, const std::stri
     if (host) {
         host->consolePIN = pin;
     } else {
-        akira::log::error("Cannot setConsolePIN on nullptr");
+        log::error("Cannot setConsolePIN on nullptr");
     }
 }
 
@@ -1663,12 +1665,12 @@ void SettingsManager::setCloudFsrEnabled(bool pscloud, bool enabled) {
         cloudFsrEnabledPsnow = enabled;
 }
 
-std::vector<akira::cloud::Datacenter> SettingsManager::getCloudDatacenters(bool pscloud) const {
+std::vector<cloud::Datacenter> SettingsManager::getCloudDatacenters(bool pscloud) const {
     std::lock_guard<std::mutex> lock(datacenterMutex);
     return pscloud ? cloudDatacentersPscloud : cloudDatacentersPsnow;
 }
 
-void SettingsManager::setCloudDatacenters(bool pscloud, std::vector<akira::cloud::Datacenter> datacenters) {
+void SettingsManager::setCloudDatacenters(bool pscloud, std::vector<cloud::Datacenter> datacenters) {
     std::lock_guard<std::mutex> lock(datacenterMutex);
     if (pscloud)
         cloudDatacentersPscloud = std::move(datacenters);
@@ -1692,13 +1694,13 @@ void SettingsManager::setCloudFilter(std::string filter) {
     cloudFilter = std::move(filter);
 }
 
-const std::vector<akira::cloud::Game>& SettingsManager::getCloudShortcuts() const {
-    static const std::vector<akira::cloud::Game> none;
-    const akira::accounts::Profile* p = getActiveProfile();
+const std::vector<cloud::Game>& SettingsManager::getCloudShortcuts() const {
+    static const std::vector<cloud::Game> none;
+    const accounts::Profile* p = getActiveProfile();
     return p ? p->cloudShortcuts : none;
 }
 
-void SettingsManager::setCloudShortcuts(std::vector<akira::cloud::Game> shortcuts) {
+void SettingsManager::setCloudShortcuts(std::vector<cloud::Game> shortcuts) {
     ensureActiveProfile()->cloudShortcuts = std::move(shortcuts);
 }
 
@@ -1744,15 +1746,15 @@ void SettingsManager::setHaptic(akira::consoles::Host* host, const std::string& 
     setHaptic(host, preset);
 }
 
-akira::play::RumbleProfile SettingsManager::getRumbleProfile(const std::string& key) const
+play::RumbleProfile SettingsManager::getRumbleProfile(const std::string& key) const
 {
     const auto it = rumbleProfiles.find(key);
     if (it != rumbleProfiles.end())
         return it->second;
 
-    return key == akira::play::kRumbleKeySwitch
-               ? akira::play::SwitchRumbleProfile()
-               : akira::play::DefaultRumbleProfile();
+    return key == play::kRumbleKeySwitch
+               ? play::SwitchRumbleProfile()
+               : play::DefaultRumbleProfile();
 }
 
 bool SettingsManager::hasRumbleProfile(const std::string& key) const
@@ -1760,7 +1762,7 @@ bool SettingsManager::hasRumbleProfile(const std::string& key) const
     return rumbleProfiles.find(key) != rumbleProfiles.end();
 }
 
-void SettingsManager::setRumbleProfile(const std::string& key, const akira::play::RumbleProfile& profile)
+void SettingsManager::setRumbleProfile(const std::string& key, const play::RumbleProfile& profile)
 {
     if (key.empty())
         return;
@@ -1769,7 +1771,7 @@ void SettingsManager::setRumbleProfile(const std::string& key, const akira::play
 }
 
 bool SettingsManager::seedRumbleProfile(const std::string& key,
-                                        const akira::play::RumbleProfile* inheritFrom)
+                                        const play::RumbleProfile* inheritFrom)
 {
     if (key.empty() || hasRumbleProfile(key))
         return false;
@@ -1779,9 +1781,9 @@ bool SettingsManager::seedRumbleProfile(const std::string& key,
         return true;
     }
 
-    rumbleProfiles[key] = key == akira::play::kRumbleKeySwitch
-                              ? akira::play::SwitchRumbleProfile()
-                              : akira::play::DefaultRumbleProfile();
+    rumbleProfiles[key] = key == play::kRumbleKeySwitch
+                              ? play::SwitchRumbleProfile()
+                              : play::DefaultRumbleProfile();
     return true;
 }
 
@@ -1790,9 +1792,9 @@ void SettingsManager::resetRumbleProfile(const std::string& key)
     if (key.empty())
         return;
 
-    rumbleProfiles[key] = key == akira::play::kRumbleKeySwitch
-                              ? akira::play::SwitchRumbleProfile()
-                              : akira::play::DefaultRumbleProfile();
+    rumbleProfiles[key] = key == play::kRumbleKeySwitch
+                              ? play::SwitchRumbleProfile()
+                              : play::DefaultRumbleProfile();
 }
 
 bool SettingsManager::getDirectRumbleInStream() const { return directRumbleInStream; }
@@ -1863,7 +1865,7 @@ bool SettingsManager::adoptLegacyRegistrations(akira::consoles::Host& host) {
     {
         std::lock_guard<std::recursive_mutex> lock(profileMutex);
         for (const akira::consoles::Registration& reg : host.legacyRegistrations) {
-            const akira::accounts::Profile* profile = findProfile(reg.profileId);
+            const accounts::Profile* profile = findProfile(reg.profileId);
             const auto account = profile ? libchiaking::AccountId::from_base64(profile->accountId) : std::nullopt;
             if (!account)
                 continue;
@@ -1875,12 +1877,12 @@ bool SettingsManager::adoptLegacyRegistrations(akira::consoles::Host& host) {
         return false;
 
     if (!pairingStore.adopt(std::move(console), std::move(adopted))) {
-        akira::log::error("Could not adopt the saved registrations of {}", host.hostName);
+        log::error("Could not adopt the saved registrations of {}", host.hostName);
         return false;
     }
     host.legacyRegistrations.clear();
     writeFile();
-    akira::log::info("Adopted the saved registrations of {} into the core's pairings", host.hostName);
+    log::info("Adopted the saved registrations of {} into the core's pairings", host.hostName);
     return true;
 }
 
@@ -1895,9 +1897,9 @@ void SettingsManager::backupConfig(int64_t version) {
     std::error_code error;
     const auto expected = std::filesystem::file_size(TOML_CONFIG_FILE, error);
     if (error || written < 0 || static_cast<std::uintmax_t>(written) != expected)
-        akira::log::error("Could not back up {} to {} before migrating", TOML_CONFIG_FILE, backupPath);
+        log::error("Could not back up {} to {} before migrating", TOML_CONFIG_FILE, backupPath);
     else
-        akira::log::info("Backed up {} to {} before migrating", TOML_CONFIG_FILE, backupPath);
+        log::info("Backed up {} to {} before migrating", TOML_CONFIG_FILE, backupPath);
 }
 
 int SettingsManager::getCompanionPort() const {
@@ -1910,39 +1912,39 @@ void SettingsManager::setCompanionPort(int port) {
     }
 }
 
-const std::vector<akira::accounts::Profile>& SettingsManager::getProfiles() const {
+const std::vector<accounts::Profile>& SettingsManager::getProfiles() const {
     return profiles;
 }
 
-std::vector<akira::accounts::Profile> SettingsManager::profilesSnapshot() const {
+std::vector<accounts::Profile> SettingsManager::profilesSnapshot() const {
     std::lock_guard<std::recursive_mutex> lock(profileMutex);
     return profiles;
 }
 
-akira::accounts::Profile* SettingsManager::findProfile(int64_t id) {
-    for (akira::accounts::Profile& p : profiles)
+accounts::Profile* SettingsManager::findProfile(int64_t id) {
+    for (accounts::Profile& p : profiles)
         if (p.id == id) return &p;
     return nullptr;
 }
 
-const akira::accounts::Profile* SettingsManager::findProfile(int64_t id) const {
-    for (const akira::accounts::Profile& p : profiles)
+const accounts::Profile* SettingsManager::findProfile(int64_t id) const {
+    for (const accounts::Profile& p : profiles)
         if (p.id == id) return &p;
     return nullptr;
 }
 
-akira::accounts::Profile* SettingsManager::getActiveProfile() {
+accounts::Profile* SettingsManager::getActiveProfile() {
     return findProfile(activeProfileId);
 }
 
-const akira::accounts::Profile* SettingsManager::getActiveProfile() const {
+const accounts::Profile* SettingsManager::getActiveProfile() const {
     return findProfile(activeProfileId);
 }
 
-akira::accounts::Profile* SettingsManager::ensureActiveProfile() {
-    if (akira::accounts::Profile* p = getActiveProfile())
+accounts::Profile* SettingsManager::ensureActiveProfile() {
+    if (accounts::Profile* p = getActiveProfile())
         return p;
-    akira::accounts::Profile np;
+    accounts::Profile np;
     int64_t id = addProfile(np);
     activeProfileId = id;
     return findProfile(id);
@@ -1954,9 +1956,9 @@ int64_t SettingsManager::getActiveProfileId() const {
 
 void SettingsManager::setActiveProfileId(int64_t id) {
     if (activeProfileId != id) {
-        const akira::accounts::Profile* from = findProfile(activeProfileId);
-        const akira::accounts::Profile* to = findProfile(id);
-        akira::log::info("Active profile {} ({}) -> {} ({})",
+        const accounts::Profile* from = findProfile(activeProfileId);
+        const accounts::Profile* to = findProfile(id);
+        log::info("Active profile {} ({}) -> {} ({})",
             activeProfileId, from ? from->label() : std::string("<none>"),
             id, to ? to->label() : std::string("<none>"));
     }
@@ -1965,28 +1967,28 @@ void SettingsManager::setActiveProfileId(int64_t id) {
 }
 
 void SettingsManager::logProfileCensus(const char* stage) {
-    akira::log::info("Profile census [{}]: active={} count={}",
+    log::info("Profile census [{}]: active={} count={}",
         stage, activeProfileId, profiles.size());
-    for (const akira::accounts::Profile& p : profiles) {
-        akira::log::info("  profile id={} label='{}' legacy={} account={} shortcuts={}",
+    for (const accounts::Profile& p : profiles) {
+        log::info("  profile id={} label='{}' legacy={} account={} shortcuts={}",
             p.id, p.label(), p.legacy, !p.accountId.empty(), p.cloudShortcuts.size());
     }
 }
 
 bool SettingsManager::getActiveProfileTrophiesEnabled() const {
-    const akira::accounts::Profile* p = getActiveProfile();
+    const accounts::Profile* p = getActiveProfile();
     return p ? p->trophiesEnabled : true;
 }
 
 void SettingsManager::setActiveProfileTrophiesEnabled(bool enabled) {
-    akira::accounts::Profile* p = getActiveProfile();
+    accounts::Profile* p = getActiveProfile();
     if (p)
         p->trophiesEnabled = enabled;
 }
 
-int64_t SettingsManager::addProfile(const akira::accounts::Profile& profile) {
+int64_t SettingsManager::addProfile(const accounts::Profile& profile) {
     std::lock_guard<std::recursive_mutex> lock(profileMutex);
-    akira::accounts::Profile copy = profile;
+    accounts::Profile copy = profile;
     copy.id = nextProfileId++;
     profiles.push_back(copy);
     return copy.id;
@@ -1994,7 +1996,7 @@ int64_t SettingsManager::addProfile(const akira::accounts::Profile& profile) {
 
 void SettingsManager::removeProfile(int64_t id) {
     std::lock_guard<std::recursive_mutex> lock(profileMutex);
-    std::erase_if(profiles, [id](const akira::accounts::Profile& p) { return p.id == id; });
+    std::erase_if(profiles, [id](const accounts::Profile& p) { return p.id == id; });
     if (activeProfileId == id)
         activeProfileId = profiles.empty() ? 0 : profiles.front().id;
 
@@ -2012,7 +2014,7 @@ void SettingsManager::removeProfile(int64_t id) {
 }
 
 bool SettingsManager::isLegacyProfileActive() const {
-    const akira::accounts::Profile* p = getActiveProfile();
+    const accounts::Profile* p = getActiveProfile();
     return p && p->legacy;
 }
 
@@ -2021,9 +2023,9 @@ void SettingsManager::refreshLegacyGate() {
 }
 
 bool SettingsManager::readProfile(int64_t id,
-                                  const std::function<void(const akira::accounts::Profile&)>& fn) const {
+                                  const std::function<void(const accounts::Profile&)>& fn) const {
     std::lock_guard<std::recursive_mutex> lock(profileMutex);
-    const akira::accounts::Profile* p = findProfile(id);
+    const accounts::Profile* p = findProfile(id);
     if (!p)
         return false;
     fn(*p);
@@ -2031,9 +2033,9 @@ bool SettingsManager::readProfile(int64_t id,
 }
 
 bool SettingsManager::updateProfile(int64_t id,
-                                    const std::function<void(akira::accounts::Profile&)>& fn) {
+                                    const std::function<void(accounts::Profile&)>& fn) {
     std::lock_guard<std::recursive_mutex> lock(profileMutex);
-    akira::accounts::Profile* p = findProfile(id);
+    accounts::Profile* p = findProfile(id);
     if (!p)
         return false;
     fn(*p);
@@ -2152,11 +2154,11 @@ void SettingsManager::setSoftwareHevc(bool enabled) {
     softwareHevc = enabled;
 }
 
-akira::play::RendererKind SettingsManager::getVideoRenderer() const {
+play::RendererKind SettingsManager::getVideoRenderer() const {
     return videoRenderer;
 }
 
-void SettingsManager::setVideoRenderer(akira::play::RendererKind renderer) {
+void SettingsManager::setVideoRenderer(play::RendererKind renderer) {
     videoRenderer = renderer;
 }
 
@@ -2216,13 +2218,13 @@ void SettingsManager::setDevUpdateServer(const std::string& server) {
     devUpdateServer = server;
 }
 
-std::vector<akira::network::Ipv4Address> SettingsManager::getCustomDnsServers() const {
+std::vector<network::Ipv4Address> SettingsManager::getCustomDnsServers() const {
     return customDnsServers;
 }
 
-void SettingsManager::setCustomDnsServers(std::vector<akira::network::Ipv4Address> servers) {
+void SettingsManager::setCustomDnsServers(std::vector<network::Ipv4Address> servers) {
     customDnsServers = std::move(servers);
-    akira::network::CustomDns::instance().configure(customDnsServers);
+    network::CustomDns::instance().configure(customDnsServers);
 }
 
 int SettingsManager::getMinBitrateForResolution(VideoResolution res) const {
@@ -2486,9 +2488,9 @@ void SettingsManager::setChiakiLogVerbosity(ChiakiLogVerbosity verbosity) {
 
 void SettingsManager::applyChiakiLogVerbosity() {
     if (silenceAllLogs)
-        akira::log::Log::process().silence();
+        log::Log::process().silence();
     else
-        akira::log::Log::process().setLevel(appLogLevel(chiakiLogVerbosity));
+        log::Log::process().setLevel(appLogLevel(chiakiLogVerbosity));
     updateChiakiLogMask();
 }
 
@@ -2545,10 +2547,10 @@ void SettingsManager::setSwipeRightEnabled(bool enabled) { swipeRightEnabled = e
 bool SettingsManager::isButtonEnabled(uint32_t chiakiButton) const {
     switch (chiakiButton) {
         case remapKey(RemapTarget::Touchpad): return touchpadEnabled;
-        case akira::play::SWIPE_TOUCHPAD_UP: return swipeUpEnabled;
-        case akira::play::SWIPE_TOUCHPAD_DOWN: return swipeDownEnabled;
-        case akira::play::SWIPE_TOUCHPAD_LEFT: return swipeLeftEnabled;
-        case akira::play::SWIPE_TOUCHPAD_RIGHT: return swipeRightEnabled;
+        case play::SWIPE_TOUCHPAD_UP: return swipeUpEnabled;
+        case play::SWIPE_TOUCHPAD_DOWN: return swipeDownEnabled;
+        case play::SWIPE_TOUCHPAD_LEFT: return swipeLeftEnabled;
+        case play::SWIPE_TOUCHPAD_RIGHT: return swipeRightEnabled;
         default: return true;
     }
 }
@@ -2577,10 +2579,10 @@ ButtonMapping SettingsManager::getDefaultButtonMapping() const {
     defaults[remapKey(RemapTarget::Share)]    = {};
     defaults[remapKey(RemapTarget::Touchpad)] = {};
     defaults[remapKey(RemapTarget::Ps)]       = {HidNpadButton_Minus};
-    defaults[akira::play::SWIPE_TOUCHPAD_UP]    = {};
-    defaults[akira::play::SWIPE_TOUCHPAD_DOWN]  = {};
-    defaults[akira::play::SWIPE_TOUCHPAD_LEFT]  = {};
-    defaults[akira::play::SWIPE_TOUCHPAD_RIGHT] = {};
+    defaults[play::SWIPE_TOUCHPAD_UP]    = {};
+    defaults[play::SWIPE_TOUCHPAD_DOWN]  = {};
+    defaults[play::SWIPE_TOUCHPAD_LEFT]  = {};
+    defaults[play::SWIPE_TOUCHPAD_RIGHT] = {};
     return defaults;
 }
 
@@ -2635,4 +2637,6 @@ std::string SettingsManager::getConnectionLogFilePath(const std::string& connTyp
     return std::format("{}/{:02}{:02}{:02}_{:02}{:02}{:02}_{}.log",
              LOG_DIR, t->tm_mday, t->tm_mon + 1, t->tm_year % 100,
              t->tm_hour, t->tm_min, t->tm_sec, connType);
+}
+
 }

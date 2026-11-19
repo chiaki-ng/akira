@@ -136,10 +136,10 @@ public:
             bool useLeft  = false;
             bool useRight = false;
 
-            switch (SettingsManager::getInstance()->getGyroSource()) {
-                case GyroSource::Left:  useLeft  = leftConnected;  break;
-                case GyroSource::Right: useRight = rightConnected; break;
-                case GyroSource::Auto:
+            switch (settings::SettingsManager::getInstance()->getGyroSource()) {
+                case settings::GyroSource::Left:  useLeft  = leftConnected;  break;
+                case settings::GyroSource::Right: useRight = rightConnected; break;
+                case settings::GyroSource::Auto:
                 default:
                     if (leftConnected)       useLeft  = true;
                     else if (rightConnected) useRight = true;
@@ -402,7 +402,7 @@ PadDriverState ResolvePadDriverState(const input::PadDescription& desc,
 
     if (in.supported_pad) {
         const play::RumbleProfile profile =
-            akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(*SettingsManager::getInstance(), 
+            akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(*settings::SettingsManager::getInstance(), 
                 desc.vendor_id, desc.product_id,
                 desc.has_address ? desc.bt_addr : nullptr, false, false);
         in.profile_native = profile.output_mode == play::PadOutputMode::Native;

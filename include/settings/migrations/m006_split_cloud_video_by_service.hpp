@@ -2,7 +2,7 @@
 
 #include <settings/tomlmigrate.hpp>
 
-namespace chiaki_migrations {
+namespace akira::settings::migrations {
 
 inline void register_m006_split_cloud_video_by_service(tomlmigrate::Migrator& m) {
     m.step(6, "give pscloud and psnow their own cloud video settings",

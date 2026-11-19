@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace chiaki_migrations {
+namespace akira::settings::migrations {
 
 inline void register_m002_multi_profile(tomlmigrate::Migrator& m) {
     m.step(2, "multi-profile: normalize flat account + name-keyed hosts into profiles/consoles/registrations",

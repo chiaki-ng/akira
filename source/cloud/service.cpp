@@ -33,7 +33,7 @@ Service& Service::instance()
 
 Service::Service()
 {
-    settings = SettingsManager::getInstance();
+    settings = settings::SettingsManager::getInstance();
     std::error_code ignored;
     if (std::filesystem::remove_all(LEGACY_CACHE_DIR, ignored) > 0)
         log::info("Cloud: removed the old catalog cache");

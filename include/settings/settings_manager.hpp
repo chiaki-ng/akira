@@ -34,6 +34,8 @@ namespace akira {
 class CoreLog;
 }
 
+namespace akira::settings {
+
 enum class VideoResolution : uint32_t {
     P360 = 360,
     P540 = 540,
@@ -95,15 +97,15 @@ private:
     static constexpr const char* TOML_CONFIG_FILE = "sdmc:/switch/akira/akira.toml";
     static constexpr const char* LEGACY_CONFIG_FILE = "sdmc:/switch/akira/akira.conf";
 
-    akira::CoreLog* coreLog = nullptr;
-    std::map<std::string, std::unique_ptr<akira::consoles::Host>> hosts;
+    CoreLog* coreLog = nullptr;
+    std::map<std::string, std::unique_ptr<consoles::Host>> hosts;
 
     // Global settings (defaults)
     VideoResolution localVideoResolution = VideoResolution::P720;
     VideoResolution remoteVideoResolution = VideoResolution::P720;
     VideoFps localVideoFPS = VideoFps::Fps60;
     VideoFps remoteVideoFPS = VideoFps::Fps60;
-    std::vector<akira::accounts::Profile> profiles;
+    std::vector<accounts::Profile> profiles;
     int64_t activeProfileId = 0;
     int64_t nextProfileId = 1;
     mutable std::recursive_mutex profileMutex;
@@ -118,7 +120,7 @@ private:
     float rumbleEnvelopeDecay = 0.85f;
     float rumbleEnvelopeAttack = 0.60f;
 
-    std::map<std::string, akira::play::RumbleProfile> rumbleProfiles;
+    std::map<std::string, play::RumbleProfile> rumbleProfiles;
     int localVideoBitrate = 10000;
     int remoteVideoBitrate = 10000;
     int vpnVideoBitrate = 5000;
@@ -130,8 +132,8 @@ private:
     bool cloudFsrEnabledPsnow = false;
     std::string cloudDuid;
     mutable std::mutex datacenterMutex;
-    std::vector<akira::cloud::Datacenter> cloudDatacentersPscloud;
-    std::vector<akira::cloud::Datacenter> cloudDatacentersPsnow;
+    std::vector<cloud::Datacenter> cloudDatacentersPscloud;
+    std::vector<cloud::Datacenter> cloudDatacentersPsnow;
     int cloudSortState = 0;
 
     std::string cloudFilter;
@@ -149,7 +151,7 @@ private:
     bool devFakeHosts = false;
     bool zeroCopyVideo = false;
     bool softwareHevc = false;
-    akira::play::RendererKind videoRenderer = akira::play::RendererKind::Drako3d;
+    play::RendererKind videoRenderer = play::RendererKind::Drako3d;
     bool hideAccountName = false;
     std::string updateChannel = "stable";
     std::string uiTheme = "playstation";
@@ -158,7 +160,7 @@ private:
     int64_t lastUpdateCheck = 0;
     std::string updateInstallPath;
     std::string devUpdateServer;
-    std::vector<akira::network::Ipv4Address> customDnsServers;
+    std::vector<network::Ipv4Address> customDnsServers;
     GyroSource globalGyroSource = GyroSource::Auto;
     bool sleepOnExit = false;
     bool requestIdrOnFecFailure = true;
@@ -207,8 +209,8 @@ private:
     bool swipeLeftEnabled = true;
     bool swipeRightEnabled = true;
 
-    akira::accounts::SignInStore signInStore{*this};
-    akira::consoles::PairingStore pairingStore{*this};
+    accounts::SignInStore signInStore{*this};
+    consoles::PairingStore pairingStore{*this};
     toml::table owned;
 
     toml::table ownedSettings();
@@ -219,7 +221,7 @@ private:
     void backupConfig(int64_t version);
     static std::optional<libchiaking::consoles::Firmware> firmwareFromTarget(int64_t target);
     static int64_t targetOf(const std::optional<libchiaking::consoles::Firmware>& firmware);
-    static std::optional<akira::consoles::Registration> registrationOf(const toml::table& row);
+    static std::optional<consoles::Registration> registrationOf(const toml::table& row);
     static bool fileExists(const char* path);
     void updateChiakiLogMask();
 
@@ -228,10 +230,10 @@ public:
     void operator=(const SettingsManager&) = delete;
     static SettingsManager* getInstance();
 
-    void setCoreLog(akira::CoreLog* log);
+    void setCoreLog(CoreLog* log);
     void ensureCloudDuid(libchiaking::platform::SecureRandomProvider& random);
-    akira::accounts::SignInStore& signIns() { return signInStore; }
-    akira::consoles::PairingStore& pairings() { return pairingStore; }
+    accounts::SignInStore& signIns() { return signInStore; }
+    consoles::PairingStore& pairings() { return pairingStore; }
 
     void parseFile();
     int writeFile();
@@ -240,12 +242,12 @@ public:
     static std::atomic<uint64_t> writeSeq;
     void ensureConfigDir();
 
-    std::map<std::string, std::unique_ptr<akira::consoles::Host>>* getHostsMap();
-    akira::consoles::Host* getOrCreateHost(const std::string& hostName);
-    akira::consoles::Host* findHostByDuid(const std::string& duid);
+    std::map<std::string, std::unique_ptr<consoles::Host>>* getHostsMap();
+    consoles::Host* getOrCreateHost(const std::string& hostName);
+    consoles::Host* findHostByDuid(const std::string& duid);
     void removeHost(const std::string& hostName);
     void removeActiveProfileRegistration(const std::string& hostName);
-    bool adoptLegacyRegistrations(akira::consoles::Host& host);
+    bool adoptLegacyRegistrations(consoles::Host& host);
     void renameHost(const std::string& oldName, const std::string& newName);
 
     static std::string resolutionToString(VideoResolution resolution);
@@ -264,35 +266,35 @@ public:
     static bool isValidFQDN(const std::string& addr);
     static bool isValidHostAddress(const std::string& addr);
 
-    std::string getHostName(akira::consoles::Host* host);
-    std::string getHostAddr(akira::consoles::Host* host);
-    void setHostAddr(akira::consoles::Host* host, const std::string& addr);
-    void setDiscovered(akira::consoles::Host* host, bool value);
+    std::string getHostName(consoles::Host* host);
+    std::string getHostAddr(consoles::Host* host);
+    void setHostAddr(consoles::Host* host, const std::string& addr);
+    void setDiscovered(consoles::Host* host, bool value);
 
-    std::string getPsnOnlineId(akira::consoles::Host* host);
-    void setPsnOnlineId(akira::consoles::Host* host, const std::string& id);
+    std::string getPsnOnlineId(consoles::Host* host);
+    void setPsnOnlineId(consoles::Host* host, const std::string& id);
 
-    std::string getPsnAccountId(akira::consoles::Host* host);
-    void setPsnAccountId(akira::consoles::Host* host, const std::string& id);
+    std::string getPsnAccountId(consoles::Host* host);
+    void setPsnAccountId(consoles::Host* host, const std::string& id);
 
 
     const std::string& getCloudDuid() const { return cloudDuid; }
 
-    const std::vector<akira::accounts::Profile>& getProfiles() const;
-    std::vector<akira::accounts::Profile> profilesSnapshot() const;
-    akira::accounts::Profile* findProfile(int64_t id);
-    const akira::accounts::Profile* findProfile(int64_t id) const;
-    akira::accounts::Profile* getActiveProfile();
-    const akira::accounts::Profile* getActiveProfile() const;
-    akira::accounts::Profile* ensureActiveProfile();
+    const std::vector<accounts::Profile>& getProfiles() const;
+    std::vector<accounts::Profile> profilesSnapshot() const;
+    accounts::Profile* findProfile(int64_t id);
+    const accounts::Profile* findProfile(int64_t id) const;
+    accounts::Profile* getActiveProfile();
+    const accounts::Profile* getActiveProfile() const;
+    accounts::Profile* ensureActiveProfile();
     int64_t getActiveProfileId() const;
     void setActiveProfileId(int64_t id);
     void logProfileCensus(const char* stage);
-    bool readProfile(int64_t id, const std::function<void(const akira::accounts::Profile&)>& fn) const;
-    bool updateProfile(int64_t id, const std::function<void(akira::accounts::Profile&)>& fn);
+    bool readProfile(int64_t id, const std::function<void(const accounts::Profile&)>& fn) const;
+    bool updateProfile(int64_t id, const std::function<void(accounts::Profile&)>& fn);
     bool getActiveProfileTrophiesEnabled() const;
     void setActiveProfileTrophiesEnabled(bool enabled);
-    int64_t addProfile(const akira::accounts::Profile& profile);
+    int64_t addProfile(const accounts::Profile& profile);
     void removeProfile(int64_t id);
 
     /*
@@ -310,22 +312,22 @@ public:
      */
     void refreshLegacyGate();
 
-    std::string getConsolePIN(akira::consoles::Host* host);
-    void setConsolePIN(akira::consoles::Host* host, const std::string& pin);
+    std::string getConsolePIN(consoles::Host* host);
+    void setConsolePIN(consoles::Host* host, const std::string& pin);
 
-    VideoResolution getVideoResolution(akira::consoles::Host* host);
+    VideoResolution getVideoResolution(consoles::Host* host);
     VideoResolution getLocalVideoResolution() const;
     void setLocalVideoResolution(VideoResolution value);
     VideoResolution getRemoteVideoResolution() const;
     void setRemoteVideoResolution(VideoResolution value);
 
-    VideoFps getVideoFPS(akira::consoles::Host* host);
+    VideoFps getVideoFPS(consoles::Host* host);
     VideoFps getLocalVideoFPS() const;
     void setLocalVideoFPS(VideoFps value);
     VideoFps getRemoteVideoFPS() const;
     void setRemoteVideoFPS(VideoFps value);
 
-    int getVideoBitrate(akira::consoles::Host* host) const;
+    int getVideoBitrate(consoles::Host* host) const;
     int getLocalVideoBitrate() const;
     void setLocalVideoBitrate(int value);
     int getRemoteVideoBitrate() const;
@@ -338,23 +340,23 @@ public:
     void setCloudVideoResolution(bool pscloud, int value);
     bool getCloudFsrEnabled(bool pscloud) const;
     void setCloudFsrEnabled(bool pscloud, bool enabled);
-    std::vector<akira::cloud::Datacenter> getCloudDatacenters(bool pscloud) const;
-    void setCloudDatacenters(bool pscloud, std::vector<akira::cloud::Datacenter> datacenters);
+    std::vector<cloud::Datacenter> getCloudDatacenters(bool pscloud) const;
+    void setCloudDatacenters(bool pscloud, std::vector<cloud::Datacenter> datacenters);
     int getCloudSortState() const;
     void setCloudSortState(int value);
 
     const std::string& getCloudFilter() const;
     void setCloudFilter(std::string filter);
-    const std::vector<akira::cloud::Game>& getCloudShortcuts() const;
-    void setCloudShortcuts(std::vector<akira::cloud::Game> shortcuts);
+    const std::vector<cloud::Game>& getCloudShortcuts() const;
+    void setCloudShortcuts(std::vector<cloud::Game> shortcuts);
     VideoResolution getVpnVideoResolution() const;
     void setVpnVideoResolution(VideoResolution value);
     VideoFps getVpnVideoFPS() const;
     void setVpnVideoFPS(VideoFps value);
 
-    HapticPreset getHaptic(akira::consoles::Host* host);
-    void setHaptic(akira::consoles::Host* host, HapticPreset value);
-    void setHaptic(akira::consoles::Host* host, const std::string& value);
+    HapticPreset getHaptic(consoles::Host* host);
+    void setHaptic(consoles::Host* host, HapticPreset value);
+    void setHaptic(consoles::Host* host, const std::string& value);
 
     bool getDirectRumbleInStream() const;
     void setDirectRumbleInStream(bool value);
@@ -362,12 +364,12 @@ public:
     void setDirectHapticsInStream(bool value);
 
 
-    akira::play::RumbleProfile getRumbleProfile(const std::string& key) const;
-    void setRumbleProfile(const std::string& key, const akira::play::RumbleProfile& profile);
+    play::RumbleProfile getRumbleProfile(const std::string& key) const;
+    void setRumbleProfile(const std::string& key, const play::RumbleProfile& profile);
     bool hasRumbleProfile(const std::string& key) const;
 
     bool seedRumbleProfile(const std::string& key,
-                           const akira::play::RumbleProfile* inheritFrom = nullptr);
+                           const play::RumbleProfile* inheritFrom = nullptr);
 
     void resetRumbleProfile(const std::string& key);
 
@@ -404,8 +406,8 @@ public:
     void setZeroCopyVideo(bool enabled);
     bool getSoftwareHevc() const;
     void setSoftwareHevc(bool enabled);
-    akira::play::RendererKind getVideoRenderer() const;
-    void setVideoRenderer(akira::play::RendererKind renderer);
+    play::RendererKind getVideoRenderer() const;
+    void setVideoRenderer(play::RendererKind renderer);
 
     bool getHideAccountName() const;
     void setHideAccountName(bool enabled);
@@ -427,8 +429,8 @@ public:
     void setUpdateInstallPath(const std::string& path);
     std::string getDevUpdateServer() const;
     void setDevUpdateServer(const std::string& server);
-    std::vector<akira::network::Ipv4Address> getCustomDnsServers() const;
-    void setCustomDnsServers(std::vector<akira::network::Ipv4Address> servers);
+    std::vector<network::Ipv4Address> getCustomDnsServers() const;
+    void setCustomDnsServers(std::vector<network::Ipv4Address> servers);
     int getMinBitrateForResolution(VideoResolution res) const;
 
 
@@ -522,5 +524,7 @@ public:
     static std::string getLogFilePath();
     static std::string getConnectionLogFilePath(const std::string& connType);
 };
+
+}
 
 #endif // AKIRA_SETTINGS_MANAGER_HPP

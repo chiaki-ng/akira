@@ -31,7 +31,7 @@ bool VulkanVideoProvider::addSettings(brls::Box& group) const
 {
     akira::platform::software::HevcDecoder::addSetting(group);
 
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
     auto* zeroCopy = new brls::BooleanCell();
     zeroCopy->init("akira/settings/zero_copy"_i18n, settings->getZeroCopyVideo(), [settings](bool isOn) {
         settings->setZeroCopyVideo(isOn);
@@ -99,7 +99,7 @@ bool VulkanVideoProvider::startRenderer(int width, int height, FrameHooks hooks)
         return true;
     }
 
-    if (SettingsManager::getInstance()->getZeroCopyVideo())
+    if (settings::SettingsManager::getInstance()->getZeroCopyVideo())
         m_decoder->setOutputMemory(m_renderer->decoderOutputMemory());
     else
         akira::log::info("Zero-copy video is off, decoded frames are copied");

@@ -78,7 +78,7 @@ PairView::PairView(bool createProfile) : createProfile(createProfile) {
 
     setFocusable(true);
 
-    listenPort = SettingsManager::getInstance()->getCompanionPort();
+    listenPort = settings::SettingsManager::getInstance()->getCompanionPort();
     const auto& palette = app::views::active();
     std::string ip = PairListener::localIpv4();
     if (addrIpLabel) {
@@ -175,7 +175,7 @@ void PairView::onEvent(ListenerEvent event) {
 }
 
 void PairView::applyCredentials(const PairedCredentials& creds, bool createProfile) {
-    SettingsManager* settings = SettingsManager::getInstance();
+    settings::SettingsManager* settings = settings::SettingsManager::getInstance();
 
     log::info("Pair push: create={} active={} onlineId={} accountId={} npsso={} refresh={} mobile={}",
         createProfile, settings->getActiveProfileId(), !creds.onlineId.empty(),
@@ -245,7 +245,7 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
 }
 
 void PairView::adoptSignedInUser(int64_t profileId, const accounts::Accounts::User& user) {
-    SettingsManager* settings = SettingsManager::getInstance();
+    settings::SettingsManager* settings = settings::SettingsManager::getInstance();
     settings->updateProfile(profileId, [&user](accounts::Profile& profile) {
         profile.accountId = accounts::Accounts::base64Of(user->account_id());
         profile.onlineId = user->online_id();

@@ -11,6 +11,8 @@
 
 #include "settings/settings_manager.hpp"
 
+namespace akira::settings::views {
+
 class SettingsGeneralView : public brls::Box {
 public:
     SettingsGeneralView();
@@ -46,5 +48,7 @@ private:
     void initRequestIdrOnFecFailureToggle();
     void initPacketLossMaxSlider();
 };
+
+}
 
 #endif // AKIRA_SETTINGS_GENERAL_VIEW_HPP

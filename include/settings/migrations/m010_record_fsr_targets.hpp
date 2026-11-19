@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <string>
 
-namespace chiaki_migrations {
+namespace akira::settings::migrations {
 
 inline void register_m010_record_fsr_targets(tomlmigrate::Migrator& m) {
     m.step(10, "record the fsr target height of each video profile",

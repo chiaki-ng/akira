@@ -110,7 +110,7 @@ StreamView::StreamView(consoles::Host* host, std::shared_ptr<consoles::Host> hos
     , hostOwner(std::move(hostOwner))
 {
     this->session = Session::GetInstance();
-    this->settings = SettingsManager::getInstance();
+    this->settings = settings::SettingsManager::getInstance();
 #if AKIRA_CLOUD
     if (const auto* launch = host->cloudLaunch())
         cloudScreen.emplace(launch->name());
@@ -227,15 +227,15 @@ void StreamView::startStream()
 
     try
     {
-        auto profile = SettingsManager::StreamProfile::Local;
+        auto profile = settings::SettingsManager::StreamProfile::Local;
         if (host->isCloud()) {
-            profile = SettingsManager::StreamProfile::Cloud;
+            profile = settings::SettingsManager::StreamProfile::Cloud;
             settings->setActiveCloudPscloud(host->cloudLaunch()->ps5());
         }
         else if (host->isRemote())
-            profile = SettingsManager::StreamProfile::Remote;
+            profile = settings::SettingsManager::StreamProfile::Remote;
         else if (network::WireGuardManager::instance().isConnected())
-            profile = SettingsManager::StreamProfile::Vpn;
+            profile = settings::SettingsManager::StreamProfile::Vpn;
         settings->setActiveStreamProfile(profile);
 
         if (!controllerReady)
@@ -930,7 +930,7 @@ void StreamView::onLoginPinNeeded(bool pinIncorrect)
     }
 
     consoles::Host* hostPtr = host;
-    SettingsManager* settingsPtr = settings;
+    settings::SettingsManager* settingsPtr = settings;
     auto weak = weak_from_this();
 
     auto* pinView = new consoles::views::EnterPinView(hostPtr, consoles::views::PinViewType::Login, pinIncorrect);
@@ -1005,7 +1005,7 @@ void StreamView::showDisconnectMenu()
     {
         akira::platform::VideoRenderer* renderer = session->getVideoRenderer();
         if (renderer && renderer->takeOverlayPositionDirty())
-            SettingsManager::getInstance()->writeFile();
+            settings::SettingsManager::getInstance()->writeFile();
     }
     menuOpen = true;
     if (connection)

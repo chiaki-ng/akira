@@ -5,6 +5,9 @@
 #include <vector>
 
 #include <borealis/core/i18n.hpp>
+
+namespace akira::settings::views {
+
 using namespace brls::literals;
 
 static const std::vector<std::string> sensitiveKeys = {
@@ -17,7 +20,7 @@ namespace {
 enum class TomlToken { Header, Key, Punct, String, Number, Boolean, Comment, Plain };
 
 NVGcolor tokenColor(TomlToken token) {
-    const akira::app::views::Palette& palette = akira::app::views::active();
+    const app::views::Palette& palette = app::views::active();
     switch (token) {
         case TomlToken::Header:  return palette.accent;
         case TomlToken::Key:     return palette.text;
@@ -227,4 +230,6 @@ void ConfigViewTab::addLine(const std::string& text, bool isHeader) {
     }
 
     configContainer->addView(label);
+}
+
 }

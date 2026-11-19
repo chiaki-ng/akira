@@ -28,7 +28,7 @@ ControllerRemapView::ControllerRemapView()
     captureLabel = (brls::Label*)this->getView("remap/captureLabel");
     captureButtonsLabel = (brls::Label*)this->getView("remap/captureButtons");
 
-    settings = SettingsManager::getInstance();
+    settings = settings::SettingsManager::getInstance();
 
     initRemappableButtons();
     loadMappings();

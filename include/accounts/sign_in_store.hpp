@@ -9,7 +9,9 @@
 #include <libchiaking/users.hpp>
 #include <toml++/toml.hpp>
 
+namespace akira::settings {
 class SettingsManager;
+}
 
 namespace akira::accounts {
 
@@ -18,7 +20,7 @@ public:
     using SavedSignIn = libchiaking::users::SavedSignIn;
     using SavedHomeUser = libchiaking::users::SavedHomeUser;
 
-    explicit SignInStore(SettingsManager& settings);
+    explicit SignInStore(settings::SettingsManager& settings);
 
     [[nodiscard]] auto load_saved_users()
         -> libchiaking::Expected<std::vector<SavedSignIn>, Error> override;
@@ -47,7 +49,7 @@ private:
 
     auto persist() -> libchiaking::Expected<void, Error>;
 
-    SettingsManager& settings;
+    settings::SettingsManager& settings;
     mutable std::mutex mutex;
     std::vector<SavedSignIn> rows;
 };

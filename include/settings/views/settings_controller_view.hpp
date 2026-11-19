@@ -9,6 +9,8 @@
 
 #include "settings/settings_manager.hpp"
 
+namespace akira::settings::views {
+
 class SettingsControllerView : public brls::Box {
 public:
     SettingsControllerView();
@@ -24,5 +26,7 @@ private:
     void initConnectedControllers();
     void initButtonMappingCell();
 };
+
+}
 
 #endif // AKIRA_SETTINGS_CONTROLLER_VIEW_HPP

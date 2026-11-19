@@ -7,7 +7,7 @@
 #include <string_view>
 #include <vector>
 
-namespace chiaki_migrations {
+namespace akira::settings::migrations {
 
 inline bool ends_with(std::string_view s, std::string_view suf) {
     return s.size() >= suf.size() && s.substr(s.size() - suf.size()) == suf;

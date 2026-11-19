@@ -20,7 +20,7 @@ private:
     BRLS_BIND(brls::Button, saveBtn, "add/saveBtn");
     BRLS_BIND(brls::Label, statusLabel, "add/status");
 
-    SettingsManager* settings = nullptr;
+    settings::SettingsManager* settings = nullptr;
 
     void onSaveClicked();
 };

@@ -71,7 +71,7 @@ std::vector<input::PadDescription> ExtendedPadProvider::scanPads() const
 
 play::RumbleProfile ExtendedPadProvider::primaryRumbleProfile() const
 {
-    auto* settings = SettingsManager::getInstance();
+    auto* settings = settings::SettingsManager::getInstance();
     const std::vector<input::PadDescription> pads = scanPads();
     if (pads.empty())
         return settings->getRumbleProfile(play::kRumbleKeyDefault);
