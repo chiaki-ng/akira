@@ -109,17 +109,17 @@ bool ConnectFlow::cancel()
     return true;
 }
 
-const char* ConnectFlow::failOnRing()
+std::optional<const char*> ConnectFlow::failOnRing()
 {
-    const char* key = ConnectFailure::forStage(stage());
-    done.store(true);
+    if (done.exchange(true))
+        return std::nullopt;
     failureShown.store(true);
-    return key;
+    return ConnectFailure::forStage(stage());
 }
 
-void ConnectFlow::failOnDialog()
+bool ConnectFlow::failOnDialog()
 {
-    done.store(true);
+    return !done.exchange(true);
 }
 
 bool ConnectFlow::dismiss()

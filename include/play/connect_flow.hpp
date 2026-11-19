@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <mutex>
+#include <optional>
 #include <string>
 
 #include <libchiaking/play_types.hpp>
@@ -37,8 +38,8 @@ public:
     bool settled() const { return done.load(); }
     [[nodiscard]] bool cancel();
     bool cancelled() const { return wasCancelled.load(); }
-    const char* failOnRing();
-    void failOnDialog();
+    [[nodiscard]] std::optional<const char*> failOnRing();
+    [[nodiscard]] bool failOnDialog();
     bool showingFailure() const { return failureShown.load(); }
     [[nodiscard]] bool dismiss();
 

@@ -101,16 +101,44 @@ TEST(connect_flow_names_a_failure_by_its_stage)
 {
     ConnectFlow flow;
     flow.advance(ConnectionStage::Linking);
-    CHECK_EQ(std::string(flow.failOnRing()), std::string("akira/connection/fail_link"));
+    const auto key = flow.failOnRing();
+    REQUIRE(key.has_value());
+    CHECK_EQ(std::string(*key), std::string("akira/connection/fail_link"));
     CHECK(flow.settled());
     CHECK(flow.showingFailure());
     CHECK(flow.dismiss());
     CHECK(!flow.dismiss());
 
     ConnectFlow dialog;
-    dialog.failOnDialog();
+    CHECK(dialog.failOnDialog());
     CHECK(dialog.settled());
     CHECK(!dialog.showingFailure());
+}
+
+TEST(connect_flow_failure_after_settling_is_not_handled)
+{
+    ConnectFlow succeeded;
+    CHECK(succeeded.settle());
+    CHECK(!succeeded.failOnRing().has_value());
+    CHECK(!succeeded.showingFailure());
+    CHECK(!succeeded.failOnDialog());
+
+    ConnectFlow cancelled;
+    CHECK(cancelled.cancel());
+    CHECK(!cancelled.failOnRing().has_value());
+    CHECK(!cancelled.failOnDialog());
+
+    ConnectFlow failedFirst;
+    CHECK(failedFirst.failOnRing().has_value());
+    CHECK(!failedFirst.settle());
+    CHECK(!failedFirst.cancel());
+    CHECK(!failedFirst.failOnDialog());
+    CHECK(!failedFirst.cancelled());
+
+    ConnectFlow dialogFirst;
+    CHECK(dialogFirst.failOnDialog());
+    CHECK(!dialogFirst.settle());
+    CHECK(!dialogFirst.failOnRing().has_value());
 }
 
 TEST(connect_failure_keys_by_stage_and_refusal)

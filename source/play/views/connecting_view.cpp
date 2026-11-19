@@ -195,7 +195,10 @@ void ConnectingView::failed(const std::string& error)
      * produced - and the ring is already showing which stage that was.
      */
     if (app::ViewServices::current().appSettings.connectionShowStages()) {
-        failureText = brls::getStr(flow.failOnRing());
+        const auto key = flow.failOnRing();
+        if (!key)
+            return;
+        failureText = brls::getStr(*key);
 
         auto weak = weak_from_this();
         brls::delay(kFailureLingerMs, [weak]() {
@@ -205,7 +208,8 @@ void ConnectingView::failed(const std::string& error)
         return;
     }
 
-    flow.failOnDialog();
+    if (!flow.failOnDialog())
+        return;
 
     brls::sync([error]() {
         auto* dialog = new brls::Dialog(brls::getStr("akira/connection/connection_failed", error));
