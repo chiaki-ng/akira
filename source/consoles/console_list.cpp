@@ -11,6 +11,13 @@ ConsoleList::ConsoleList(std::vector<ConsoleFacts> consoles, Profile profile)
 {
 }
 
+ConsoleList::Profile ConsoleList::profileFor(bool hasProfiles, bool legacy)
+{
+    if (!hasProfiles)
+        return Profile::None;
+    return legacy ? Profile::Legacy : Profile::Signed;
+}
+
 std::vector<ConsoleEntry> ConsoleList::shown() const
 {
     std::vector<ConsoleEntry> entries;

@@ -14,6 +14,8 @@ public:
 
     ConsoleList(std::vector<ConsoleFacts> consoles, Profile profile);
 
+    static Profile profileFor(bool hasProfiles, bool legacy);
+
     std::vector<ConsoleEntry> shown() const;
     std::vector<std::string> linkTargets() const;
     ConsoleEntry entry(ConsoleFacts facts) const;

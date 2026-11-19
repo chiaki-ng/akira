@@ -11,6 +11,7 @@
 
 #include <libchiaking/chiaki_ng.hpp>
 
+#include "accounts/session_state.hpp"
 #include "app/background_work.hpp"
 
 namespace akira::accounts {
@@ -26,13 +27,6 @@ enum class ActionState {
 struct ActionStatus {
     ActionState state = ActionState::Ready;
     int secondsRemaining = 0;
-};
-
-enum class SessionState {
-    NotLinked,
-    Valid,
-    Expired,
-    Refreshing
 };
 
 enum class SignInOutcome {

@@ -98,6 +98,10 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/consoles/console_pin.cpp \
                 $(CURDIR)/source/consoles/takion_pin_choice.cpp \
                 $(CURDIR)/source/consoles/psn_identity.cpp \
+                $(CURDIR)/source/consoles/register_flow.cpp \
+                $(CURDIR)/source/consoles/discovery_gate.cpp \
+                $(CURDIR)/source/consoles/remote_lookup.cpp \
+                $(CURDIR)/source/consoles/debug_consoles.cpp \
                 $(CURDIR)/source/log/log.cpp \
                 $(CURDIR)/source/log/core_log.cpp \
                 $(CURDIR)/source/log/log_tail.cpp \
@@ -123,6 +127,7 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/accounts/sign_in_store.cpp \
                 $(CURDIR)/source/accounts/profile_tables.cpp \
                 $(CURDIR)/source/accounts/profile_choices.cpp \
+                $(CURDIR)/source/accounts/profile_switch.cpp \
                 $(CURDIR)/source/consoles/console_settings.cpp \
                 $(CURDIR)/source/consoles/pairing_store.cpp \
                 $(CURDIR)/source/app/app_settings.cpp \
