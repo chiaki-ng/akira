@@ -2,10 +2,12 @@
 #define AKIRA_HOST_LIST_TAB_HPP
 
 #include <borealis.hpp>
+#include <optional>
 #include <unordered_map>
 
 #include "consoles/console_actions.hpp"
 #include "consoles/console_list.hpp"
+#include "consoles/debug_consoles.hpp"
 #include "consoles/discovery_manager.hpp"
 #include "app/view_services.hpp"
 #include "accounts/views/psn_action_button.hpp"
@@ -76,6 +78,7 @@ private:
     bool entrancePlayed = false;
 
     std::unordered_map<Host*, ConsoleCard*> hostItems;
+    std::optional<DebugConsoles> debugConsoles;
 
     static HostListTab* currentInstance;
     static bool isConnecting;

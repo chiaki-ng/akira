@@ -78,6 +78,19 @@ TEST(debug_consoles_alternate_type_and_rest_every_fourth)
     CHECK(consoles[19].resting);
 }
 
+TEST(debug_consoles_own_one_host_per_console_in_order)
+{
+    std::vector<std::string> made;
+    const DebugConsoles consoles([&made](const DebugConsoles::Console& console) {
+        made.push_back(console.nickname);
+        return std::shared_ptr<akira::consoles::Host>();
+    });
+    CHECK_EQ(consoles.hosts().size(), static_cast<std::size_t>(DebugConsoles::Count));
+    REQUIRE(made.size() == static_cast<std::size_t>(DebugConsoles::Count));
+    CHECK_EQ(made.front(), std::string("PS5-Debug-1"));
+    CHECK_EQ(made.back(), std::string("PS5-Debug-20"));
+}
+
 TEST(profile_switch_activates_saves_and_announces)
 {
     const auto directory = std::filesystem::temp_directory_path() / "akira-profile-switch";

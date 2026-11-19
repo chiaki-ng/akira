@@ -15,4 +15,10 @@ std::vector<DebugConsoles::Console> DebugConsoles::list()
     return consoles;
 }
 
+DebugConsoles::DebugConsoles(const Make& make)
+{
+    for (const Console& console : list())
+        owned.push_back(make(console));
+}
+
 }

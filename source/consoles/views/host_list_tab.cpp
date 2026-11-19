@@ -460,24 +460,23 @@ void HostListTab::syncHostList() {
     bool hasHosts = !hostItems.empty();
 
     if (services->developer.fakeHosts()) {
-        static std::vector<Host*> fakeHosts;
-        if (fakeHosts.empty()) {
-            for (const DebugConsoles::Console& console : DebugConsoles::list()) {
-                Host* h = new Host(HostRecord{.nickname = console.nickname}, services->accounts, services->appSettings,
-                                   services->dispatcher);
+        if (!debugConsoles) {
+            debugConsoles.emplace([this](const DebugConsoles::Console& console) {
+                auto h = std::make_shared<Host>(HostRecord{.nickname = console.nickname}, services->accounts,
+                                                services->appSettings, services->dispatcher);
                 h->setFirmware(Host::Firmware::newest(libchiaking::consoles::Generation::ps5));
                 h->setPresence(console.resting ? Host::Presence::rest_mode : Host::Presence::ready);
                 h->setHostType(console.type);
-                fakeHosts.push_back(h);
-            }
+                return h;
+            });
         }
-        for (Host* h : fakeHosts) {
+        for (const std::shared_ptr<Host>& h : debugConsoles->hosts()) {
             if (col == 0) {
                 row = new brls::Box();
                 row->setAxis(brls::Axis::ROW);
                 hostContainer->addView(row);
             }
-            row->addView(new ConsoleCard(h));
+            row->addView(new ConsoleCard(h.get()));
             col = (col + 1) % perRow;
         }
         hasHosts = true;
