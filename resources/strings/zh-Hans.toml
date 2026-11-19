@@ -363,6 +363,7 @@
 "akira/hosts/host_deleted" = "主机已删除"
 "akira/hosts/jump_back_in" = "继续游玩"
 "akira/hosts/link" = "关联"
+"akira/hosts/link_name_taken" = "已有其他主机名为 {0}"
 "akira/hosts/linked_to" = "已关联到 {0}"
 "akira/hosts/local" = "本地"
 "akira/hosts/manual" = "手动"

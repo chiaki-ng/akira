@@ -363,6 +363,7 @@
 "akira/hosts/host_deleted" = "Host deleted"
 "akira/hosts/jump_back_in" = "Jump back in"
 "akira/hosts/link" = "Link"
+"akira/hosts/link_name_taken" = "Another console is already named {0}"
 "akira/hosts/linked_to" = "Linked to {0}"
 "akira/hosts/local" = "Local"
 "akira/hosts/manual" = "Manual"

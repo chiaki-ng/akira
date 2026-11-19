@@ -36,6 +36,7 @@ class ConsoleActions {
 public:
     enum class AddressChange { Unchanged, Moved };
     enum class ManualRefusal { NoName, NoAddress, InvalidAddress, DuplicateName };
+    enum class LinkRefusal { NoLocal, NameTaken };
 
     ConsoleActions(HostCatalog& hosts, settings::SettingsStore& store, const accounts::AccountSettings& accounts,
                    const settings::DeveloperSettings& developer, network::WireGuardManager& wireGuard,
@@ -47,7 +48,7 @@ public:
     [[nodiscard]] HostRegisterError registerOverInternet(Host& host, Host::PairingStageCallback stage,
                                                          Host::PairingCallback done);
     void cancelRegistration(Host& host);
-    std::optional<std::string> link(Host& remote, const std::string& localName);
+    [[nodiscard]] std::expected<std::string, LinkRefusal> link(Host& remote, const std::string& localName);
     [[nodiscard]] bool setConsolePin(Host& host, std::string text);
     [[nodiscard]] std::expected<AddressChange, Host::AddressRefusal> moveTo(Host& host, const std::string& text);
     TakionPinChoice takionPins(const Host& host) const;

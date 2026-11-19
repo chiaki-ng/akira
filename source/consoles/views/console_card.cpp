@@ -313,7 +313,12 @@ void ConsoleCard::doLink()
             if (selected < 0 || selected >= (int)hostNames.size()) return;
 
             const auto remoteName = HostListTab::actions().link(*remoteHost, hostNames[selected]);
-            if (!remoteName) return;
+            if (!remoteName) {
+                if (remoteName.error() == ConsoleActions::LinkRefusal::NameTaken)
+                    brls::Application::notify(brls::getStr("akira/hosts/link_name_taken",
+                        ConsoleEntry(remoteHost->facts(), false).displayName()));
+                return;
+            }
 
             brls::Application::notify(brls::getStr("akira/hosts/linked_to", *remoteName));
 

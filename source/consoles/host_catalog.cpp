@@ -95,15 +95,22 @@ void HostCatalog::forgetProfile(int64_t profileId)
     }
 }
 
-void HostCatalog::rename(const std::string& oldName, const std::string& newName)
+std::expected<void, HostCatalog::RenameRefusal> HostCatalog::rename(const std::string& oldName,
+                                                                     const std::string& newName)
 {
     auto it = hosts.find(oldName);
-    if (it == hosts.end()) return;
+    if (it == hosts.end())
+        return std::unexpected(RenameRefusal::Unknown);
+    if (oldName == newName)
+        return {};
+    if (hosts.contains(newName))
+        return std::unexpected(RenameRefusal::NameTaken);
 
     auto host = std::move(it->second);
     hosts.erase(it);
     host->hostName = newName;
     hosts[newName] = std::move(host);
+    return {};
 }
 
 Host* HostCatalog::findByDuid(const std::string& duid)

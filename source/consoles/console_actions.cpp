@@ -65,16 +65,17 @@ Host::PairingCallback ConsoleActions::keepingPairing(Host& host, Host::PairingCa
     };
 }
 
-std::optional<std::string> ConsoleActions::link(Host& remote, const std::string& localName)
+std::expected<std::string, ConsoleActions::LinkRefusal> ConsoleActions::link(Host& remote, const std::string& localName)
 {
     const auto found = hosts.entries().find(localName);
     if (found == hosts.entries().end() || !found->second)
-        return std::nullopt;
+        return std::unexpected(LinkRefusal::NoLocal);
     Host* local = found->second.get();
 
     const std::string remoteName = ConsoleEntry(remote.facts(), false).displayName();
-    if (localName != remoteName)
-        hosts.rename(localName, remoteName);
+    if (auto renamed = hosts.rename(localName, remoteName); !renamed)
+        return std::unexpected(renamed.error() == HostCatalog::RenameRefusal::NameTaken ? LinkRefusal::NameTaken
+                                                                                         : LinkRefusal::NoLocal);
     remote.copyRegistrationFrom(local);
     remote.setNeedsLink(false);
     local->setRemoteDuid(remote.getRemoteDuid());

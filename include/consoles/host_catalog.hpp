@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <expected>
 #include <map>
 #include <memory>
 #include <string>
@@ -28,6 +29,7 @@ class ConsoleSettings;
 class HostCatalog {
 public:
     using Hosts = std::map<std::string, std::unique_ptr<Host>>;
+    enum class RenameRefusal { Unknown, NameTaken };
 
     HostCatalog(ConsoleSettings& consoles, accounts::AccountSettings& accounts, const app::AppSettings& app,
                 settings::SettingsStore& store, app::UiDispatcher& dispatcher);
@@ -41,7 +43,7 @@ public:
     Host* getOrCreate(const std::string& name);
     Host* findByDuid(const std::string& duid);
     void remove(const std::string& name);
-    void rename(const std::string& oldName, const std::string& newName);
+    [[nodiscard]] std::expected<void, RenameRefusal> rename(const std::string& oldName, const std::string& newName);
     void removeActiveProfileRegistration(const std::string& name);
     void forgetProfile(int64_t profileId);
     bool adoptLegacyRegistrations(Host& host);

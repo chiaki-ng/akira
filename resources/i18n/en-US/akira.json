@@ -63,6 +63,7 @@
     "finding_remote": "Finding remote devices...",
     "token_refresh_failed": "Token refresh failed: {}",
     "linked_to": "Linked to {}",
+    "link_name_taken": "Another console is already named {}",
     "no_registered_hosts": "No registered hosts to link",
     "select_host_to_link": "Select host to link",
     "psn_account_id_required": "PSN Account ID Required\n\nPlease configure your PSN Account ID in Settings before connecting.",

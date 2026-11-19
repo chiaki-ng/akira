@@ -54,6 +54,7 @@
     "finding_remote": "正在查找远程设备...",
     "token_refresh_failed": "令牌刷新失败：{}",
     "linked_to": "已关联到 {}",
+    "link_name_taken": "已有其他主机名为 {}",
     "no_registered_hosts": "没有可关联的已注册主机",
     "select_host_to_link": "选择要关联的主机",
     "psn_account_id_required": "需要 PSN 账号 ID\n\n请在设置中配置您的 PSN 账号 ID 后再连接。",
