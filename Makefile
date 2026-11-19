@@ -92,6 +92,7 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/cloud/start_steps.cpp \
                 $(CURDIR)/source/cloud/fetch_progress.cpp \
                 $(CURDIR)/source/core/pair_crypto.cpp \
+                $(CURDIR)/source/log/log.cpp \
                 $(CURDIR)/source/util/dns_client.cpp \
                 $(CURDIR)/source/platform/video/viddec/h264_sps.cpp \
                 $(TEST_PLATFORM_SRC)
