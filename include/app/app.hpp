@@ -15,8 +15,10 @@
 #include "cloud/service.hpp"
 #endif
 #include "consoles/console_settings.hpp"
+#include "consoles/discovery_gate.hpp"
 #include "consoles/discovery_manager.hpp"
 #include "consoles/host_catalog.hpp"
+#include "consoles/register_flow.hpp"
 #include "log/ffmpeg_log.hpp"
 #include "network/custom_dns.hpp"
 #include "network/network_settings.hpp"
@@ -80,6 +82,8 @@ private:
     consoles::ConsoleSettings consoleSettings;
     AppSettings appSettings;
     consoles::HostCatalog hosts;
+    consoles::DiscoveryGate discoveryGate;
+    consoles::RegisterFlow registration;
     play::StreamState streamState;
     std::optional<log::FfmpegLog> ffmpegLog;
     std::optional<HttpPool> http;

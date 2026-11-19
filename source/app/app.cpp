@@ -296,6 +296,8 @@ void App::startServices()
         .platform = *factory,
         .wireGuard = *wireGuard,
         .discovery = *discovery,
+        .discoveryGate = discoveryGate,
+        .registration = registration,
         .preferences = *preferences,
         .session = *session,
         .trophies = *trophies,

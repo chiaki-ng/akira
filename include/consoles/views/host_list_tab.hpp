@@ -17,11 +17,9 @@
 
 namespace akira::consoles::views {
 
-class HostItemView;
+class ConsoleCard;
 
 class HostListTab : public brls::Box {
-    friend class HostItemView;
-
 public:
     HostListTab();
     ~HostListTab() override;
@@ -42,7 +40,17 @@ public:
 
     static void refreshRailsIfActive();
 
+    static void connectToHost(Host* host);
+    static ConsoleActions actions();
+    static ConsoleList consoleList();
+
+    static void consoleChanged(Host* host);
+    static void consoleLinked();
+    static void consoleRemoved();
+
 private:
+    static const brls::ButtonStyle findRemoteStyle;
+
     BRLS_BIND(brls::Box, hostContainer, "host/container");
     BRLS_BIND(brls::Box, emptyMessage, "empty/message");
     BRLS_BIND(brls::Box, chipSlot, "host/chipSlot");
@@ -58,9 +66,7 @@ private:
     void initFindRemoteButton();
     void applyProfileMode();
 
-    static void connectToHost(Host* host);
-    static ConsoleActions actions();
-    static ConsoleList consoleList();
+    static void refreshSurfaces();
 
     accounts::views::PsnActionButton findRemoteGate;
 
@@ -69,13 +75,10 @@ private:
 
     bool entrancePlayed = false;
 
-    std::unordered_map<Host*, HostItemView*> hostItems;
+    std::unordered_map<Host*, ConsoleCard*> hostItems;
 
     static HostListTab* currentInstance;
     static bool isConnecting;
-    static bool isRegistering;
-    static bool isActive;
-    static bool connectionActive;
 };
 
 }

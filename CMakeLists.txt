@@ -85,7 +85,7 @@ include(vendored_libs)
 file(GLOB_RECURSE MAIN_SRC CONFIGURE_DEPENDS source/*.cpp)
 if (NOT AKIRA_CLOUD)
     list(FILTER MAIN_SRC EXCLUDE REGEX "/source/cloud/(service|library_listing|game_actions|launch_checks|fetch_progress|start_steps|cloud_connect_task)\\.cpp$")
-    list(FILTER MAIN_SRC EXCLUDE REGEX "/source/cloud/views/(library_view|game_detail_view|launch_screen|cloud_shortcuts_rail)\\.cpp$")
+    list(FILTER MAIN_SRC EXCLUDE REGEX "/source/cloud/views/(library_view|game_detail_view|launch_screen|cloud_shortcuts_rail|cloud_card)\\.cpp$")
 endif()
 include(platform)
 

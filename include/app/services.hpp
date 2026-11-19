@@ -17,8 +17,10 @@ class Service;
 
 namespace akira::consoles {
 class ConsoleSettings;
+class DiscoveryGate;
 class DiscoveryManager;
 class HostCatalog;
+class RegisterFlow;
 }
 
 namespace akira::network {
@@ -67,6 +69,8 @@ struct Services {
     platform::PlatformFactory& platform;
     network::WireGuardManager& wireGuard;
     consoles::DiscoveryManager& discovery;
+    consoles::DiscoveryGate& discoveryGate;
+    consoles::RegisterFlow& registration;
     play::StreamPreferences& preferences;
     play::LazySession& session;
     trophies::TrophyManager& trophies;
