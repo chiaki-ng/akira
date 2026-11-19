@@ -111,6 +111,7 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/accounts/account_settings.cpp \
                 $(CURDIR)/source/accounts/sign_in_store.cpp \
                 $(CURDIR)/source/accounts/profile_tables.cpp \
+                $(CURDIR)/source/accounts/profile_choices.cpp \
                 $(CURDIR)/source/consoles/console_settings.cpp \
                 $(CURDIR)/source/consoles/pairing_store.cpp \
                 $(CURDIR)/source/app/app_settings.cpp \
