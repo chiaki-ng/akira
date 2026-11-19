@@ -9,15 +9,17 @@ namespace akira::cloud {
 
 CloudConnectTask::CloudConnectTask(Service& service, const accounts::AccountSettings& accounts,
                                    const app::AppSettings& app, app::UiDispatcher& dispatcher,
-                                   const app::Strings& strings, const Game& game)
-    : service(service), accounts(accounts), appSettings(app), dispatcher(dispatcher), strings(strings), game(game)
+                                   const app::Strings& strings, akira::play::ChiakiCore& core, const Game& game)
+    : service(service), accounts(accounts), appSettings(app), dispatcher(dispatcher), strings(strings), core(core),
+      game(game)
 {
 }
 
 CloudConnectTask::CloudConnectTask(Service& service, const accounts::AccountSettings& accounts,
                                    const app::AppSettings& app, app::UiDispatcher& dispatcher,
-                                   const app::Strings& strings, std::shared_ptr<CloudLaunch> cleared)
-    : service(service), accounts(accounts), appSettings(app), dispatcher(dispatcher), strings(strings),
+                                   const app::Strings& strings, akira::play::ChiakiCore& core,
+                                   std::shared_ptr<CloudLaunch> cleared)
+    : service(service), accounts(accounts), appSettings(app), dispatcher(dispatcher), strings(strings), core(core),
       clearedLaunch(std::move(cleared))
 {
     game.name = clearedLaunch->name();
@@ -25,15 +27,15 @@ CloudConnectTask::CloudConnectTask(Service& service, const accounts::AccountSett
 
 auto CloudConnectTask::retrying(Service& service, const accounts::AccountSettings& accounts,
                                 const app::AppSettings& app, app::UiDispatcher& dispatcher,
-                                const app::Strings& strings, const CloudLaunch& previous)
-    -> std::unique_ptr<CloudConnectTask>
+                                const app::Strings& strings, akira::play::ChiakiCore& core,
+                                const CloudLaunch& previous) -> std::unique_ptr<CloudConnectTask>
 {
     Game game;
     game.productId = previous.product().text();
     game.name = previous.name();
     game.serviceType = previous.ps5() ? "pscloud" : "psnow";
     game.streamServiceType = game.serviceType;
-    return std::make_unique<CloudConnectTask>(service, accounts, app, dispatcher, strings, game);
+    return std::make_unique<CloudConnectTask>(service, accounts, app, dispatcher, strings, core, game);
 }
 
 CloudConnectTask::~CloudConnectTask()
@@ -57,14 +59,15 @@ void CloudConnectTask::start(play::ConnectSink& s)
 
     if (clearedLaunch)
     {
-        handOver(state, clearedLaunch, accounts, appSettings, dispatcher);
+        handOver(state, clearedLaunch, accounts, appSettings, dispatcher, core);
         return;
     }
 
     service.clearForLaunch(
         game, state->stop.token(),
-        [state, &accounts = accounts, &app = appSettings, &dispatcher = dispatcher](std::shared_ptr<CloudLaunch> launch) {
-            handOver(state, std::move(launch), accounts, app, dispatcher);
+        [state, &accounts = accounts, &app = appSettings, &dispatcher = dispatcher, &core = core](
+            std::shared_ptr<CloudLaunch> launch) {
+            handOver(state, std::move(launch), accounts, app, dispatcher, core);
         },
         [state](const std::string& error) {
             std::lock_guard<std::mutex> lock(state->mutex);
@@ -82,14 +85,14 @@ void CloudConnectTask::start(play::ConnectSink& s)
 
 void CloudConnectTask::handOver(const std::shared_ptr<CallbackState>& state, std::shared_ptr<CloudLaunch> launch,
                                 const accounts::AccountSettings& accounts, const app::AppSettings& app,
-                                app::UiDispatcher& dispatcher)
+                                app::UiDispatcher& dispatcher, akira::play::ChiakiCore& core)
 {
     std::lock_guard<std::mutex> lock(state->mutex);
     if (state->stop.stop_requested() || !state->sink)
         return;
 
     auto host = std::make_shared<consoles::Host>(consoles::HostRecord{.nickname = launch->name()}, accounts, app,
-                                                  dispatcher);
+                                                  dispatcher, core);
     host->setCloudLaunch(*launch);
     state->sink->succeeded(host.get(), host);
 }

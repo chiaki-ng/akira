@@ -44,6 +44,7 @@ private:
     akira::platform::PlatformFactory& m_platform;
     StreamState& m_stream_state;
     app::UiWindow& m_window;
+    libchiaking::platform::ThreadingProvider& m_threading;
     std::atomic<bool> quit = false;
 
     std::unique_ptr<AudioManager> m_audio_manager;
@@ -92,7 +93,8 @@ private:
 
 public:
     Session(akira::platform::PlatformFactory& platform, StreamState& streamState, const ControllerSettings& controllers,
-            const settings::DeveloperSettings& developer, app::UiWindow& window);
+            const settings::DeveloperSettings& developer, app::UiWindow& window,
+            libchiaking::platform::ThreadingProvider& threading);
     Session(const Session&) = delete;
     void operator=(const Session&) = delete;
 

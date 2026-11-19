@@ -10,7 +10,6 @@
 #include <mutex>
 
 #include "play/controller_settings.hpp"
-#include "play/chiaki_core.hpp"
 #include "platform/pads/extended/pad_path.hpp"
 #include "platform/pads/extended/ps_output.hpp"
 
@@ -309,8 +308,10 @@ const char* ExtendedInputManager::describe(Availability availability)
     return "akira/settings/analog_triggers_failed";
 }
 
-ExtendedInputManager::ExtendedInputManager(const play::ControllerSettings& controllers)
+ExtendedInputManager::ExtendedInputManager(const play::ControllerSettings& controllers,
+                                           libchiaking::platform::ThreadingProvider& threading)
     : m_controllers(controllers)
+    , m_threading(threading)
 {
 }
 
@@ -386,7 +387,7 @@ bool ExtendedInputManager::initializeOptional()
     m_subscribed = true;
 
     m_running.store(true, std::memory_order_release);
-    auto started = libchiaking::platform::Thread::start(play::ChiakiCore::current().threading(),
+    auto started = libchiaking::platform::Thread::start(m_threading,
         "extended-input", libchiaking::platform::ThreadRole::input,
         [this](libchiaking::platform::StopToken) { poll(); });
     if (!started) {

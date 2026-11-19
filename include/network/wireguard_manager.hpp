@@ -16,6 +16,10 @@ extern "C" {
 #include <wireguard.h>
 }
 
+namespace akira::play {
+class ChiakiCore;
+}
+
 namespace akira::settings {
 class DeveloperSettings;
 }
@@ -24,7 +28,7 @@ namespace akira::network {
 
 class WireGuardManager {
 public:
-    explicit WireGuardManager(const settings::DeveloperSettings& developer);
+    WireGuardManager(const settings::DeveloperSettings& developer, play::ChiakiCore& core);
     ~WireGuardManager();
 
     WireGuardManager(const WireGuardManager&) = delete;
@@ -53,6 +57,7 @@ private:
     std::string parseValue(const std::string& line);
     auto routesFor(const std::string& consoleAddress) const -> std::vector<RoutingNetworkProvider::Prefix>;
 
+    play::ChiakiCore& core;
     WgTunnel* tunnel = nullptr;
     WgConfig config = {};
     bool configLoaded = false;

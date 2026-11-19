@@ -7,6 +7,10 @@
 
 #include <libchiaking/platform/platform.hpp>
 
+namespace akira::play {
+class ChiakiCore;
+}
+
 namespace akira::consoles {
 
 enum class ListenerEvent {
@@ -40,13 +44,13 @@ public:
     using EventCallback = std::function<void(ListenerEvent)>;
     using ImportCallback = std::function<void(const PairedCredentials&)>;
 
-    PairListener() = default;
+    explicit PairListener(play::ChiakiCore& core);
     ~PairListener();
 
     void start(int port, const std::string& code, EventCallback onEvent, ImportCallback onImport);
     void stop();
 
-    static std::string generateCode();
+    std::string generateCode();
     static std::string localIpv4();
 
     static constexpr int kMaxTries = 3;
@@ -55,6 +59,7 @@ public:
 private:
     void run(int port, const std::string& code, const libchiaking::platform::StopToken& stop);
 
+    play::ChiakiCore& core_;
     libchiaking::platform::Thread thread_;
     EventCallback onEvent_;
     ImportCallback onImport_;

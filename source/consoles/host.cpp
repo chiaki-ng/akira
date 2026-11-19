@@ -12,10 +12,11 @@
 namespace akira::consoles {
 
 Host::Host(HostRecord record, const accounts::AccountSettings& accounts, const app::AppSettings& app,
-           app::UiDispatcher& dispatcher)
+           app::UiDispatcher& dispatcher, play::ChiakiCore& core)
     : accountSettings(accounts),
       appSettings(app),
       dispatcher(dispatcher),
+      core(core),
       haptic(record.haptic),
       consolePIN(std::move(record.consolePin)),
       pinnedTakionVersion(record.pinnedTakionVersion),
@@ -198,7 +199,7 @@ void Host::copyRegistrationFrom(const Host* other)
 
 libchiaking::Expected<void, Host::WakeRefusal> Host::wake(network::WireGuardManager& wireGuard)
 {
-    auto* accounts = play::ChiakiCore::current().accounts();
+    auto* accounts = core.accounts();
     const auto user = accounts ? accounts->activeUser() : nullptr;
     if (!console || !user)
     {
@@ -228,7 +229,6 @@ HostRegisterError Host::registerHost(int pin, PairingCallback done)
     namespace consoles = libchiaking::consoles;
     namespace platform = libchiaking::platform;
 
-    auto& core = play::ChiakiCore::current();
     auto* accounts = core.accounts();
     auto user = accounts ? accounts->activeUser() : nullptr;
     if (!user)
@@ -269,7 +269,7 @@ HostRegisterError Host::registerHost(int pin, PairingCallback done)
     log::info("Registering to host `{}` `{}` as `{}`", hostName, getHostAddr(),
         appSettings.maskAccountName(user->online_id()));
 
-    auto work = [this, &core, user, found = console, address = std::move(address), firmware = *known,
+    auto work = [this, user, found = console, address = std::move(address), firmware = *known,
                  pinHolder = std::make_shared<consoles::PairingPin>(std::move(*parsedPin)), generation,
                  name = hostName, done](platform::StopToken stop) {
         auto& known = core.chiaki().consoles();
@@ -316,7 +316,7 @@ bool Host::canPairOverInternet() const
 {
     if (accountSettings.isLegacyProfileActive())
         return false;
-    auto* accounts = play::ChiakiCore::current().accounts();
+    auto* accounts = core.accounts();
     if (!accounts || accounts->state() != accounts::SessionState::Valid)
         return false;
     return !accountSettings.psnAccountId().empty();
@@ -327,7 +327,6 @@ HostRegisterError Host::registerOverInternet(PairingStageCallback stage, Pairing
     namespace consoles = libchiaking::consoles;
     namespace platform = libchiaking::platform;
 
-    auto& core = play::ChiakiCore::current();
     auto* accounts = core.accounts();
     auto user = accounts ? accounts->activeUser() : nullptr;
     if (!user || accountSettings.isLegacyProfileActive())
@@ -339,7 +338,7 @@ HostRegisterError Host::registerOverInternet(PairingStageCallback stage, Pairing
     const auto consoleGeneration = isPS5() ? consoles::Generation::ps5 : consoles::Generation::ps4;
     log::info("Pairing {} over the internet", hostName);
 
-    auto work = [this, &core, accounts, user, generation, consoleGeneration, name = hostName,
+    auto work = [this, accounts, user, generation, consoleGeneration, name = hostName,
                  duid = consoles::DeviceUid::parse(remoteDuid), stage, done](platform::StopToken stop) {
         const std::weak_ptr<std::atomic<uint64_t>> alive = pairingGeneration;
         auto& known = core.chiaki().consoles();

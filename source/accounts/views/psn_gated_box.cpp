@@ -1,5 +1,6 @@
 #include "accounts/views/psn_gated_box.hpp"
 #include "app/views/theme.hpp"
+#include "app/view_services.hpp"
 #include "play/chiaki_core.hpp"
 #include "log/log.hpp"
 
@@ -27,7 +28,7 @@ PsnGatedBox::PsnGatedBox()
     if (!observerInstalled)
     {
         observerInstalled = true;
-        if (auto* accounts = play::ChiakiCore::current().accounts()) {
+        if (auto* accounts = app::ViewServices::current().core.accounts()) {
             accounts->setStateObserver([]() {
                 brls::sync([]() { PsnGatedBox::evaluateAll(); });
             });
@@ -53,7 +54,7 @@ void PsnGatedBox::evaluateAll()
 
 bool PsnGatedBox::evaluate()
 {
-    auto* accounts = play::ChiakiCore::current().accounts();
+    auto* accounts = app::ViewServices::current().core.accounts();
     applyState(accounts ? accounts->state() : SessionState::NotLinked);
     return gateOpen;
 }

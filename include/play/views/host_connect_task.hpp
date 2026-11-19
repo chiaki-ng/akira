@@ -14,6 +14,10 @@ namespace akira::consoles {
 class Host;
 }
 
+namespace akira::play {
+class ChiakiCore;
+}
+
 namespace akira::play::views {
 
 /*
@@ -27,7 +31,7 @@ namespace akira::play::views {
  */
 class HostConnectTask : public ConnectTask {
 public:
-    explicit HostConnectTask(consoles::Host* host);
+    HostConnectTask(consoles::Host* host, ChiakiCore& core);
     ~HostConnectTask() override;
 
     std::string title() const override;
@@ -38,6 +42,7 @@ public:
 
 private:
     consoles::Host* host = nullptr;
+    ChiakiCore& core;
     ConnectSink* sink = nullptr;
 
     std::atomic<bool> running{false};

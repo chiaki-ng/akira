@@ -26,8 +26,8 @@ namespace trophies = libchiaking::trophies;
 namespace catalog = libchiaking::catalog;
 using libchiaking::users::Unanswered;
 
-TrophyManager::TrophyManager(HttpPool& http, app::UiDispatcher& dispatcher)
-    : http(http), dispatcher(dispatcher)
+TrophyManager::TrophyManager(HttpPool& http, app::UiDispatcher& dispatcher, play::ChiakiCore& core)
+    : http(http), dispatcher(dispatcher), core(core)
 {
     dropLegacyCache();
 }
@@ -116,12 +116,12 @@ void TrophyManager::deliverNotLinked(const ErrorCallback& onError) const
 
 auto TrophyManager::trophies() -> trophies::Trophies&
 {
-    return play::ChiakiCore::current().chiaki().trophies();
+    return core.chiaki().trophies();
 }
 
 auto TrophyManager::catalog() -> catalog::Catalog&
 {
-    return play::ChiakiCore::current().chiaki().catalog();
+    return core.chiaki().catalog();
 }
 
 auto TrophyManager::requestFor(accounts::Accounts::User user) -> Request
@@ -132,7 +132,7 @@ auto TrophyManager::requestFor(accounts::Accounts::User user) -> Request
 
 auto TrophyManager::begin() -> std::optional<Request>
 {
-    accounts::Accounts* accounts = play::ChiakiCore::current().accounts();
+    accounts::Accounts* accounts = core.accounts();
     accounts::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
     if (!user || !user->has_psn_account())
         return std::nullopt;
@@ -328,7 +328,6 @@ void TrophyManager::fetchProfile(bool forceRefresh, Callback<Profile> onSuccess,
 void TrophyManager::fetchProfileForAccount(const std::string& accountId,
     Callback<Profile> onSuccess, ErrorCallback onError)
 {
-    play::ChiakiCore& core = play::ChiakiCore::current();
     const auto account = libchiaking::AccountId::from_base64(accountId);
     accounts::Accounts::User user = core.opened() && account ? core.chiaki().users().find(*account) : nullptr;
     if (!user || !user->has_psn_account())

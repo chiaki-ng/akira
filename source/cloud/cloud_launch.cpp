@@ -15,10 +15,10 @@ CloudLaunch::CloudLaunch(std::shared_ptr<libchiaking::users::PsUser> player, cat
 {
 }
 
-auto CloudLaunch::start(play::Preferences preferences, libchiaking::media::MediaSink& media, play::SessionEvents& events) const
-    -> Started
+auto CloudLaunch::start(akira::play::ChiakiCore& core, play::Preferences preferences, libchiaking::media::MediaSink& media,
+                        play::SessionEvents& events) const -> Started
 {
-    return akira::play::ChiakiCore::current().chiaki().play().start_on_cloud(
+    return core.chiaki().play().start_on_cloud(
         user, cleared.product, std::move(preferences), play::DatacenterPreference{}, media, events, cleared);
 }
 

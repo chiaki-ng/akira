@@ -330,7 +330,7 @@ void ProfileSwitcherView::confirmRemoveProfile(int64_t id, const std::string& la
         const bool shared = std::ranges::any_of(services->accounts.profiles(),
             [&account](const Profile& profile) { return profile.accountId == account; });
         if (!account.empty() && !shared) {
-            if (auto* accounts = play::ChiakiCore::current().accounts())
+            if (auto* accounts = app::ViewServices::current().core.accounts())
                 accounts->forget(account);
         }
         services->store.save();

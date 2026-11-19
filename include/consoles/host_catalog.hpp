@@ -18,6 +18,10 @@ namespace akira::app {
 class AppSettings;
 }
 
+namespace akira::play {
+class ChiakiCore;
+}
+
 namespace akira::settings {
 class SettingsStore;
 }
@@ -32,7 +36,7 @@ public:
     enum class RenameRefusal { Unknown, NameTaken };
 
     HostCatalog(ConsoleSettings& consoles, accounts::AccountSettings& accounts, const app::AppSettings& app,
-                settings::SettingsStore& store, app::UiDispatcher& dispatcher);
+                settings::SettingsStore& store, app::UiDispatcher& dispatcher, play::ChiakiCore& core);
     ~HostCatalog();
 
     HostCatalog(const HostCatalog&) = delete;
@@ -56,6 +60,7 @@ private:
     const app::AppSettings& app;
     settings::SettingsStore& store;
     app::UiDispatcher& dispatcher;
+    play::ChiakiCore& core;
     Hosts hosts;
 };
 

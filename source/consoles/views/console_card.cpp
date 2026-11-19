@@ -247,7 +247,7 @@ void ConsoleCard::doRegister()
     log::info("Register button clicked for {}", host->getHostName());
 
     auto* services = &app::ViewServices::current();
-    auto* accounts = play::ChiakiCore::current().accounts();
+    auto* accounts = app::ViewServices::current().core.accounts();
     log::info("Register {}: remoteDuid='{}' signedIn={} hasAccountId={} canAuto={}",
         host->getHostName(), host->getRemoteDuid(),
         accounts && accounts->state() == accounts::SessionState::Valid,

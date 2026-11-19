@@ -63,10 +63,10 @@ DiscoveryManager::DiscoveryManager(HostCatalog& hostCatalog, settings::SettingsS
                                    const network::NetworkSettings& networkSettings,
                                    const settings::DeveloperSettings& developerSettings,
                                    const accounts::AccountSettings& accountSettings, network::WireGuardManager& wireGuard,
-                                   app::UiDispatcher& dispatcher, app::UiWindow& window)
+                                   app::UiDispatcher& dispatcher, app::UiWindow& window, play::ChiakiCore& core)
     : hostCatalog(hostCatalog), settingsStore(settingsStore), networkSettings(networkSettings),
       developerSettings(developerSettings), accountSettings(accountSettings), wireGuard(wireGuard),
-      dispatcher(dispatcher), window(window)
+      dispatcher(dispatcher), window(window), core(core)
 {
     backgroundSubscription = app::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
 }
@@ -132,7 +132,7 @@ void DiscoveryManager::setServiceEnabled(bool enable)
         return;
     }
 
-    if (!play::ChiakiCore::current().opened())
+    if (!core.opened())
     {
         log::error("Discovery: the core is not open, nothing to search with");
         return;
@@ -146,7 +146,7 @@ void DiscoveryManager::setServiceEnabled(bool enable)
 
 void DiscoveryManager::linkSavedConsoles()
 {
-    auto& known = play::ChiakiCore::current().chiaki().consoles();
+    auto& known = core.chiaki().consoles();
     auto* hostsMap = &hostCatalog.entries();
     bool changed = false;
 
@@ -290,9 +290,8 @@ void DiscoveryManager::startSearch()
             sweep.subnets.push_back(subnet.text());
     }
 
-    auto& core = play::ChiakiCore::current();
     auto started = platform::Thread::start(core.threading(), "discovery", platform::ThreadRole::discovery,
-        [this, ranges = std::move(ranges), generation, &core](platform::StopToken stop) {
+        [this, ranges = std::move(ranges), generation](platform::StopToken stop) {
             Lookout lookout{*this, generation};
             const auto searched = core.chiaki().consoles().find_on_my_network(ranges, lookout, stop);
             if (!searched)
@@ -374,7 +373,7 @@ void DiscoveryManager::applyView(uint64_t generation, const SeenNetwork& seen)
 
     if (adopted)
     {
-        auto remembered = play::ChiakiCore::current().chiaki().consoles().remember_saved();
+        auto remembered = core.chiaki().consoles().remember_saved();
         if (remembered)
             log::info("Discovery: adopted saved registrations, {} console(s) remembered",
                 remembered->consoles.size());
@@ -455,7 +454,7 @@ accounts::ActionStatus DiscoveryManager::getRemoteRefreshStatus() const
     std::lock_guard<std::mutex> lock(remoteRefreshMutex);
     if (remoteRefreshInFlight)
         return accounts::ActionStatus{accounts::ActionState::Busy, 0};
-    const uint64_t now = play::ChiakiCore::current().clock().now_microseconds();
+    const uint64_t now = core.clock().now_microseconds();
     if (now < remoteRefreshReadyAtMicroseconds)
         return accounts::ActionStatus{accounts::ActionState::CoolingDown,
             static_cast<int>((remoteRefreshReadyAtMicroseconds - now + 999'999) / 1'000'000)};
@@ -486,7 +485,6 @@ void DiscoveryManager::refreshRemoteDevices(RemoteRefreshCallback onComplete, bo
         generation = ++remoteGeneration;
     }
 
-    auto& core = play::ChiakiCore::current();
     if (!core.opened())
     {
         finishRemoteRefresh(generation, {false, "core unavailable"});
@@ -506,7 +504,6 @@ void DiscoveryManager::refreshRemoteDevices(RemoteRefreshCallback onComplete, bo
 
 void DiscoveryManager::runRemoteRefresh(const platform::StopToken& stop, uint64_t generation)
 {
-    auto& core = play::ChiakiCore::current();
     auto* accounts = core.accounts();
     if (accountSettings.isLegacyProfileActive() || !accounts)
     {
@@ -699,7 +696,7 @@ void DiscoveryManager::finishRemoteRefresh(uint64_t generation, const RemoteRefr
 
         if (remoteRefreshUserRequested)
         {
-            remoteRefreshReadyAtMicroseconds = play::ChiakiCore::current().clock().now_microseconds() +
+            remoteRefreshReadyAtMicroseconds = core.clock().now_microseconds() +
                 static_cast<uint64_t>(result.success ? PSN_REMOTE_COOLDOWN_S : PSN_FAILED_COOLDOWN_S) * 1'000'000;
             remoteRefreshUserRequested = false;
         }

@@ -58,12 +58,12 @@ QrSignInView::QrSignInView(bool createProfile) : createProfile(createProfile) {
 }
 
 QrSignInView::~QrSignInView() {
-    if (auto* accounts = play::ChiakiCore::current().accounts())
+    if (auto* accounts = app::ViewServices::current().core.accounts())
         accounts->cancelSignIn();
 }
 
 void QrSignInView::openIfSignInExpired() {
-    auto* accounts = play::ChiakiCore::current().accounts();
+    auto* accounts = app::ViewServices::current().core.accounts();
     if (!accounts || accounts->state() != SessionState::Expired)
         return;
     log::info("PSN sign-in for the active profile has expired; asking for a new one");
@@ -86,7 +86,7 @@ void QrSignInView::start() {
             brls::Application::giveFocus(closeButton);
     }
 
-    auto* accounts = play::ChiakiCore::current().accounts();
+    auto* accounts = app::ViewServices::current().core.accounts();
     if (!accounts) {
         showFailure("akira/qr_sign_in/status_failed"_i18n);
         return;

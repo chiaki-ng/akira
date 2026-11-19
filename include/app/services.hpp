@@ -37,6 +37,7 @@ class PlatformFactory;
 }
 
 namespace akira::play {
+class ChiakiCore;
 class ControllerSettings;
 class LazySession;
 class StreamPreferences;
@@ -80,6 +81,7 @@ struct Services {
     play::StreamPreferences& preferences;
     play::LazySession& session;
     trophies::TrophyManager& trophies;
+    play::ChiakiCore& core;
 #if AKIRA_CLOUD
     cloud::Service& cloud;
 #endif

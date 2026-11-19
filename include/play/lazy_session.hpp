@@ -2,6 +2,10 @@
 
 #include <memory>
 
+namespace libchiaking::platform {
+class ThreadingProvider;
+}
+
 namespace akira::platform {
 class PlatformFactory;
 }
@@ -23,7 +27,8 @@ class StreamState;
 class LazySession {
 public:
     LazySession(platform::PlatformFactory& platform, StreamState& streamState, const ControllerSettings& controllers,
-                const settings::DeveloperSettings& developer, app::UiWindow& window);
+                const settings::DeveloperSettings& developer, app::UiWindow& window,
+                libchiaking::platform::ThreadingProvider& threading);
     ~LazySession();
 
     LazySession(const LazySession&) = delete;
@@ -38,6 +43,7 @@ private:
     const ControllerSettings& controllers;
     const settings::DeveloperSettings& developer;
     app::UiWindow& window;
+    libchiaking::platform::ThreadingProvider& threading;
     std::unique_ptr<Session> session;
 };
 

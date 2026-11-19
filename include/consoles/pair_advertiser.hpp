@@ -7,7 +7,7 @@ namespace akira::consoles {
 
 class PairAdvertiser {
 public:
-    PairAdvertiser() = default;
+    explicit PairAdvertiser(libchiaking::platform::ThreadingProvider& threading);
     ~PairAdvertiser();
 
     void start(int port);
@@ -16,6 +16,7 @@ public:
 private:
     void run(int port, const libchiaking::platform::StopToken& stop);
 
+    libchiaking::platform::ThreadingProvider& threading_;
     libchiaking::platform::Thread thread_;
 };
 

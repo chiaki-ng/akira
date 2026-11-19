@@ -48,8 +48,6 @@ public:
     ChiakiCore(const ChiakiCore&) = delete;
     ChiakiCore& operator=(const ChiakiCore&) = delete;
 
-    static auto current() noexcept -> ChiakiCore&;
-
     auto threading() noexcept -> libchiaking::platform::ThreadingProvider& { return threadingProvider; }
     auto clock() noexcept -> libchiaking::platform::ClockProvider& { return factory.clock(); }
     auto wallClock() noexcept -> libchiaking::platform::ClockProvider& { return factory.wall_clock(); }
@@ -70,8 +68,6 @@ private:
     static auto threadPlacement() noexcept -> libchiaking::platform::horizon::ThreadPlacementPolicy;
 
     void rememberSaved();
-
-    static ChiakiCore* instance;
 
     Settings settings;
     app::UiDispatcher& dispatcher;

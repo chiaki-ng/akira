@@ -31,6 +31,10 @@ namespace akira::accounts {
 class AccountSettings;
 }
 
+namespace akira::play {
+class ChiakiCore;
+}
+
 namespace akira::consoles {
 
 class DiscoveryManager {
@@ -54,7 +58,7 @@ public:
     DiscoveryManager(HostCatalog& hostCatalog, settings::SettingsStore& settingsStore,
                      const network::NetworkSettings& networkSettings, const settings::DeveloperSettings& developerSettings,
                      const accounts::AccountSettings& accountSettings, network::WireGuardManager& wireGuard,
-                     app::UiDispatcher& dispatcher, app::UiWindow& window);
+                     app::UiDispatcher& dispatcher, app::UiWindow& window, play::ChiakiCore& core);
 
     DiscoveryManager(const DiscoveryManager&) = delete;
     DiscoveryManager& operator=(const DiscoveryManager&) = delete;
@@ -132,6 +136,7 @@ private:
     network::WireGuardManager& wireGuard;
     app::UiDispatcher& dispatcher;
     app::UiWindow& window;
+    play::ChiakiCore& core;
     bool serviceEnabled = false;
 
     std::unique_ptr<app::UiWindow::FocusWatch> focusWatch;

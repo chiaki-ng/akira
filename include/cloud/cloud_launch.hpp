@@ -8,6 +8,10 @@
 
 #include "app/strings.hpp"
 
+namespace akira::play {
+class ChiakiCore;
+}
+
 namespace akira::cloud {
 
 class CloudLaunch {
@@ -22,8 +26,9 @@ public:
     auto service() const noexcept -> libchiaking::catalog::ServiceGeneration { return cleared.service; }
     auto ps5() const noexcept -> bool { return cleared.service == libchiaking::catalog::ServiceGeneration::ps5_cloud; }
 
-    [[nodiscard]] auto start(libchiaking::play::Preferences preferences, libchiaking::media::MediaSink& media,
-                             libchiaking::play::SessionEvents& events) const -> Started;
+    [[nodiscard]] auto start(akira::play::ChiakiCore& core, libchiaking::play::Preferences preferences,
+                             libchiaking::media::MediaSink& media, libchiaking::play::SessionEvents& events) const
+        -> Started;
 
     static auto refusalText(const app::Strings& strings, const libchiaking::play::LaunchRefused& refused,
                             const std::string& name) -> std::string;

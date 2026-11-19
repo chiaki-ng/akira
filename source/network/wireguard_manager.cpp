@@ -22,7 +22,8 @@ void WireGuardManager::forwardLibraryLog(const char* message) {
         log::info("WG-LIB: {}", message);
 }
 
-WireGuardManager::WireGuardManager(const settings::DeveloperSettings& developer) {
+WireGuardManager::WireGuardManager(const settings::DeveloperSettings& developer, play::ChiakiCore& core)
+    : core(core) {
     memset(&config, 0, sizeof(config));
     libraryLogSettings.store(&developer, std::memory_order_release);
     wg_set_log_callback(forwardLibraryLog);
@@ -276,7 +277,6 @@ bool WireGuardManager::connect() {
             } else {
                 std::array<uint8_t, 4> tunnelBytes{};
                 std::memcpy(tunnelBytes.data(), &config.tunnel_ip, tunnelBytes.size());
-                auto& core = play::ChiakiCore::current();
                 auto started = TunnelStack::start(*handshaking,
                     libchiaking::platform::IpAddress::ipv4(tunnelBytes), core.threading(), core.clock());
                 if (!started) {
@@ -354,7 +354,6 @@ auto WireGuardManager::homeNetwork(const std::string& consoleAddress) -> libchia
     std::lock_guard<std::mutex> lock(mutex);
     if (!connected || !stack)
         return {};
-    auto& core = play::ChiakiCore::current();
     return libchiaking::consoles::HomeNetwork{std::make_shared<RoutingNetworkProvider>(
         core.network(), core.threading(), core.clock(), stack, routesFor(consoleAddress))};
 }
@@ -363,7 +362,6 @@ auto WireGuardManager::discoveryNetwork() -> libchiaking::consoles::HomeNetwork 
     std::lock_guard<std::mutex> lock(mutex);
     if (!connected || !stack)
         return {};
-    auto& core = play::ChiakiCore::current();
     return libchiaking::consoles::HomeNetwork{
         RoutingNetworkProvider::tunnelOnly(core.network(), core.threading(), core.clock(), stack)};
 }

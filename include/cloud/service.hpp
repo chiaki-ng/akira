@@ -31,6 +31,10 @@ namespace akira::accounts {
 class AccountSettings;
 }
 
+namespace akira::play {
+class ChiakiCore;
+}
+
 namespace akira::cloud {
 
 struct Snapshot {
@@ -53,7 +57,7 @@ public:
     using FetchCallback = std::function<void(const FetchProgress&)>;
 
     Service(const accounts::AccountSettings& accountSettings, HttpPool& http, app::UiDispatcher& dispatcher,
-            const app::Strings& strings);
+            const app::Strings& strings, play::ChiakiCore& core);
 
     Service(const Service&) = delete;
     Service& operator=(const Service&) = delete;
@@ -122,12 +126,12 @@ private:
                        libchiaking::users::PsUser& user);
     static bool launchLeftOut(std::string_view serviceType);
     static Standing standingOf(libchiaking::catalog::Standing standing);
-    static auto recentlyPlayedOf(libchiaking::users::PsUser& user) -> std::vector<RecentlyPlayed>;
+    auto recentlyPlayedOf(libchiaking::users::PsUser& user) const -> std::vector<RecentlyPlayed>;
     Status statusOf(const Catalog& catalog, PlusMembership plusMembership) const;
     static auto detailOf(const libchiaking::catalog::GameDetails& details) -> GameDetail;
     static auto sizedImage(const std::string& url, int width) -> std::optional<libchiaking::catalog::ImageRef>;
     void replaceGame(int64_t profileId, const Game& game);
-    static auto catalogOf() -> libchiaking::catalog::Catalog&;
+    auto catalogOf() const -> libchiaking::catalog::Catalog&;
 
     auto activeUser() const -> User;
     void runRefresh(int64_t profileId, uint64_t generation, User user, bool force,
@@ -141,6 +145,7 @@ private:
     HttpPool& http;
     app::UiDispatcher& dispatcher;
     const app::Strings& strings;
+    play::ChiakiCore& core;
 
     mutable std::mutex mutex;
     std::map<int64_t, Entry> entries;

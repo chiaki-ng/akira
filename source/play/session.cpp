@@ -71,8 +71,8 @@ void Session::setHapticIntensity(HapticIntensity intensity)
 
 Session::Session(akira::platform::PlatformFactory& platform, StreamState& streamState,
                  const ControllerSettings& controllers, const settings::DeveloperSettings& developer,
-                 app::UiWindow& window)
-    : m_platform(platform), m_stream_state(streamState), m_window(window)
+                 app::UiWindow& window, libchiaking::platform::ThreadingProvider& threading)
+    : m_platform(platform), m_stream_state(streamState), m_window(window), m_threading(threading)
 {
     m_audio_manager = std::make_unique<AudioManager>();
     m_input_manager = std::make_unique<InputManager>(*this, platform.pads(), controllers, window);
@@ -244,7 +244,8 @@ bool Session::InitVideo(int video_width, int video_height)
             if (!decoder->decode(packet, size) || decoder->lastDecodeCorrupt())
                 m_needs_recover.store(true, std::memory_order_relaxed);
             checkForStall(*decoder);
-        });
+        },
+        m_threading);
 
     return true;
 }

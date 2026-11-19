@@ -2,8 +2,10 @@
 #include "log/log.hpp"
 
 
-#include "play/chiaki_core.hpp"
-
+HttpPool::HttpPool(libchiaking::platform::ThreadingProvider& threading)
+    : threading(threading)
+{
+}
 
 HttpPool::~HttpPool()
 {
@@ -35,7 +37,7 @@ void HttpPool::ensureStarted()
     threads.reserve(THREAD_COUNT);
     for (int i = 0; i < THREAD_COUNT; i++)
     {
-        auto started = libchiaking::platform::Thread::start(akira::play::ChiakiCore::current().threading(),
+        auto started = libchiaking::platform::Thread::start(threading,
             WORKER_NAMES[static_cast<size_t>(i)], libchiaking::platform::ThreadRole::unspecified, [this, i]() { run(i); });
         if (!started)
         {

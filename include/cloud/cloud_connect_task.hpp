@@ -21,6 +21,10 @@ namespace akira::app {
 class AppSettings;
 }
 
+namespace akira::play {
+class ChiakiCore;
+}
+
 namespace akira::cloud {
 
 class Service;
@@ -28,13 +32,15 @@ class Service;
 class CloudConnectTask : public play::ConnectTask {
 public:
     CloudConnectTask(Service& service, const accounts::AccountSettings& accounts, const app::AppSettings& app,
-                     app::UiDispatcher& dispatcher, const app::Strings& strings, const Game& game);
+                     app::UiDispatcher& dispatcher, const app::Strings& strings, akira::play::ChiakiCore& core,
+                     const Game& game);
     CloudConnectTask(Service& service, const accounts::AccountSettings& accounts, const app::AppSettings& app,
-                     app::UiDispatcher& dispatcher, const app::Strings& strings, std::shared_ptr<CloudLaunch> cleared);
+                     app::UiDispatcher& dispatcher, const app::Strings& strings, akira::play::ChiakiCore& core,
+                     std::shared_ptr<CloudLaunch> cleared);
 
     static auto retrying(Service& service, const accounts::AccountSettings& accounts, const app::AppSettings& app,
-                         app::UiDispatcher& dispatcher, const app::Strings& strings, const CloudLaunch& previous)
-        -> std::unique_ptr<CloudConnectTask>;
+                         app::UiDispatcher& dispatcher, const app::Strings& strings, akira::play::ChiakiCore& core,
+                         const CloudLaunch& previous) -> std::unique_ptr<CloudConnectTask>;
     ~CloudConnectTask() override;
 
     std::string title() const override;
@@ -52,13 +58,14 @@ private:
 
     static void handOver(const std::shared_ptr<CallbackState>& state, std::shared_ptr<CloudLaunch> launch,
                          const accounts::AccountSettings& accounts, const app::AppSettings& app,
-                         app::UiDispatcher& dispatcher);
+                         app::UiDispatcher& dispatcher, akira::play::ChiakiCore& core);
 
     Service& service;
     const accounts::AccountSettings& accounts;
     const app::AppSettings& appSettings;
     app::UiDispatcher& dispatcher;
     const app::Strings& strings;
+    akira::play::ChiakiCore& core;
     Game game;
     std::shared_ptr<CloudLaunch> clearedLaunch;
     std::shared_ptr<CallbackState> callbackState;

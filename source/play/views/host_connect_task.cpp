@@ -17,8 +17,9 @@ using namespace brls::literals;
 
 namespace akira::play::views {
 
-HostConnectTask::HostConnectTask(consoles::Host* host)
+HostConnectTask::HostConnectTask(consoles::Host* host, ChiakiCore& core)
     : host(host)
+    , core(core)
 {
 }
 
@@ -52,7 +53,7 @@ void HostConnectTask::start(ConnectSink& s)
     sink = &s;
     running.store(true);
 
-    auto started = libchiaking::platform::Thread::start(ChiakiCore::current().threading(), "host-connect",
+    auto started = libchiaking::platform::Thread::start(core.threading(), "host-connect",
         libchiaking::platform::ThreadRole::unspecified,
         [this](libchiaking::platform::StopToken stop) { run(stop); });
     if (!started) {
@@ -75,7 +76,7 @@ void HostConnectTask::run(const libchiaking::platform::StopToken& stop)
     }
 
     sink->progress(ConnectionStage::Finding);
-    auto* accounts = ChiakiCore::current().accounts();
+    auto* accounts = core.accounts();
     if (!accounts || !accounts->staySignedIn(stop)) {
         running.store(false);
         if (!stop.stop_requested())

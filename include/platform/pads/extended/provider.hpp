@@ -41,7 +41,8 @@ struct PadPathInfo {
 class ExtendedPadProvider final : public PadProvider, public play::CouchSeats
 {
 public:
-    explicit ExtendedPadProvider(const play::ControllerSettings& controllers);
+    ExtendedPadProvider(const play::ControllerSettings& controllers,
+                        libchiaking::platform::ThreadingProvider& threading);
 
     void open() override;
     void close() override;

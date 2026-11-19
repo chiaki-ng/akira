@@ -23,13 +23,14 @@ namespace platform = libchiaking::platform;
 
 Connection::Connection(Session& media, std::weak_ptr<ConnectionListener> listener, bool ps5,
                        akira::platform::PlatformFactory& platform, const accounts::AccountSettings& accounts,
-                       app::UiDispatcher& dispatcher)
+                       app::UiDispatcher& dispatcher, ChiakiCore& core)
     : media(media)
     , listener(std::move(listener))
     , ps5(ps5)
     , platform(platform)
     , accounts(accounts)
     , dispatcher(dispatcher)
+    , core(core)
 {
 }
 
@@ -67,7 +68,7 @@ auto Connection::consoleStarter(std::shared_ptr<libchiaking::consoles::Console> 
 
 bool Connection::open(Starter starter)
 {
-    auto started = platform::Thread::start(ChiakiCore::current().threading(), "stream-input",
+    auto started = platform::Thread::start(core.threading(), "stream-input",
         platform::ThreadRole::input,
         [this, starter = std::move(starter)](platform::StopToken stop) {
             auto opened = starter(*this, *this, stop);
@@ -97,7 +98,6 @@ bool Connection::open(Starter starter)
 
 void Connection::feed(play::Session& running, const platform::StopToken& stop)
 {
-    auto& core = ChiakiCore::current();
     platform::Sleeper sleeper(core.threading(), core.clock());
     const auto period = std::chrono::duration_cast<std::chrono::microseconds>(InputPollPeriod);
     auto next = core.clock().now_microseconds();

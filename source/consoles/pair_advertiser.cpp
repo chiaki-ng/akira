@@ -1,6 +1,5 @@
 #include "consoles/pair_advertiser.hpp"
 
-#include "play/chiaki_core.hpp"
 #include "network/net_wrappers.hpp"
 
 #include <cstring>
@@ -140,9 +139,13 @@ PairAdvertiser::~PairAdvertiser() {
     stop();
 }
 
+PairAdvertiser::PairAdvertiser(libchiaking::platform::ThreadingProvider& threading)
+    : threading_(threading) {
+}
+
 void PairAdvertiser::start(int port) {
     stop();
-    auto started = libchiaking::platform::Thread::start(play::ChiakiCore::current().threading(), "pair-advertiser",
+    auto started = libchiaking::platform::Thread::start(threading_, "pair-advertiser",
         libchiaking::platform::ThreadRole::discovery_service,
         [this, port](libchiaking::platform::StopToken stop) { run(port, stop); });
     if (started)

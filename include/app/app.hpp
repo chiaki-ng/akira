@@ -60,10 +60,11 @@ private:
     void openLog();
     void readArguments();
     void prepareLocale();
+    [[nodiscard]] bool startCurl();
+    void startCore();
     void startServices();
     [[nodiscard]] bool startFrameworks();
     std::function<void()> signInRenewed();
-    void startCore();
     void startAsyncLogging();
     void registerViews();
     void openWindow();
@@ -87,7 +88,8 @@ private:
     accounts::AccountSettings accountSettings;
     consoles::ConsoleSettings consoleSettings;
     AppSettings appSettings;
-    consoles::HostCatalog hosts;
+    std::optional<play::ChiakiCore> core;
+    std::optional<consoles::HostCatalog> hosts;
     consoles::DiscoveryGate discoveryGate;
     consoles::RegisterFlow registration;
     play::StreamState streamState;
@@ -104,7 +106,6 @@ private:
     std::optional<play::LazySession> session;
     std::optional<Services> services;
     std::optional<ViewServices> viewServices;
-    std::optional<play::ChiakiCore> core;
 };
 
 }

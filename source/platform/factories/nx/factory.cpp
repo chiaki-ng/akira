@@ -24,7 +24,7 @@ NxPlatformFactory::NxPlatformFactory(PlatformServices services)
     : m_services(services)
     , m_updates(services.app)
     , m_stats(services.developer, services.wireGuard)
-    , m_pads(services.controllers)
+    , m_pads(services.controllers, services.threading)
 {
 }
 

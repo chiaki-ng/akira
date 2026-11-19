@@ -27,6 +27,7 @@ class CloudLaunch;
 
 namespace akira::play {
 
+class ChiakiCore;
 class Session;
 
 }
@@ -88,7 +89,7 @@ public:
 
     Connection(Session& media, std::weak_ptr<ConnectionListener> listener, bool ps5,
                akira::platform::PlatformFactory& platform, const accounts::AccountSettings& accounts,
-               app::UiDispatcher& dispatcher);
+               app::UiDispatcher& dispatcher, ChiakiCore& core);
     ~Connection();
 
     Connection(const Connection&) = delete;
@@ -149,6 +150,7 @@ private:
     akira::platform::PlatformFactory& platform;
     const accounts::AccountSettings& accounts;
     app::UiDispatcher& dispatcher;
+    ChiakiCore& core;
 
     mutable std::mutex sessionMutex;
     std::shared_ptr<libchiaking::play::Session> active;

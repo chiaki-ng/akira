@@ -21,8 +21,8 @@ namespace catalog = libchiaking::catalog;
 namespace platform = libchiaking::platform;
 
 Service::Service(const accounts::AccountSettings& accountSettings, HttpPool& http, app::UiDispatcher& dispatcher,
-                 const app::Strings& strings)
-    : accountSettings(accountSettings), http(http), dispatcher(dispatcher), strings(strings)
+                 const app::Strings& strings, play::ChiakiCore& core)
+    : accountSettings(accountSettings), http(http), dispatcher(dispatcher), strings(strings), core(core)
 {
     std::error_code ignored;
     if (std::filesystem::remove_all(LEGACY_CACHE_DIR, ignored) > 0)
@@ -76,21 +76,21 @@ void Service::followBackgroundWork(bool nowPaused)
     }
 }
 
-auto Service::catalogOf() -> catalog::Catalog&
+auto Service::catalogOf() const -> catalog::Catalog&
 {
-    return play::ChiakiCore::current().chiaki().catalog();
+    return core.chiaki().catalog();
 }
 
 auto Service::activeUser() const -> User
 {
-    accounts::Accounts* accounts = play::ChiakiCore::current().accounts();
+    accounts::Accounts* accounts = core.accounts();
     User user = accounts ? accounts->activeUser() : nullptr;
     return user && user->has_psn_account() ? user : nullptr;
 }
 
 std::optional<int64_t> Service::trustedNowMs() const
 {
-    if (!play::ChiakiCore::current().opened())
+    if (!core.opened())
         return std::nullopt;
     const auto now = catalogOf().trusted_time();
     if (!now)
@@ -253,7 +253,7 @@ Standing Service::standingOf(catalog::Standing standing)
     return Standing::MayStream;
 }
 
-auto Service::recentlyPlayedOf(libchiaking::users::PsUser& user) -> std::vector<RecentlyPlayed>
+auto Service::recentlyPlayedOf(libchiaking::users::PsUser& user) const -> std::vector<RecentlyPlayed>
 {
     auto played = catalogOf().recently_played(user);
     if (!played)
@@ -444,7 +444,7 @@ void Service::clearCatalogCache()
 
 void Service::refreshInBackground()
 {
-    if (!play::ChiakiCore::current().opened())
+    if (!core.opened())
         return;
     if (const accounts::Profile* profile = accountSettings.activeProfile())
     {
@@ -481,7 +481,7 @@ void Service::refreshActiveProfile(bool force, SnapshotCallback onDone, FetchCal
     }
 
     const int64_t profileId = profile->id;
-    User user = play::ChiakiCore::current().opened() ? activeUser() : nullptr;
+    User user = core.opened() ? activeUser() : nullptr;
     if (!user)
     {
         Snapshot snapshot = defaultSnapshotForProfile(true, false);
@@ -646,7 +646,7 @@ void Service::finishRefresh(int64_t profileId, uint64_t generation, Snapshot sna
 
 bool Service::signedIn() const
 {
-    return play::ChiakiCore::current().opened() && activeUser() != nullptr;
+    return core.opened() && activeUser() != nullptr;
 }
 
 auto Service::detailOf(const catalog::GameDetails& details) -> GameDetail
@@ -733,7 +733,7 @@ auto Service::sizedImage(const std::string& url, int width) -> std::optional<cat
 void Service::imageOf(const std::string& url, int width, const platform::StopToken& stop, ImageCallback onDone)
 {
     auto image = sizedImage(url, width);
-    if (!image || !play::ChiakiCore::current().opened())
+    if (!image || !core.opened())
     {
         dispatcher.post([onDone]() { onDone({}); });
         return;
@@ -860,7 +860,7 @@ void Service::clearForLaunch(const Game& game, const platform::StopToken& stop, 
     }
 
     const accounts::Profile* profile = accountSettings.activeProfile();
-    User user = profile && play::ChiakiCore::current().opened() ? activeUser() : nullptr;
+    User user = profile && core.opened() ? activeUser() : nullptr;
     if (!user)
     {
         if (onError)

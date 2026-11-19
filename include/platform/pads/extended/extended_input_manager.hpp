@@ -32,7 +32,8 @@ public:
         Failed,
     };
 
-    explicit ExtendedInputManager(const play::ControllerSettings& controllers);
+    ExtendedInputManager(const play::ControllerSettings& controllers,
+                         libchiaking::platform::ThreadingProvider& threading);
     ~ExtendedInputManager();
 
     ExtendedInputManager(const ExtendedInputManager&) = delete;
@@ -86,6 +87,7 @@ private:
 
     bool                     m_direct_gate_logged = false;
     const play::ControllerSettings& m_controllers;
+    libchiaking::platform::ThreadingProvider& m_threading;
 
 public:
 

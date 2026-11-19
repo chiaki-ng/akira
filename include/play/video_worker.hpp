@@ -19,7 +19,7 @@ class VideoWorker {
 public:
     using Decode = std::function<void(const AVBufferHandle& packet, std::size_t size)>;
 
-    explicit VideoWorker(Decode decode);
+    VideoWorker(Decode decode, libchiaking::platform::ThreadingProvider& threading);
     VideoWorker(const VideoWorker&) = delete;
     VideoWorker& operator=(const VideoWorker&) = delete;
     ~VideoWorker();

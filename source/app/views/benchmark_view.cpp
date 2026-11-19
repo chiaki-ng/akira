@@ -1,4 +1,5 @@
 #include "app/views/benchmark_view.hpp"
+#include "app/view_services.hpp"
 #include "play/chiaki_core.hpp"
 #include "app/views/theme.hpp"
 
@@ -46,7 +47,7 @@ void BenchmarkView::startBenchmark()
     benchmarkFinished = false;
     statusShown = false;
 
-    play::ChiakiCore& core = play::ChiakiCore::current();
+    play::ChiakiCore& core = app::ViewServices::current().core;
     auto started = platform::Thread::start(core.threading(), "benchmark", platform::ThreadRole::crypto,
         [this, &crypto = core.crypto(), &clock = core.clock()](platform::StopToken stop) {
             run(crypto, clock, stop);

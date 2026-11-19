@@ -9,13 +9,10 @@
 
 #include <chrono>
 #include <cstdint>
-#include <exception>
 
 namespace akira::play {
 
 namespace platform = libchiaking::platform;
-
-ChiakiCore* ChiakiCore::instance = nullptr;
 
 auto ChiakiCore::threadPlacement() noexcept -> platform::horizon::ThreadPlacementPolicy
 {
@@ -51,9 +48,6 @@ ChiakiCore::ChiakiCore(Settings settings, app::UiDispatcher& dispatcher, std::fu
                                                  recordStore})))
 {
     app::CrashReport::stage("core ready");
-    if (instance != nullptr)
-        std::terminate();
-    instance = this;
     settings.developer.setCoreLog(&coreLog);
     app::CrashReport::stage("core duid");
     settings.cloud.ensureDuid(random());
@@ -64,14 +58,6 @@ ChiakiCore::ChiakiCore(Settings settings, app::UiDispatcher& dispatcher, std::fu
 ChiakiCore::~ChiakiCore()
 {
     settings.developer.setCoreLog(nullptr);
-    instance = nullptr;
-}
-
-auto ChiakiCore::current() noexcept -> ChiakiCore&
-{
-    if (instance == nullptr)
-        std::terminate();
-    return *instance;
 }
 
 auto ChiakiCore::missing() const noexcept -> std::optional<Missing>

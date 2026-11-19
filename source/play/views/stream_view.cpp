@@ -211,7 +211,7 @@ void StreamView::openConnection()
 {
     namespace play = libchiaking::play;
 
-    auto* accounts = ChiakiCore::current().accounts();
+    auto* accounts = app::ViewServices::current().core.accounts();
     auto player = accounts ? accounts->activeUser() : nullptr;
     const auto& console = host->getConsole();
     Connection::Starter starter;
@@ -230,10 +230,10 @@ void StreamView::openConnection()
         fps = static_cast<int>(picture.fps());
         bitrate = static_cast<int>(picture.bitrate_kbps());
         hevc = picture.codec() != libchiaking::media::VideoCodec::h264;
-        starter = [owner = hostOwner, launch, preferences = *preferences](
+        starter = [owner = hostOwner, launch, preferences = *preferences, &core = services->core](
                       libchiaking::media::MediaSink& sink, play::SessionEvents& events,
                       const libchiaking::platform::StopToken&) -> Connection::Started {
-            return launch->start(preferences, sink, events);
+            return launch->start(core, preferences, sink, events);
         };
     } else {
         if (!player || !console)
@@ -278,7 +278,7 @@ void StreamView::openConnection()
 
     std::shared_ptr<ConnectionListener> self = shared_from_this();
     connection = std::make_shared<Connection>(*session, self, host->isPS5(),
-        app::ViewServices::current().platform, services->accounts, services->dispatcher);
+        app::ViewServices::current().platform, services->accounts, services->dispatcher, services->core);
     if (!connection->open(std::move(starter))) {
         connection.reset();
         throw app::Exception("akira/connection/failed_create_thread"_i18n);
@@ -586,7 +586,8 @@ void StreamView::showCloudFailure(const std::string& message, bool retry)
             brls::sync([again]() {
                 views::startConnecting(cloud::CloudConnectTask::retrying(app::ViewServices::current().cloud,
                     app::ViewServices::current().accounts, app::ViewServices::current().appSettings,
-                    app::ViewServices::current().dispatcher, app::ViewServices::current().strings, again));
+                    app::ViewServices::current().dispatcher, app::ViewServices::current().strings,
+                    app::ViewServices::current().core, again));
             });
         });
     }

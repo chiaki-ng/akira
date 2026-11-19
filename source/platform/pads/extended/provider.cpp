@@ -12,9 +12,10 @@
 namespace akira::platform::extended
 {
 
-ExtendedPadProvider::ExtendedPadProvider(const play::ControllerSettings& controllers)
+ExtendedPadProvider::ExtendedPadProvider(const play::ControllerSettings& controllers,
+                                         libchiaking::platform::ThreadingProvider& threading)
     : m_controllers(controllers)
-    , m_extended(controllers)
+    , m_extended(controllers, threading)
 {
 }
 

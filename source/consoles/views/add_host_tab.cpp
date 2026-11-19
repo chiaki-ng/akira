@@ -56,7 +56,7 @@ void AddHostTab::onSaveClicked() {
     int targetIndex = targetSelector->getSelection();
 
     ConsoleActions actions(services->hosts, services->store, services->accounts, services->developer,
-                           services->wireGuard, play::ChiakiCore::current());
+                           services->wireGuard, services->core);
     const auto added = actions.addManual(name, addr,
         targetIndex == 0 ? libchiaking::consoles::Generation::ps4 : libchiaking::consoles::Generation::ps5);
     if (!added) {

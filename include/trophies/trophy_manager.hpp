@@ -25,6 +25,10 @@
 
 class HttpPool;
 
+namespace akira::play {
+class ChiakiCore;
+}
+
 namespace akira::trophies {
 
 class TrophyManager {
@@ -40,7 +44,7 @@ public:
     using Profile = libchiaking::users::Profile;
     using PlayedGame = libchiaking::catalog::PlayedGame;
 
-    TrophyManager(HttpPool& http, app::UiDispatcher& dispatcher);
+    TrophyManager(HttpPool& http, app::UiDispatcher& dispatcher, play::ChiakiCore& core);
 
     TrophyManager(const TrophyManager&) = delete;
     TrophyManager& operator=(const TrophyManager&) = delete;
@@ -117,6 +121,7 @@ private:
 
     HttpPool& http;
     app::UiDispatcher& dispatcher;
+    play::ChiakiCore& core;
 
     std::unique_ptr<app::UiDispatcher::Repeating> staleTimer;
     bool autoRefreshStarted = false;

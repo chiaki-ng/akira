@@ -54,7 +54,6 @@ App::App(int argc, char* argv[])
       accountSettings(store, [](bool legacy) { httpSetSonyBlocked(legacy); }),
       consoleSettings(store),
       appSettings(store),
-      hosts(consoleSettings, accountSettings, appSettings, store, dispatcher),
       streamState(stream, cloudSettings, developer)
 {
     store.finishLoading();
@@ -149,6 +148,15 @@ bool App::startFrameworks()
         return false;
     }
 
+    brls::Application::getWindowFocusChangedEvent()->subscribe([this](bool focused) {
+        if (focused && core)
+            core->http().drop_connections("applet regained focus");
+    });
+    return true;
+}
+
+bool App::startCurl()
+{
     CrashReport::stage("curl init");
     const CURLcode curlInit = curl_global_init(CURL_GLOBAL_DEFAULT);
     if (curlInit != CURLE_OK)
@@ -183,10 +191,6 @@ void App::startCore()
     CrashReport::stage("post core");
     if (!core->opened())
         log::error("[CORE] running without the core: streaming, sign-in and discovery are unavailable");
-    brls::Application::getWindowFocusChangedEvent()->subscribe([this](bool focused) {
-        if (focused && core)
-            core->http().drop_connections("applet regained focus");
-    });
 }
 
 void App::startAsyncLogging()
@@ -262,11 +266,12 @@ void App::runMainLoop()
 void App::startServices()
 {
     CrashReport::stage("services");
-    http.emplace();
-    wireGuard.emplace(developer);
-    trophies.emplace(*http, dispatcher);
+    hosts.emplace(consoleSettings, accountSettings, appSettings, store, dispatcher, *core);
+    http.emplace(core->threading());
+    wireGuard.emplace(developer, *core);
+    trophies.emplace(*http, dispatcher, *core);
 #if AKIRA_CLOUD
-    cloud.emplace(accountSettings, *http, dispatcher, strings);
+    cloud.emplace(accountSettings, *http, dispatcher, strings, *core);
 #endif
     factory = platform::PlatformFactory::create(platform::PlatformServices{
         .stream = stream,
@@ -275,10 +280,12 @@ void App::startServices()
         .developer = developer,
         .app = appSettings,
         .wireGuard = *wireGuard,
+        .threading = core->threading(),
     });
-    discovery.emplace(hosts, store, networkSettings, developer, accountSettings, *wireGuard, dispatcher, window);
+    discovery.emplace(*hosts, store, networkSettings, developer, accountSettings, *wireGuard, dispatcher, window,
+        *core);
     preferences.emplace(stream, cloudSettings, networkSettings, developer, *factory, *wireGuard);
-    session.emplace(*factory, streamState, controllers, developer, window);
+    session.emplace(*factory, streamState, controllers, developer, window, core->threading());
     services.emplace(Services{
         .dispatcher = dispatcher,
         .window = window,
@@ -292,7 +299,7 @@ void App::startServices()
         .accounts = accountSettings,
         .consoleSettings = consoleSettings,
         .appSettings = appSettings,
-        .hosts = hosts,
+        .hosts = *hosts,
         .streamState = streamState,
         .dns = dns,
         .http = *http,
@@ -304,6 +311,7 @@ void App::startServices()
         .preferences = *preferences,
         .session = *session,
         .trophies = *trophies,
+        .core = *core,
 #if AKIRA_CLOUD
         .cloud = *cloud,
 #endif
@@ -316,7 +324,7 @@ void App::shutDown()
     log::info("Application exiting");
 
     discovery->setServiceEnabled(false);
-    for (auto& [name, host] : hosts.entries())
+    for (auto& [name, host] : hosts->entries())
     {
         if (host)
         {
@@ -354,6 +362,10 @@ int App::run()
     views::setActiveTheme(appSettings.uiTheme());
     views::applyToBorealis();
 
+    if (!startCurl())
+        return EXIT_FAILURE;
+
+    startCore();
     startServices();
 
     factory->updates().prepare(argc, argv);
@@ -362,7 +374,6 @@ int App::run()
     if (!startFrameworks())
         return EXIT_FAILURE;
 
-    startCore();
     startAsyncLogging();
 
     AppletType appletType = appletGetAppletType();

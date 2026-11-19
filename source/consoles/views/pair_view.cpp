@@ -54,7 +54,10 @@ const char* statusKey(ListenerEvent event) {
 
 }
 
-PairView::PairView(bool createProfile) : createProfile(createProfile) {
+PairView::PairView(bool createProfile)
+    : listener(app::ViewServices::current().core),
+      advertiser(app::ViewServices::current().core.threading()),
+      createProfile(createProfile) {
     this->inflateFromXMLRes("xml/views/pair_view.xml");
 
     codeLabel = dynamic_cast<brls::Label*>(this->getView("pair/code"));
@@ -106,7 +109,7 @@ brls::View* PairView::create() {
 }
 
 void PairView::startListening() {
-    std::string code = PairListener::generateCode();
+    std::string code = listener.generateCode();
     if (codeLabel)
         codeLabel->setText(spaced(code));
 
@@ -224,7 +227,7 @@ void PairView::applyCredentials(const PairedCredentials& creds, bool createProfi
     services->store.save();
     services->accounts.logProfileCensus("pair-after");
 
-    auto* accounts = play::ChiakiCore::current().accounts();
+    auto* accounts = app::ViewServices::current().core.accounts();
     if (!accounts || creds.npsso.empty()) {
         log::warning("Pair push carried no usable NPSSO, nothing to sign in with");
         brls::Application::notify(brls::getStr("akira/hosts/token_refresh_failed", "NPSSO"));

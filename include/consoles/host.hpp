@@ -33,6 +33,10 @@ namespace akira::network {
 class WireGuardManager;
 }
 
+namespace akira::play {
+class ChiakiCore;
+}
+
 namespace akira::consoles {
 
 // Registration error codes
@@ -88,6 +92,7 @@ private:
     const accounts::AccountSettings& accountSettings;
     const app::AppSettings& appSettings;
     app::UiDispatcher& dispatcher;
+    play::ChiakiCore& core;
 
     int haptic = -1;  // -1=inherit from global, 0=disabled, 1=weak, 2=strong
 
@@ -130,7 +135,7 @@ private:
 
 public:
     Host(HostRecord record, const accounts::AccountSettings& accounts, const app::AppSettings& app,
-         app::UiDispatcher& dispatcher);
+         app::UiDispatcher& dispatcher, play::ChiakiCore& core);
     ~Host();
 
     Host(const Host&) = delete;

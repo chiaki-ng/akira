@@ -175,7 +175,8 @@ void HostListTab::applyProfileMode() {
         app::ViewServices::current().discoveryGate.connectionStarted();
         play::views::startConnecting(std::make_unique<cloud::CloudConnectTask>(app::ViewServices::current().cloud,
             app::ViewServices::current().accounts, app::ViewServices::current().appSettings,
-            app::ViewServices::current().dispatcher, app::ViewServices::current().strings, game));
+            app::ViewServices::current().dispatcher, app::ViewServices::current().strings,
+            app::ViewServices::current().core, game));
     });
     shortcutsRail->setLeadingCard([]() -> brls::View* { return new cloud::views::CloudCard(); });
     railSlot->addView(shortcutsRail);
@@ -224,7 +225,8 @@ void HostListTab::connectToHost(Host* host) {
     /* Local and remote alike. A local console resolves immediately, so the
      * screen is barely seen - but the activity stack ends up the same shape it
      * does for every other route, which is the point. */
-    play::views::startConnecting(std::make_unique<play::views::HostConnectTask>(host));
+    play::views::startConnecting(
+        std::make_unique<play::views::HostConnectTask>(host, app::ViewServices::current().core));
 }
 
 void HostListTab::initFindRemoteButton() {
@@ -249,7 +251,7 @@ void HostListTab::initFindRemoteButton() {
             return true;
         }
 
-        auto* accounts = play::ChiakiCore::current().accounts();
+        auto* accounts = app::ViewServices::current().core.accounts();
         const RemoteLookup lookup(accounts ? std::optional(accounts->state()) : std::nullopt);
         if (!lookup.allowed()) {
             brls::Application::notify("akira/hosts/no_psn_token"_i18n);
@@ -322,7 +324,7 @@ brls::View* HostListTab::create() {
 ConsoleActions HostListTab::actions() {
     auto& services = app::ViewServices::current();
     return ConsoleActions(services.hosts, services.store, services.accounts, services.developer, services.wireGuard,
-                          play::ChiakiCore::current());
+                          services.core);
 }
 
 ConsoleList HostListTab::consoleList() {
@@ -459,7 +461,7 @@ void HostListTab::syncHostList() {
         if (!debugConsoles) {
             debugConsoles.emplace([this](const DebugConsoles::Console& console) {
                 auto h = std::make_shared<Host>(HostRecord{.nickname = console.nickname}, services->accounts,
-                                                services->appSettings, services->dispatcher);
+                                                services->appSettings, services->dispatcher, services->core);
                 h->setFirmware(Host::Firmware::newest(libchiaking::consoles::Generation::ps5));
                 h->setPresence(console.resting ? Host::Presence::rest_mode : Host::Presence::ready);
                 h->setHostType(console.type);

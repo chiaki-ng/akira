@@ -1,5 +1,9 @@
 #pragma once
 
+namespace libchiaking::platform {
+class ThreadingProvider;
+}
+
 namespace akira::app {
 class AppSettings;
 }
@@ -28,6 +32,7 @@ struct PlatformServices {
     settings::DeveloperSettings& developer;
     app::AppSettings& app;
     network::WireGuardManager& wireGuard;
+    libchiaking::platform::ThreadingProvider& threading;
 };
 
 }

@@ -17,7 +17,7 @@ class HttpPool {
 public:
     using Task = std::function<void(HttpSession&)>;
 
-    HttpPool() = default;
+    explicit HttpPool(libchiaking::platform::ThreadingProvider& threading);
     ~HttpPool();
 
     HttpPool(const HttpPool&) = delete;
@@ -35,6 +35,7 @@ private:
     static constexpr int THREAD_COUNT = 4;
     static constexpr std::array<std::string_view, THREAD_COUNT> WORKER_NAMES{"http-0", "http-1", "http-2", "http-3"};
 
+    libchiaking::platform::ThreadingProvider& threading;
     std::vector<libchiaking::platform::Thread> threads;
     std::deque<Task> tasks;
     mutable std::mutex mutex;

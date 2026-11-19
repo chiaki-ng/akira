@@ -173,8 +173,8 @@ void NetworkUtilitiesTab::onCheckNatClicked() {
     clearResults();
     addResultRow("", "akira/network/testing"_i18n, app::views::active().textDim);
 
-    auto& dispatcher = app::ViewServices::current().dispatcher;
-    dispatcher.runOnWorker([this, guard = alive, &dispatcher, &core = play::ChiakiCore::current()]() {
+    auto& services = app::ViewServices::current();
+    services.dispatcher.runOnWorker([this, guard = alive, &dispatcher = services.dispatcher, &core = services.core]() {
         NatReport report(NatProbe(core).check());
         dispatcher.post([this, guard, report = std::move(report)]() {
             if (!*guard)
