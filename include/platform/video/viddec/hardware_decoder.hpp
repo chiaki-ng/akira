@@ -108,9 +108,8 @@ private:
         std::uint32_t height;
         std::uint64_t mib;
     };
-    static constexpr std::array<WorkTier, 9> WorkTiers{{
-        {256, 144, 8}, {384, 216, 9}, {320, 240, 9}, {640, 360, 15}, {854, 480, 20},
-        {960, 540, 23}, {1280, 720, 34}, {1920, 1080, 68}, {3840, 2160, 240},
+    static constexpr std::array<WorkTier, 2> WorkTiers{{
+        {1920, 1080, 68}, {3840, 2160, 240},
     }};
     static constexpr std::uint64_t WorkAlignment = 0x1000;
     static constexpr std::uint64_t WorkSizeAlignment = 0x10000;
