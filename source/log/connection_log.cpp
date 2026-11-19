@@ -2,17 +2,17 @@
 
 #include <utility>
 
-namespace akira {
+namespace akira::log {
 
 auto ConnectionLog::open(const std::string& path) -> std::optional<ConnectionLog>
 {
-    auto redirect = log::Log::process().redirect(path);
+    auto redirect = Log::process().redirect(path);
     if (!redirect)
         return std::nullopt;
     return ConnectionLog{std::move(*redirect)};
 }
 
-ConnectionLog::ConnectionLog(log::Log::Redirect redirect) noexcept
+ConnectionLog::ConnectionLog(Log::Redirect redirect) noexcept
     : redirect(std::move(redirect))
 {
 }

@@ -76,7 +76,7 @@ public:
         : m_result(viddecInitialize())
     {
         if (R_FAILED(m_result))
-            akira::log::warning("HardwareDecoder: viddec did not open: {:#x}", m_result);
+            log::warning("HardwareDecoder: viddec did not open: {:#x}", m_result);
     }
 
     ~ViddecService()
@@ -103,7 +103,7 @@ std::expected<std::shared_ptr<HardwareDecoder>, Result> HardwareDecoder::create(
         else
         {
             decoder->m_output_failure = opened.error();
-            akira::log::warning("HardwareDecoder: zero-copy open failed at {}: {:#x}", opened.error().step,
+            log::warning("HardwareDecoder: zero-copy open failed at {}: {:#x}", opened.error().step,
                 opened.error().code);
         }
         decoder->closeDecoder();
@@ -136,7 +136,7 @@ void HardwareDecoder::closeDecoder()
         m_decoder.image_count = 0;
     videoDecoderClose(&m_decoder);
     m_outputs.clear();
-    akira::log::info("HardwareDecoder: closed the {}x{} decoder", m_width, m_height);
+    log::info("HardwareDecoder: closed the {}x{} decoder", m_width, m_height);
 }
 
 std::expected<void, OutputFailure> HardwareDecoder::openWithOutputs(const Config& config, OutputMemory& memory)

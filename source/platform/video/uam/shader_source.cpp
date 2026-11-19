@@ -43,19 +43,19 @@ std::optional<deko3d::ShaderSource::Code> UamShaderSource::compile(const std::st
 
     const std::string glsl = injectDefines(std::move(*source), defines);
     const char* kind = vertex ? "vertex" : "fragment";
-    akira::log::info("UamShaderSource: compiling {} shader {} ({} bytes)", kind, path, glsl.size());
+    log::info("UamShaderSource: compiling {} shader {} ({} bytes)", kind, path, glsl.size());
 
     std::uint8_t* raw = nullptr;
     std::uint32_t size = 0;
     if (!uam_compileDksh(vertex ? uam_pipeline_stage_vertex : uam_pipeline_stage_fragment,
             glsl.c_str(), 3, &raw, &size))
     {
-        akira::log::error("UamShaderSource: failed to compile {} shader {}", kind, path);
+        log::error("UamShaderSource: failed to compile {} shader {}", kind, path);
         return std::nullopt;
     }
     std::unique_ptr<std::uint8_t, decltype(&std::free)> owned(raw, &std::free);
 
-    akira::log::info("UamShaderSource: {} shader compiled ({} bytes dksh)", kind, size);
+    log::info("UamShaderSource: {} shader compiled ({} bytes dksh)", kind, size);
     return Code(owned.get(), owned.get() + size);
 }
 

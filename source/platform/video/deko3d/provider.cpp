@@ -46,7 +46,7 @@ VideoRenderer* Deko3dVideoProvider::renderer()
 
 bool Deko3dVideoProvider::startRenderer(int width, int height, FrameHooks hooks)
 {
-    akira::log::info("Creating {} renderer", name());
+    log::info("Creating {} renderer", name());
     auto renderer = std::make_unique<Deko3dRenderer>(m_make_shaders(), std::string(decoderStat()));
     if (!renderer->initialize(width, height))
         return false;

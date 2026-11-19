@@ -37,7 +37,7 @@ public:
     explicit StreamView(consoles::Host* host, std::shared_ptr<consoles::Host> hostOwner = {});
     ~StreamView() override;
 
-    void adoptConnectionLog(ConnectionLog log);
+    void adoptConnectionLog(log::ConnectionLog log);
 
     // Must be called after make_shared to enable weak_from_this()
     void setupCallbacks();
@@ -70,7 +70,7 @@ private:
     app::BackgroundWork::Pause backgroundPause;
     Session* session = nullptr;
     std::shared_ptr<Connection> connection;
-    std::optional<ConnectionLog> connectionLog;
+    std::optional<log::ConnectionLog> connectionLog;
     libchiaking::play::ConsoleHandover handover = libchiaking::play::ConsoleHandover::fresh;
     settings::SettingsManager* settings = nullptr;
     bool streamActive = false;

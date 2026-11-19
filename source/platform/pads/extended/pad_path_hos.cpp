@@ -41,7 +41,7 @@ void StartSixAxisSensorShared(HidSixAxisSensorHandle handle)
     const Result rc = hidStartSixAxisSensor(handle);
     if (R_FAILED(rc)) {
         SensorRefs().erase(SensorKey(handle));
-        akira::log::warning("PadPath: six-axis start failed for handle 0x{:x}: 0x{:x}",
+        log::warning("PadPath: six-axis start failed for handle 0x{:x}: 0x{:x}",
             SensorKey(handle), rc);
     }
 }
@@ -79,7 +79,7 @@ void HosPadPath::acquireHandles()
     m_sixaxis_count = SixAxisSensorCount(m_style);
     Result rc = hidGetSixAxisSensorHandles(&m_sixaxis[0], m_sixaxis_count, m_npad, m_style);
     if (R_FAILED(rc)) {
-        akira::log::warning("PadPath: six-axis handles failed for npad {} style 0x{:x}: 0x{:x}",
+        log::warning("PadPath: six-axis handles failed for npad {} style 0x{:x}: 0x{:x}",
             (int)m_npad, (uint32_t)m_style, rc);
         m_sixaxis_count = 0;
     } else {
@@ -104,7 +104,7 @@ bool HosPadPath::poll()
 
     uint64_t styleSet = padGetStyleSet(&m_pad);
     if (styleSet != m_style_set_at_acquire) {
-        akira::log::info("PadPath: npad {} style set changed 0x{:x} -> 0x{:x}, rebuilding handles",
+        log::info("PadPath: npad {} style set changed 0x{:x} -> 0x{:x}, rebuilding handles",
             (int)m_npad, m_style_set_at_acquire, styleSet);
 
         if (styleSet & m_style) {

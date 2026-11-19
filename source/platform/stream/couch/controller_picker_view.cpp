@@ -220,13 +220,13 @@ void ControllerPickerView::accept()
         return;
 
     if (m_selected >= 0 && m_selected < (int)m_pads.size()) {
-        akira::log::info("ControllerPicker: chose {} on npad {}",
+        log::info("ControllerPicker: chose {} on npad {}",
             m_pads[m_selected].label, (int)m_pads[m_selected].npad);
         choose((std::size_t)m_selected);
         return;
     }
 
-    akira::log::info("ControllerPicker: continuing on the default pad");
+    log::info("ControllerPicker: continuing on the default pad");
     m_done = true;
     if (m_onChosen)
         m_onChosen(kNoChoice);
@@ -237,7 +237,7 @@ void ControllerPickerView::cancel()
     if (m_done)
         return;
 
-    akira::log::info("ControllerPicker: backed out");
+    log::info("ControllerPicker: backed out");
     m_done = true;
     if (m_onChosen)
         m_onChosen(kCancelled);
@@ -442,7 +442,7 @@ void ControllerPickerView::draw(NVGcontext* vg, float x, float y, float width, f
     if (m_describe && (m_frames % 30) == 0) {
         auto fresh = m_describe();
         if (!SameSet(fresh, m_pads)) {
-            akira::log::info("ControllerPicker: pads changed, {} -> {}",
+            log::info("ControllerPicker: pads changed, {} -> {}",
                                m_pads.size(), fresh.size());
             rebuild(std::move(fresh));
             return;
@@ -450,7 +450,7 @@ void ControllerPickerView::draw(NVGcontext* vg, float x, float y, float width, f
     }
 
     if (m_frames > 1800) {
-        akira::log::warning("ControllerPicker: no input in ~30s, continuing");
+        log::warning("ControllerPicker: no input in ~30s, continuing");
         accept();
         return;
     }
@@ -461,7 +461,7 @@ void ControllerPickerView::draw(NVGcontext* vg, float x, float y, float width, f
         const u64 held = padGetButtons(&m_states[i]);
 
         if ((m_frames % 120) == 1) {
-            akira::log::info("ControllerPicker: npad {} connected={} held=0x{:x}",
+            log::info("ControllerPicker: npad {} connected={} held=0x{:x}",
                                (int)m_pads[i].npad, padIsConnected(&m_states[i]) ? 1 : 0,
                                (unsigned long long)held);
         }
@@ -483,7 +483,7 @@ void ControllerPickerView::draw(NVGcontext* vg, float x, float y, float width, f
         if (m_selected != (int)i) {
             m_selected = (int)i;
             setActionAvailable(brls::ControllerButton::BUTTON_A, true);
-            akira::log::info("ControllerPicker: selected {} on npad {}",
+            log::info("ControllerPicker: selected {} on npad {}",
                 m_pads[i].label, (int)m_pads[i].npad);
         }
         return;

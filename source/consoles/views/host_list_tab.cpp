@@ -102,7 +102,7 @@ public:
 
 private:
     bool showStages;
-    ui::LogPane logPane;
+    log::views::LogPane logPane;
 };
 
 static void setAutoRegStage(int index, int total) {

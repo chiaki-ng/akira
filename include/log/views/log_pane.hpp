@@ -10,7 +10,7 @@
 #include <optional>
 #include <string>
 
-namespace akira::ui {
+namespace akira::log::views {
 
 class LogPane {
 public:
@@ -27,9 +27,9 @@ private:
     std::mutex linesMutex;
     static constexpr size_t MAX_LINES = 100;
 
-    std::optional<akira::log::Log::Subscription> subscription;
+    std::optional<Log::Subscription> subscription;
 };
 
-} // namespace akira::ui
+} // namespace akira::log::views
 
 #endif // AKIRA_UI_LOG_PANE_HPP

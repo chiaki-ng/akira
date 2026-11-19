@@ -528,7 +528,7 @@ int main(int argc, char* argv[])
     auto* settings = akira::settings::SettingsManager::getInstance();
     settings->applyChiakiLogVerbosity();
     if (settings->getEnableFileLogging())
-        akira::AppLog::open(akira::settings::SettingsManager::getLogFilePath());
+        akira::log::AppLog::open(akira::settings::SettingsManager::getLogFilePath());
     akira::app::CrashReport::stage("log open");
     akira::log::info("akira {} starting", AKIRA_VERSION_STRING);
     akira::log::info("main thread core {} placement {:#x}", svcGetCurrentProcessorNumber(), mainPlaced);

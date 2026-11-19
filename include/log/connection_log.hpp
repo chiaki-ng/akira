@@ -5,16 +5,16 @@
 #include <optional>
 #include <string>
 
-namespace akira {
+namespace akira::log {
 
 class ConnectionLog {
 public:
     static auto open(const std::string& path) -> std::optional<ConnectionLog>;
 
 private:
-    explicit ConnectionLog(log::Log::Redirect redirect) noexcept;
+    explicit ConnectionLog(Log::Redirect redirect) noexcept;
 
-    log::Log::Redirect redirect;
+    Log::Redirect redirect;
 };
 
 }

@@ -2,7 +2,7 @@
 #include "settings/settings_manager.hpp"
 #include "log/log.hpp"
 
-namespace akira {
+namespace akira::log {
 
 using libchiaking::platform::LogRecord;
 using libchiaking::platform::LogSeverity;
@@ -20,19 +20,19 @@ void CoreLog::write(LogRecord record) noexcept
     try {
         switch (record.severity) {
             case LogSeverity::error:
-                akira::log::error("{}", record.message);
+                log::error("{}", record.message);
                 break;
             case LogSeverity::warning:
-                akira::log::warning("{}", record.message);
+                log::warning("{}", record.message);
                 break;
             case LogSeverity::info:
-                akira::log::info("{}", record.message);
+                log::info("{}", record.message);
                 break;
             case LogSeverity::debug:
-                akira::log::debug("{}", record.message);
+                log::debug("{}", record.message);
                 break;
             case LogSeverity::verbose:
-                akira::log::verbose("{}", record.message);
+                log::verbose("{}", record.message);
                 break;
         }
     } catch (...) {

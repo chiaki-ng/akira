@@ -38,7 +38,7 @@ public:
     auto crypto() noexcept -> libchiaking::platform::CryptoProvider& { return cryptoProvider; }
     auto network() noexcept -> libchiaking::platform::NetworkProvider& { return factory.network(); }
     auto http() noexcept -> libchiaking::platform::SelectedCurlHttpProvider& { return httpProvider; }
-    auto log() noexcept -> CoreLog& { return coreLog; }
+    auto log() noexcept -> log::CoreLog& { return coreLog; }
     auto records() noexcept -> libchiaking::platform::RecordStore& { return recordStore; }
 
     auto opened() const noexcept -> bool { return chiakiNg.has_value(); }
@@ -58,7 +58,7 @@ private:
     libchiaking::platform::horizon::ThreadingProvider threadingProvider;
     libchiaking::platform::SteadyClock steadyClock;
     libchiaking::platform::SystemClock systemClock;
-    CoreLog coreLog;
+    log::CoreLog coreLog;
     libchiaking::platform::SelectedCurlHttpProvider httpProvider;
     libchiaking::platform::CurlWebSocketProvider webSocketProvider;
     libchiaking::platform::SystemSecureRandom secureRandom;

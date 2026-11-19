@@ -23,7 +23,7 @@ HidPad::HidPad()
         const Result rc = hidStartSixAxisSensor(m_sixaxis[i]);
         m_started[i] = R_SUCCEEDED(rc);
         if (!m_started[i])
-            akira::log::warning("PadPath: six-axis start failed for sensor {}: 0x{:x}", i, rc);
+            log::warning("PadPath: six-axis start failed for sensor {}: 0x{:x}", i, rc);
     }
 }
 

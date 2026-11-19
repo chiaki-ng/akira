@@ -30,7 +30,7 @@ namespace akira::consoles {
 class Host;
 }
 
-namespace akira {
+namespace akira::log {
 class CoreLog;
 }
 
@@ -97,7 +97,7 @@ private:
     static constexpr const char* TOML_CONFIG_FILE = "sdmc:/switch/akira/akira.toml";
     static constexpr const char* LEGACY_CONFIG_FILE = "sdmc:/switch/akira/akira.conf";
 
-    CoreLog* coreLog = nullptr;
+    log::CoreLog* coreLog = nullptr;
     std::map<std::string, std::unique_ptr<consoles::Host>> hosts;
 
     // Global settings (defaults)
@@ -230,7 +230,7 @@ public:
     void operator=(const SettingsManager&) = delete;
     static SettingsManager* getInstance();
 
-    void setCoreLog(CoreLog* log);
+    void setCoreLog(log::CoreLog* log);
     void ensureCloudDuid(libchiaking::platform::SecureRandomProvider& random);
     accounts::SignInStore& signIns() { return signInStore; }
     consoles::PairingStore& pairings() { return pairingStore; }

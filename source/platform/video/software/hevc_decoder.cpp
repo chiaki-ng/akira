@@ -33,7 +33,7 @@ void HevcDecoder::addSetting(brls::Box& group)
     cell->init("akira/settings/software_hevc"_i18n, settings->getSoftwareHevc(), [settings](bool isOn) {
         settings->setSoftwareHevc(isOn);
         settings->writeFile();
-        akira::log::info("Software HEVC set to {}", isOn ? "on" : "off");
+        log::info("Software HEVC set to {}", isOn ? "on" : "off");
     });
     cell->setId("settings/softwareHevc");
     group.addView(cell);
@@ -52,13 +52,13 @@ bool HevcDecoder::initCodec(bool hevc, bool, int width, int height)
     m_video_height = height;
     if (!hevc)
     {
-        akira::log::error("HevcDecoder: asked to decode H.264");
+        log::error("HevcDecoder: asked to decode H.264");
         return false;
     }
     const AVCodec* codec = avcodec_find_decoder(AV_CODEC_ID_HEVC);
     if (!codec)
     {
-        akira::log::error("HevcDecoder: FFmpeg has no HEVC decoder");
+        log::error("HevcDecoder: FFmpeg has no HEVC decoder");
         return false;
     }
     m_context.reset(avcodec_alloc_context3(codec));
@@ -72,11 +72,11 @@ bool HevcDecoder::initCodec(bool hevc, bool, int width, int height)
     {
         char error[AV_ERROR_MAX_STRING_SIZE]{};
         av_make_error_string(error, sizeof(error), rc);
-        akira::log::error("HevcDecoder: avcodec_open2 failed: {}", error);
+        log::error("HevcDecoder: avcodec_open2 failed: {}", error);
         m_context.reset();
         return false;
     }
-    akira::log::info("HevcDecoder: software HEVC at {}x{} on {} frame threads", width, height, ThreadCount);
+    log::info("HevcDecoder: software HEVC at {}x{} on {} frame threads", width, height, ThreadCount);
     return true;
 }
 
@@ -154,7 +154,7 @@ bool HevcDecoder::decode(const AVBufferHandle& data, std::size_t size)
         std::string types;
         for (const NalUnit& unit : units)
             std::format_to(std::back_inserter(types), "{}{}:{}", types.empty() ? "" : " ", unit.type, unit.bytes.size());
-        akira::log::info("HevcDecoder: keyframe of {} bytes, NAL units {}{}", size, types,
+        log::info("HevcDecoder: keyframe of {} bytes, NAL units {}{}", size, types,
             hasParameterSets ? "" : m_parameter_sets.empty() ? ", no parameter sets yet" : ", adding the stored parameter sets");
         m_waiting_for_keyframe = false;
         if (!hasParameterSets && !sendStoredParameterSets(entry))
@@ -194,7 +194,7 @@ bool HevcDecoder::send(const AVBufferHandle& data, std::size_t size, Clock::time
         {
             char error[AV_ERROR_MAX_STRING_SIZE]{};
             av_make_error_string(error, sizeof(error), rc);
-            akira::log::warning("HevcDecoder: avcodec_send_packet failed: {}", error);
+            log::warning("HevcDecoder: avcodec_send_packet failed: {}", error);
             return false;
         }
         if (!drain(entry))
@@ -213,7 +213,7 @@ bool HevcDecoder::drain(Clock::time_point entry)
         {
             char error[AV_ERROR_MAX_STRING_SIZE]{};
             av_make_error_string(error, sizeof(error), rc);
-            akira::log::warning("HevcDecoder: avcodec_receive_frame failed: {}", error);
+            log::warning("HevcDecoder: avcodec_receive_frame failed: {}", error);
             return false;
         }
         if (m_decoded->flags & AV_FRAME_FLAG_CORRUPT)
@@ -231,12 +231,12 @@ bool HevcDecoder::ensurePool(std::uint32_t width, std::uint32_t height)
     auto pool = FramePool::create(width, height);
     if (!pool)
     {
-        akira::log::error("HevcDecoder: no memory for {}x{} frames", width, height);
+        log::error("HevcDecoder: no memory for {}x{} frames", width, height);
         m_pool.reset();
         return false;
     }
     m_pool = std::move(*pool);
-    akira::log::info("HevcDecoder: frame pool {}x{}, {} slots of {:#x} bytes", width, height, FramePool::Slots,
+    log::info("HevcDecoder: frame pool {}x{}, {} slots of {:#x} bytes", width, height, FramePool::Slots,
         m_pool->backingSize());
     return true;
 }
@@ -247,7 +247,7 @@ void HevcDecoder::emit(const AVFrame& decoded, Clock::time_point entry)
     if (!m_logged_format)
     {
         const char* name = av_get_pix_fmt_name(format);
-        akira::log::info("HevcDecoder: first frame {}x{} {}", decoded.width, decoded.height, name ? name : "unknown");
+        log::info("HevcDecoder: first frame {}x{} {}", decoded.width, decoded.height, name ? name : "unknown");
         m_logged_format = true;
     }
     if (!ensurePool(static_cast<std::uint32_t>(decoded.width), static_cast<std::uint32_t>(decoded.height)))
@@ -362,7 +362,7 @@ HevcDecoder::Stats HevcDecoder::getStats() const
 
 void HevcDecoder::flush()
 {
-    akira::log::warning("HevcDecoder: flushing, waiting for a keyframe");
+    log::warning("HevcDecoder: flushing, waiting for a keyframe");
     if (m_context)
         avcodec_flush_buffers(m_context.get());
     m_waiting_for_keyframe = true;

@@ -62,7 +62,7 @@ std::optional<deko3d::VideoFrame> NvtegraDecoder::adoptFrame(AVFrame* frame)
 
 bool NvtegraDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, int height)
 {
-    akira::log::info("NvtegraDecoder: loading AVCodec");
+    log::info("NvtegraDecoder: loading AVCodec");
 
     m_is_hevc = hevc;
     if (hevc)
@@ -79,7 +79,7 @@ bool NvtegraDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, 
         throw app::Exception("Codec not available");
     }
 
-    akira::log::info("NvtegraDecoder: got codec {}", m_codec->name);
+    log::info("NvtegraDecoder: got codec {}", m_codec->name);
 
     m_codec_context = avcodec_alloc_context3(m_codec);
     if (!m_codec_context)
@@ -97,20 +97,20 @@ bool NvtegraDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, 
         m_codec_context->has_b_frames = 0;
 #ifdef BOREALIS_USE_DEKO3D
         // Create HW device context BEFORE opening codec 
-	akira::log::info("NvtegraDecoder: Creating NVTegra hardware device context...");
+	log::info("NvtegraDecoder: Creating NVTegra hardware device context...");
         if (av_hwdevice_ctx_create(&m_hw_device_ctx, AV_HWDEVICE_TYPE_NVTEGRA, NULL, NULL, 0) < 0)
         {
             throw app::Exception("Failed to create NVTegra hardware device context");
         }
         m_codec_context->hw_device_ctx = av_buffer_ref(m_hw_device_ctx);
-        akira::log::info("NvtegraDecoder: NVTegra hw device context created: {}", (void*)m_hw_device_ctx);
+        log::info("NvtegraDecoder: NVTegra hw device context created: {}", (void*)m_hw_device_ctx);
 
         if (width > 0 && height > 0)
         {
             m_codec_context->width = width;
             m_codec_context->height = height;
             m_codec_context->pix_fmt = AV_PIX_FMT_NVTEGRA;
-            akira::log::info("NvtegraDecoder: Setting NVTEGRA format {}x{}", width, height);
+            log::info("NvtegraDecoder: Setting NVTEGRA format {}x{}", width, height);
         }
 #endif
     }
@@ -134,7 +134,7 @@ bool NvtegraDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, 
 
 bool NvtegraDecoder::initVideo(int video_width, int video_height)
 {
-    akira::log::info("NvtegraDecoder: initVideo {}x{}", video_width, video_height);
+    log::info("NvtegraDecoder: initVideo {}x{}", video_width, video_height);
 
     m_video_width = video_width;
     m_video_height = video_height;
@@ -142,12 +142,12 @@ bool NvtegraDecoder::initVideo(int video_width, int video_height)
     // Wait for IDR frame at session start
     // PS5 may resume with P-frames; returning false triggers CORRUPTFRAME → keyframe request
     m_waiting_for_idr = true;
-    akira::log::info("NvtegraDecoder: Waiting for IDR frame to start decoding");
+    log::info("NvtegraDecoder: Waiting for IDR frame to start decoding");
 
     m_tmp_frame = av_frame_alloc();
     if (!m_tmp_frame)
     {
-        akira::log::error("NvtegraDecoder: Failed to allocate temp frame");
+        log::error("NvtegraDecoder: Failed to allocate temp frame");
         return false;
     }
 
@@ -241,7 +241,7 @@ bool NvtegraDecoder::decode(const AVBufferHandle& data, std::size_t size)
     {
         if (has_all_params && has_idr)
         {
-            akira::log::info("NvtegraDecoder: Got complete keyframe (params + IDR), resuming decode");
+            log::info("NvtegraDecoder: Got complete keyframe (params + IDR), resuming decode");
             m_waiting_for_idr = false;
         }
         else
@@ -251,12 +251,12 @@ bool NvtegraDecoder::decode(const AVBufferHandle& data, std::size_t size)
             {
                 if (m_is_hevc)
                 {
-                    akira::log::info("NvtegraDecoder: Waiting for keyframe (VPS={}, SPS={}, PPS={}, IDR={}) skip #{}",
+                    log::info("NvtegraDecoder: Waiting for keyframe (VPS={}, SPS={}, PPS={}, IDR={}) skip #{}",
                         m_has_vps, m_has_sps, m_has_pps, has_idr, idr_wait_count);
                 }
                 else
                 {
-                    akira::log::info("NvtegraDecoder: Waiting for keyframe (SPS={}, PPS={}, IDR={}) skip #{}",
+                    log::info("NvtegraDecoder: Waiting for keyframe (SPS={}, PPS={}, IDR={}) skip #{}",
                         m_has_sps, m_has_pps, has_idr, idr_wait_count);
                 }
             }
@@ -276,7 +276,7 @@ bool NvtegraDecoder::decode(const AVBufferHandle& data, std::size_t size)
                 {
                     m_corrupt_in_call = true;
                     if (std::has_single_bit(++m_corrupt_frames))
-                        akira::log::warning("NvtegraDecoder: held a frame decoded from a missing reference ({} so far)",
+                        log::warning("NvtegraDecoder: held a frame decoded from a missing reference ({} so far)",
                             m_corrupt_frames);
                     av_frame_unref(m_tmp_frame);
                     continue;
@@ -284,7 +284,7 @@ bool NvtegraDecoder::decode(const AVBufferHandle& data, std::size_t size)
                 AVFrame* queued_frame = av_frame_alloc();
                 if (!queued_frame)
                 {
-                    akira::log::error("NvtegraDecoder: Failed to allocate queued frame");
+                    log::error("NvtegraDecoder: Failed to allocate queued frame");
                     return false;
                 }
 
@@ -310,7 +310,7 @@ bool NvtegraDecoder::decode(const AVBufferHandle& data, std::size_t size)
 
             char errbuf[128];
             av_make_error_string(errbuf, sizeof(errbuf), receive_result);
-            akira::log::warning("NvtegraDecoder: avcodec_receive_frame failed: {}", errbuf);
+            log::warning("NvtegraDecoder: avcodec_receive_frame failed: {}", errbuf);
             return false;
         }
     };
@@ -332,7 +332,7 @@ bool NvtegraDecoder::decode(const AVBufferHandle& data, std::size_t size)
         {
             char errbuf[128];
             av_make_error_string(errbuf, sizeof(errbuf), r);
-            akira::log::error("Failed to push frame: {}", errbuf);
+            log::error("Failed to push frame: {}", errbuf);
             return false;
         }
 
@@ -345,7 +345,7 @@ void NvtegraDecoder::flush()
 {
     if (m_codec_context)
     {
-        akira::log::warning("NvtegraDecoder: Flushing decoder, waiting for IDR");
+        log::warning("NvtegraDecoder: Flushing decoder, waiting for IDR");
         avcodec_flush_buffers(m_codec_context);
         m_waiting_for_idr = true;
     }
@@ -405,14 +405,14 @@ bool NvtegraDecoder::scanNALUnits(const uint8_t* buf, size_t buf_size)
 
     if (m_is_hevc)
     {
-        if (!prev_vps && m_has_vps) akira::log::info("NvtegraDecoder: Received VPS");
-        if (!prev_sps && m_has_sps) akira::log::info("NvtegraDecoder: Received SPS");
-        if (!prev_pps && m_has_pps) akira::log::info("NvtegraDecoder: Received PPS");
+        if (!prev_vps && m_has_vps) log::info("NvtegraDecoder: Received VPS");
+        if (!prev_sps && m_has_sps) log::info("NvtegraDecoder: Received SPS");
+        if (!prev_pps && m_has_pps) log::info("NvtegraDecoder: Received PPS");
     }
     else
     {
-        if (!prev_sps && m_has_sps) akira::log::info("NvtegraDecoder: Received SPS");
-        if (!prev_pps && m_has_pps) akira::log::info("NvtegraDecoder: Received PPS");
+        if (!prev_sps && m_has_sps) log::info("NvtegraDecoder: Received SPS");
+        if (!prev_pps && m_has_pps) log::info("NvtegraDecoder: Received PPS");
     }
 
     return has_idr;

@@ -614,7 +614,7 @@ void PlayersPanelView::loadProfileAvatarUrl(int64_t profileId, const std::string
             if (std::find(m_profileAvatars.begin(), m_profileAvatars.end(), image) == m_profileAvatars.end())
                 return;
             image->setImageFromMem(bytes.data(), static_cast<int>(bytes.size()));
-            akira::log::debug("Loaded cached PSN avatar for profile {}", profileId);
+            log::debug("Loaded cached PSN avatar for profile {}", profileId);
         });
 }
 
@@ -658,14 +658,14 @@ void PlayersPanelView::populatePicker()
         std::string roster;
         for (const auto& entry : couchRoster)
             roster += " " + std::to_string((int)entry.first) + "->" + std::to_string((int)entry.second);
-        akira::log::info("Couch picker: {} pad(s) listed, bound npad {}, roster:{}",
+        log::info("Couch picker: {} pad(s) listed, bound npad {}, roster:{}",
                            pads.size(), (int)m_input->boundNpad(),
                            roster.empty() ? " (empty)" : roster);
 
         for (const auto& d : pads) {
             const bool claimable = m_input->isClaimableNpad(d.npad);
             const bool inRoster = couchRoster.find(d.npad) != couchRoster.end();
-            akira::log::info("Couch picker: npad {} '{}' claimable={} inRoster={}",
+            log::info("Couch picker: npad {} '{}' claimable={} inRoster={}",
                                (int)d.npad, d.label, claimable, inRoster);
             if (!claimable || inRoster)
                 continue;

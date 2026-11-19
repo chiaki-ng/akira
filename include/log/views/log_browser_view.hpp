@@ -5,6 +5,8 @@
 
 #include <string>
 
+namespace akira::log::views {
+
 class LogBrowserView : public brls::Box {
 public:
     LogBrowserView();
@@ -20,5 +22,7 @@ private:
     brls::Box* list = nullptr;
     brls::Label* statusLabel = nullptr;
 };
+
+}
 
 #endif // AKIRA_LOG_BROWSER_VIEW_HPP

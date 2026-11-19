@@ -29,13 +29,13 @@ std::optional<std::string> ShaderSource::readFile(const std::string& path)
     std::ifstream file(path, std::ios::binary);
     if (!file)
     {
-        akira::log::error("Failed to open shader file: {}", path);
+        log::error("Failed to open shader file: {}", path);
         return std::nullopt;
     }
     std::string contents{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
     if (contents.empty())
     {
-        akira::log::error("Shader file is empty: {}", path);
+        log::error("Shader file is empty: {}", path);
         return std::nullopt;
     }
     return contents;

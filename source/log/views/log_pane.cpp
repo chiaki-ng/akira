@@ -7,7 +7,7 @@
 #include <ctime>
 #include <format>
 
-namespace akira::ui {
+namespace akira::log::views {
 
 LogPane::~LogPane()
 {
@@ -19,8 +19,8 @@ void LogPane::subscribe()
     if (subscription)
         return;
 
-    subscription = akira::log::Log::process().subscribe(
-        [this](const akira::log::Entry& entry) {
+    subscription = Log::process().subscribe(
+        [this](const Entry& entry) {
             this->addLine(std::string(entry.message));
         });
 }
@@ -87,4 +87,4 @@ void LogPane::render(NVGcontext* vg, float x, float y, float width, float height
     nvgRestore(vg);
 }
 
-} // namespace akira::ui
+} // namespace akira::log::views

@@ -170,7 +170,7 @@ void ConnectingView::switchToConnectionLog()
         return;
 
     const std::string logPath = settings::SettingsManager::getConnectionLogFilePath(task->logKind());
-    connectionLog = ConnectionLog::open(logPath);
+    connectionLog = log::ConnectionLog::open(logPath);
     if (connectionLog)
         log::info("Switched to connection log: {}", logPath);
 }
@@ -377,7 +377,7 @@ void ConnectingView::askAboutFileLogging(std::unique_ptr<ConnectTask> task)
         settings::SettingsManager* settings = settings::SettingsManager::getInstance();
         settings->setEnableFileLogging(false);
         settings->writeFile();
-        AppLog::close();
+        log::AppLog::close();
         open(std::move(*pending));
     });
     dialog->addButton("akira/connection/file_logging_keep_on"_i18n, [pending]() {

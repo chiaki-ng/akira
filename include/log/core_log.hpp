@@ -9,7 +9,7 @@ namespace akira::settings {
 enum class ChiakiLogVerbosity;
 }
 
-namespace akira {
+namespace akira::log {
 
 class CoreLog final : public libchiaking::platform::DiagnosticsProvider {
 public:

@@ -15,6 +15,8 @@
 #include <sys/stat.h>
 #include <vector>
 
+namespace akira::log::views {
+
 using namespace brls::literals;
 
 namespace {
@@ -175,7 +177,7 @@ std::vector<LogBlock> colorizeLog(const std::string& text)
 
 NVGcolor colorForLevel(LogLevel level)
 {
-    const auto& palette = akira::app::views::active();
+    const auto& palette = app::views::active();
     switch (level) {
         case LogLevel::Error: return palette.danger;
         case LogLevel::Warning: return palette.warning;
@@ -277,7 +279,7 @@ public:
 
         statusLabel = new brls::Label();
         statusLabel->setFontSize(15.0f);
-        statusLabel->setTextColor(akira::app::views::active().textMuted);
+        statusLabel->setTextColor(app::views::active().textMuted);
         statusLabel->setHorizontalAlign(brls::HorizontalAlign::RIGHT);
         header->addView(statusLabel);
         addView(header);
@@ -285,7 +287,7 @@ public:
         pathLabel = new brls::Label();
         pathLabel->setText(this->path);
         pathLabel->setFontSize(14.0f);
-        pathLabel->setTextColor(akira::app::views::active().textMuted);
+        pathLabel->setTextColor(app::views::active().textMuted);
         pathLabel->setHorizontalAlign(brls::HorizontalAlign::LEFT);
         pathLabel->setMarginBottom(12.0f);
         addView(pathLabel);
@@ -381,7 +383,7 @@ private:
             error->setWidth(brls::View::AUTO);
             error->setHeight(brls::View::AUTO);
             error->setFontSize(15.0f);
-            error->setTextColor(akira::app::views::active().danger);
+            error->setTextColor(app::views::active().danger);
             error->setHorizontalAlign(brls::HorizontalAlign::LEFT);
             error->setText("akira/settings/log_read_error"_i18n);
             logContainer->addView(error);
@@ -394,7 +396,7 @@ private:
             empty->setWidth(brls::View::AUTO);
             empty->setHeight(brls::View::AUTO);
             empty->setFontSize(15.0f);
-            empty->setTextColor(akira::app::views::active().textMuted);
+            empty->setTextColor(app::views::active().textMuted);
             empty->setHorizontalAlign(brls::HorizontalAlign::LEFT);
             empty->setText("akira/settings/log_file_empty"_i18n);
             logContainer->addView(empty);
@@ -431,7 +433,7 @@ private:
 } // namespace
 
 LogBrowserView::LogBrowserView()
-    : LogBrowserView(akira::settings::SettingsManager::LOG_DIR, akira::settings::SettingsManager::LOG_DIR)
+    : LogBrowserView(settings::SettingsManager::LOG_DIR, settings::SettingsManager::LOG_DIR)
 {
 }
 
@@ -467,7 +469,7 @@ void LogBrowserView::buildLayout()
 
     statusLabel = new brls::Label();
     statusLabel->setFontSize(15.0f);
-    statusLabel->setTextColor(akira::app::views::active().textMuted);
+    statusLabel->setTextColor(app::views::active().textMuted);
     statusLabel->setHorizontalAlign(brls::HorizontalAlign::RIGHT);
     header->addView(statusLabel);
     addView(header);
@@ -475,7 +477,7 @@ void LogBrowserView::buildLayout()
     auto* path = new brls::Label();
     path->setText(currentPath);
     path->setFontSize(14.0f);
-    path->setTextColor(akira::app::views::active().textMuted);
+    path->setTextColor(app::views::active().textMuted);
     path->setHorizontalAlign(brls::HorizontalAlign::LEFT);
     path->setMarginBottom(14.0f);
     addView(path);
@@ -583,7 +585,7 @@ void LogBrowserView::refreshEntries()
         empty->setText(directory ? "akira/settings/log_folder_empty"_i18n
                                  : "akira/settings/log_folder_unavailable_hint"_i18n);
         empty->setFontSize(16.0f);
-        empty->setTextColor(akira::app::views::active().textMuted);
+        empty->setTextColor(app::views::active().textMuted);
         empty->setHorizontalAlign(brls::HorizontalAlign::CENTER);
         empty->setMargins(30.0f, 26.0f, 30.0f, 26.0f);
         list->addView(empty);
@@ -623,4 +625,6 @@ void LogBrowserView::refreshEntries()
         }
         list->addView(cell);
     }
+}
+
 }

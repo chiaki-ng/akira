@@ -1,13 +1,13 @@
 #include "log/app_log.hpp"
 
-namespace akira {
+namespace akira::log {
 
 void AppLog::open(const std::string& path)
 {
     auto& current = redirect();
     if (current)
         return;
-    current = log::Log::process().redirect(path, log::Buffering::line);
+    current = Log::process().redirect(path, Buffering::line);
     if (!current)
         return;
     log::info("File logging enabled: {}", path);
@@ -18,10 +18,10 @@ void AppLog::close()
     redirect().reset();
 }
 
-auto AppLog::redirect() -> std::optional<log::Log::Redirect>&
+auto AppLog::redirect() -> std::optional<Log::Redirect>&
 {
-    log::Log::process();
-    static std::optional<log::Log::Redirect> current;
+    Log::process();
+    static std::optional<Log::Redirect> current;
     return current;
 }
 

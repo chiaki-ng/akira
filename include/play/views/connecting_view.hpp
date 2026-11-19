@@ -89,7 +89,7 @@ private:
 
     std::optional<log::Log::Subscription> logSubscription;
 
-    std::optional<ConnectionLog> connectionLog;
+    std::optional<log::ConnectionLog> connectionLog;
 
     void addLogLine(const std::string& line);
     void renderLogs(NVGcontext* vg, float x, float y, float width, float height);

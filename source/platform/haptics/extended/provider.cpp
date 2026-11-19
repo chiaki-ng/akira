@@ -68,7 +68,7 @@ bool ExtendedHapticsProvider::streamNativeHaptics(play::HapticManager& haptics, 
     if (!extended.directHapticsReady()) {
         if (!m_haptic_stopped_logged && m_haptic_sent != 0) {
             m_haptic_stopped_logged = true;
-            akira::log::info("haptic stream: stopped after {} frames - handing the"
+            log::info("haptic stream: stopped after {} frames - handing the"
                                " signal back to the motors", m_haptic_sent);
         }
         return false;
@@ -128,7 +128,7 @@ bool ExtendedHapticsProvider::streamNativeHaptics(play::HapticManager& haptics, 
             }
             const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 m_haptic_last_send - m_haptic_first_send).count();
-            akira::log::info("haptic stream: {} sent, {} skipped,"
+            log::info("haptic stream: {} sent, {} skipped,"
                                " {} ms elapsed, {} per sec",
                                m_haptic_sent, m_haptic_skipped,
                                (long long)ms,
@@ -137,7 +137,7 @@ bool ExtendedHapticsProvider::streamNativeHaptics(play::HapticManager& haptics, 
 
         if (!m_haptic_logged) {
             m_haptic_logged = true;
-            akira::log::info("haptic stream: writing to the pad's actuators ({} bytes)", len);
+            log::info("haptic stream: writing to the pad's actuators ({} bytes)", len);
         }
     }
 
@@ -166,7 +166,7 @@ void ExtendedHapticsProvider::emitMotorsFromWaveform(play::HapticManager& haptic
     if (++m_native_logged >= kNativeHapticLogInterval) {
         m_native_logged = 0;
         if (settings::SettingsManager::getInstance()->getDebugChiakiLog()) {
-            akira::log::info("haptic->rumble: raw={}/{} scaled={}/{} out={}/{}{}",
+            log::info("haptic->rumble: raw={}/{} scaled={}/{} out={}/{}{}",
                                r.raw_left, r.raw_right, r.left, r.right,
                                (int)(m_native_env_left * 255.0f),
                                (int)(m_native_env_right * 255.0f),

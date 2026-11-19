@@ -168,7 +168,7 @@ void StreamView::stopLogCapture()
     logSubscription.reset();
 }
 
-void StreamView::adoptConnectionLog(ConnectionLog log)
+void StreamView::adoptConnectionLog(log::ConnectionLog log)
 {
     connectionLog = std::move(log);
 }

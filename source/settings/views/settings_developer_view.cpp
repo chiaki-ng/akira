@@ -145,7 +145,7 @@ SettingsDeveloperView::SettingsDeveloperView() {
     logBrowserCell->setDetailText(SettingsManager::LOG_DIR);
     logBrowserCell->registerClickAction([](brls::View*) {
         brls::Application::pushActivity(
-            new brls::Activity(new LogBrowserView()),
+            new brls::Activity(new log::views::LogBrowserView()),
             brls::TransitionAnimation::NONE);
         return true;
     });

@@ -139,7 +139,7 @@ void ExtendedPadProvider::setPathLocked(std::unique_ptr<akira::platform::extende
     m_path = std::move(path);
     ++m_path_generation;
 
-    akira::log::info("InputManager: input path is now {}", m_path->label());
+    log::info("InputManager: input path is now {}", m_path->label());
 }
 
 PadPathInfo ExtendedPadProvider::pathInfo() const
@@ -217,12 +217,12 @@ void ExtendedPadProvider::selectNpad(HidNpadIdType npad)
 
         m_bound_npad = npad;
 
-        akira::log::info("InputManager: using {} on npad {}", path->label(), (int)npad);
+        log::info("InputManager: using {} on npad {}", path->label(), (int)npad);
         setPathLocked(std::move(path));
         return;
     }
 
-    akira::log::warning("InputManager: npad {} no longer present, falling back to default", (int)npad);
+    log::warning("InputManager: npad {} no longer present, falling back to default", (int)npad);
     setPathLocked(akira::platform::extended::DefaultPadPath(m_extended));
 }
 
@@ -270,7 +270,7 @@ void ExtendedPadProvider::retryPathIdentification()
         if (!path)
             continue;
 
-        akira::log::info("InputManager: {} identified on npad {} after the path was chosen"
+        log::info("InputManager: {} identified on npad {} after the path was chosen"
                            " - upgrading from {}",
                            path->label(), (int)desc.npad, m_path->label());
 
@@ -306,7 +306,7 @@ void ExtendedPadProvider::reconcilePathDriver()
         if (!path)
             return;
 
-        akira::log::info("InputManager: pad on npad {} is now driven by {}"
+        log::info("InputManager: pad on npad {} is now driven by {}"
                            " - {} to {}",
                            (int)desc.npad, akira::platform::extended::PadDriverName(driver),
                            m_path->label(), path->label());
@@ -475,7 +475,7 @@ void ExtendedPadProvider::readSecondaryPads(play::InputManager& input, std::span
         {
             auto [missing, firstMiss] = m_secondary_missing_since.try_emplace(npad, now);
             if (firstMiss)
-                akira::log::warning("Couch: slot {} npad {} disappeared; sending idle input",
+                log::warning("Couch: slot {} npad {} disappeared; sending idle input",
                                       (int)slot, (int)npad);
             if (now - missing->second >= akira::platform::extended::timing::DisconnectGrace)
                 disconnected.emplace_back(npad, slot);
@@ -495,7 +495,7 @@ void ExtendedPadProvider::readSecondaryPads(play::InputManager& input, std::span
 
     for (const auto& entry : disconnected)
     {
-        akira::log::warning("Couch: removing disconnected slot {} npad {}",
+        log::warning("Couch: removing disconnected slot {} npad {}",
                               (int)entry.second, (int)entry.first);
         couchLeaveLocked(entry.first);
         if (m_on_couch_disconnected) {
@@ -681,7 +681,7 @@ void ExtendedPadProvider::pollPadArrivals(Callbacks& callbacks)
 
         m_announced_mask |= bit;
         m_arrival_pending = true;
-        akira::log::info("Couch: controller appeared on npad {}", (int)npad);
+        log::info("Couch: controller appeared on npad {}", (int)npad);
         auto callback = m_on_pad_arrived;
         callbacks.emplace_back([callback, npad]() { callback(npad); });
         return;

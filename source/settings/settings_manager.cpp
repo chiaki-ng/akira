@@ -319,7 +319,7 @@ SettingsManager::SettingsManager() {
     buttonMapping = getDefaultButtonMapping();
 }
 
-void SettingsManager::setCoreLog(CoreLog* log) {
+void SettingsManager::setCoreLog(log::CoreLog* log) {
     coreLog = log;
     updateChiakiLogMask();
 }

@@ -24,7 +24,7 @@ void NxextStatsProvider::initToggle(brls::BooleanCell& cell) const
         [settings](bool isOn) {
             settings->setIpcStatsEnabled(isOn);
             settings->writeFile();
-            akira::log::info("IPC Stats set to {}", isOn ? "true" : "false");
+            log::info("IPC Stats set to {}", isOn ? "true" : "false");
         });
 }
 
