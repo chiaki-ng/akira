@@ -13,20 +13,17 @@ public:
 
     UpdateInfo checkForUpdate(const std::string&) override { return { .error = "updates are not supplied" }; }
     std::string fetchExpectedSha256(const UpdateInfo&) override { return {}; }
-    std::string download(const UpdateInfo&, const ProgressCallback&, std::string& outError) override
+    std::expected<std::string, std::string> download(const UpdateInfo&, const ProgressCallback&) override
     {
-        outError = "updates are not supplied";
-        return {};
+        return std::unexpected("updates are not supplied");
     }
-    bool verify(const std::string&, const std::string&, int64_t, std::string& outError) override
+    std::expected<void, std::string> verify(const std::string&, const std::string&, int64_t) override
     {
-        outError = "updates are not supplied";
-        return false;
+        return std::unexpected("updates are not supplied");
     }
-    bool applyDownloaded(const std::string&, std::string& outError) override
+    std::expected<void, std::string> applyDownloaded(const std::string&) override
     {
-        outError = "updates are not supplied";
-        return false;
+        return std::unexpected("updates are not supplied");
     }
 };
 

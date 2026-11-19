@@ -16,10 +16,10 @@ public:
 
     UpdateInfo checkForUpdate(const std::string& channel) override;
     std::string fetchExpectedSha256(const UpdateInfo& info) override;
-    std::string download(const UpdateInfo& info, const ProgressCallback& progress, std::string& outError) override;
-    bool verify(const std::string& path, const std::string& expectedSha256Hex, int64_t expectedSize,
-                std::string& outError) override;
-    bool applyDownloaded(const std::string& tempPath, std::string& outError) override;
+    std::expected<std::string, std::string> download(const UpdateInfo& info, const ProgressCallback& progress) override;
+    std::expected<void, std::string> verify(const std::string& path, const std::string& expectedSha256Hex,
+                                            int64_t expectedSize) override;
+    std::expected<void, std::string> applyDownloaded(const std::string& tempPath) override;
 
 private:
     UpdateManager m_manager;

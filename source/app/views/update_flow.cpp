@@ -148,11 +148,10 @@ void UpdateFlow::startDownload(const UpdateInfo& info) const {
             });
         };
 
-        std::string err;
         std::string sha = info.sha256.empty() ? mgr.fetchExpectedSha256(info) : info.sha256;
 
         auto lastPct = std::make_shared<int>(-1);
-        std::string tmp = mgr.download(info,
+        const auto downloaded = mgr.download(info,
             [ring, label, lastPct, canceled, dismissed](int64_t received, int64_t total) {
                 if (canceled->load())
                     return false;
@@ -168,15 +167,15 @@ void UpdateFlow::startDownload(const UpdateInfo& info) const {
                     });
                 }
                 return true;
-            },
-            err);
+            });
 
-        if (tmp.empty()) {
+        if (!downloaded) {
             if (canceled->load())
                 return;
-            finish([err]() { showUpdateError("akira/update/failed"_i18n + std::string("\n") + err); });
+            finish([err = downloaded.error()]() { showUpdateError("akira/update/failed"_i18n + std::string("\n") + err); });
             return;
         }
+        const std::string tmp = *downloaded;
 
         if (canceled->load()) {
             std::remove(tmp.c_str());
@@ -188,18 +187,17 @@ void UpdateFlow::startDownload(const UpdateInfo& info) const {
                 label->setText("akira/update/verifying"_i18n);
         });
 
-        if (!mgr.verify(tmp, sha, info.size, err)) {
+        if (auto verified = mgr.verify(tmp, sha, info.size); !verified) {
             std::remove(tmp.c_str());
-            finish([err]() { showUpdateError("akira/update/verify_failed"_i18n + std::string("\n") + err); });
+            finish([err = verified.error()]() { showUpdateError("akira/update/verify_failed"_i18n + std::string("\n") + err); });
             return;
         }
 
         finish([flow, tmp]() {
-            std::string err;
-            if (flow.services.platform.updates().applyDownloaded(tmp, err))
+            if (auto applied = flow.services.platform.updates().applyDownloaded(tmp))
                 play::views::quitApp(true, "akira/update/installed_relaunch"_i18n);
             else
-                showUpdateError("akira/update/install_failed"_i18n + std::string("\n") + err);
+                showUpdateError("akira/update/install_failed"_i18n + std::string("\n") + applied.error());
         });
     });
 }

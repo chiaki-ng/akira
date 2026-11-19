@@ -31,21 +31,22 @@ std::string GithubUpdateProvider::fetchExpectedSha256(const UpdateInfo& info)
     return m_manager.fetchExpectedSha256(info);
 }
 
-std::string GithubUpdateProvider::download(const UpdateInfo& info, const ProgressCallback& progress,
-                                           std::string& outError)
+std::expected<std::string, std::string> GithubUpdateProvider::download(const UpdateInfo& info,
+                                                                       const ProgressCallback& progress)
 {
-    return m_manager.download(info, progress, outError);
+    return m_manager.download(info, progress);
 }
 
-bool GithubUpdateProvider::verify(const std::string& path, const std::string& expectedSha256Hex,
-                                  int64_t expectedSize, std::string& outError)
+std::expected<void, std::string> GithubUpdateProvider::verify(const std::string& path,
+                                                              const std::string& expectedSha256Hex,
+                                                              int64_t expectedSize)
 {
-    return m_manager.verify(path, expectedSha256Hex, expectedSize, outError);
+    return m_manager.verify(path, expectedSha256Hex, expectedSize);
 }
 
-bool GithubUpdateProvider::applyDownloaded(const std::string& tempPath, std::string& outError)
+std::expected<void, std::string> GithubUpdateProvider::applyDownloaded(const std::string& tempPath)
 {
-    return m_manager.applyDownloaded(tempPath, outError);
+    return m_manager.applyDownloaded(tempPath);
 }
 
 }

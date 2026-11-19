@@ -7,6 +7,7 @@
 #include <cstring>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include <curl/curl.h>
 
@@ -207,25 +208,22 @@ std::string UpdateManager::fetchExpectedSha256(const UpdateInfo& info) {
     return "";
 }
 
-std::string UpdateManager::download(const UpdateInfo& info, const ProgressCallback& progress, std::string& outError) {
+std::expected<std::string, std::string> UpdateManager::download(const UpdateInfo& info, const ProgressCallback& progress) {
     if (info.nroUrl.empty()) {
-        outError = "No download URL";
-        return "";
+        return std::unexpected("No download URL");
     }
 
     std::string tmp = resolveInstallPath() + ".new";
     FILE* file = std::fopen(tmp.c_str(), "wb");
     if (!file) {
-        outError = "Cannot open temp file";
-        return "";
+        return std::unexpected("Cannot open temp file");
     }
 
     CurlHandle curl;
     if (!curl) {
         std::fclose(file);
         std::remove(tmp.c_str());
-        outError = "curl init failed";
-        return "";
+        return std::unexpected("curl init failed");
     }
 
     ProgressCtx ctx{ &progress, false };
@@ -248,25 +246,22 @@ std::string UpdateManager::download(const UpdateInfo& info, const ProgressCallba
     std::fclose(file);
 
     if (res != CURLE_OK) {
-        outError = ctx.canceled ? "Canceled"
-                                : (errbuf[0] != '\0' ? std::string(errbuf) : std::string(curl_easy_strerror(res)));
         std::remove(tmp.c_str());
-        return "";
+        return std::unexpected(ctx.canceled ? "Canceled"
+                                            : (errbuf[0] != '\0' ? std::string(errbuf) : std::string(curl_easy_strerror(res))));
     }
 
     return tmp;
 }
 
-bool UpdateManager::verify(const std::string& path, const std::string& expectedSha256Hex, int64_t expectedSize, std::string& outError) {
+std::expected<void, std::string> UpdateManager::verify(const std::string& path, const std::string& expectedSha256Hex, int64_t expectedSize) {
     if (expectedSha256Hex.empty()) {
-        outError = "No checksum to verify against";
-        return false;
+        return std::unexpected("No checksum to verify against");
     }
 
     FILE* file = std::fopen(path.c_str(), "rb");
     if (!file) {
-        outError = "Cannot open downloaded file";
-        return false;
+        return std::unexpected("Cannot open downloaded file");
     }
 
     std::fseek(file, 0, SEEK_END);
@@ -274,8 +269,7 @@ bool UpdateManager::verify(const std::string& path, const std::string& expectedS
     std::fseek(file, 0, SEEK_SET);
     if (expectedSize > 0 && size != expectedSize) {
         std::fclose(file);
-        outError = "Size mismatch";
-        return false;
+        return std::unexpected("Size mismatch");
     }
 
     akira::sha256::Ctx state;
@@ -291,13 +285,12 @@ bool UpdateManager::verify(const std::string& path, const std::string& expectedS
     std::string got = akira::sha256::toHex(digest);
 
     if (got != toLowerHex(expectedSha256Hex)) {
-        outError = "Checksum mismatch";
-        return false;
+        return std::unexpected("Checksum mismatch");
     }
-    return true;
+    return {};
 }
 
-bool UpdateManager::applyDownloaded(const std::string& tempPath, std::string& outError) {
+std::expected<void, std::string> UpdateManager::applyDownloaded(const std::string& tempPath) {
     std::string target = resolveInstallPath();
     std::string bak = target + ".bak";
     log::info("Update apply: self='{}' target='{}' temp='{}'", selfPath, target, tempPath);
@@ -322,16 +315,16 @@ bool UpdateManager::applyDownloaded(const std::string& tempPath, std::string& ou
     }
 
     if (std::rename(tempPath.c_str(), target.c_str()) != 0) {
-        outError = std::string("rename failed: ") + std::strerror(errno);
+        std::string failure = std::string("rename failed: ") + std::strerror(errno);
         if (haveBak)
             std::rename(bak.c_str(), target.c_str());
         std::remove(tempPath.c_str());
         romfsInit();
-        return false;
+        return std::unexpected(std::move(failure));
     }
 
     log::info("Update applied to {}{}", target, haveBak ? " (backup at " + bak + ")" : "");
-    return true;
+    return {};
 }
 
 }

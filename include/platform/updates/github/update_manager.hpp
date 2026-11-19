@@ -2,6 +2,7 @@
 #define AKIRA_UPDATE_MANAGER_HPP
 
 #include <cstdint>
+#include <expected>
 #include <functional>
 #include <string>
 
@@ -32,9 +33,11 @@ public:
     using ProgressCallback = UpdateProvider::ProgressCallback;
 
     std::string fetchExpectedSha256(const UpdateInfo& info);
-    std::string download(const UpdateInfo& info, const ProgressCallback& progress, std::string& outError);
-    bool verify(const std::string& path, const std::string& expectedSha256Hex, int64_t expectedSize, std::string& outError);
-    bool applyDownloaded(const std::string& tempPath, std::string& outError);
+    [[nodiscard]] std::expected<std::string, std::string> download(const UpdateInfo& info,
+                                                                   const ProgressCallback& progress);
+    [[nodiscard]] std::expected<void, std::string> verify(const std::string& path, const std::string& expectedSha256Hex,
+                                                          int64_t expectedSize);
+    [[nodiscard]] std::expected<void, std::string> applyDownloaded(const std::string& tempPath);
 
 private:
     const app::AppSettings& appSettings;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <expected>
 #include <functional>
 #include <span>
 #include <string>
@@ -22,10 +23,12 @@ public:
 
     virtual UpdateInfo checkForUpdate(const std::string& channel) = 0;
     virtual std::string fetchExpectedSha256(const UpdateInfo& info) = 0;
-    virtual std::string download(const UpdateInfo& info, const ProgressCallback& progress, std::string& outError) = 0;
-    virtual bool verify(const std::string& path, const std::string& expectedSha256Hex, int64_t expectedSize,
-                        std::string& outError) = 0;
-    virtual bool applyDownloaded(const std::string& tempPath, std::string& outError) = 0;
+    [[nodiscard]] virtual std::expected<std::string, std::string> download(const UpdateInfo& info,
+                                                                           const ProgressCallback& progress) = 0;
+    [[nodiscard]] virtual std::expected<void, std::string> verify(const std::string& path,
+                                                                  const std::string& expectedSha256Hex,
+                                                                  int64_t expectedSize) = 0;
+    [[nodiscard]] virtual std::expected<void, std::string> applyDownloaded(const std::string& tempPath) = 0;
 };
 
 }
