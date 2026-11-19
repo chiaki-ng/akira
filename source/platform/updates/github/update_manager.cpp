@@ -15,7 +15,7 @@ extern "C" {
 #include <switch/runtime/devices/romfs_dev.h>
 }
 
-#include <borealis/extern/nlohmann/json.hpp>
+#include <nlohmann/json.hpp>
 
 #include "app/app_settings.hpp"
 #include "app/version.hpp"

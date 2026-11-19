@@ -14,7 +14,7 @@
 #   make fetch-devkit OUNCE_DEVKIT_URL=u Download the pinned ounce devkit and check its sha256
 #   make ounce-deps                      Build ../native-deps-ounce inside devkita64-ounce
 
-.PHONY: help build deploy crash test check-strings lint-structure rebuild shell clean docker-image devkit-image fetch-devkit devkit-pin release-notes ounce-deps ounce-deps-check image-tag submodules backup platform
+.PHONY: help build build-arisa arisa-package deploy crash test check-strings lint-structure rebuild shell clean docker-image devkit-image fetch-devkit devkit-pin release-notes ounce-deps ounce-deps-check image-tag submodules backup platform
 
 PLATFORM ?=
 
@@ -50,6 +50,18 @@ TEST_PLATFORM_SRC := $(CURDIR)/source/platform/pads/extended/rumble_keys.cpp \
                      $(CURDIR)/source/platform/pads/extended/pad_output_state.cpp
 endif
 DOCKER_IMAGE ?= akira-builder:$(IMAGE_HASH)
+ARISA_VERSION      := 0.0.1
+ARISA_TAG          := v1.0
+ARISA_TARGET_nx    := switch
+ARISA_TARGET_ounce := switch2
+ARISA_SHA256_nx    := 5c011bb8b2f4829507d2b7405053b19320f175f2dde661df2bcd8c57f1739fb3
+ARISA_SHA256_ounce := a2854c4d59e76fc71f88c83b733ef97fa5502917e78832fd538aad337ff135eb
+ARISA_PACKAGE_DIR  ?= $(abspath $(CURDIR)/../arisa/build/package)
+ARISA_NAME          = arisa-$(ARISA_VERSION)-$(ARISA_TARGET_$(PLATFORM))-aarch64
+ARISA_ARCHIVE       = $(ARISA_PACKAGE_DIR)/$(ARISA_NAME).tar.gz
+ARISA_UNPACK        = $(CURDIR)/build/arisa-package/$(ARISA_SHA256_$(PLATFORM))
+ARISA_PREFIX        = $(ARISA_UNPACK)/$(ARISA_NAME)
+ARISA_NRO_FILE      = $(CURDIR)/build/arisa-$(PLATFORM)/akira_arisa.nro
 NRO_FILE     := $(CURDIR)/build/$(PLATFORM)/akira.nro
 ELF_FILE     := build/$(PLATFORM)/akira.elf
 FTP_PORT     ?= 5000
@@ -193,6 +205,8 @@ help:
 	@echo "  shell-nx, shell-ounce            Open shell in build container"
 	@echo "  crash-nx, crash-ounce            Symbolicate the latest Switch crash report (SWITCH_IP or LOG)"
 	@echo "  test-nx, test-ounce              Run the host-side unit tests"
+	@echo "  build-arisa-nx, build-arisa-ounce  Build akira_arisa.nro on the pinned arisa package"
+	@echo "  arisa-package-nx, arisa-package-ounce  Check and extract the pinned arisa package"
 	@echo "  image-tag-nx, image-tag-ounce    Print the builder image tag for this checkout"
 	@echo "  check-strings  Check resources/strings matches the borealis catalogs"
 	@echo "  lint-structure Check the subject/views include rules"
@@ -340,6 +354,34 @@ build: platform docker-image
 		exit 1; \
 	fi
 	@printf "$(GREEN)[*]$(NC) Build successful: $(NRO_FILE)\n"
+
+arisa-package: platform
+	@test -f "$(ARISA_ARCHIVE)" || { printf "$(RED)[x]$(NC) No arisa package at $(ARISA_ARCHIVE): build arisa $(ARISA_TAG) with make package TARGET=$(ARISA_TARGET_$(PLATFORM)), or pass ARISA_PACKAGE_DIR\n"; exit 1; }
+	@echo "$(ARISA_SHA256_$(PLATFORM))  $(ARISA_ARCHIVE)" | shasum -a 256 -c - > /dev/null || { printf "$(RED)[x]$(NC) $(ARISA_ARCHIVE) does not match the pinned sha256 $(ARISA_SHA256_$(PLATFORM))\n"; exit 1; }
+	@if [ ! -f "$(ARISA_PREFIX)/lib/libarisa.a" ]; then \
+		printf "$(GREEN)[*]$(NC) Extracting $(ARISA_NAME) ($(ARISA_TAG))...\n"; \
+		mkdir -p "$(ARISA_UNPACK)"; \
+		tar -xzf "$(ARISA_ARCHIVE)" -C "$(ARISA_UNPACK)"; \
+	fi
+
+build-arisa: platform docker-image arisa-package
+	@printf "$(GREEN)[*]$(NC) Building akira_arisa for $(PLATFORM) with $(DOCKER_IMAGE)...\n"
+	@$(DOCKER_RUN) \
+		-e AKIRA_PLATFORM="$(PLATFORM)" \
+		-e AKIRA_SHELL=arisa \
+		-e AKIRA_ARISA_PREFIX="$(ARISA_PREFIX)" \
+		-e AKIRA_SOURCE="$(CURDIR)" \
+		-e AKIRA_IMAGE="$(DOCKER_IMAGE)" \
+		-e MUTE_CHIAKI="$(MUTE_CHIAKI)" \
+		-e CLOUD="$(CLOUD)" \
+		-e PS5_CLOUD_LAUNCH="$(PS5_CLOUD_LAUNCH)" \
+		-e PS4_CLOUD_LAUNCH="$(PS4_CLOUD_LAUNCH)" \
+		-e BUILD_CHANNEL="$(BUILD_CHANNEL)" \
+		-e VERSION_PRERELEASE="$(VERSION_PRERELEASE)" \
+		$(DOCKER_IMAGE) \
+		bash "$(CURDIR)/scripts/build-docker.sh"
+	@test -f "$(ARISA_NRO_FILE)" || { printf "$(RED)[x]$(NC) Build failed - NRO not found at $(ARISA_NRO_FILE)\n"; exit 1; }
+	@printf "$(GREEN)[*]$(NC) Build successful: $(ARISA_NRO_FILE)\n"
 
 backup:
 	@if [ -z "$(SWITCH_IP)" ]; then \

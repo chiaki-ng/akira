@@ -6,6 +6,17 @@ if (NOT AKIRA_PLATFORM MATCHES "^(nx|ounce)$")
     message(FATAL_ERROR "AKIRA_PLATFORM must be nx or ounce, not ${AKIRA_PLATFORM}")
 endif()
 
+set(AKIRA_SHELL "borealis" CACHE STRING "UI shell: borealis ships as akira, arisa builds akira_arisa")
+set_property(CACHE AKIRA_SHELL PROPERTY STRINGS borealis arisa)
+if (NOT AKIRA_SHELL MATCHES "^(borealis|arisa)$")
+    message(FATAL_ERROR "AKIRA_SHELL must be borealis or arisa, not ${AKIRA_SHELL}")
+endif()
+if (AKIRA_SHELL STREQUAL "arisa")
+    set(AKIRA_TARGET akira_arisa)
+else()
+    set(AKIRA_TARGET akira)
+endif()
+
 # Force Switch platform
 set(PLATFORM_SWITCH ON CACHE BOOL "Build for Nintendo Switch" FORCE)
 if (AKIRA_PLATFORM STREQUAL "ounce")
@@ -89,22 +100,41 @@ if (NOT AKIRA_CLOUD)
 endif()
 include(platform)
 
-# Switch wrapper for libnx initialization
-list(APPEND MAIN_SRC ${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c)
+if (AKIRA_SHELL STREQUAL "arisa")
+    list(FILTER MAIN_SRC EXCLUDE REGEX "/views/")
+    list(FILTER MAIN_SRC EXCLUDE REGEX "/source/(main|app/app)\\.cpp$")
+    if (AKIRA_PLATFORM_NX)
+        list(FILTER MAIN_SRC EXCLUDE REGEX "/source/app/arisa/vulkan_host\\.cpp$")
+    else()
+        list(FILTER MAIN_SRC EXCLUDE REGEX "/source/app/arisa/deko3d_host\\.cpp$")
+    endif()
+    set(AKIRA_SHELL_SRC ${MAIN_SRC})
+    list(FILTER AKIRA_SHELL_SRC INCLUDE REGEX "/source/app/arisa/")
+    list(FILTER MAIN_SRC EXCLUDE REGEX "/source/app/arisa/")
+    list(APPEND MAIN_SRC
+        ${BOREALIS_LIBRARY}/lib/extern/nanovg/deko3d/framework/CMemPool.cpp
+        ${BOREALIS_LIBRARY}/lib/extern/nanovg/deko3d/framework/CShader.cpp
+        ${BOREALIS_LIBRARY}/lib/extern/nanovg/deko3d/framework/CIntrusiveTree.cpp)
+else()
+    list(FILTER MAIN_SRC EXCLUDE REGEX "/source/app/arisa/")
 
-# Sub-libraries
-add_subdirectory(${BOREALIS_DIR}/library borealis)
+    # Switch wrapper for libnx initialization
+    list(APPEND MAIN_SRC ${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c)
+
+    add_subdirectory(${BOREALIS_DIR}/library borealis)
+endif()
 add_subdirectory(library/tomlplusplus EXCLUDE_FROM_ALL)
 
 ###########################################
 # Main target
 ###########################################
-program_target(${PROJECT_NAME} "${MAIN_SRC}")
-set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 23)
+program_target(${AKIRA_TARGET} "${MAIN_SRC}")
+set_target_properties(${AKIRA_TARGET} PROPERTIES CXX_STANDARD 23)
 if (AKIRA_VIDEO_PROVIDER STREQUAL "vulkan")
     include(vulkan_shaders)
 endif()
 
+if (AKIRA_SHELL STREQUAL "borealis")
 # Borealis uses DEBUG only to attach nxlinkStdio() in its Switch wrapper.
 # Keep that capture path in optimized builds without compiling the whole app
 # (or its libraries) with debug-only behavior. Runtime log levels and file
@@ -113,19 +143,20 @@ set_source_files_properties(
     ${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c
     PROPERTIES COMPILE_DEFINITIONS DEBUG
 )
+endif()
 
-target_sources(${PROJECT_NAME} PRIVATE ${LWIP_SRCS} ${LWIP_RELAY_SRCS})
-target_sources(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/library/qrcodegen/qrcodegen.cpp)
+target_sources(${AKIRA_TARGET} PRIVATE ${LWIP_SRCS} ${LWIP_RELAY_SRCS})
+target_sources(${AKIRA_TARGET} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/library/qrcodegen/qrcodegen.cpp)
 
-target_include_directories(${PROJECT_NAME} PRIVATE
+target_include_directories(${AKIRA_TARGET} PRIVATE
     include
     ${CMAKE_CURRENT_SOURCE_DIR}/library/qrcodegen
     # Generated version header (configure_file in cmake/version.cmake)
     ${CMAKE_BINARY_DIR}/generated
     # Shared IPC definitions
     ${CMAKE_CURRENT_SOURCE_DIR}/overlay/common/include
-    # Borealis includes
-    ${BOREALIS_LIBRARY}/include
+    # Vendored nanovg deko3d framework and nlohmann json
+    ${BOREALIS_LIBRARY}/include/borealis/extern
     # WireGuard
     ${WIREGUARD_DIR}/include
     ${WIREGUARD_DIR}/src
@@ -135,29 +166,32 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${APP_PLATFORM_INCLUDE}
 )
 
-target_compile_options(${PROJECT_NAME} PRIVATE
+target_compile_options(${AKIRA_TARGET} PRIVATE
     -ffunction-sections
     -fdata-sections
     -Wunused-variable
     ${APP_PLATFORM_OPTION}
 )
 
-if (USE_DEKO3D)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE BOREALIS_USE_DEKO3D)
+if (USE_DEKO3D AND AKIRA_SHELL STREQUAL "borealis")
+    target_compile_definitions(${AKIRA_TARGET} PRIVATE BOREALIS_USE_DEKO3D)
+endif()
+if (AKIRA_SHELL STREQUAL "borealis")
+    target_include_directories(${AKIRA_TARGET} PRIVATE ${BOREALIS_LIBRARY}/include)
+    target_link_libraries(${AKIRA_TARGET} PRIVATE borealis)
 endif()
 
 option(MUTE_CHIAKI_LOGS "Drop every core log line" OFF)
-target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_WORKER_CORE_MASK=${AKIRA_WORKER_CORE_MASK}
+target_compile_definitions(${AKIRA_TARGET} PRIVATE AKIRA_WORKER_CORE_MASK=${AKIRA_WORKER_CORE_MASK}
     AKIRA_MAIN_CORE=${AKIRA_MAIN_CORE})
-target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_MUTE_CORE_LOGS=$<BOOL:${MUTE_CHIAKI_LOGS}>)
-target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_CLOUD=$<BOOL:${AKIRA_CLOUD}>)
-target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_STATS_OVERLAY=1)
-target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_PS5_CLOUD_LAUNCH=$<BOOL:${AKIRA_PS5_CLOUD_LAUNCH}>)
-target_compile_definitions(${PROJECT_NAME} PRIVATE AKIRA_PS4_CLOUD_LAUNCH=$<BOOL:${AKIRA_PS4_CLOUD_LAUNCH}>)
+target_compile_definitions(${AKIRA_TARGET} PRIVATE AKIRA_MUTE_CORE_LOGS=$<BOOL:${MUTE_CHIAKI_LOGS}>)
+target_compile_definitions(${AKIRA_TARGET} PRIVATE AKIRA_CLOUD=$<BOOL:${AKIRA_CLOUD}>)
+target_compile_definitions(${AKIRA_TARGET} PRIVATE AKIRA_STATS_OVERLAY=$<STREQUAL:${AKIRA_SHELL},borealis>)
+target_compile_definitions(${AKIRA_TARGET} PRIVATE AKIRA_PS5_CLOUD_LAUNCH=$<BOOL:${AKIRA_PS5_CLOUD_LAUNCH}>)
+target_compile_definitions(${AKIRA_TARGET} PRIVATE AKIRA_PS4_CLOUD_LAUNCH=$<BOOL:${AKIRA_PS4_CLOUD_LAUNCH}>)
 
 
-target_link_libraries(${PROJECT_NAME} PRIVATE
-    borealis
+set(AKIRA_SERVICE_LIBRARIES
     libchiaking_chiaki_ng
     libchiaking_curl
     libchiaking_crypto_libnx
@@ -172,6 +206,11 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     wireguard
     ${APP_PLATFORM_LIB}
 )
+target_link_libraries(${AKIRA_TARGET} PRIVATE ${AKIRA_SERVICE_LIBRARIES})
+
+if (AKIRA_SHELL STREQUAL "arisa")
+    include(arisa_shell)
+endif()
 
 # deko3d shader compilation + uam runtime link
 if (AKIRA_VIDEO_PROVIDER STREQUAL "deko3d")
@@ -183,12 +222,12 @@ endif()
 
 # SDL2 depends on EGL/OpenGL libraries on Switch
 if (AKIRA_PLATFORM_NX)
-    target_link_libraries(${PROJECT_NAME} PRIVATE EGL glapi drm_nouveau)
+    target_link_libraries(${AKIRA_TARGET} PRIVATE EGL glapi drm_nouveau)
 endif()
 
-target_link_options(${PROJECT_NAME} PRIVATE ${APP_PLATFORM_LINK_OPTION})
+target_link_options(${AKIRA_TARGET} PRIVATE ${APP_PLATFORM_LINK_OPTION})
 if (PLATFORM_SWITCH)
-    target_link_options(${PROJECT_NAME} PRIVATE
+    target_link_options(${AKIRA_TARGET} PRIVATE
         -Wl,--wrap=svcSetThreadCoreMask
         -Wl,--wrap=abort
         -Wl,--wrap=__assert_func

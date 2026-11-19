@@ -1,0 +1,15 @@
+set(AKIRA_ARISA_PREFIX "" CACHE PATH "Extracted arisa console package (make arisa-package-nx or arisa-package-ounce)")
+find_package(arisa 0.0.1 EXACT REQUIRED CONFIG PATHS ${AKIRA_ARISA_PREFIX} NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+message(STATUS "arisa ${arisa_VERSION} for ${arisa_PLATFORM} from ${AKIRA_ARISA_PREFIX}")
+
+add_library(akira_arisa_shell OBJECT ${AKIRA_SHELL_SRC})
+set_target_properties(akira_arisa_shell PROPERTIES CXX_STANDARD 23)
+target_include_directories(akira_arisa_shell PRIVATE $<TARGET_PROPERTY:${AKIRA_TARGET},INCLUDE_DIRECTORIES>)
+target_compile_definitions(akira_arisa_shell PRIVATE $<TARGET_PROPERTY:${AKIRA_TARGET},COMPILE_DEFINITIONS>)
+target_compile_options(akira_arisa_shell PRIVATE $<TARGET_PROPERTY:${AKIRA_TARGET},COMPILE_OPTIONS>)
+target_link_libraries(akira_arisa_shell PRIVATE ${AKIRA_SERVICE_LIBRARIES} arisa::horizon)
+
+target_sources(${AKIRA_TARGET} PRIVATE $<TARGET_OBJECTS:akira_arisa_shell>)
+get_target_property(AKIRA_ARISA_PROVIDER_LINKS arisa::horizon INTERFACE_LINK_LIBRARIES)
+list(REMOVE_ITEM AKIRA_ARISA_PROVIDER_LINKS arisa::arisa)
+target_link_libraries(${AKIRA_TARGET} PRIVATE $<TARGET_FILE:arisa::arisa> ${AKIRA_ARISA_PROVIDER_LINKS} Threads::Threads)

@@ -4,14 +4,8 @@ set -euo pipefail
 REPOSITORY="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPOSITORY}"
 
-UPDATE_MANAGER_PARSES_JSON_WITH_THE_BOREALIS_NLOHMANN=(
-    source/platform/updates/github/update_manager.cpp
-)
 SINGLETON_SEAMS_STILL_ALLOWED=()
 
-BOREALIS_ALLOWED=(
-    "${UPDATE_MANAGER_PARSES_JSON_WITH_THE_BOREALIS_NLOHMANN[@]}"
-)
 
 violations=0
 
@@ -22,6 +16,13 @@ source_files() {
 is_view_or_app() {
     case "$1" in
         source/app/* | include/app/* | */views/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+is_arisa_shell() {
+    case "$1" in
+        source/app/arisa/* | include/app/arisa/*) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -53,14 +54,18 @@ report() {
 
 while IFS= read -r file; do
     if ! is_view_or_app "${file}"; then
-        if ! is_listed "${file}" "${BOREALIS_ALLOWED[@]}"; then
-            report "borealis outside app/ and views/" "${file}" \
-                "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*[<"]borealis|brls::')"
-        fi
+        report "borealis outside app/ and views/" "${file}" \
+            "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*[<"]borealis|brls::')"
+        report "arisa outside app/ and views/" "${file}" \
+            "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*[<"]arisa/')"
         report "ViewServices outside app/ and views/" "${file}" \
             "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*"app/view_services\.hpp"|\bViewServices\b')"
         report "views/ header in a non-view file" "${file}" \
             "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*"[^"]*views/')"
+    fi
+    if is_arisa_shell "${file}"; then
+        report "borealis in the arisa shell" "${file}" \
+            "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*[<"]borealis|brls::|include[[:space:]]*"[^"]*views/')"
     fi
     report "ChiakiCore::current locator" "${file}" \
         "$(code_lines "${file}" '\bChiakiCore::current\b')"

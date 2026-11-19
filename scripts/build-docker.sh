@@ -8,8 +8,15 @@ case "${AKIRA_PLATFORM}" in
     *) echo "AKIRA_PLATFORM must be nx or ounce, not ${AKIRA_PLATFORM}"; exit 1 ;;
 esac
 
+AKIRA_SHELL="${AKIRA_SHELL:-borealis}"
+case "${AKIRA_SHELL}" in
+    borealis) BUILD_NAME="${AKIRA_PLATFORM}"; NRO_TARGET=akira ;;
+    arisa) BUILD_NAME="arisa-${AKIRA_PLATFORM}"; NRO_TARGET=akira_arisa ;;
+    *) echo "AKIRA_SHELL must be borealis or arisa, not ${AKIRA_SHELL}"; exit 1 ;;
+esac
+
 SOURCE_DIR="${AKIRA_SOURCE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-BUILD_DIR="${SOURCE_DIR}/build/${AKIRA_PLATFORM}"
+BUILD_DIR="${SOURCE_DIR}/build/${BUILD_NAME}"
 DOCKER_SCRIPTS="${SOURCE_DIR}/scripts/docker"
 ENVIRONMENT_FILE="${BUILD_DIR}/.akira-environment"
 
@@ -48,7 +55,7 @@ for override in CORE BOREALIS WIREGUARD LWIP UAM NX_DEPS CURL FFMPEG NGHTTP2 SIM
     fi
 done
 
-ENVIRONMENT="platform=${AKIRA_PLATFORM} image=${AKIRA_IMAGE} source=${SOURCE_DIR} borealis=${BOREALIS_DIR} nx_deps=${WITH_NX_DEPS} curl=${WITH_CURL} ffmpeg=${WITH_FFMPEG} nghttp2=${WITH_NGHTTP2} simdutf=${WITH_SIMDUTF} uam=${WITH_UAM}"
+ENVIRONMENT="platform=${AKIRA_PLATFORM} shell=${AKIRA_SHELL} arisa=${AKIRA_ARISA_PREFIX} image=${AKIRA_IMAGE} source=${SOURCE_DIR} borealis=${BOREALIS_DIR} nx_deps=${WITH_NX_DEPS} curl=${WITH_CURL} ffmpeg=${WITH_FFMPEG} nghttp2=${WITH_NGHTTP2} simdutf=${WITH_SIMDUTF} uam=${WITH_UAM}"
 if [ "$(cat "${ENVIRONMENT_FILE}" 2>/dev/null)" != "${ENVIRONMENT}" ]; then
     echo "=== Build environment changed, starting a clean build ==="
     rm -rf "${BUILD_DIR}"
@@ -89,9 +96,11 @@ cmake -G Ninja -S "${SOURCE_DIR}" -B "${BUILD_DIR}" \
     -DAKIRA_CORE_DIR="${CORE_DIR}" \
     -DBOREALIS_DIR="${BOREALIS_DIR}" \
     -DWIREGUARD_DIR="${WIREGUARD_DIR}" \
-    -DLWIP_DIR="${LWIP_DIR}"
+    -DLWIP_DIR="${LWIP_DIR}" \
+    -DAKIRA_SHELL="${AKIRA_SHELL}" \
+    -DAKIRA_ARISA_PREFIX="${AKIRA_ARISA_PREFIX}"
 echo "${ENVIRONMENT}" > "${ENVIRONMENT_FILE}"
 
-cmake --build "${BUILD_DIR}" --target akira.nro
+cmake --build "${BUILD_DIR}" --target "${NRO_TARGET}.nro"
 
 ls -la "${BUILD_DIR}"/*.nro

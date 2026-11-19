@@ -11,15 +11,17 @@ if (USE_DEKO3D)
     if (NOT UAM_LIB)
         message(FATAL_ERROR "Could not find libuam: build library/uam with -Dbuild_as_library=true")
     endif()
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${UAM_LIB})
-    target_include_directories(${PROJECT_NAME} PRIVATE "${DEVKITPRO}/portlibs/switch/include")
-    target_link_options(${PROJECT_NAME} PRIVATE -Wl,-z,muldefs)
+    target_link_libraries(${AKIRA_TARGET} PRIVATE ${UAM_LIB})
+    target_include_directories(${AKIRA_TARGET} PRIVATE "${DEVKITPRO}/portlibs/switch/include")
+    target_link_options(${AKIRA_TARGET} PRIVATE -Wl,-z,muldefs)
 
     set(SHADER_DIR "${PROJECT_RESOURCES}/video/deko3d/shaders")
     set(SHADER_OUT_DIR "${CMAKE_BINARY_DIR}/resources/shaders")
 
     # Compile borealis/nanovg shaders
-    gen_dksh("${SHADER_OUT_DIR}")
+    if (AKIRA_SHELL STREQUAL "borealis")
+        gen_dksh("${SHADER_OUT_DIR}")
+    endif()
 
     # Compile text shaders (video shaders are compiled at runtime via uam library)
     file(MAKE_DIRECTORY "${SHADER_OUT_DIR}")
