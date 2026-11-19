@@ -14,7 +14,7 @@
 #   make fetch-devkit OUNCE_DEVKIT_URL=u Download the pinned ounce devkit and check its sha256
 #   make ounce-deps                      Build ../native-deps-ounce inside devkita64-ounce
 
-.PHONY: help build deploy crash test rebuild shell clean docker-image devkit-image fetch-devkit devkit-pin release-notes ounce-deps ounce-deps-check image-tag submodules backup platform
+.PHONY: help build deploy crash test check-strings rebuild shell clean docker-image devkit-image fetch-devkit devkit-pin release-notes ounce-deps ounce-deps-check image-tag submodules backup platform
 
 PLATFORM ?=
 
@@ -194,6 +194,7 @@ help:
 	@echo "  crash-nx, crash-ounce            Symbolicate the latest Switch crash report (SWITCH_IP or LOG)"
 	@echo "  test-nx, test-ounce              Run the host-side unit tests"
 	@echo "  image-tag-nx, image-tag-ounce    Print the builder image tag for this checkout"
+	@echo "  check-strings  Check resources/strings matches the borealis catalogs"
 	@echo "  backup       Pull akira.toml off the Switch over sys-ftpd (SWITCH_IP)"
 	@echo "  clean        Remove the build directory"
 	@echo "  help         Show this help"
@@ -263,6 +264,9 @@ test: platform
 		-L"$(OPENSSL_PREFIX)/lib" -lcrypto -o "$(TEST_BIN)"
 	@printf "$(GREEN)[*]$(NC) Running host tests...\n"
 	@"$(TEST_BIN)"
+
+check-strings:
+	@python3 "$(CURDIR)/scripts/convert-i18n.py" --check
 
 submodules:
 	@if [ ! -f "$(CURDIR)/library/borealis$(LIBRARY_SUFFIX)/README.md" ]; then \
