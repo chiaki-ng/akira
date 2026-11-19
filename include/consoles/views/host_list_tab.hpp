@@ -81,7 +81,6 @@ private:
     std::optional<DebugConsoles> debugConsoles;
 
     static HostListTab* currentInstance;
-    static bool isConnecting;
 };
 
 }

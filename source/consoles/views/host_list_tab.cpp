@@ -46,7 +46,6 @@ const brls::ButtonStyle HostListTab::findRemoteStyle = {
 };
 
 HostListTab* HostListTab::currentInstance = nullptr;
-bool HostListTab::isConnecting = false;
 
 HostListTab::HostListTab() {
     currentInstance = this;
@@ -193,7 +192,7 @@ brls::View* HostListTab::getDefaultFocus() {
 }
 
 void HostListTab::connectToHost(Host* host) {
-    if (!host || HostListTab::isConnecting)
+    if (!host)
         return;
 
     log::info("Connect to {}", host->getHostName());
@@ -220,15 +219,12 @@ void HostListTab::connectToHost(Host* host) {
         return;
     }
 
-    HostListTab::isConnecting = true;
     app::ViewServices::current().discoveryGate.connectionStarted();
 
     /* Local and remote alike. A local console resolves immediately, so the
      * screen is barely seen - but the activity stack ends up the same shape it
      * does for every other route, which is the point. */
     play::views::startConnecting(std::make_unique<play::views::HostConnectTask>(host));
-
-    HostListTab::isConnecting = false;
 }
 
 void HostListTab::initFindRemoteButton() {
