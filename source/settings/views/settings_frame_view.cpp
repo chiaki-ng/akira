@@ -11,6 +11,7 @@
 #include "settings/views/settings_developer_view.hpp"
 #include "platform/factory.hpp"
 #include "app/views/build_info_tab.hpp"
+#include "app/views/settings_updates_view.hpp"
 #include "settings/views/config_view_tab.hpp"
 #include "network/views/network_utilities_tab.hpp"
 #include "app/view_services.hpp"
@@ -134,8 +135,8 @@ void SettingsFrameView::buildMenus() {
 
     menus.push_back({"akira/settings/menu_account"_i18n, {{"", []() -> brls::Box* { return new accounts::views::SettingsAccountView(); }}}});
     menus.push_back({"akira/settings/menu_general"_i18n, {{"", []() -> brls::Box* { return new SettingsGeneralView(); }}}});
-    for (auto& menu : app::ViewServices::current().platform.updates().settingsMenus())
-        menus.push_back({std::move(menu.title), {{"", std::move(menu.create)}}});
+    if (app::ViewServices::current().platform.supplies(akira::platform::PlatformCapability::self_update))
+        menus.push_back({"akira/settings/menu_updates"_i18n, {{"", []() -> brls::Box* { return new app::views::SettingsUpdatesView(); }}}});
     menus.push_back({"akira/settings/menu_quality"_i18n, {{"", []() -> brls::Box* { return new SettingsPictureView(); }}}});
     menus.push_back({"akira/settings/menu_controls"_i18n, {{"", []() -> brls::Box* { return new SettingsControllerView(); }}}});
     menus.push_back({"akira/settings/menu_debug"_i18n, {{"", []() -> brls::Box* { return new SettingsDebugView(); }}}});

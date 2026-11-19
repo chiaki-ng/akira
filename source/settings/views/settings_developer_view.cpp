@@ -3,6 +3,7 @@
 #include "log/log_files.hpp"
 #include "consoles/views/host_list_tab.hpp"
 #include "log/views/log_browser_view.hpp"
+#include "app/views/update_flow.hpp"
 #include "platform/factory.hpp"
 #include "log/log.hpp"
 
@@ -138,9 +139,13 @@ SettingsDeveloperView::SettingsDeveloperView() {
     takionPsNowSelector->setVisibility(brls::Visibility::GONE);
 #endif
 
-    if (auto& platform = app::ViewServices::current().platform; platform.supplies(akira::platform::PlatformCapability::self_update))
-        platform.updates().initSimulateRow(*simulateUpdateCell);
-    else
+    if (app::ViewServices::current().platform.supplies(akira::platform::PlatformCapability::self_update)) {
+        simulateUpdateCell->setText("akira/settings/simulate_update"_i18n);
+        simulateUpdateCell->registerClickAction([](brls::View*) {
+            app::views::UpdateFlow(app::ViewServices::current()).simulate();
+            return true;
+        });
+    } else
         simulateUpdateCell->setVisibility(brls::Visibility::GONE);
     tlsVerifyProbeCell->setText("akira/settings/dev_tls_verify_probe"_i18n);
     logBrowserCell->setText("akira/settings/dev_logs"_i18n);

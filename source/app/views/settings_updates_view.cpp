@@ -1,23 +1,24 @@
-#include "platform/updates/github/settings_updates_view.hpp"
+#include "app/views/settings_updates_view.hpp"
+#include "app/view_services.hpp"
 
 #include <borealis/core/i18n.hpp>
 #include <string>
 #include <vector>
 
-#include "platform/updates/github/update_manager.hpp"
+#include "platform/factory.hpp"
 #include "app/version.hpp"
 #include "util/http_pool.hpp"
 #include "app/app_settings.hpp"
 #include "settings/developer_settings.hpp"
 #include "settings/settings_store.hpp"
 
-namespace akira::platform::github
+namespace akira::app::views
 {
 
 using namespace brls::literals;
 
-SettingsUpdatesView::SettingsUpdatesView(const UpdateFlow& flow, UpdateFlow::Services services)
-    : flow(flow), services(services) {
+SettingsUpdatesView::SettingsUpdatesView()
+    : services(ViewServices::current()), flow(services) {
     this->inflateFromXMLRes("xml/settings/updates.xml");
 
     versionLabel->setText(std::string("Akira ") + app::version::string() +
@@ -42,7 +43,7 @@ void SettingsUpdatesView::initChannelSelector() {
         codes.push_back("rc");
     }
 
-    std::string current = services.app.updateChannel();
+    std::string current = services.appSettings.updateChannel();
     int currentIndex = 0;
     for (size_t i = 0; i < codes.size(); i++) {
         if (codes[i] == current) {
@@ -60,7 +61,7 @@ void SettingsUpdatesView::initChannelSelector() {
             std::string code = (selected >= 0 && selected < static_cast<int>(codes.size()))
                                    ? codes[selected]
                                    : std::string("stable");
-            services.app.setUpdateChannel(code);
+            services.appSettings.setUpdateChannel(code);
             services.store.save();
         });
 }
@@ -68,9 +69,9 @@ void SettingsUpdatesView::initChannelSelector() {
 void SettingsUpdatesView::initAutoCheckToggle() {
     autoCheckToggle->init(
         "akira/update/auto_check"_i18n,
-        services.app.autoCheckUpdates(),
+        services.appSettings.autoCheckUpdates(),
         [this](bool isOn) {
-            services.app.setAutoCheckUpdates(isOn);
+            services.appSettings.setAutoCheckUpdates(isOn);
             services.store.save();
         });
 }
@@ -89,12 +90,12 @@ void SettingsUpdatesView::runCheck() {
     checking = true;
     checkNowCell->setDetailText("akira/update/checking"_i18n);
 
-    std::string channel = services.app.updateChannel();
+    std::string channel = services.appSettings.updateChannel();
 
     auto guard = alive;
-    UpdateManager& manager = services.manager;
+    platform::UpdateProvider& manager = services.platform.updates();
     services.http.submit([this, guard, channel, &manager](HttpSession&) {
-        UpdateInfo info = manager.checkForUpdate(channel);
+        platform::UpdateInfo info = manager.checkForUpdate(channel);
 
         brls::sync([this, guard, info]() {
             if (!*guard)

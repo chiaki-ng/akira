@@ -9,6 +9,7 @@
 
 #include "app/views/akira_header.hpp"
 #include "app/views/theme.hpp"
+#include "app/views/update_flow.hpp"
 #include "consoles/discovery_manager.hpp"
 #include "consoles/views/host_list_tab.hpp"
 #include "log/log.hpp"
@@ -67,7 +68,9 @@ void MainActivity::onContentAvailable()
         return true;
     }, false);
 
-    app::ViewServices::current().platform.updates().launched();
+    if (auto& services = app::ViewServices::current();
+        services.platform.supplies(platform::PlatformCapability::self_update))
+        UpdateFlow(services).checkOnLaunch();
 }
 
 void MainActivity::addFooterStatus(brls::Box* rowBox)
