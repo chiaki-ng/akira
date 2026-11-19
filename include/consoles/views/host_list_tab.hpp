@@ -4,6 +4,8 @@
 #include <borealis.hpp>
 #include <unordered_map>
 
+#include "consoles/console_actions.hpp"
+#include "consoles/console_list.hpp"
 #include "consoles/discovery_manager.hpp"
 #include "app/view_services.hpp"
 #include "accounts/views/psn_action_button.hpp"
@@ -57,6 +59,8 @@ private:
     void applyProfileMode();
 
     static void connectToHost(Host* host);
+    static ConsoleActions actions();
+    static ConsoleList consoleList();
 
     accounts::views::PsnActionButton findRemoteGate;
 

@@ -17,7 +17,8 @@
 #include "consoles/views/pair_view.hpp"
 #include "accounts/views/profile_setup_view.hpp"
 #include "accounts/views/qr_sign_in_view.hpp"
-#include "consoles/console_address.hpp"
+#include "accounts/profile_choices.hpp"
+#include "consoles/console_actions.hpp"
 #include "consoles/host.hpp"
 #include "trophies/trophy_manager.hpp"
 #include "play/chiaki_core.hpp"
@@ -195,25 +196,28 @@ public:
     }
 
     void updateState() {
-        std::string displayName = host->getHostName();
-        if (host->isRemote() && displayName.length() > 9 && displayName.substr(displayName.length() - 9) == " (Remote)")
-            displayName = displayName.substr(0, displayName.length() - 9);
-        nameLabel->setText(displayName);
+        const ConsoleEntry entry = HostListTab::consoleList().entry(host->facts());
+        nameLabel->setText(entry.displayName());
 
         std::string typeText;
         NVGcolor typeColor;
-        if (host->isRemote()) {
-            typeText = "akira/hosts/remote"_i18n;
-            typeColor = app::views::active().accentStrong;
-        } else if (host->isManual()) {
-            typeText = "akira/hosts/manual"_i18n;
-            typeColor = app::views::active().media;
-        } else if (host->isAuto()) {
-            typeText = "akira/hosts/auto"_i18n;
-            typeColor = app::views::active().accent;
-        } else {
-            typeText = "akira/hosts/local"_i18n;
-            typeColor = app::views::active().textMuted;
+        switch (entry.badge()) {
+            case ConsoleEntry::Badge::Remote:
+                typeText = "akira/hosts/remote"_i18n;
+                typeColor = app::views::active().accentStrong;
+                break;
+            case ConsoleEntry::Badge::Manual:
+                typeText = "akira/hosts/manual"_i18n;
+                typeColor = app::views::active().media;
+                break;
+            case ConsoleEntry::Badge::Auto:
+                typeText = "akira/hosts/auto"_i18n;
+                typeColor = app::views::active().accent;
+                break;
+            case ConsoleEntry::Badge::Local:
+                typeText = "akira/hosts/local"_i18n;
+                typeColor = app::views::active().textMuted;
+                break;
         }
         typeLabel->setText(typeText);
         typeLabel->setTextColor(typeColor);
@@ -221,26 +225,27 @@ public:
 
         std::string pillText;
         NVGcolor fg = app::views::active().textMuted;
-        bool dim = true;
-        if (offersLink()) {
-            pillText = "akira/hosts/link"_i18n;
-            fg = app::views::active().accent;
-        } else if (host->usesInternetPairing()) {
-            pillText = "akira/hosts/ready"_i18n;
-            fg = app::views::active().success;
-            dim = false;
-        } else if (!host->hasRpKey() && (host->isDiscovered() || host->canPairOverInternet())) {
-            pillText = "akira/hosts/register"_i18n;
-            fg = app::views::active().accent;
-        } else if (host->isStandby() && host->hasRpKey()) {
-            pillText = "akira/hosts/standby"_i18n;
-        } else if ((host->hasRpKey() && host->isReady()) || (host->isRemote() && host->hasRpKey())) {
-            pillText = "akira/hosts/ready"_i18n;
-            fg = app::views::active().success;
-            dim = false;
-        } else {
-            pillText = host->getStateString();
+        switch (entry.status()) {
+            case ConsoleEntry::Status::Link:
+                pillText = "akira/hosts/link"_i18n;
+                fg = app::views::active().accent;
+                break;
+            case ConsoleEntry::Status::Ready:
+                pillText = "akira/hosts/ready"_i18n;
+                fg = app::views::active().success;
+                break;
+            case ConsoleEntry::Status::Register:
+                pillText = "akira/hosts/register"_i18n;
+                fg = app::views::active().accent;
+                break;
+            case ConsoleEntry::Status::Standby:
+                pillText = "akira/hosts/standby"_i18n;
+                break;
+            case ConsoleEntry::Status::Presence:
+                pillText = entry.facts().presence;
+                break;
         }
+        const bool dim = entry.dimmed();
         statusLabel->setText(pillText);
         statusLabel->setTextColor(fg);
         statusPill->setBackgroundColor(app::views::withAlpha(fg, 0x2e));
@@ -264,40 +269,53 @@ public:
     std::string getHostName() const { return hostName; }
 
     void doPrimaryAction() {
-        if (offersLink()) doLink();
-        else if (host->usesInternetPairing()) doConnect();
-        else if (!host->hasRpKey() && (host->isDiscovered() || host->canPairOverInternet())) doRegister();
-        else if (host->isStandby() && host->hasRpKey() && !host->isRemote()) doWake();
-        else if (host->hasRpKey()) doConnect();
-        else log::warning("No primary action for {} (remote={}, needsLink={}, discovered={}, rpkey={}, canAuto={})",
-            host->getHostName(), host->isRemote(), host->needsLink(), host->isDiscovered(), host->hasRpKey(), host->canPairOverInternet());
+        const auto action = HostListTab::consoleList().entry(host->facts()).primaryAction();
+        if (!action) {
+            log::warning("No primary action for {} (remote={}, needsLink={}, discovered={}, rpkey={}, canAuto={})",
+                host->getHostName(), host->isRemote(), host->needsLink(), host->isDiscovered(), host->hasRpKey(), host->canPairOverInternet());
+            return;
+        }
+        switch (*action) {
+            case ConsoleEntry::Action::Link: doLink(); break;
+            case ConsoleEntry::Action::Connect: doConnect(); break;
+            case ConsoleEntry::Action::Register: doRegister(); break;
+            case ConsoleEntry::Action::Wake: doWake(); break;
+        }
     }
 
     void openContextMenu() {
         std::vector<std::string> options;
-        std::vector<std::function<void()>> actions;
-        if (host->hasRpKey() && !host->isRemote()) {
-            options.push_back("akira/host_settings/console_pin"_i18n);
-            actions.emplace_back([this] { doConsolePIN(); });
-        }
-        if (!host->isCloud()) {
-            options.push_back(host->getHostAddr().empty() ? "akira/hosts/add_address"_i18n : "akira/hosts/set_address"_i18n);
-            actions.emplace_back([this] { doAddress(); });
-        }
-        if (host->isRegistered() && !host->isCloud()) {
-            options.push_back("akira/hosts/takion_version"_i18n);
-            actions.emplace_back([this] { doTakionPin(); });
-        }
-        if (host->isRegistered()) {
-            options.push_back("akira/hosts/delete"_i18n);
-            actions.emplace_back([this] { doDelete(); });
+        std::vector<std::function<void()>> handlers;
+        for (const ConsoleEntry::Option option : HostListTab::consoleList().entry(host->facts()).options()) {
+            switch (option) {
+                case ConsoleEntry::Option::ConsolePin:
+                    options.push_back("akira/host_settings/console_pin"_i18n);
+                    handlers.emplace_back([this] { doConsolePIN(); });
+                    break;
+                case ConsoleEntry::Option::AddAddress:
+                    options.push_back("akira/hosts/add_address"_i18n);
+                    handlers.emplace_back([this] { doAddress(); });
+                    break;
+                case ConsoleEntry::Option::SetAddress:
+                    options.push_back("akira/hosts/set_address"_i18n);
+                    handlers.emplace_back([this] { doAddress(); });
+                    break;
+                case ConsoleEntry::Option::TakionVersion:
+                    options.push_back("akira/hosts/takion_version"_i18n);
+                    handlers.emplace_back([this] { doTakionPin(); });
+                    break;
+                case ConsoleEntry::Option::Delete:
+                    options.push_back("akira/hosts/delete"_i18n);
+                    handlers.emplace_back([this] { doDelete(); });
+                    break;
+            }
         }
         if (options.empty()) return;
         auto* dropdown = new brls::Dropdown("akira/hosts/options"_i18n, options,
             [](int) {}, 0,
-            [actions](int sel) {
-                if (sel < 0 || sel >= static_cast<int>(actions.size())) return;
-                actions[static_cast<size_t>(sel)]();
+            [handlers](int sel) {
+                if (sel < 0 || sel >= static_cast<int>(handlers.size())) return;
+                handlers[static_cast<size_t>(sel)]();
             });
         brls::Application::pushActivity(new brls::Activity(dropdown));
     }
@@ -321,9 +339,7 @@ private:
     }
 
     void doWake() {
-            log::info("Wake {}", host->getHostName());
-
-            if (host->wake(app::ViewServices::current().wireGuard)) {
+            if (HostListTab::actions().wake(*host)) {
                 brls::Application::notify(brls::getStr("akira/hosts/wake_sent", host->getHostName()));
             } else {
                 brls::Application::notify(brls::getStr("akira/hosts/wake_failed", host->getHostName()));
@@ -343,11 +359,9 @@ private:
                 host->getHostName(), host->getRemoteDuid(),
                 accounts && accounts->state() == accounts::SessionState::Valid,
                 !services->accounts.psnAccountId().empty(), host->canPairOverInternet());
-            bool needsAccountId = host->needsAccountId();
-            std::string accountId = services->accounts.psnAccountId();
-            std::string onlineId = services->accounts.psnOnlineId();
+            const auto missing = HostListTab::actions().missingIdentity(*host);
 
-            if (needsAccountId && accountId.empty()) {
+            if (missing == PsnIdentity::Missing::AccountId) {
                 auto* dialog = new brls::Dialog("akira/hosts/psn_account_id_required_register"_i18n);
                 dialog->addButton("akira/common/ok"_i18n, [dialog]() {
                     dialog->close();
@@ -356,7 +370,7 @@ private:
                 return;
             }
 
-            if (!needsAccountId && onlineId.empty()) {
+            if (missing == PsnIdentity::Missing::OnlineId) {
                 auto* dialog = new brls::Dialog("akira/hosts/psn_online_id_required_register"_i18n);
                 dialog->addButton("akira/common/ok"_i18n, [dialog]() {
                     dialog->close();
@@ -396,20 +410,17 @@ private:
 
         auto* pinView = new EnterPinView(host, PinViewType::Registration);
         pinView->setOnCancel([hostPtr]() {
-            hostPtr->cancelRegistration();
+            HostListTab::actions().cancelRegistration(*hostPtr);
             HostListTab::isRegistering = false;
             log::info("PIN entry cancelled");
         });
         pinView->setOnPinEntered([hostPtr](const std::string& pin) {
             HostListTab::isRegistering = true;
-            int pinValue = std::atoi(pin.c_str());
-            int result = hostPtr->registerHost(pinValue, [hostPtr](Host::PairingOutcome outcome) {
+            int result = HostListTab::actions().registerWithPin(*hostPtr, pin, [hostPtr](Host::PairingOutcome outcome) {
                 HostListTab::isRegistering = false;
                 switch (outcome) {
                     case Host::PairingOutcome::Paired:
                         brls::Application::notify("akira/hosts/registration_success"_i18n);
-                        hostPtr->setNeedsLink(false);
-                        app::ViewServices::current().store.save();
                         if (HostListTab::currentInstance) {
                             HostListTab::currentInstance->updateHostItem(hostPtr);
                         }
@@ -503,7 +514,7 @@ private:
         box->registerAction("akira/common/cancel"_i18n, brls::ControllerButton::BUTTON_B,
             [host](brls::View*) {
                 s_autoRegCanceled = true;
-                host->cancelRegistration();
+                HostListTab::actions().cancelRegistration(*host);
                 HostListTab::isRegistering = false;
                 dismissAutoRegProgress();
                 return true;
@@ -527,7 +538,7 @@ private:
         showAutoRegProgress(host);
         setAutoRegStage(1, 4);
 
-        const HostRegisterError result = host->registerOverInternet(
+        const HostRegisterError result = HostListTab::actions().registerOverInternet(*host,
             [](int index, int total) {
                 setAutoRegStage(index, total);
             },
@@ -536,8 +547,6 @@ private:
                 dismissAutoRegProgress();
                 if (outcome == Host::PairingOutcome::Paired) {
                     brls::Application::notify("akira/hosts/registration_success"_i18n);
-                    hostPtr->setNeedsLink(false);
-                    app::ViewServices::current().store.save();
                     if (HostListTab::currentInstance) {
                         HostListTab::currentInstance->updateHostItem(hostPtr);
                     }
@@ -558,28 +567,10 @@ private:
         }
     }
 
-    bool offersLink() const {
-        return host->isRemote() && host->needsLink() && (!linkableHosts().empty() || !host->canPairOverInternet());
-    }
-
-    static std::vector<std::pair<std::string, Host*>> linkableHosts() {
-        std::vector<std::pair<std::string, Host*>> hosts;
-        for (auto& [name, h] : app::ViewServices::current().hosts.entries()) {
-            if (h && h->hasRpKey() && !h->isRemote())
-                hosts.emplace_back(name, h.get());
-        }
-        return hosts;
-    }
-
     void doLink() {
             log::info("Link button clicked for {}", host->getHostName());
 
-            std::vector<std::string> hostNames;
-            std::vector<Host*> hostPtrs;
-            for (auto& [name, h] : linkableHosts()) {
-                hostNames.push_back(name);
-                hostPtrs.push_back(h);
-            }
+            const std::vector<std::string> hostNames = HostListTab::consoleList().linkTargets();
 
             if (hostNames.empty()) {
                 brls::Application::notify("akira/hosts/no_registered_hosts"_i18n);
@@ -590,27 +581,13 @@ private:
             auto* dropdown = new brls::Dropdown(
                 "akira/hosts/select_host_to_link"_i18n,
                 hostNames,
-                [remoteHost, hostPtrs, hostNames](int selected) {
-                    if (selected < 0 || selected >= (int)hostPtrs.size()) return;
+                [remoteHost, hostNames](int selected) {
+                    if (selected < 0 || selected >= (int)hostNames.size()) return;
 
-                    Host* localHost = hostPtrs[selected];
-                    std::string oldName = hostNames[selected];
-                    auto* services = &app::ViewServices::current();
+                    const auto remoteName = HostListTab::actions().link(*remoteHost, hostNames[selected]);
+                    if (!remoteName) return;
 
-                    std::string remoteName = remoteHost->getHostName();
-                    if (remoteName.length() > 9 && remoteName.substr(remoteName.length() - 9) == " (Remote)") {
-                        remoteName = remoteName.substr(0, remoteName.length() - 9);
-                    }
-
-                    if (oldName != remoteName) {
-                        services->hosts.rename(oldName, remoteName);
-                    }
-                    remoteHost->copyRegistrationFrom(localHost);
-                    remoteHost->setNeedsLink(false);
-                    localHost->setRemoteDuid(remoteHost->getRemoteDuid());
-                    services->store.save();
-
-                    brls::Application::notify(brls::getStr("akira/hosts/linked_to", remoteName));
+                    brls::Application::notify(brls::getStr("akira/hosts/linked_to", *remoteName));
 
                     brls::sync([]() {
                         if (HostListTab::currentInstance) {
@@ -629,12 +606,10 @@ private:
             std::string current = host->getConsolePIN();
             brls::Application::getImeManager()->openForText(
                 [this](std::string text) {
-                    if (!text.empty() && (text.length() != 4 || !std::ranges::all_of(text, ::isdigit))) {
+                    if (!HostListTab::actions().setConsolePin(*host, std::move(text))) {
                         brls::Application::notify("akira/host_settings/console_pin_invalid"_i18n);
                         return;
                     }
-                    host->setConsolePIN(text);
-                    app::ViewServices::current().store.save();
                     brls::Application::notify("akira/host_settings/console_pin_saved"_i18n);
                 },
                 "akira/host_settings/console_pin"_i18n, "akira/host_settings/console_pin_hint"_i18n, 4, current, 0);
@@ -645,18 +620,14 @@ private:
         const std::string current = host->getHostAddr();
         brls::Application::getImeManager()->openForText(
             [target](std::string text) {
-                if (text.empty() || text == target->getHostAddr()) return;
-                if (!ConsoleAddress::parse(text)) {
-                    brls::Application::notify("akira/hosts/address_invalid"_i18n);
-                    return;
-                }
-                if (auto moved = target->moveTo(text); !moved) {
+                const auto moved = HostListTab::actions().moveTo(*target, text);
+                if (!moved) {
                     brls::Application::notify(moved.error() == Host::AddressRefusal::Invalid
                             ? "akira/hosts/address_invalid"_i18n
                             : "akira/hosts/address_not_saved"_i18n);
                     return;
                 }
-                app::ViewServices::current().store.save();
+                if (*moved == ConsoleActions::AddressChange::Unchanged) return;
                 brls::Application::notify(brls::getStr("akira/hosts/address_saved", target->getHostName(), text));
                 if (HostListTab::currentInstance)
                     HostListTab::currentInstance->updateHostItem(target);
@@ -666,33 +637,27 @@ private:
     }
 
     void doTakionPin() {
-        const auto versions = host->pinnableTakionVersions();
-        const int configured = app::ViewServices::current().developer.takionVersion(
-            host->isPS5() ? settings::TakionTarget::PS5 : settings::TakionTarget::PS4);
-        const std::string fallback = configured > 0
-            ? "v" + std::to_string(configured)
+        const TakionPinChoice choice = HostListTab::actions().takionPins(*host);
+        const auto configured = choice.configuredVersion();
+        const std::string fallback = configured
+            ? "v" + std::to_string(*configured)
             : "akira/settings/dev_takion_version_auto"_i18n;
         std::vector<std::string> labels{brls::getStr("akira/hosts/takion_follow_settings", fallback)};
-        std::ranges::transform(versions, std::back_inserter(labels),
+        std::ranges::transform(choice.versions(), std::back_inserter(labels),
             [](std::uint32_t version) { return "v" + std::to_string(version); });
-        const auto pinned = host->getPinnedTakionVersion();
-        const auto found = pinned ? std::ranges::find(versions, *pinned) : versions.end();
-        const int selected = found == versions.end() ? 0 : static_cast<int>(found - versions.begin()) + 1;
         Host* target = host;
         auto* dropdown = new brls::Dropdown("akira/hosts/takion_version"_i18n, labels,
-            [](int) {}, selected,
-            [target, versions](int sel) {
-                if (sel < 0 || sel > static_cast<int>(versions.size())) return;
-                if (sel == 0) {
-                    target->pinTakionVersion(std::nullopt);
+            [](int) {}, choice.selected(),
+            [target, choice](int sel) {
+                if (!choice.contains(sel)) return;
+                const auto version = choice.versionAt(sel);
+                HostListTab::actions().pinTakion(*target, version);
+                if (!version) {
                     brls::Application::notify(brls::getStr("akira/hosts/takion_follows", target->getHostName()));
                 } else {
-                    const std::uint32_t version = versions[static_cast<size_t>(sel - 1)];
-                    target->pinTakionVersion(version);
                     brls::Application::notify(
-                        brls::getStr("akira/hosts/takion_pinned", target->getHostName(), std::to_string(version)));
+                        brls::getStr("akira/hosts/takion_pinned", target->getHostName(), std::to_string(*version)));
                 }
-                app::ViewServices::current().store.save();
             });
         brls::Application::pushActivity(new brls::Activity(dropdown));
     }
@@ -704,18 +669,7 @@ private:
             auto* dialog = new brls::Dialog(brls::getStr("akira/hosts/delete_confirm", hostName));
             dialog->addButton("akira/common/cancel"_i18n, []() {});
             dialog->addButton("akira/common/delete"_i18n, [hostName]() {
-                auto* services = &app::ViewServices::current();
-                auto& core = play::ChiakiCore::current();
-                auto* accounts = core.accounts();
-                auto hostIt = services->hosts.entries().find(hostName);
-                if (accounts && hostIt != services->hosts.entries().end() && hostIt->second->getConsole()) {
-                    if (const auto user = accounts->activeUser()) {
-                        if (!core.chiaki().consoles().unpair(user->account_id(), *hostIt->second->getConsole()))
-                            log::error("Could not forget the pairing with {}", hostName);
-                    }
-                }
-                services->hosts.removeActiveProfileRegistration(hostName);
-                services->store.save();
+                HostListTab::actions().remove(hostName);
                 brls::Application::notify("akira/hosts/host_deleted"_i18n);
                 if (HostListTab::currentInstance) {
                     // If this was the last host, give focus to Find Remote button first
@@ -1046,28 +1000,19 @@ HostListTab::HostListTab() {
         }
 #endif
 
+        const accounts::ProfileChoices choices(profiles, services->accounts.activeProfileId(), services->appSettings);
         std::vector<std::string> names;
-        std::vector<int64_t> ids;
-        int selected = 0;
-        for (size_t i = 0; i < profiles.size(); i++) {
-            std::string lbl = profiles[i].label();
-            if (lbl.empty())
-                lbl = "akira/settings/unnamed_profile"_i18n;
-            else
-                lbl = services->appSettings.maskAccountName(lbl);
-            names.push_back(lbl);
-            ids.push_back(profiles[i].id);
-            if (profiles[i].id == services->accounts.activeProfileId())
-                selected = static_cast<int>(i);
-        }
+        for (const auto& choice : choices.choices())
+            names.push_back(choice.label.value_or("akira/settings/unnamed_profile"_i18n));
 
         auto* dropdown = new brls::Dropdown(
             "akira/hosts/switch_profile"_i18n, names,
-            [ids](int sel) {
-                if (sel < 0 || sel >= static_cast<int>(ids.size()))
+            [choices](int sel) {
+                const auto id = choices.idAt(sel);
+                if (!id)
                     return;
                 auto& services = app::ViewServices::current();
-                services.accounts.setActiveProfileId(ids[sel]);
+                services.accounts.setActiveProfileId(*id);
                 services.store.save();
                 app::ViewServices::current().trophies.onActiveProfileChanged();
                 brls::sync([] { accounts::views::QrSignInView::openIfSignInExpired(); });
@@ -1095,7 +1040,7 @@ HostListTab::HostListTab() {
                     }
                 });
             },
-            selected);
+            choices.selected());
         brls::Application::pushActivity(new brls::Activity(dropdown));
         return true;
     });
@@ -1171,11 +1116,7 @@ void HostListTab::connectToHost(Host* host) {
 
     log::info("Connect to {}", host->getHostName());
 
-    auto* services = &app::ViewServices::current();
-    bool isPS5 = host->isPS5();
-    bool needsAccountId = host->needsAccountId();
-    std::string accountId = services->accounts.psnAccountId();
-    std::string onlineId = services->accounts.psnOnlineId();
+    const auto missing = actions().missingIdentity(*host);
 
     if (host->isPsnRemotePlayDisabled()) {
         log::warning("Connect {}: PSN reports remote play disabled for this account",
@@ -1183,14 +1124,14 @@ void HostListTab::connectToHost(Host* host) {
         brls::Application::notify("akira/connection/fail_rp_disabled"_i18n);
     }
 
-    if (needsAccountId && accountId.empty()) {
+    if (missing == PsnIdentity::Missing::AccountId) {
         auto* dialog = new brls::Dialog("akira/hosts/psn_account_id_required"_i18n);
         dialog->addButton("akira/common/ok"_i18n, [dialog]() { dialog->close(); });
         dialog->open();
         return;
     }
 
-    if (!needsAccountId && onlineId.empty()) {
+    if (missing == PsnIdentity::Missing::OnlineId) {
         auto* dialog = new brls::Dialog("akira/hosts/psn_online_id_required"_i18n);
         dialog->addButton("akira/common/ok"_i18n, [dialog]() { dialog->close(); });
         dialog->open();
@@ -1308,6 +1249,20 @@ brls::View* HostListTab::create() {
     return new HostListTab();
 }
 
+ConsoleActions HostListTab::actions() {
+    auto& services = app::ViewServices::current();
+    return ConsoleActions(services.hosts, services.store, services.accounts, services.developer, services.wireGuard,
+                          play::ChiakiCore::current());
+}
+
+ConsoleList HostListTab::consoleList() {
+    auto& services = app::ViewServices::current();
+    const auto profile = services.accounts.profiles().empty() ? ConsoleList::Profile::None
+        : services.accounts.isLegacyProfileActive()           ? ConsoleList::Profile::Legacy
+                                                              : ConsoleList::Profile::Signed;
+    return ConsoleList(services.hosts.facts(), profile);
+}
+
 void HostListTab::refreshRailsIfActive() {
     HostListTab::connectionActive = false;
     if (!currentInstance)
@@ -1403,7 +1358,8 @@ void HostListTab::syncHostList() {
      * Listing a console the user cannot use is worse than not listing it: the whole
      * screen becomes the same starting state a fresh install shows.
      */
-    const bool noProfile = services->accounts.profiles().empty();
+    const ConsoleList consoles = consoleList();
+    const bool noProfile = !consoles.hasProfile();
     if (noProfile)
         entrancePlayed = false;
 
@@ -1413,35 +1369,20 @@ void HostListTab::syncHostList() {
     const int perRow = 6;
     int col = 0;
     brls::Box* row = nullptr;
-    auto* hostsMap = &services->hosts.entries();
-    if (hostsMap && !noProfile) {
-        for (auto& [name, host] : *hostsMap) {
-            if (!host) {
-                log::error("Null host in hosts map for key: {}", name);
-                continue;
-            }
-            if (!host->hasRpKey() && !host->isDiscovered() && !host->isManual())
-                continue;
-            /*
-             * A profile converted from a normal one keeps its "(Remote)" entries in the
-             * toml. They are inert without a token, but they would still list and then
-             * dead-end on click.
-             */
-            if (host->isRemote() && services->accounts.isLegacyProfileActive())
-                continue;
-            if (col == 0) {
-                row = new brls::Box();
-                row->setAxis(brls::Axis::ROW);
-                hostContainer->addView(row);
-            }
-            auto* item = new HostItemView(host.get());
-            hostItems[host.get()] = item;
-            row->addView(item);
-            if (animateEntrance)
-                item->playEntrance(shownIndex * 45);
-            shownIndex++;
-            col = (col + 1) % perRow;
+    for (const ConsoleEntry& entry : consoles.shown()) {
+        Host* host = services->hosts.entries().at(entry.facts().catalogName).get();
+        if (col == 0) {
+            row = new brls::Box();
+            row->setAxis(brls::Axis::ROW);
+            hostContainer->addView(row);
         }
+        auto* item = new HostItemView(host);
+        hostItems[host] = item;
+        row->addView(item);
+        if (animateEntrance)
+            item->playEntrance(shownIndex * 45);
+        shownIndex++;
+        col = (col + 1) % perRow;
     }
 
     bool hasHosts = !hostItems.empty();

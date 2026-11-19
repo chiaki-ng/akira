@@ -1,9 +1,8 @@
 #include "consoles/views/add_host_tab.hpp"
 #include "app/view_services.hpp"
 #include "app/views/theme.hpp"
-#include "consoles/console_address.hpp"
-#include "consoles/host.hpp"
-#include "log/log.hpp"
+#include "consoles/console_actions.hpp"
+#include "play/chiaki_core.hpp"
 
 #include <borealis/core/i18n.hpp>
 
@@ -56,45 +55,31 @@ void AddHostTab::onSaveClicked() {
     std::string addr = hostAddrInput->getValue();
     int targetIndex = targetSelector->getSelection();
 
-    if (name.empty()) {
-        statusLabel->setText("akira/add_host/error_no_name"_i18n);
+    ConsoleActions actions(services->hosts, services->store, services->accounts, services->developer,
+                           services->wireGuard, play::ChiakiCore::current());
+    const auto added = actions.addManual(name, addr,
+        targetIndex == 0 ? libchiaking::consoles::Generation::ps4 : libchiaking::consoles::Generation::ps5);
+    if (!added) {
+        switch (added.error()) {
+            case ConsoleActions::ManualRefusal::NoName:
+                statusLabel->setText("akira/add_host/error_no_name"_i18n);
+                break;
+            case ConsoleActions::ManualRefusal::NoAddress:
+                statusLabel->setText("akira/add_host/error_no_ip"_i18n);
+                break;
+            case ConsoleActions::ManualRefusal::InvalidAddress:
+                statusLabel->setText("akira/add_host/error_invalid_ip"_i18n);
+                break;
+            case ConsoleActions::ManualRefusal::DuplicateName:
+                statusLabel->setText("akira/add_host/error_duplicate_name"_i18n);
+                break;
+        }
         statusLabel->setTextColor(app::views::active().danger);
         return;
     }
-
-    if (addr.empty()) {
-        statusLabel->setText("akira/add_host/error_no_ip"_i18n);
-        statusLabel->setTextColor(app::views::active().danger);
-        return;
-    }
-
-    if (!ConsoleAddress::parse(addr)) {
-        statusLabel->setText("akira/add_host/error_invalid_ip"_i18n);
-        statusLabel->setTextColor(app::views::active().danger);
-        return;
-    }
-
-    auto* hostsMap = &services->hosts.entries();
-    if (hostsMap->find(name) != hostsMap->end()) {
-        statusLabel->setText("akira/add_host/error_duplicate_name"_i18n);
-        statusLabel->setTextColor(app::views::active().danger);
-        return;
-    }
-
-    Host* host = services->hosts.getOrCreate(name);
-    host->setHostType(HostType::Manual);
-    host->setHostAddr(addr);
-    host->setDiscovered(true);
-
-    host->setFirmware(Host::Firmware::newest(targetIndex == 0 ? libchiaking::consoles::Generation::ps4
-                                                              : libchiaking::consoles::Generation::ps5));
-
-    services->store.save();
 
     statusLabel->setText("akira/add_host/success"_i18n);
     statusLabel->setTextColor(app::views::active().success);
-
-    log::info("Added host: {} at {}", name, addr);
 
     hostNameInput->setValue("");
     hostAddrInput->setValue("");
