@@ -81,7 +81,7 @@ project(akira)
 
 add_compile_options(-fno-omit-frame-pointer)
 if (AKIRA_SHELL STREQUAL "arisa")
-    add_compile_options("SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/include/app/trap_hook.h")
+    add_compile_options("SHELL:-include ${AKIRA_ARISA_PREFIX}/include/arisa/provider/diagnostics/trap.h")
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -124,6 +124,7 @@ include(platform)
 
 if (AKIRA_SHELL STREQUAL "arisa")
     list(FILTER MAIN_SRC EXCLUDE REGEX "/views/")
+    list(FILTER MAIN_SRC EXCLUDE REGEX "/source/app/exception_hook\\.cpp$")
     if (AKIRA_VULKAN)
         list(FILTER MAIN_SRC EXCLUDE REGEX "/source/app/arisa/deko3d_host\\.cpp$")
     else()
@@ -253,12 +254,15 @@ target_link_options(${AKIRA_TARGET} PRIVATE ${APP_PLATFORM_LINK_OPTION})
 if (PLATFORM_SWITCH)
     target_link_options(${AKIRA_TARGET} PRIVATE
         -Wl,--wrap=svcSetThreadCoreMask
+        -Wl,--wrap=getaddrinfo
+        -Wl,--wrap=freeaddrinfo)
+endif()
+if (PLATFORM_SWITCH AND AKIRA_SHELL STREQUAL "borealis")
+    target_link_options(${AKIRA_TARGET} PRIVATE
         -Wl,--wrap=abort
         -Wl,--wrap=__assert_func
         -Wl,--wrap=fatalThrow
-        -Wl,--wrap=fatalThrowWithPolicy
-        -Wl,--wrap=getaddrinfo
-        -Wl,--wrap=freeaddrinfo)
+        -Wl,--wrap=fatalThrowWithPolicy)
 endif()
 
 # NRO packaging

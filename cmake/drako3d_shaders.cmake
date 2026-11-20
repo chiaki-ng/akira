@@ -22,7 +22,6 @@ else()
     file(WRITE "${AKIRA_DEKO3D_SHIM}/borealis/platforms/switch/dk.hpp" "#pragma once\n\n#include <drako3d.hpp>\n")
     target_include_directories(${AKIRA_TARGET} BEFORE PRIVATE "${AKIRA_DEKO3D_SHIM}")
     target_include_directories(akira_arisa_shell BEFORE PRIVATE "${AKIRA_DEKO3D_SHIM}")
-    target_compile_definitions(akira_arisa_shell PRIVATE ARISA_HORIZON_DEKO3D=1)
 endif()
 
 function(drako3d_shader stage source name)

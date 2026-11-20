@@ -55,14 +55,12 @@ ARISA_TAG          := v1.0
 ARISA_GPU          ?= drako3d
 ARISA_FLAVOUR_nx_drako3d    := switch
 ARISA_FLAVOUR_nx_vulkan     := switch
-ARISA_FLAVOUR_ounce_drako3d := switch2-drako3d
+ARISA_FLAVOUR_ounce_drako3d := switch2
 ARISA_FLAVOUR_ounce_vulkan  := switch2
 ARISA_SHA256_switch         := 5c011bb8b2f4829507d2b7405053b19320f175f2dde661df2bcd8c57f1739fb3
-ARISA_SHA256_switch2        := a2854c4d59e76fc71f88c83b733ef97fa5502917e78832fd538aad337ff135eb
-ARISA_SHA256_switch2-drako3d := c2e77a81080f14b8633e9d9ff46dc42dd68b1b71b0c55779c589615d18b327d7
+ARISA_SHA256_switch2        := fec97b40b606e012902a13e4afdc2c263815b1d8d73ee64eb1b8a8125aee2eaa
 ARISA_RECIPE_switch         := make package TARGET=switch
-ARISA_RECIPE_switch2        := make package TARGET=switch2
-ARISA_RECIPE_switch2-drako3d := the package-switch2 preset with -DARISA_HORIZON_GPU=drako3d -DARISA_PROVIDERS_VULKAN=OFF in its drako image
+ARISA_RECIPE_switch2        := make package-switch2
 ARISA_PACKAGE_DIR  ?= $(abspath $(CURDIR)/../arisa/build/package)
 ARISA_FLAVOUR       = $(ARISA_FLAVOUR_$(PLATFORM)_$(ARISA_GPU))
 ARISA_SHA256        = $(ARISA_SHA256_$(ARISA_FLAVOUR))
@@ -70,7 +68,7 @@ ARISA_NAME          = arisa-$(ARISA_VERSION)-$(ARISA_FLAVOUR)-aarch64
 ARISA_ARCHIVE       = $(ARISA_PACKAGE_DIR)/$(ARISA_NAME).tar.gz
 ARISA_UNPACK        = $(CURDIR)/build/arisa-package/$(ARISA_SHA256)
 ARISA_PREFIX        = $(ARISA_UNPACK)/$(ARISA_NAME)
-ARISA_BUILD_NAME    = arisa-$(PLATFORM)$(if $(filter switch2,$(ARISA_FLAVOUR)),-vulkan)
+ARISA_BUILD_NAME    = arisa-$(PLATFORM)$(if $(filter ounce_vulkan,$(PLATFORM)_$(ARISA_GPU)),-vulkan)
 ARISA_NRO_FILE      = $(CURDIR)/build/$(ARISA_BUILD_NAME)/akira-arisa.nro
 ARISA_HOST_NAME    := arisa-$(ARISA_VERSION)-macos-arm64
 ARISA_HOST_SHA256  := 2d6d6d712f447e0edcab524c2d20785e0c58d787db32e0f5e8c4f060b51cf46d

@@ -3,8 +3,10 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include <arisa/provider/audio/absent.hpp>
+#include <arisa/provider/diagnostics/crash_reporter.hpp>
 #include <arisa/provider/horizon/horizon_factory.hpp>
 #include <arisa/provider/horizon/horizon_threading.hpp>
 #include <arisa/runtime/application.hpp>
@@ -41,7 +43,10 @@ public:
 
 private:
     static constexpr const char* helpDirectory = "romfs:/help";
+    static constexpr std::string_view crashDirectory = "sdmc:/switch/akira/crashes";
+    static constexpr std::string_view crashApp = "akira-arisa";
 
+    void installCrashReporter();
     [[nodiscard]] bool openProviders();
     [[nodiscard]] bool openApplication();
     void startServices();
@@ -49,6 +54,7 @@ private:
     bool frame();
     bool firstFrameShown = false;
 
+    std::optional<::arisa::provider::CrashReporter> crashes;
     ::arisa::provider::horizon::HorizonThreadingProvider threading;
     ::arisa::provider::AbsentAudioProvider silence;
     std::optional<::arisa::provider::horizon::HorizonProviderFactory> providers;

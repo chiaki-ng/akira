@@ -143,14 +143,6 @@ void __wrap_fatalThrowWithPolicy(Result result, FatalPolicy policy)
     __builtin_unreachable();
 }
 
-void akira_trap()
-{
-    akira::app::CrashReport::onAbort("trap", "", reinterpret_cast<std::uint64_t>(__builtin_return_address(0)),
-        reinterpret_cast<std::uint64_t>(__builtin_frame_address(0)));
-    asm volatile("brk #0x3e8");
-    __builtin_unreachable();
-}
-
 void __wrap_abort()
 {
     akira::app::CrashReport::onAbort("abort", "", reinterpret_cast<std::uint64_t>(__builtin_return_address(0)),

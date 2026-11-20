@@ -4,7 +4,7 @@
 
 namespace akira::app::arisa {
 
-Gpu::Gpu(::arisa::provider::horizon::Console::Gpu& gpu, const ::arisa::provider::SurfaceProvider& surface)
+Gpu::Gpu(Stock& gpu, const ::arisa::provider::SurfaceProvider& surface)
     : host(gpu, surface)
 {
 }
@@ -12,7 +12,7 @@ Gpu::Gpu(::arisa::provider::horizon::Console::Gpu& gpu, const ::arisa::provider:
 void Gpu::prefer(play::RendererKind kind)
 {
     if (kind != Kind)
-        log::warning("[ARISA] the arisa package fixes the GPU API at build time, the stream keeps this build's renderer");
+        log::warning("[ARISA] akira-arisa picks its GPU API at build time, the stream keeps this build's renderer");
 }
 
 #if AKIRA_VULKAN

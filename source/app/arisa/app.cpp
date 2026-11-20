@@ -8,6 +8,7 @@
 #include <arisa/theme/colour.hpp>
 
 #include <cstdlib>
+#include <utility>
 
 #include "app/arisa/thread_plan.hpp"
 #include "app/crash_report.hpp"
@@ -26,22 +27,37 @@ App::App()
     : threading(ThreadPlan::policy())
 {
     ServiceGraph::prepareProcess();
+    installCrashReporter();
     threading.adopt_current_thread(provider::ThreadRole::ui);
 }
 
 App::~App() = default;
 
+void App::installCrashReporter()
+{
+    CrashReport::stage("arisa crash reporter");
+    auto installed = provider::CrashReporter::install({ .directory = crashDirectory, .app = crashApp });
+    if (!installed)
+    {
+        log::error("[ARISA] the crash reporter could not install under {}: error {}", crashDirectory,
+            std::to_underlying(installed.error()));
+        return;
+    }
+    crashes.emplace(std::move(*installed));
+}
+
 bool App::openProviders()
 {
     CrashReport::stage("arisa providers");
-    auto created = provider::horizon::HorizonProviderFactory::create(provider::Providers{ .threading = threading, .audio = silence });
+    auto created = provider::horizon::HorizonProviderFactory::create(
+        provider::Providers{ .threading = threading, .audio = silence }, {}, provider::horizon::GpuOptions{ .api = Gpu::Api });
     if (!created)
     {
         log::error("[ARISA] the providers could not start: {}", created.error().explanation());
         return false;
     }
     providers.emplace(std::move(*created));
-    auto stock = providers->stock_gpu();
+    auto stock = providers->stock_gpu<Gpu::Stock>();
     if (!stock)
     {
         log::error("[ARISA] the console GPU is unavailable: {}", providers->stock_gpu_report().value_or("no report"));

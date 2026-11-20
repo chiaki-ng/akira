@@ -1,6 +1,6 @@
 #pragma once
 
-#include <arisa/provider/horizon/console.hpp>
+#include <arisa/provider/horizon/gpu_options.hpp>
 #include <arisa/provider/surface/provider.hpp>
 
 #if AKIRA_VULKAN
@@ -16,13 +16,18 @@ class Gpu final : public platform::video::GpuAccess {
 public:
 #if AKIRA_VULKAN
     using Host = VulkanHost;
+    using Stock = ::arisa::provider::vulkan::VulkanGpu;
+    static constexpr ::arisa::provider::horizon::GpuApi Api = ::arisa::provider::horizon::GpuApi::vulkan;
     static constexpr play::RendererKind Kind = play::RendererKind::Vulkan;
 #else
     using Host = Deko3dHost;
+    using Stock = ::arisa::provider::horizon::Deko3dGpu;
+    static constexpr ::arisa::provider::horizon::GpuApi Api
+        = AKIRA_DRAKO3D ? ::arisa::provider::horizon::GpuApi::drako3d : ::arisa::provider::horizon::GpuApi::deko3d;
     static constexpr play::RendererKind Kind = play::RendererKind::Drako3d;
 #endif
 
-    Gpu(::arisa::provider::horizon::Console::Gpu& gpu, const ::arisa::provider::SurfaceProvider& surface);
+    Gpu(Stock& gpu, const ::arisa::provider::SurfaceProvider& surface);
 
     void prefer(play::RendererKind kind) override;
     auto deko3d() -> std::optional<std::reference_wrapper<platform::deko3d::GpuHost>> override;
