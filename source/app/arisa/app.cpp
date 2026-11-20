@@ -129,7 +129,6 @@ void App::buildScreens()
     driver->watchFocus();
     CrashReport::stage("arisa discovery");
     consoleOperations.emplace(services, shelf, notices, [this](consoles::Host& host) { driver->start(host); });
-    consoleOperations->follow();
     parts = ShellScreen::Parts{
         .shelf = &shelf,
         .consoles = &*consoleOperations,
@@ -149,6 +148,7 @@ bool App::frame()
     {
         firstFrameShown = true;
         CrashReport::stage("arisa first frame");
+        consoleOperations->follow();
     }
     window->tick();
     if (driver)
