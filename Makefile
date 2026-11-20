@@ -80,6 +80,7 @@ ARISA_HOST_PREFIX   = $(ARISA_HOST_UNPACK)/$(ARISA_HOST_NAME)
 ARISA_HOST_CXX     ?= /opt/homebrew/bin/g++-16
 ARISA_TEST_DIR      = $(CURDIR)/build/tests/arisa
 ARISA_TEST_MODELS   = $(CURDIR)/source/log/log.cpp \
+                      $(CURDIR)/source/app/strings.cpp \
                       $(CURDIR)/source/consoles/console_entry.cpp \
                       $(CURDIR)/source/consoles/console_list.cpp \
                       $(CURDIR)/source/play/connect_flow.cpp \
@@ -130,6 +131,7 @@ DOCKER_RUN := docker run --rm -v "$(CURDIR):$(CURDIR)" $(WORKTREE_DOCKER_MOUNTS)
 TEST_BIN     := $(CURDIR)/build/tests/$(PLATFORM)/psn_tests
 TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(wildcard $(CURDIR)/tests/$(PLATFORM)/*.cpp) \
+                $(CURDIR)/source/app/strings.cpp \
                 $(CURDIR)/source/cloud/models.cpp \
                 $(CURDIR)/source/cloud/library_listing.cpp \
                 $(CURDIR)/source/cloud/game_actions.cpp \
