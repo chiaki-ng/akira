@@ -6,7 +6,8 @@
     "add_host": "添加主机",
     "build_info": "构建信息",
     "config": "配置",
-    "network": "网络"
+    "network": "网络",
+    "consoles": "主机"
   },
   "common": {
     "ok": "确定",
@@ -95,7 +96,11 @@
     "register_stage_account": "正在刷新账号",
     "register_stage_console": "正在查找主机",
     "register_stage_connect": "正在连接",
-    "register_stage_finish": "正在注册"
+    "register_stage_finish": "正在注册",
+    "play": "开始游玩",
+    "wake_and_play": "唤醒并游玩",
+    "add_console": "添加主机",
+    "profile_required": "请先在 akira 中登录 PSN"
   },
   "cloud": {
     "title": "云游戏库",
@@ -479,7 +484,10 @@
     "fail_version": "主机需要系统更新",
     "fail_rp_disabled": "主机上此账号的串流功能已关闭。请在主机的「设置 › 系统 › 远程游玩」中开启",
     "fail_regist": "配对失败。请重新配对主机",
-    "fail_crash": "主机上的 Remote Play 已崩溃"
+    "fail_crash": "主机上的 Remote Play 已崩溃",
+    "starting_stream": "正在开始串流",
+    "step_of": "第 {} 步，共 {} 步",
+    "login_pin_needed": "这台主机要求输入登录 PIN。请在主机选项的“主机 PIN”中保存它。"
   },
   "stream": {
     "started": "串流启动成功",
@@ -541,7 +549,9 @@
     "digits_hint": "{} 位数字，不含空格",
     "press_a": "按 A 键输入 PIN",
     "couch_passcode_prompt": "请输入该玩家的主机登录密码",
-    "couch_passcode_error": "密码错误，请重试。"
+    "couch_passcode_error": "密码错误，请重试。",
+    "pair_with": "与 {} 配对",
+    "pair": "配对"
   },
   "couch": {
     "join_failed_not_signed_in": "玩家 {} 无法加入。该账号必须已在主机上登录 PSN。",
@@ -834,7 +844,25 @@
     "rumble_source_hint_off": "此手柄不震动",
     "rumble_source_hint_derived": "由主机触觉信号转换，细节更丰富",
     "rumble_source_hint_game": "游戏本身发出的震动指令",
-    "rumble_envelope_heading": "包络"
+    "rumble_envelope_heading": "包络",
+    "menu_picture": "画面",
+    "stream_settings_for": "串流设置适用于",
+    "stream_heading": "串流",
+    "bitrate_short": "码率",
+    "upscaling": "放大",
+    "upscale_to": "放大到",
+    "upscale_off": "关",
+    "streams_at": "串流分辨率",
+    "rcas": "RCAS（锐化）",
+    "rcas_strength": "RCAS 强度",
+    "touchpad_heading": "触摸板",
+    "touchpad": "触摸板",
+    "swipe_up": "向上滑动",
+    "swipe_down": "向下滑动",
+    "swipe_left": "向左滑动",
+    "swipe_right": "向右滑动",
+    "previous_page": "上一页",
+    "next_page": "下一页"
   },
   "update": {
     "channel": "更新通道",

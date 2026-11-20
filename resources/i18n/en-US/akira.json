@@ -6,7 +6,8 @@
     "add_host": "Add Host",
     "build_info": "Build Info",
     "config": "Config",
-    "network": "Network"
+    "network": "Network",
+    "consoles": "Consoles"
   },
   "common": {
     "ok": "OK",
@@ -95,7 +96,11 @@
     "register_stage_account": "Refreshing account",
     "register_stage_console": "Finding your console",
     "register_stage_connect": "Connecting",
-    "register_stage_finish": "Registering"
+    "register_stage_finish": "Registering",
+    "play": "Play",
+    "wake_and_play": "Wake and play",
+    "add_console": "Add console",
+    "profile_required": "Sign in to PSN in akira first"
   },
   "cloud": {
     "title": "Cloud Library",
@@ -481,7 +486,10 @@
     "fail_version": "Your console needs a system update",
     "fail_rp_disabled": "Remote Play is turned off on the console for this account. Enable it in the console's Settings › System › Remote Play",
     "fail_regist": "Registration failed. Pair the console again",
-    "fail_crash": "Remote Play crashed on the console"
+    "fail_crash": "Remote Play crashed on the console",
+    "starting_stream": "Starting your stream",
+    "step_of": "Step {} of {}",
+    "login_pin_needed": "This console asks for its login PIN. Save it under Console PIN in the console's options."
   },
   "stream": {
     "started": "Stream started successfully",
@@ -572,7 +580,9 @@
     "digits_hint": "{} digits without spaces",
     "press_a": "Press A to enter PIN",
     "couch_passcode_prompt": "Enter this player’s console login passcode",
-    "couch_passcode_error": "Passcode incorrect. Try again."
+    "couch_passcode_error": "Passcode incorrect. Try again.",
+    "pair_with": "Pair with {}",
+    "pair": "Pair"
   },
   "couch": {
     "join_failed_not_signed_in": "Player {} could not join. That account must be signed in to PSN on the console.",
@@ -886,7 +896,25 @@
     "rumble_source_hint_off": "No vibration on this controller",
     "rumble_source_hint_derived": "Richer, derived from the console's haptic signal",
     "rumble_source_hint_game": "The rumble the game itself asked for",
-    "rumble_envelope_heading": "Shaping"
+    "rumble_envelope_heading": "Shaping",
+    "menu_picture": "Picture",
+    "stream_settings_for": "Stream settings for",
+    "stream_heading": "Stream",
+    "bitrate_short": "Bitrate",
+    "upscaling": "Upscaling",
+    "upscale_to": "Upscale to",
+    "upscale_off": "Off",
+    "streams_at": "Streams at",
+    "rcas": "RCAS (Sharpening)",
+    "rcas_strength": "RCAS Strength",
+    "touchpad_heading": "Touchpad",
+    "touchpad": "Touchpad",
+    "swipe_up": "Swipe up",
+    "swipe_down": "Swipe down",
+    "swipe_left": "Swipe left",
+    "swipe_right": "Swipe right",
+    "previous_page": "Previous",
+    "next_page": "Next"
   },
   "update": {
     "channel": "Update channel",
