@@ -29,7 +29,7 @@
 
 namespace akira::app::views {
 
-BorealisApp::App(int argc, char* argv[])
+BorealisApp::BorealisApp(int argc, char* argv[])
     : argc(argc),
       argv(argv),
       mainPlaced(prepareProcess()),
