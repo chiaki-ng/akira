@@ -13,14 +13,14 @@
 #include "app/views/borealis_strings.hpp"
 #include "app/views/borealis_window.hpp"
 
-namespace akira::app {
+namespace akira::app::views {
 
-class App {
+class BorealisApp {
 public:
-    App(int argc, char* argv[]);
+    BorealisApp(int argc, char* argv[]);
 
-    App(const App&) = delete;
-    App& operator=(const App&) = delete;
+    BorealisApp(const BorealisApp&) = delete;
+    BorealisApp& operator=(const BorealisApp&) = delete;
 
     int run();
 
@@ -38,12 +38,12 @@ private:
     int argc;
     char** argv;
     Result mainPlaced;
-    views::BorealisDispatcher dispatcher;
-    views::BorealisWindow window;
-    views::BorealisStrings strings;
-    views::BorealisGpu gpu;
-    views::BorealisRumble rumble;
-    views::BorealisOverlayPalette overlayPalette;
+    BorealisDispatcher dispatcher;
+    BorealisWindow window;
+    BorealisStrings strings;
+    BorealisGpu gpu;
+    BorealisRumble rumble;
+    BorealisOverlayPalette overlayPalette;
     ServiceGraph graph;
     std::optional<ViewServices> viewServices;
 };

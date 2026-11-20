@@ -20,9 +20,16 @@ is_view_or_app() {
     esac
 }
 
-is_arisa_shell() {
+is_borealis_screen() {
     case "$1" in
-        source/app/arisa/* | include/app/arisa/*) return 0 ;;
+        */views/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+is_arisa_screen() {
+    case "$1" in
+        source/app/arisa/* | include/app/arisa/* | source/*/ui/* | include/*/ui/*) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -53,19 +60,21 @@ report() {
 }
 
 while IFS= read -r file; do
-    if ! is_view_or_app "${file}"; then
-        report "borealis outside app/ and views/" "${file}" \
+    if ! is_borealis_screen "${file}"; then
+        report "borealis outside views/" "${file}" \
             "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*[<"]borealis|brls::')"
-        report "arisa outside app/ and views/" "${file}" \
-            "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*[<"]arisa/')"
-        report "ViewServices outside app/ and views/" "${file}" \
-            "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*"app/view_services\.hpp"|\bViewServices\b')"
-        report "views/ header in a non-view file" "${file}" \
+        report "views/ header outside views/" "${file}" \
             "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*"[^"]*views/')"
     fi
-    if is_arisa_shell "${file}"; then
-        report "borealis in the arisa shell" "${file}" \
-            "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*[<"]borealis|brls::|include[[:space:]]*"[^"]*views/')"
+    if ! is_arisa_screen "${file}"; then
+        report "arisa outside app/arisa/ and ui/" "${file}" \
+            "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*[<"]arisa/')"
+        report "ui/ header outside app/arisa/ and ui/" "${file}" \
+            "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*"([^"]*/ui/|app/arisa/)')"
+    fi
+    if ! is_view_or_app "${file}" || is_arisa_screen "${file}"; then
+        report "ViewServices outside views/ and the borealis app" "${file}" \
+            "$(code_lines "${file}" '#[[:space:]]*include[[:space:]]*"app/view_services\.hpp"|\bViewServices\b')"
     fi
     report "ChiakiCore::current locator" "${file}" \
         "$(code_lines "${file}" '\bChiakiCore::current\b')"

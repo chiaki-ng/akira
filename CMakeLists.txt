@@ -118,15 +118,14 @@ include(platform)
 
 if (AKIRA_SHELL STREQUAL "arisa")
     list(FILTER MAIN_SRC EXCLUDE REGEX "/views/")
-    list(FILTER MAIN_SRC EXCLUDE REGEX "/source/(main|app/app)\\.cpp$")
     if (AKIRA_VULKAN)
         list(FILTER MAIN_SRC EXCLUDE REGEX "/source/app/arisa/deko3d_host\\.cpp$")
     else()
         list(FILTER MAIN_SRC EXCLUDE REGEX "/source/app/arisa/vulkan_host\\.cpp$")
     endif()
     set(AKIRA_SHELL_SRC ${MAIN_SRC})
-    list(FILTER AKIRA_SHELL_SRC INCLUDE REGEX "/source/app/arisa/")
-    list(FILTER MAIN_SRC EXCLUDE REGEX "/source/app/arisa/")
+    list(FILTER AKIRA_SHELL_SRC INCLUDE REGEX "/source/(app/arisa|[a-z]+/ui)/")
+    list(FILTER MAIN_SRC EXCLUDE REGEX "/source/(app/arisa|[a-z]+/ui)/")
     if (NOT AKIRA_VULKAN)
         list(APPEND MAIN_SRC
             ${BOREALIS_LIBRARY}/lib/extern/nanovg/deko3d/framework/CMemPool.cpp
@@ -134,7 +133,7 @@ if (AKIRA_SHELL STREQUAL "arisa")
             ${BOREALIS_LIBRARY}/lib/extern/nanovg/deko3d/framework/CIntrusiveTree.cpp)
     endif()
 else()
-    list(FILTER MAIN_SRC EXCLUDE REGEX "/source/app/arisa/")
+    list(FILTER MAIN_SRC EXCLUDE REGEX "/source/(app/arisa|[a-z]+/ui)/")
 
     # Switch wrapper for libnx initialization
     list(APPEND MAIN_SRC ${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c)
@@ -156,7 +155,7 @@ if (AKIRA_SHELL STREQUAL "borealis")
 # Borealis uses DEBUG only to attach nxlinkStdio() in its Switch wrapper.
 # Keep that capture path in optimized builds without compiling the whole app
 # (or its libraries) with debug-only behavior. Runtime log levels and file
-# logging are configured independently in source/main.cpp.
+# logging are configured independently in source/app/views/main.cpp.
 set_source_files_properties(
     ${BOREALIS_LIBRARY}/lib/platforms/switch/switch_wrapper.c
     PROPERTIES COMPILE_DEFINITIONS DEBUG

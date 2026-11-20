@@ -3,10 +3,10 @@
  * Built with Borealis UI Framework
  */
 
-#include "app/app.hpp"
+#include "app/views/borealis_app.hpp"
 
 int main(int argc, char* argv[])
 {
-    akira::app::App app(argc, argv);
+    akira::app::views::BorealisApp app(argc, argv);
     return app.run();
 }

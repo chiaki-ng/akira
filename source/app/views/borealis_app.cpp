@@ -1,4 +1,4 @@
-#include "app/app.hpp"
+#include "app/views/borealis_app.hpp"
 
 #include <borealis.hpp>
 #include <borealis/core/i18n.hpp>
@@ -27,9 +27,9 @@
 #include "settings/views/config_view_tab.hpp"
 #include "trophies/views/trophy_list_tab.hpp"
 
-namespace akira::app {
+namespace akira::app::views {
 
-App::App(int argc, char* argv[])
+BorealisApp::App(int argc, char* argv[])
     : argc(argc),
       argv(argv),
       mainPlaced(prepareProcess()),
@@ -44,13 +44,13 @@ App::App(int argc, char* argv[])
 {
 }
 
-Result App::prepareProcess()
+Result BorealisApp::prepareProcess()
 {
     ServiceGraph::prepareProcess();
     return WorkerCores::placeMainThread();
 }
 
-const char* App::appletTypeName(AppletType type)
+const char* BorealisApp::appletTypeName(AppletType type)
 {
     switch (type)
     {
@@ -65,7 +65,7 @@ const char* App::appletTypeName(AppletType type)
     }
 }
 
-void App::readArguments()
+void BorealisApp::readArguments()
 {
     for (int i = 1; i < argc; i++)
     {
@@ -80,7 +80,7 @@ void App::readArguments()
     }
 }
 
-void App::prepareLocale()
+void BorealisApp::prepareLocale()
 {
     std::string overrideLocale = graph.appSettings().debugLocale();
     if (!overrideLocale.empty()) {
@@ -90,7 +90,7 @@ void App::prepareLocale()
     }
 }
 
-bool App::startFrameworks()
+bool BorealisApp::startFrameworks()
 {
     CrashReport::stage("borealis init");
     if (!brls::Application::init())
@@ -109,7 +109,7 @@ bool App::startFrameworks()
     return true;
 }
 
-void App::registerViews()
+void BorealisApp::registerViews()
 {
     brls::Application::registerXMLView("HostListTab", consoles::views::HostListTab::create);
     brls::Application::registerXMLView("PsnGatedBox", accounts::views::PsnGatedBox::create);
@@ -123,7 +123,7 @@ void App::registerViews()
     brls::Application::registerXMLView("EnterPinView", consoles::views::EnterPinView::create);
 }
 
-void App::openWindow()
+void BorealisApp::openWindow()
 {
     CrashReport::stage("create window");
     brls::Application::createWindow("Akira");
@@ -134,7 +134,7 @@ void App::openWindow()
     brls::Application::getPlatform()->exitToHomeMode(false);
 }
 
-void App::runMainLoop()
+void BorealisApp::runMainLoop()
 {
     CrashReport::stage("main loop");
     try{
@@ -147,7 +147,7 @@ void App::runMainLoop()
     }
 }
 
-int App::run()
+int BorealisApp::run()
 {
     graph.openLog();
     log::info("main thread core {} placement {:#x}", svcGetCurrentProcessorNumber(), mainPlaced);
