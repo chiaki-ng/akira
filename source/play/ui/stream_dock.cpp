@@ -6,6 +6,7 @@
 #include <arisa/components/button_sizing.hpp>
 #include <arisa/components/button_style.hpp>
 #include <arisa/components/divider.hpp>
+#include <arisa/components/environment.hpp>
 #include <arisa/components/group.hpp>
 #include <arisa/components/hstack.hpp>
 #include <arisa/components/image.hpp>
