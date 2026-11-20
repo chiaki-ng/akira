@@ -1,5 +1,7 @@
 #include "app/crash_report.hpp"
 
+#include "log/log.hpp"
+
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
@@ -29,6 +31,7 @@ void CrashReport::install(const char* appName, const char* version, const char* 
 
 void CrashReport::stage(const char* name)
 {
+    log::Log::process().flush();
     s_stage.store(name, std::memory_order_release);
     if (!s_bootPath[0])
         return;
