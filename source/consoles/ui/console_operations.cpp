@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "accounts/account_settings.hpp"
 #include "accounts/accounts.hpp"
 #include "app/notifier.hpp"
 #include "app/services.hpp"

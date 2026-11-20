@@ -4,6 +4,7 @@
 #include <arisa/components/button_role.hpp>
 #include <arisa/components/button_style.hpp>
 #include <arisa/components/control_size.hpp>
+#include <arisa/components/environment.hpp>
 #include <arisa/components/group.hpp>
 #include <arisa/components/hstack.hpp>
 #include <arisa/components/image.hpp>
