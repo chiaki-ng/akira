@@ -1,43 +1,43 @@
 #pragma once
 
+#include <optional>
 #include <string>
-#include <vector>
 
 #include <arisa/composition/observable.hpp>
 
-#include "consoles/console_facts.hpp"
+#include "play/ui/connecting_screen.hpp"
 
 namespace akira::app::arisa {
 
 class ShellModel {
 public:
-    enum class Phase { Consoles, Connecting, Streaming };
+    enum class Phase { Starting, Home, Connecting, Streaming };
 
-    struct Console {
-        std::string catalogName;
-        std::string name;
-        bool ready = false;
-        bool paired = false;
+    struct Ending {
+        std::string title;
+        std::string message;
+        bool reconnect = false;
 
-        friend bool operator==(const Console&, const Console&) = default;
+        friend bool operator==(const Ending&, const Ending&) = default;
     };
 
     struct View {
-        Phase phase = Phase::Consoles;
-        std::vector<Console> consoles;
-        std::string target;
-        std::string status;
+        Phase phase = Phase::Starting;
+        play::ui::ConnectingScreen::Progress progress;
+        std::optional<Ending> ending;
 
         friend bool operator==(const View&, const View&) = default;
     };
 
     auto view() const -> const ::arisa::composition::Observable<View>& { return state; }
 
-    void list(const std::vector<consoles::ConsoleFacts>& facts);
-    void connecting(std::string target);
-    void stage(std::string label);
+    void ready();
+    void connecting(std::string console);
+    void stage(play::ui::ConnectingScreen::Progress progress);
     void streaming();
-    void stopped(std::string status);
+    void home();
+    void ended(Ending ending);
+    void dismissEnding();
 
 private:
     ::arisa::composition::Observable<View> state;

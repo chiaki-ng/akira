@@ -1,36 +1,27 @@
 #include "app/arisa/shell_model.hpp"
 
-#include <algorithm>
 #include <utility>
 
 namespace akira::app::arisa {
 
-void ShellModel::list(const std::vector<consoles::ConsoleFacts>& facts)
+void ShellModel::ready()
 {
-    std::vector<Console> shown;
-    for (const consoles::ConsoleFacts& fact : facts)
-    {
-        if (fact.cloud)
-            continue;
-        shown.push_back(Console{ .catalogName = fact.catalogName, .name = fact.name, .ready = fact.ready,
-            .paired = fact.paired });
-    }
-    std::ranges::sort(shown, {}, &Console::name);
-    state.write(&View::consoles, std::move(shown));
+    if (state.get().phase == Phase::Starting)
+        state.write(&View::phase, Phase::Home);
 }
 
-void ShellModel::connecting(std::string target)
+void ShellModel::connecting(std::string console)
 {
-    state.update([&target](View& view) {
+    state.update([&console](View& view) {
         view.phase = Phase::Connecting;
-        view.target = std::move(target);
-        view.status.clear();
+        view.progress = play::ui::ConnectingScreen::Progress{ .console = std::move(console) };
+        view.ending.reset();
     });
 }
 
-void ShellModel::stage(std::string label)
+void ShellModel::stage(play::ui::ConnectingScreen::Progress progress)
 {
-    state.write(&View::status, std::move(label));
+    state.write(&View::progress, std::move(progress));
 }
 
 void ShellModel::streaming()
@@ -38,13 +29,22 @@ void ShellModel::streaming()
     state.write(&View::phase, Phase::Streaming);
 }
 
-void ShellModel::stopped(std::string status)
+void ShellModel::home()
 {
-    state.update([&status](View& view) {
-        view.phase = Phase::Consoles;
-        view.target.clear();
-        view.status = std::move(status);
+    state.write(&View::phase, Phase::Home);
+}
+
+void ShellModel::ended(Ending ending)
+{
+    state.update([&ending](View& view) {
+        view.phase = Phase::Home;
+        view.ending = std::move(ending);
     });
+}
+
+void ShellModel::dismissEnding()
+{
+    state.write(&View::ending, std::optional<Ending>());
 }
 
 }

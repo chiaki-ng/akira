@@ -2,18 +2,25 @@
 
 #include <switch.h>
 
+#include <arisa/appearance/appearance_policy.hpp>
+#include <arisa/appearance/appearance_settings.hpp>
+#include <arisa/runtime/application_options.hpp>
+#include <arisa/theme/colour.hpp>
+
 #include <cstdlib>
 
-#include "app/arisa/shell_screen.hpp"
 #include "app/arisa/thread_plan.hpp"
 #include "app/crash_report.hpp"
 #include "consoles/host.hpp"
 #include "log/log.hpp"
+#include "platform/factory.hpp"
 
 namespace akira::app::arisa {
 
+namespace appearance = ::arisa::appearance;
 namespace provider = ::arisa::provider;
 namespace runtime = ::arisa::runtime;
+namespace theme = ::arisa::theme;
 
 App::App()
     : threading(ThreadPlan::policy())
@@ -51,8 +58,17 @@ bool App::openProviders()
 bool App::openApplication()
 {
     CrashReport::stage("arisa application");
-    auto created = runtime::Application::create(*providers, ShellScreen(model, *this, *strings),
-        runtime::ApplicationOptions{});
+    runtime::ApplicationOptions options{};
+    options.appearance = runtime::AppearanceOptions{
+        .policy = appearance::AppearancePolicy{
+            .application = "akira",
+            .defaults = appearance::AppearanceSettings{
+                .color_scheme = appearance::ColorSchemePreference::dark,
+                .accent = theme::Colour::hex(0x0091FF),
+            },
+        },
+    };
+    auto created = runtime::Application::create(*providers, ShellScreen(model, notices, parts, *strings), std::move(options));
     if (!created)
     {
         log::error("[ARISA] the application could not start: {}", created.error().explanation());
@@ -84,40 +100,34 @@ void App::startServices()
     graph->followFocus();
     graph->startAsyncLogging();
     graph->platform().prepareVideo();
-    driver = std::make_shared<StreamDriver>(graph->services(), *application, *window, model);
-    followConsoles();
+    buildScreens();
 }
 
-void App::followConsoles()
+void App::buildScreens()
 {
     Services& services = graph->services();
-    services.discovery.setOnHostsChanged([this] {
-        dispatcher->post([this] { model.list(graph->services().hosts.facts()); });
+    help.emplace(helpDirectory, std::string());
+    log::info("[ARISA] {} help entries", help->size());
+    picture.emplace(services.stream, services.store, services.platform.supplies(platform::PlatformCapability::fsr_4k));
+    controls.emplace(services.controllers, services.store);
+    nat.emplace(services.dispatcher, services.core, services.strings);
+    driver = std::make_shared<StreamDriver>(services, *application, *window, model, notices, [this] {
+        if (consoleOperations)
+            consoleOperations->streamEnded();
     });
-    services.discovery.setServiceEnabled(true);
-    model.list(services.hosts.facts());
-}
-
-void App::connect(const std::string& catalogName)
-{
-    if (!graph || !driver)
-        return;
-    auto& hosts = graph->services().hosts.entries();
-    const auto found = hosts.find(catalogName);
-    if (found == hosts.end() || !found->second)
-        return;
-    driver->start(*found->second);
-}
-
-void App::cancel()
-{
-    if (driver)
-        driver->cancel();
-}
-
-void App::quit()
-{
-    quitRequested = true;
+    driver->watchFocus();
+    consoleOperations.emplace(services, shelf, notices, [this](consoles::Host& host) { driver->start(host); });
+    consoleOperations->follow();
+    parts = ShellScreen::Parts{
+        .shelf = &shelf,
+        .consoles = &*consoleOperations,
+        .stream = driver.get(),
+        .picture = &*picture,
+        .controls = &*controls,
+        .nat = &*nat,
+        .help = &*help,
+    };
+    model.ready();
 }
 
 bool App::frame()
@@ -125,7 +135,7 @@ bool App::frame()
     window->tick();
     if (driver)
         driver->tick();
-    return quitRequested || !appletMainLoop();
+    return !appletMainLoop();
 }
 
 int App::run()
@@ -142,7 +152,9 @@ int App::run()
     if (!ran)
         log::error("[ARISA] the frame loop stopped: {}", ran.error().explanation());
 
+    consoleOperations.reset();
     driver.reset();
+    nat.reset();
     graph->shutDown();
     nvExit();
     return ran ? EXIT_SUCCESS : EXIT_FAILURE;

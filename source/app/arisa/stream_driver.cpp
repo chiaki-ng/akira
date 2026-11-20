@@ -7,11 +7,13 @@
 #include <utility>
 
 #include "app/arisa/shell_model.hpp"
-#include "app/arisa/stream_panel.hpp"
 #include "app/arisa/window.hpp"
+#include "app/notifier.hpp"
 #include "app/strings.hpp"
 #include "consoles/host.hpp"
+#include "consoles/host_catalog.hpp"
 #include "log/log.hpp"
+#include "network/network_settings.hpp"
 #include "network/wireguard_manager.hpp"
 #include "platform/factory.hpp"
 #include "play/connect_failure.hpp"
@@ -20,8 +22,11 @@
 #include "play/session.hpp"
 #include "play/session_ending.hpp"
 #include "play/stream_launcher.hpp"
+#include "play/stream_recovery.hpp"
 #include "play/stream_route.hpp"
 #include "play/stream_state.hpp"
+#include "play/ui/connecting_screen.hpp"
+#include "play/ui/stream_dock.hpp"
 
 namespace akira::app::arisa {
 
@@ -29,23 +34,40 @@ namespace composition = ::arisa::composition;
 namespace provider = ::arisa::provider;
 namespace runtime = ::arisa::runtime;
 
-StreamDriver::StreamDriver(Services& services, runtime::Application& application, Window& window, ShellModel& model)
+StreamDriver::StreamDriver(Services& services, runtime::Application& application, Window& window, ShellModel& model,
+    Notifier& notifier, std::function<void()> ended)
     : services(services)
     , application(application)
     , window(window)
     , model(model)
+    , notifier(notifier)
+    , ended(std::move(ended))
 {
 }
 
 StreamDriver::~StreamDriver()
 {
+    focusWatch.reset();
     if (connection)
         connection->leave(false);
-    panel.reset();
+    dock.reset();
     connection.reset();
 }
 
+void StreamDriver::watchFocus()
+{
+    focusWatch = window.watchFocus([weak = weak_from_this()](bool focused) {
+        if (const auto self = weak.lock())
+            self->focusChanged(focused);
+    });
+}
+
 void StreamDriver::start(consoles::Host& target)
+{
+    open(target, libchiaking::play::ConsoleHandover::fresh);
+}
+
+void StreamDriver::open(consoles::Host& target, libchiaking::play::ConsoleHandover handover)
 {
     if (connection)
         return;
@@ -57,40 +79,36 @@ void StreamDriver::start(consoles::Host& target)
     log::info("[ARISA] starting stream to {}", target.getHostName());
     if (!session.InitController())
     {
-        model.stopped(services.strings.text("akira/stream/failed_init_controller"));
+        fail(services.strings.text("akira/stream/failed_init_controller"), false);
         return;
     }
 
     play::StreamLauncher launcher(session, services.platform, services.preferences, services.accounts,
         services.dispatcher, services.core);
-    auto opened = launcher.open(target, nullptr, weak_from_this(), libchiaking::play::ConsoleHandover::fresh,
-        route.context());
+    auto opened = launcher.open(target, nullptr, weak_from_this(), handover, route.context());
     if (!opened)
     {
         log::error("[ARISA] the stream could not start: failure {}", static_cast<int>(opened.error()));
         session.FreeController();
         session.FreeVideo();
-        model.stopped(services.strings.text(opened.error() == play::StreamLauncher::Failure::NotRegistered
-                ? "akira/connection/fail_regist"
-                : "akira/connection/fail_generic"));
+        fail(services.strings.format("akira/connection/connect_failed_title",
+                 services.strings.text(opened.error() == play::StreamLauncher::Failure::NotRegistered
+                         ? "akira/connection/fail_regist"
+                         : "akira/connection/fail_generic")),
+            false);
         return;
     }
 
     connection = std::move(*opened);
     host = &target;
+    lastConsole = target.getHostName();
+    sessionStarted = false;
+    intentionalDisconnect = false;
     controls = play::StreamControls();
-    controls.offerSleep(true);
+    controls.offerSleep(!target.cloudLaunch());
+    controls.showStats(session.getStatsOverlayMode());
     flow.restart();
-    padsOwned.emplace(application.block_input());
     model.connecting(target.getHostName());
-}
-
-void StreamDriver::cancel()
-{
-    if (!connection)
-        return;
-    connection->leave(false);
-    stop({});
 }
 
 void StreamDriver::tick()
@@ -103,18 +121,19 @@ void StreamDriver::tick()
 
     if (!videoActive)
     {
-        const play::ConnectFlow::Ring ring = flow.ring();
-        model.stage(ring.labelKey ? services.strings.text(ring.labelKey) : ring.label);
+        model.stage(play::ui::ConnectingScreen::progressOf(flow.ring(), host ? host->getHostName() : lastConsole,
+            services.strings));
         return;
     }
 
-    if (!panel)
+    if (!dock)
         followMenu();
 
     if (!services.session.get().MainLoop())
     {
+        log::warning("[ARISA] the session main loop stopped");
         connection->leave(false);
-        stop({});
+        stop();
     }
 }
 
@@ -123,6 +142,7 @@ void StreamDriver::enterVideo()
     if (videoActive)
         return;
     videoActive = true;
+    padsOwned.emplace(application.block_input());
     videoOwnsScreen.emplace(application.exclusive_frame(composition::ExclusiveFrame::Options{
         .keep = { composition::OverlayLayer::dialog, composition::OverlayLayer::toast },
     }));
@@ -136,32 +156,45 @@ void StreamDriver::followMenu()
     play::InputManager* input = services.session.get().getInputManager();
     const bool held = input != nullptr && input->menuHeld();
     if (menuHold.update(held, play::MenuHold::Clock::now()))
-        openPanel();
+        openDock();
 }
 
-void StreamDriver::openPanel()
+void StreamDriver::openDock()
 {
     play::Session& session = services.session.get();
     connection->setInputSuppressed(true);
     session.setVideoPaused(true);
     session.CleanUpHaptic();
-    panelButtons.emplace(application.pass_input(provider::Buttons{ provider::Button::a, provider::Button::b,
-        provider::Button::dpad_up, provider::Button::dpad_down }));
-    panel.emplace(application.root().overlays().show(composition::OverlayLayer::dialog,
-        StreamPanel(*this, services.strings, controls.offersSleep() && host && !host->cloudLaunch()),
+    dockButtons.emplace(application.pass_input(provider::Buttons{ provider::Button::a, provider::Button::b,
+        provider::Button::dpad_up, provider::Button::dpad_down, provider::Button::dpad_left,
+        provider::Button::dpad_right }));
+    dock.emplace(application.root().overlays().show(composition::OverlayLayer::dialog,
+        play::ui::StreamDock(
+            play::ui::StreamDock::Session{
+                .console = host ? host->getHostName() : lastConsole,
+                .controls = controls.controls(),
+                .sleepOffered = controls.offersSleep(),
+                .statsMode = session.getStatsOverlayMode(),
+            },
+            *this, services.strings),
         runtime::OverlayBehaviour{
             .input = composition::OverlayInput::modal,
-            .alignment = composition::Alignment::center,
+            .alignment = composition::Alignment::bottom,
         }));
-    log::info("[ARISA] stream panel opened");
+    log::info("[ARISA] stream dock opened");
+}
+
+void StreamDriver::closeDock()
+{
+    dock.reset();
+    dockButtons.reset();
 }
 
 void StreamDriver::resume()
 {
     if (!connection)
         return;
-    panel.reset();
-    panelButtons.reset();
+    closeDock();
     services.session.get().setVideoPaused(false);
     connection->setInputSuppressed(false);
     log::info("[ARISA] stream resumed");
@@ -172,19 +205,76 @@ void StreamDriver::leave(bool rest)
     if (!connection)
         return;
     log::info("[ARISA] leaving the stream, rest={}", rest);
+    intentionalDisconnect = true;
     connection->leave(rest);
-    stop({});
+    stop();
 }
 
-void StreamDriver::stop(std::string status)
+void StreamDriver::cancel()
 {
-    panel.reset();
-    panelButtons.reset();
+    if (!connection)
+        return;
+    log::info("[ARISA] connection cancelled");
+    intentionalDisconnect = true;
+    connection->leave(false);
+    stop();
+}
+
+void StreamDriver::reconnect()
+{
+    if (connection)
+        return;
+    const auto& entries = services.hosts.entries();
+    const auto found = entries.find(lastConsole);
+    if (found == entries.end() || !found->second)
+        return;
+    notifier.notify(services.strings.text("akira/stream/reconnecting"));
+    open(*found->second, libchiaking::play::ConsoleHandover::just_left);
+}
+
+void StreamDriver::resetMotion()
+{
+    if (play::InputManager* input = services.session.get().getInputManager())
+        input->resetMotionControls();
+}
+
+void StreamDriver::showStats(play::StatsOverlayMode mode)
+{
+    services.session.get().setStatsOverlayMode(mode);
+    controls.showStats(mode);
+}
+
+auto StreamDriver::stats() -> play::StreamStats
+{
+    return services.session.get().getStreamStats();
+}
+
+void StreamDriver::focusChanged(bool focused)
+{
+    if (!focused || !connection)
+        return;
+    if (!play::StreamRecovery::watchesFocus(intentionalDisconnect, services.networkSettings.autoReconnect(),
+            sessionStarted, host && host->isCloud()))
+        return;
+    const bool alive = play::StreamRecovery::sessionAlive(connection->state());
+    if (!play::StreamRecovery::lost(videoActive, alive))
+        return;
+    log::info("[ARISA] the stream died while the app was in the background");
+    connection->leave(false);
+    stop();
+    model.ended(ShellModel::Ending{ .title = services.strings.text("akira/stream/disconnected_reconnect"),
+        .reconnect = true });
+}
+
+void StreamDriver::stop()
+{
+    closeDock();
     videoOwnsScreen.reset();
     padsOwned.reset();
     if (videoActive)
         services.platform.display().streaming(false);
     videoActive = false;
+    sessionStarted = false;
     services.streamState.setActive(false);
     connection.reset();
     play::Session& session = services.session.get();
@@ -192,8 +282,20 @@ void StreamDriver::stop(std::string status)
     session.FreeVideo();
     host = nullptr;
     menuHold = play::MenuHold();
-    model.stopped(std::move(status));
+    model.home();
+    if (ended)
+        ended();
     log::info("[ARISA] stream stopped; back on the console list");
+}
+
+void StreamDriver::fail(const std::string& text, bool offerReconnect)
+{
+    const std::size_t split = text.find("\n\n");
+    model.ended(ShellModel::Ending{
+        .title = split == std::string::npos ? text : text.substr(0, split),
+        .message = split == std::string::npos ? std::string() : text.substr(split + 2),
+        .reconnect = offerReconnect,
+    });
 }
 
 void StreamDriver::onConnectProgress(const libchiaking::play::ConnectProgress& progress)
@@ -209,6 +311,7 @@ void StreamDriver::onLaunchProgress(const libchiaking::play::LaunchProgress&)
 void StreamDriver::onPlaying()
 {
     flow.connected();
+    sessionStarted = true;
     log::info("[ARISA] session playing");
 }
 
@@ -223,23 +326,55 @@ void StreamDriver::onEnded(const libchiaking::play::Outcome& outcome)
         .cloudScreen = false,
         .cloudLaunch = false,
     });
-    stop(services.strings.text(ending.reasonKey()));
+    const std::string reason = services.strings.text(ending.reasonKey());
+    stop();
+    switch (ending.verdict())
+    {
+        case play::SessionEnding::Verdict::Stopped:
+            notifier.notify(services.strings.text("akira/stream/quit_stopped"));
+            return;
+        case play::SessionEnding::Verdict::Unpaired:
+            fail(services.strings.text("akira/stream/ps4_console_unregistered"), false);
+            return;
+        case play::SessionEnding::Verdict::Reconnect:
+        case play::SessionEnding::Verdict::CloudFailure:
+        case play::SessionEnding::Verdict::LaunchRefused:
+        case play::SessionEnding::Verdict::Failed:
+            break;
+    }
+    fail(ending.duringConnect()
+            ? services.strings.format("akira/connection/connect_failed_title",
+                  services.strings.text(ending.connectFailureKey()))
+            : services.strings.format("akira/stream/session_ended", reason),
+        false);
 }
 
 void StreamDriver::onRefused(const libchiaking::play::StartRefusal& refusal)
 {
     if (!connection)
         return;
-    stop(services.strings.text(play::ConnectFailure::forRefusal(refusal.kind())));
+    stop();
+    fail(services.strings.format("akira/connection/connect_failed_title",
+             services.strings.text(play::ConnectFailure::forRefusal(refusal.kind()))),
+        false);
 }
 
-void StreamDriver::onLoginPinNeeded(bool)
+void StreamDriver::onLoginPinNeeded(bool previousWasWrong)
 {
     if (!connection)
         return;
-    log::warning("[ARISA] the console asked for its login PIN, which this shell cannot enter yet");
+    const std::string saved = host ? host->getConsolePIN() : std::string();
+    if (play::StreamRecovery::loginPin(false, previousWasWrong, saved, true) == play::StreamRecovery::LoginPinStep::SubmitSaved
+        && connection->submitLoginPin(saved))
+    {
+        notifier.notify(services.strings.text("akira/stream/auto_login_pin"));
+        return;
+    }
+    log::warning("[ARISA] the console asked for a login PIN and none is saved");
+    intentionalDisconnect = true;
     connection->leave(false);
-    stop(services.strings.text("akira/connection/fail_generic"));
+    stop();
+    fail(services.strings.text("akira/connection/login_pin_needed"), false);
 }
 
 void StreamDriver::onSeatPasscodeNeeded(uint8_t, bool)
