@@ -1,6 +1,8 @@
 #include "app/arisa/string_catalog.hpp"
 
 #include <arisa/text/localized_string_key.hpp>
+#include <arisa/text/plural_category.hpp>
+#include <arisa/text/plural_rules.hpp>
 
 #include "log/log.hpp"
 
@@ -30,6 +32,17 @@ auto StringCatalog::localeFor(std::string_view tag) -> ::arisa::text::Locale
 auto StringCatalog::text(std::string_view key) const -> std::string
 {
     return catalog.pattern(::arisa::text::LocalizedStringKey{std::string(key)}, locale);
+}
+
+auto StringCatalog::pattern(std::string_view key, std::int64_t count) const -> std::string
+{
+    const ::arisa::text::LocalizedStringKey looked{ std::string(key) };
+    const ::arisa::text::StringCatalog::Entry* entry = catalog.lookup(looked, locale);
+    if (!entry || !entry->plural())
+        return catalog.pattern(looked, locale);
+    if (const std::string* form = entry->form(::arisa::text::PluralRules(locale).category(count)))
+        return *form;
+    return std::string(key);
 }
 
 auto StringCatalog::loaded() const -> bool

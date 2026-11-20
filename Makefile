@@ -84,6 +84,8 @@ ARISA_TEST_MODELS   = $(CURDIR)/source/log/log.cpp \
                       $(CURDIR)/source/play/connect_flow.cpp \
                       $(CURDIR)/source/play/connect_failure.cpp \
                       $(CURDIR)/source/play/stream_summary.cpp \
+                      $(CURDIR)/source/play/stats_readout.cpp \
+                      $(CURDIR)/source/play/stats_hud_placement.cpp \
                       $(CURDIR)/source/play/stream_settings.cpp \
                       $(CURDIR)/source/play/controller_settings.cpp \
                       $(CURDIR)/source/play/picture_profile.cpp \
@@ -136,6 +138,8 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/consoles/ui/registration_progress.cpp \
                       $(CURDIR)/source/play/ui/connecting_screen.cpp \
                       $(CURDIR)/source/play/ui/stream_dock.cpp \
+                      $(CURDIR)/source/play/ui/stats_board.cpp \
+                      $(CURDIR)/source/play/ui/stats_hud.cpp \
                       $(CURDIR)/source/play/ui/mapping.cpp \
                       $(CURDIR)/source/play/ui/button_board_view.cpp \
                       $(CURDIR)/source/play/ui/couch.cpp \
@@ -156,6 +160,8 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/app/arisa/shell_screen.cpp \
                       $(CURDIR)/source/app/arisa/shell_model.cpp \
                       $(CURDIR)/source/app/arisa/notices.cpp \
+                      $(CURDIR)/source/app/arisa/overlay_palette.cpp \
+                      $(CURDIR)/source/app/arisa/confirmation.cpp \
                       $(CURDIR)/source/app/arisa/rail.cpp \
                       $(CURDIR)/source/app/arisa/header.cpp \
                       $(CURDIR)/source/app/arisa/theme_packs.cpp \
@@ -241,6 +247,8 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/play/stream_recovery.cpp \
                 $(CURDIR)/source/play/paused_frame.cpp \
                 $(CURDIR)/source/play/stream_summary.cpp \
+                $(CURDIR)/source/play/stats_readout.cpp \
+                $(CURDIR)/source/play/stats_hud_placement.cpp \
                 $(CURDIR)/source/play/stream_controls.cpp \
                 $(CURDIR)/source/settings/settings_store.cpp \
                 $(CURDIR)/source/settings/developer_settings.cpp \

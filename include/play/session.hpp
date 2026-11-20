@@ -19,6 +19,8 @@
 #include "play/rumble_profile.hpp"
 #include "platform/feedback/provider.hpp"
 #include "play/stream_stats.hpp"
+#include "play/touch_claim.hpp"
+#include "play/upscaling_summary.hpp"
 #include "play/video_worker.hpp"
 #include "platform/video/provider.hpp"
 
@@ -57,6 +59,8 @@ private:
 
     StatsOverlayMode m_stats_overlay_mode = StatsOverlayMode::Off;
     std::atomic<float> m_present_ms{0.0f};
+    std::string m_connection_context;
+    std::atomic<TouchClaim*> m_touch_claim{nullptr};
 
     std::atomic<bool> m_first_frame_received = false;
     std::atomic<bool> m_presented{false};
@@ -133,6 +137,10 @@ public:
     void setStatsOverlayMode(StatsOverlayMode mode) { m_stats_overlay_mode = mode; }
     void setVideoPaused(bool paused);
     void setConnectionContext(const std::string& context);
+    const std::string& connectionContext() const { return m_connection_context; }
+    UpscalingSummary upscaling();
+    void claimTouches(TouchClaim* claim) { m_touch_claim.store(claim, std::memory_order_release); }
+    TouchClaim* touchClaim() const { return m_touch_claim.load(std::memory_order_acquire); }
     void triggerBorderFlash();
     void setRequestedProfile(int width, int height, int fps, int bitrate, bool hevc);
 

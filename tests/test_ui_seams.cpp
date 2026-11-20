@@ -33,6 +33,16 @@ TEST(strings_fall_back_to_the_key)
     CHECK_EQ(strings.format("broken", 1), std::string("broken"));
 }
 
+TEST(strings_counted_selects_the_singular_form)
+{
+    const FakeStrings strings({{"akira/hosts/recent_weeks", "{} weeks ago"}, {"akira/hosts/recent_weeks_one", "{} week ago"},
+                               {"akira/cloud/count_filtered", "{} of {}"}});
+    CHECK_EQ(strings.counted("akira/hosts/recent_weeks", 1), std::string("1 week ago"));
+    CHECK_EQ(strings.counted("akira/hosts/recent_weeks", 3), std::string("3 weeks ago"));
+    CHECK_EQ(strings.counted("akira/hosts/recent_weeks", 0), std::string("0 weeks ago"));
+    CHECK_EQ(strings.counted("akira/cloud/count_filtered", std::size_t{ 1 }, std::size_t{ 9 }), std::string("1 of 9"));
+}
+
 TEST(fake_dispatcher_runs_posts_in_order)
 {
     FakeUiDispatcher dispatcher;

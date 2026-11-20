@@ -182,7 +182,7 @@ void App::buildScreens()
     CrashReport::stage("arisa stream driver");
     driver = std::make_shared<StreamDriver>(services, *application, *window, model, notices, *controls, *mapping,
         StreamDriver::Couch{ .table = couchBridge ? &*couchBridge : nullptr, .model = couch ? &*couch : nullptr },
-        [this] {
+        overlayPalette, [this] {
             if (consoleOperations)
                 consoleOperations->streamEnded();
         });

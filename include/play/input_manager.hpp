@@ -13,6 +13,7 @@
 #include "play/gesture_timing.hpp"
 #include "platform/pads/pad.hpp"
 #include "play/sample_cadence.hpp"
+#include "play/touch_claim.hpp"
 #include "platform/pads/provider.hpp"
 
 
@@ -85,6 +86,12 @@ private:
 
     bool readTouchScreen(libchiaking::controllers::ControllerInput& input, std::map<uint32_t, int8_t>* finger_id_touch_id,
         gesture::TimePoint now);
+    static auto touchFraction(uint32_t rawX, uint32_t rawY) -> TouchClaim::Fraction;
+    bool grabOverlay(uint32_t rawX, uint32_t rawY);
+    void dragOverlay(uint32_t rawX, uint32_t rawY);
+    void releaseOverlay();
+    float screenScaleX() const;
+    float screenScaleY() const;
     bool readSixAxis(libchiaking::controllers::ControllerState& state);
     void updateSyntheticSwipes(libchiaking::controllers::ControllerInput& state, u64 buttons,
         gesture::TimePoint now);

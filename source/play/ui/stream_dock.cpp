@@ -86,7 +86,7 @@ auto StreamDock::body(composition::Context& context) const -> composition::Eleme
 {
     const std::vector<StreamControls::Control> shown = panels();
     const auto chosen = context.state(selected, opening(shown));
-    const auto stats = context.state(sampled);
+    const auto stats = context.state(sampled, commands->stats());
     const auto mode = context.state(overlay, session.statsMode);
     const auto board = context.state(mappingShown);
     const settings::ui::ControlOptions::Values& pad = context.read(controlOptions->view());

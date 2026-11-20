@@ -289,6 +289,46 @@ void InputManager::fireDeferredRelease(libchiaking::controllers::ControllerInput
     m_active_click_touch_id = -1;
 }
 
+auto InputManager::touchFraction(uint32_t rawX, uint32_t rawY) -> TouchClaim::Fraction
+{
+    return TouchClaim::Fraction{ .x = static_cast<float>(rawX) / static_cast<float>(SWITCH_TOUCHSCREEN_MAX_X),
+        .y = static_cast<float>(rawY) / static_cast<float>(SWITCH_TOUCHSCREEN_MAX_Y) };
+}
+
+bool InputManager::grabOverlay(uint32_t rawX, uint32_t rawY)
+{
+    if (TouchClaim* claim = m_session.touchClaim())
+        return claim->grab(touchFraction(rawX, rawY));
+    akira::platform::VideoRenderer* renderer = m_session.getVideoRenderer();
+    return renderer && renderer->overlayTouchBegin(rawX * screenScaleX(), rawY * screenScaleY());
+}
+
+void InputManager::dragOverlay(uint32_t rawX, uint32_t rawY)
+{
+    if (TouchClaim* claim = m_session.touchClaim())
+        claim->drag(touchFraction(rawX, rawY));
+    else if (akira::platform::VideoRenderer* renderer = m_session.getVideoRenderer())
+        renderer->overlayTouchMove(rawX * screenScaleX(), rawY * screenScaleY());
+}
+
+void InputManager::releaseOverlay()
+{
+    if (TouchClaim* claim = m_session.touchClaim())
+        claim->release();
+    else if (akira::platform::VideoRenderer* renderer = m_session.getVideoRenderer())
+        renderer->overlayTouchEnd();
+}
+
+float InputManager::screenScaleX() const
+{
+    return static_cast<float>(m_window.width()) / static_cast<float>(SWITCH_TOUCHSCREEN_MAX_X);
+}
+
+float InputManager::screenScaleY() const
+{
+    return static_cast<float>(m_window.height()) / static_cast<float>(SWITCH_TOUCHSCREEN_MAX_Y);
+}
+
 bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& input,
     std::map<uint32_t, int8_t>* finger_id_touch_id,
     gesture::TimePoint now)
@@ -391,7 +431,6 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
     const float trackpadMaxX = m_is_ps5 ? 1919.0f : 1920.0f;
     const float trackpadMaxY = m_is_ps5 ? 1079.0f : 942.0f;
 
-    akira::platform::VideoRenderer* renderer = m_session.getVideoRenderer();
     if (m_overlay_drag_finger >= 0)
     {
         bool still_down = false;
@@ -405,14 +444,10 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
         }
         if (!still_down)
         {
-            if (renderer)
-                renderer->overlayTouchEnd();
+            releaseOverlay();
             m_overlay_drag_finger = -1;
         }
     }
-
-    const float screenScaleX = (float)m_window.width() / (float)SWITCH_TOUCHSCREEN_MAX_X;
-    const float screenScaleY = (float)m_window.height() / (float)SWITCH_TOUCHSCREEN_MAX_Y;
 
     for (int i = 0; i < sw_state.count; i++)
     {
@@ -432,15 +467,14 @@ bool InputManager::readTouchScreen(libchiaking::controllers::ControllerInput& in
 
         if ((int64_t)sw_state.touches[i].finger_id == m_overlay_drag_finger)
         {
-            if (renderer)
-                renderer->overlayTouchMove(rawX * screenScaleX, rawY * screenScaleY);
+            dragOverlay(rawX, rawY);
             ret = true;
             continue;
         }
 
         if (!isTracked && !isPending)
         {
-            if (renderer && renderer->overlayTouchBegin(rawX * screenScaleX, rawY * screenScaleY))
+            if (grabOverlay(rawX, rawY))
             {
                 m_overlay_drag_finger = (int64_t)sw_state.touches[i].finger_id;
                 ret = true;

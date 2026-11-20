@@ -501,8 +501,17 @@ void Session::setVideoPaused(bool paused)
 
 void Session::setConnectionContext(const std::string& context)
 {
+    m_connection_context = context;
     if (akira::platform::VideoRenderer* renderer = m_video->renderer())
         renderer->setConnectionContext(context);
+}
+
+UpscalingSummary Session::upscaling()
+{
+    std::lock_guard lock(m_media_mutex);
+    if (akira::platform::VideoRenderer* renderer = m_video->renderer())
+        return renderer->upscaling();
+    return {};
 }
 
 

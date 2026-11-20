@@ -11,7 +11,7 @@ BOREALIS_CATALOGS = REPOSITORY / "resources" / "i18n"
 ARISA_CATALOGS = REPOSITORY / "resources" / "strings"
 AKIRA_CATALOG_FILES = ("akira.json",)
 DEFAULT_LOCALE = "en-US"
-PLURAL_ONE_SUFFIX = "_one"
+PLURAL_FORMS = ("zero", "one", "two", "few", "many")
 ARISA_LOCALE_IDENTIFIERS = {
     "en-US": "en",
     "en-GB": "en-GB",
@@ -157,6 +157,23 @@ class BorealisCatalog:
         return shown
 
 
+class PluralKey:
+    @staticmethod
+    def split(key):
+        for form in PLURAL_FORMS:
+            suffix = "_" + form
+            if key.endswith(suffix):
+                return key[: -len(suffix)], form
+        return key, None
+
+    @staticmethod
+    def form_of(key, shown):
+        base, form = PluralKey.split(key)
+        if form is None or base not in shown:
+            return None
+        return base, form
+
+
 class ArisaCatalogWriter:
     def __init__(self, shown):
         self.shown = shown
@@ -164,11 +181,13 @@ class ArisaCatalogWriter:
     def entries(self):
         written = {}
         for key in sorted(self.shown):
-            if key.endswith(PLURAL_ONE_SUFFIX) and key[: -len(PLURAL_ONE_SUFFIX)] in self.shown:
+            if PluralKey.form_of(key, self.shown) is not None:
                 continue
-            one = self.shown.get(key + PLURAL_ONE_SUFFIX)
-            if one is not None:
-                written[key] = {"one": one.arisa_pattern(), "other": self.shown[key].arisa_pattern()}
+            forms = {form: self.shown[key + "_" + form].arisa_pattern()
+                     for form in PLURAL_FORMS if key + "_" + form in self.shown}
+            if forms:
+                forms["other"] = self.shown[key].arisa_pattern()
+                written[key] = forms
             else:
                 written[key] = self.shown[key].arisa_pattern()
         return written
@@ -237,10 +256,11 @@ class ArisaCatalogReader:
             if isinstance(entry, dict):
                 return entry["other"]
             return entry
-        if key.endswith(PLURAL_ONE_SUFFIX):
-            base = self.entries.get(key[: -len(PLURAL_ONE_SUFFIX)])
-            if isinstance(base, dict):
-                return base.get("one", base["other"])
+        base, form = PluralKey.split(key)
+        if form is not None:
+            entry = self.entries.get(base)
+            if isinstance(entry, dict):
+                return entry.get(form, entry["other"])
         return None
 
 

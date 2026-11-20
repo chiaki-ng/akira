@@ -75,6 +75,7 @@ public:
 #endif
     void setStreamStats(const play::StreamStats& stats) override { m_stats = stats; }
     float getRenderFPS() const override { return m_render_fps; }
+    auto upscaling() const -> play::UpscalingSummary override;
     void setPaused(bool paused) { m_paused.store(paused, std::memory_order_relaxed); }
     void updateResolution(int width, int height) { m_frame_width = width; m_frame_height = height; }
 

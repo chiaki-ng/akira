@@ -19,7 +19,6 @@
 #include <arisa/composition/overlay_layer.hpp>
 #include <arisa/graphics/gradient.hpp>
 #include <arisa/graphics/shape_style.hpp>
-#include <arisa/presentation/alert.hpp>
 #include <arisa/presentation/presentations.hpp>
 #include <arisa/theme/colour_value.hpp>
 #include <arisa/theme/glass.hpp>
@@ -30,8 +29,10 @@
 #include <chrono>
 #include <format>
 #include <utility>
+#include <vector>
 
 #include "accounts/ui/account_flow.hpp"
+#include "app/arisa/confirmation.hpp"
 #include "app/arisa/header.hpp"
 #include "app/arisa/rail.hpp"
 #include "app/version.hpp"
@@ -77,7 +78,8 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
     const bool connecting = view.phase == ShellModel::Phase::Connecting;
     const bool settings = view.settings && view.phase == ShellModel::Phase::Home;
     composition::Element shell =
-        ending(announced(home(view.page), view.phase == ShellModel::Phase::Streaming), view);
+        ending(announced(home(view.page), view.phase == ShellModel::Phase::Streaming), view,
+            context.namespace_id(endingFocus));
     composition::Element panel = components::Group();
     if (settings)
         panel = settingsPanel(context.environment(components::Environment::theme).glass().panel);
@@ -229,30 +231,37 @@ auto ShellScreen::announced(composition::Element content, bool streaming) const 
     });
 }
 
-auto ShellScreen::ending(composition::Element content, const ShellModel::View& view) const -> composition::Element
+auto ShellScreen::ending(composition::Element content, const ShellModel::View& view, composition::Namespace::ID focus) const
+    -> composition::Element
+{
+    if (!view.ending)
+        return content;
+    return std::move(content).overlay(true, composition::OverlayLayer::dialog, endingCard(*view.ending, focus));
+}
+
+auto ShellScreen::endingCard(const ShellModel::Ending& shown, composition::Namespace::ID focus) const -> composition::Element
 {
     ShellModel* held = model;
     play::ui::StreamCommands* stream = parts->stream;
-    const ShellModel::Ending shown = view.ending.value_or(ShellModel::Ending{});
-    composition::Binding<bool> presented([held] { return held->view().get().ending.has_value(); },
-        [held](bool open) {
-            if (!open)
+    auto dismiss = [held] { held->dismissEnding(); };
+    std::vector<Confirmation::Choice> choices;
+    if (shown.reconnect)
+    {
+        choices.push_back(Confirmation::Choice{ .label = strings->text("akira/stream/no"), .chosen = dismiss, .key = "ending.no" });
+        choices.push_back(Confirmation::Choice{ .label = strings->text("akira/stream/yes"),
+            .chosen = [held, stream] {
                 held->dismissEnding();
-        });
-    return std::move(content).alert(shown.title, std::move(presented),
-        [held, stream, reconnect = shown.reconnect, ok = strings->text("akira/common/ok"),
-            yes = strings->text("akira/stream/yes"), no = strings->text("akira/stream/no")] {
-            if (!reconnect)
-                return composition::Element(components::Button(ok, components::ButtonRole::cancel,
-                    [held] { held->dismissEnding(); }));
-            return composition::Element(components::Group(
-                components::Button(no, components::ButtonRole::cancel, [held] { held->dismissEnding(); }),
-                components::Button(yes, [held, stream] {
-                    held->dismissEnding();
-                    stream->reconnect();
-                })));
-        },
-        [message = shown.message] { return components::Text(message); });
+                stream->reconnect();
+            },
+            .emphasis = Confirmation::Emphasis::Prominent,
+            .key = "ending.yes" });
+    }
+    else
+        choices.push_back(Confirmation::Choice{ .label = strings->text("akira/common/ok"),
+            .chosen = dismiss,
+            .emphasis = Confirmation::Emphasis::Prominent,
+            .key = "ending.ok" });
+    return Confirmation(shown.title, shown.message, std::move(choices), dismiss).focusing(focus).dimmed("ending");
 }
 
 }

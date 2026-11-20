@@ -5,6 +5,7 @@
 #include <arisa/composition/component.hpp>
 #include <arisa/composition/context.hpp>
 #include <arisa/composition/element.hpp>
+#include <arisa/composition/namespace.hpp>
 #include <arisa/theme/glass.hpp>
 
 #include "app/arisa/art_session.hpp"
@@ -55,6 +56,7 @@ public:
     static constexpr float settingsBottom = 50.0F;
     static constexpr float settingsScrim = 0.16F;
     static constexpr float glowOpacity = 0.10F;
+    static constexpr ::arisa::composition::Namespace endingFocus{ "shell-ending" };
 
     ShellScreen(ShellModel& model, Notices& notices, const Parts& parts, const app::Strings& strings);
 
@@ -69,7 +71,9 @@ private:
     auto pageContent(ShellModel::Page shown) const -> ::arisa::composition::Element;
     auto settingsPanel(::arisa::theme::Glass glass) const -> ::arisa::composition::Element;
     auto announced(::arisa::composition::Element content, bool streaming) const -> ::arisa::composition::Element;
-    auto ending(::arisa::composition::Element content, const ShellModel::View& view) const
+    auto ending(::arisa::composition::Element content, const ShellModel::View& view,
+        ::arisa::composition::Namespace::ID focus) const -> ::arisa::composition::Element;
+    auto endingCard(const ShellModel::Ending& shown, ::arisa::composition::Namespace::ID focus) const
         -> ::arisa::composition::Element;
     static auto backdrop() -> ::arisa::composition::Element;
     static auto hints() -> ::arisa::composition::Element;

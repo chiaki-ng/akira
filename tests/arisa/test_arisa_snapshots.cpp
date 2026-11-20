@@ -34,7 +34,9 @@
 #include <vector>
 
 #include "accounts/ui/account_model.hpp"
+#include "app/arisa/confirmation.hpp"
 #include "app/arisa/notices.hpp"
+#include "app/arisa/overlay_palette.hpp"
 #include "app/arisa/shell_model.hpp"
 #include "app/arisa/shell_screen.hpp"
 #include "app/arisa/string_catalog.hpp"
@@ -70,7 +72,11 @@
 #include "play/remap_target.hpp"
 #include "play/stream_settings.hpp"
 #include "play/ui/stream_commands.hpp"
+#include "play/ui/stats_board.hpp"
+#include "play/ui/stats_hud.hpp"
 #include "play/ui/stream_dock.hpp"
+#include "play/stats_hud_placement.hpp"
+#include "play/stats_readout.hpp"
 #include "settings/help_catalog.hpp"
 #include "settings/settings_store.hpp"
 #include "settings/ui/control_options.hpp"
@@ -136,7 +142,12 @@ public:
         sampled.rtt_ms = 12.0F;
         sampled.packet_loss_percent = 0.2F;
         sampled.network_frames_lost = 3;
+        sampled.requested_width = 1920;
+        sampled.requested_height = 1080;
         sampled.requested_fps = 60;
+        sampled.video_width = 1920;
+        sampled.video_height = 1080;
+        sampled.stream_duration_seconds = 754;
         sampled.latency_valid = true;
         sampled.total_ms = 34.0F;
         sampled.net_ms = 12.0F;
@@ -445,6 +456,42 @@ public:
         return components::ZStack(video(), std::move(shown));
     }
 
+    static auto hudSample(bool upscaled) -> akira::play::StatsReadout
+    {
+        akira::play::StreamStats stats = QuietStream().stats();
+        stats.requested_bitrate = 30000;
+        stats.requested_hevc = true;
+        stats.is_hevc = true;
+        stats.is_hardware_decoder = true;
+        stats.frames_recovered = 4;
+        stats.decode_ms = 4.2F;
+        stats.network_frames_lost = 3;
+        akira::play::StatsReadout::Sample sample{ .stats = stats, .decoder = "NVTEGRA", .context = "PS5 \xc2\xb7 Home network" };
+        if (upscaled)
+            sample.upscaling = akira::play::UpscalingSummary{ .active = true, .easu = true, .rcas = true, .sharpness = 0.2F,
+                .inputHeight = 720, .targetHeight = 1080, .displayHeight = 1080 };
+        return akira::play::StatsReadout(std::move(sample));
+    }
+
+    auto hud(akira::play::StatsOverlayMode mode, bool upscaled) -> composition::Element
+    {
+        statsBoard.show(mode);
+        statsBoard.refresh(hudSample(upscaled));
+        statsBoard.place(hudPlacement.origin());
+        return overVideo(akira::play::ui::StatsHud(statsBoard, hudPlacement, akira::app::arisa::OverlayPalette().colours()));
+    }
+
+    void dragHud(akira::play::TouchClaim::Fraction from, akira::play::TouchClaim::Fraction to)
+    {
+        hudPlacement.show(true);
+        if (hudPlacement.grab(from))
+        {
+            hudPlacement.drag(to);
+            hudPlacement.release();
+        }
+        statsBoard.place(hudPlacement.origin());
+    }
+
     void seatCouch()
     {
         couchTable.listed = {
@@ -533,6 +580,8 @@ private:
         add("arisa/fonts/InterVariable.ttf", fonts / "InterVariable.ttf");
         add("arisa/fonts/MaterialSymbolsRounded.ttf", fonts / "MaterialSymbolsRounded.ttf");
         add("arisa/fonts/MaterialSymbolsRoundedFilled.ttf", fonts / "MaterialSymbolsRoundedFilled.ttf");
+        add("arisa/fonts/JetBrainsMono-Regular.ttf", fonts / "JetBrainsMono-Regular.ttf");
+        add("img/chiaking.png", resources / "img" / "chiaking.png");
         add("img/console/ps5.png", resources / "img" / "console" / "ps5.png");
         add("img/console/ps4.png", resources / "img" / "console" / "ps4.png");
         add("img/icon.jpg", resources / "img" / "icon.jpg");
@@ -597,6 +646,8 @@ private:
     std::optional<StringCatalog> strings;
     std::optional<akira::network::ui::NatCheck> nat;
     ShellScreen::Parts parts;
+    akira::play::ui::StatsBoard statsBoard;
+    akira::play::StatsHudPlacement hudPlacement;
     std::optional<runtime::Application> application;
     std::optional<composition::ExclusiveFrame> exclusive;
     std::optional<runtime::OverlayHandle> dockShown;
@@ -690,6 +741,60 @@ TEST(arisa_shot_connecting)
         .console = "Living room", .status = "Requesting the session", .step = 3, .steps = 6 });
     REQUIRE(shots.start(shots.shell()));
     CHECK(shots.write("connecting"));
+}
+
+TEST(arisa_shot_session_ended_alerts)
+{
+    Shots shots;
+    shots.model.ready();
+    shots.showHouse();
+    shots.model.ended(ShellModel::Ending{ .title = "Couldn't connect",
+        .message = "The console didn't answer. Check that it's on and on the same network, then try again." });
+    REQUIRE(shots.start(shots.shell()));
+    CHECK(shots.write("alert_connect_failed"));
+    Shots reconnect;
+    reconnect.model.ready();
+    reconnect.showHouse();
+    reconnect.model.ended(ShellModel::Ending{ .title = "The stream was lost while akira was in the background. Reconnect?",
+        .reconnect = true });
+    REQUIRE(reconnect.start(reconnect.shell()));
+    CHECK(reconnect.focusedWithin("ending.yes"));
+    CHECK(reconnect.write("alert_reconnect"));
+    REQUIRE(reconnect.press("ending.no"));
+    CHECK(!reconnect.model.view().get().ending.has_value());
+    Shots rest;
+    bool turnedOff = false;
+    std::vector<akira::app::arisa::Confirmation::Choice> choices;
+    choices.push_back(akira::app::arisa::Confirmation::Choice{ .label = rest.text().text("akira/stream/keep_on"),
+        .chosen = [] {},
+        .key = "leave-confirm.keep" });
+    choices.push_back(akira::app::arisa::Confirmation::Choice{ .label = rest.text().text("akira/stream/turn_off"),
+        .chosen = [&turnedOff] { turnedOff = true; },
+        .emphasis = akira::app::arisa::Confirmation::Emphasis::Prominent,
+        .key = "leave-confirm.turn-off" });
+    REQUIRE(rest.start(rest.overVideo(akira::app::arisa::Confirmation(rest.text().format("akira/stream/turn_off_title",
+                                                                           std::string("Living room")),
+        rest.text().text("akira/stream/turn_off_message"), std::move(choices), [] {})
+                                          .dimmed("leave-confirm"))));
+    CHECK(rest.write("alert_rest_on_exit"));
+    REQUIRE(rest.press("leave-confirm.turn-off"));
+    CHECK(turnedOff);
+}
+
+TEST(arisa_shot_stats_hud)
+{
+    Shots compact;
+    REQUIRE(compact.start(compact.hud(akira::play::StatsOverlayMode::Compact, false)));
+    CHECK(compact.write("stats_hud_compact"));
+    Shots upscaled;
+    REQUIRE(upscaled.start(upscaled.hud(akira::play::StatsOverlayMode::Compact, true)));
+    CHECK(upscaled.write("stats_hud_compact_fsr"));
+    Shots full;
+    REQUIRE(full.start(full.hud(akira::play::StatsOverlayMode::Full, true)));
+    CHECK(full.write("stats_hud_full"));
+    full.dragHud({ .x = 60.0F / 1280.0F, .y = 60.0F / 720.0F }, { .x = 800.0F / 1280.0F, .y = 420.0F / 720.0F });
+    REQUIRE(full.settle());
+    CHECK(full.write("stats_hud_full_dragged"));
 }
 
 TEST(arisa_shot_settings_pages)

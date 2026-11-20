@@ -1423,6 +1423,12 @@ std::shared_ptr<VulkanRenderer::FsrState> VulkanRenderer::createFsr(const FsrCon
     return std::make_shared<FsrState>(config, std::move(*pool), std::move(*easu), std::move(rcas));
 }
 
+auto VulkanRenderer::upscaling() const -> play::UpscalingSummary
+{
+    std::lock_guard lock(m_fsr_summary_mutex);
+    return m_fsr_summary;
+}
+
 void VulkanRenderer::publishFsrSummary(const FsrState* fsr)
 {
     FsrSummary summary;

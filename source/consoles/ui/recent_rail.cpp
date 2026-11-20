@@ -97,7 +97,7 @@ auto RecentRail::when(const RecentPlay::Title& title, RecentPlay::Clock::time_po
     if (!title.lastUsed)
         return strings->text(title.ps5 ? "akira/hosts/eyebrow_ps5" : "akira/hosts/eyebrow_ps4");
     const RecentPlay::Age age = RecentPlay::age(*title.lastUsed, now);
-    return strings->format(RecentPlay::ageKey(age.span), age.count);
+    return strings->counted(RecentPlay::ageKey(age.span), age.count);
 }
 
 }

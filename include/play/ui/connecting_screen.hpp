@@ -18,6 +18,13 @@ public:
     static constexpr float titleSize = 30.0F;
     static constexpr float titleTracking = -0.7F;
     static constexpr float cardWidth = 420.0F;
+    static constexpr float logoHeight = 70.0F;
+    static constexpr float logoAspect = 2044.0F / 1215.0F;
+    static constexpr float mascotSize = logoHeight * 1.35F;
+    static constexpr float mascotRadius = mascotSize * 0.22F;
+    static constexpr float lockupGap = 22.0F;
+    static constexpr const char* logoImage = "img/chiaking.png";
+    static constexpr const char* mascotImage = "img/icon.jpg";
 
     struct Progress {
         std::string console;
@@ -39,6 +46,7 @@ public:
 
 private:
     auto bar() const -> ::arisa::composition::Element;
+    static auto lockup() -> ::arisa::composition::Element;
 
     Progress progress;
     StreamCommands* commands;

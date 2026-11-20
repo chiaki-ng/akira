@@ -4,6 +4,8 @@
 #include <arisa/components/button_role.hpp>
 #include <arisa/components/button_style.hpp>
 #include <arisa/components/group.hpp>
+#include <arisa/components/hstack.hpp>
+#include <arisa/components/image.hpp>
 #include <arisa/components/panel_radius.hpp>
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
@@ -13,6 +15,7 @@
 #include <arisa/graphics/shape_style.hpp>
 #include <arisa/theme/colour_value.hpp>
 #include <arisa/theme/glass.hpp>
+#include <arisa/theme/shape.hpp>
 #include <arisa/theme/space.hpp>
 #include <arisa/theme/typography.hpp>
 
@@ -64,11 +67,32 @@ auto ConnectingScreen::bar() const -> composition::Element
         .id(composition::ElementKey{ "connecting.progress" });
 }
 
+auto ConnectingScreen::lockup() -> composition::Element
+{
+    return components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::center,
+                                  .spacing = theme::Space{ lockupGap } },
+        components::Image(logoImage)
+            .resizable()
+            .aspect_ratio(std::nullopt, composition::ContentMode::fit)
+            .frame({ .width = logoHeight * logoAspect, .height = logoHeight }),
+        components::Text("\xc3\x97")
+            .font(theme::Font::system(26.0F, theme::Font::Weight::light))
+            .foreground_style(theme::ColourRole::secondary_label),
+        components::Image(mascotImage)
+            .resizable()
+            .aspect_ratio(std::nullopt, composition::ContentMode::fill)
+            .frame({ .width = mascotSize, .height = mascotSize })
+            .clip_shape(theme::Shape::rounded(mascotRadius)))
+        .accessibility_hidden(true)
+        .id(composition::ElementKey{ "connecting.lockup" });
+}
+
 auto ConnectingScreen::body(composition::Context&) const -> composition::Element
 {
     auto cancel = [commands = commands] { commands->cancel(); };
     composition::Element card =
         components::VStack(components::VStackOptions{ .spacing = theme::space::none },
+            lockup().padding(theme::Edge::bottom, theme::Space{ 26.0F }),
             components::Text(strings->text("akira/connection/starting_stream"))
                 .font(theme::Font::system(titleSize, theme::Font::Weight::semibold))
                 .tracking(titleTracking),
@@ -85,7 +109,8 @@ auto ConnectingScreen::body(composition::Context&) const -> composition::Element
                 .id(composition::ElementKey{ "connecting.step" }),
             composition::Element(components::Group()).frame({ .height = 32.0F }),
             components::Button(strings->text("akira/common/cancel"), components::ButtonRole::cancel, cancel)
-                .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
+                .button_style(components::ButtonStyle::plain())
+                .foreground_style(theme::ColourRole::secondary_label)
                 .id(composition::ElementKey{ "connecting.cancel" }))
             .padding(theme::Insets::symmetric(theme::Space{ 56.0F }, theme::Space{ 42.0F }))
             .frame({ .min_width = cardWidth })

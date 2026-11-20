@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -14,13 +15,17 @@
 
 #include "app/services.hpp"
 #include "app/ui_window.hpp"
+#include "platform/video/overlay_palette.hpp"
 #include "play/connect_flow.hpp"
 #include "play/connection.hpp"
 #include "play/couch_table.hpp"
 #include "play/menu_hold.hpp"
+#include "play/stats_hud_placement.hpp"
+#include "play/stats_readout.hpp"
 #include "play/stream_controls.hpp"
 #include "play/ui/couch.hpp"
 #include "play/ui/mapping.hpp"
+#include "play/ui/stats_board.hpp"
 #include "play/ui/stream_commands.hpp"
 #include "settings/ui/control_options.hpp"
 
@@ -49,7 +54,7 @@ public:
 
     StreamDriver(Services& services, ::arisa::runtime::Application& application, Window& window, ShellModel& model,
         Notifier& notifier, settings::ui::ControlOptions& controlOptions, play::ui::Mapping& mapping, Couch couch,
-        std::function<void()> ended);
+        const platform::video::OverlayPalette& palette, std::function<void()> ended);
     ~StreamDriver() override;
 
     StreamDriver(const StreamDriver&) = delete;
@@ -84,6 +89,8 @@ public:
 private:
     using Clock = std::chrono::steady_clock;
 
+    static constexpr std::chrono::milliseconds statsInterval{ 250 };
+
     void open(consoles::Host& host, libchiaking::play::ConsoleHandover handover);
     [[nodiscard]] auto prepareController() -> bool;
     void waitForPads();
@@ -101,7 +108,17 @@ private:
     void openDock(std::optional<play::StreamControls::Control> opening = std::nullopt);
     void closeDock();
     void focusChanged(bool focused);
+    void showHud();
+    void hideHud();
+    void followHud();
+    void adoptHudPosition();
+    void keepHudPosition();
+    auto savedHudPosition() const -> std::optional<play::TouchClaim::Fraction>;
+    auto readout() -> play::StatsReadout;
     void stop();
+    auto offersRest() const -> bool;
+    void askRest();
+    void finishLeave(bool rest);
     static auto launchStep(libchiaking::play::LaunchPhase phase) -> int;
     static auto launchStepKey(int step) -> const char*;
     void fail(const std::string& text, bool reconnect);
@@ -115,6 +132,12 @@ private:
     Couch couch;
     Notifier& notifier;
     std::function<void()> ended;
+    platform::video::OverlayPalette::Colours palette;
+    play::StatsHudPlacement hudPlacement;
+    play::ui::StatsBoard statsBoard;
+    Clock::time_point nextStatsSample{};
+    std::uint64_t hudRevision = 0;
+    bool hudPositionUnsaved = false;
     play::StreamControls controls;
     play::MenuHold menuHold;
     play::ConnectFlow flow;
@@ -136,6 +159,8 @@ private:
     std::optional<::arisa::runtime::InputBlock> padsOwned;
     std::optional<::arisa::composition::ExclusiveFrame> videoOwnsScreen;
     std::optional<::arisa::runtime::OverlayHandle> dock;
+    std::optional<::arisa::runtime::OverlayHandle> hud;
+    std::optional<::arisa::runtime::OverlayHandle> confirmLeave;
     std::optional<::arisa::runtime::OverlayHandle> picker;
     std::optional<::arisa::runtime::OverlayHandle> prompt;
     std::optional<::arisa::runtime::OverlayHandle> passcode;

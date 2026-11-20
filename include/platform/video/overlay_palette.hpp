@@ -9,6 +9,8 @@ public:
         float g;
         float b;
         float a;
+
+        friend bool operator==(const Colour&, const Colour&) = default;
     };
 
     struct Colours {
@@ -19,6 +21,8 @@ public:
         Colour text;
         Colour backgroundDeep;
         Colour media;
+
+        friend bool operator==(const Colours&, const Colours&) = default;
     };
 
     virtual ~OverlayPalette() = default;

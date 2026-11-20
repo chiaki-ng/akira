@@ -1,6 +1,7 @@
 #include "app/arisa/stream_driver.hpp"
 
 #include <arisa/composition/overlay_layer.hpp>
+#include <arisa/motion/transition.hpp>
 #include <arisa/provider/input/buttons.hpp>
 #include <arisa/runtime/overlay_behaviour.hpp>
 
@@ -9,9 +10,11 @@
 #include <utility>
 #include <vector>
 
+#include "app/arisa/confirmation.hpp"
 #include "app/arisa/couch_bridge.hpp"
 #include "app/arisa/shell_model.hpp"
 #include "app/arisa/window.hpp"
+#include "app/app_settings.hpp"
 #include "app/notifier.hpp"
 #include "app/strings.hpp"
 #include "consoles/host.hpp"
@@ -34,7 +37,10 @@
 #include "play/ui/couch_prompt.hpp"
 #include "play/ui/pad_picker.hpp"
 #include "play/ui/seat_passcode.hpp"
+#include "play/ui/stats_hud.hpp"
 #include "play/ui/stream_dock.hpp"
+#include "play/stream_settings.hpp"
+#include "settings/settings_store.hpp"
 
 namespace akira::app::arisa {
 
@@ -44,7 +50,7 @@ namespace runtime = ::arisa::runtime;
 
 StreamDriver::StreamDriver(Services& services, runtime::Application& application, Window& window, ShellModel& model,
     Notifier& notifier, settings::ui::ControlOptions& controlOptions, play::ui::Mapping& mapping, Couch couch,
-    std::function<void()> ended)
+    const platform::video::OverlayPalette& palette, std::function<void()> ended)
     : services(services)
     , application(application)
     , window(window)
@@ -54,14 +60,19 @@ StreamDriver::StreamDriver(Services& services, runtime::Application& application
     , couch(couch)
     , notifier(notifier)
     , ended(std::move(ended))
+    , palette(palette.colours())
 {
 }
 
 StreamDriver::~StreamDriver()
 {
     focusWatch.reset();
+    confirmLeave.reset();
+    hud.reset();
+    if (videoActive)
+        services.session.get().claimTouches(nullptr);
     if (connection)
-        connection->leave(false);
+        connection->leave(sessionStarted && services.appSettings.sleepOnExit() && host && !host->isCloud());
     passcode.reset();
     prompt.reset();
     picker.reset();
@@ -345,6 +356,7 @@ void StreamDriver::tick()
 
     if (!dock && !prompt && !passcode && !picker)
         followMenu();
+    followHud();
     if (couch.table && couch.table->degradedOnce())
         notifier.notify(services.strings.text("akira/settings/analog_triggers_degraded"));
 
@@ -363,10 +375,13 @@ void StreamDriver::enterVideo()
     videoActive = true;
     padsOwned.emplace(application.block_input());
     videoOwnsScreen.emplace(application.exclusive_frame(composition::ExclusiveFrame::Options{
-        .keep = { composition::OverlayLayer::dialog, composition::OverlayLayer::toast },
+        .keep = { composition::OverlayLayer::dialog, composition::OverlayLayer::toast, composition::OverlayLayer::hud },
     }));
     services.platform.display().streaming(true);
     model.streaming();
+    hudPlacement.restore(savedHudPosition());
+    services.session.get().claimTouches(&hudPlacement);
+    showHud();
     log::info("[ARISA] video owns the screen; the main tree is exclusive");
 }
 
@@ -385,6 +400,8 @@ void StreamDriver::openDock(std::optional<play::StreamControls::Control> opening
     session.setVideoPaused(true);
     session.CleanUpHaptic();
     padsOwned.reset();
+    hideHud();
+    keepHudPosition();
     if (couch.model)
         couch.model->refresh();
     const bool players = couch.model && host && !host->isCloud();
@@ -417,7 +434,10 @@ void StreamDriver::closeDock()
     const bool wasOpen = dock.has_value();
     dock.reset();
     if (wasOpen && videoActive && connection)
+    {
         padsOwned.emplace(application.block_input());
+        showHud();
+    }
 }
 
 void StreamDriver::resume()
@@ -430,14 +450,61 @@ void StreamDriver::resume()
     log::info("[ARISA] stream resumed");
 }
 
+auto StreamDriver::offersRest() const -> bool
+{
+    return sessionStarted && services.appSettings.sleepOnExit() && host && !host->isCloud() && controls.offersSleep();
+}
+
 void StreamDriver::leave(bool rest)
 {
+    if (!connection || confirmLeave)
+        return;
+    if (!rest && offersRest())
+    {
+        askRest();
+        return;
+    }
+    finishLeave(rest);
+}
+
+void StreamDriver::askRest()
+{
+    const std::string console = host ? host->getHostName() : lastConsole;
+    std::vector<Confirmation::Choice> choices;
+    choices.push_back(Confirmation::Choice{ .label = services.strings.text("akira/stream/keep_on"),
+        .chosen = [weak = weak_from_this()] {
+            if (const auto self = weak.lock())
+                self->finishLeave(false);
+        },
+        .key = "leave-confirm.keep" });
+    choices.push_back(Confirmation::Choice{ .label = services.strings.text("akira/stream/turn_off"),
+        .chosen = [weak = weak_from_this()] {
+            if (const auto self = weak.lock())
+                self->finishLeave(true);
+        },
+        .emphasis = Confirmation::Emphasis::Prominent,
+        .key = "leave-confirm.turn-off" });
+    confirmLeave.emplace(modal(Confirmation(services.strings.format("akira/stream/turn_off_title", console),
+        services.strings.text("akira/stream/turn_off_message"), std::move(choices),
+        [weak = weak_from_this()] {
+            if (const auto self = weak.lock())
+                self->confirmLeave.reset();
+        })
+                                   .dimmed("leave-confirm")));
+    log::info("[ARISA] asking whether {} should rest", console);
+}
+
+void StreamDriver::finishLeave(bool rest)
+{
+    confirmLeave.reset();
     if (!connection)
         return;
     log::info("[ARISA] leaving the stream, rest={}", rest);
+    const std::string console = host ? host->getHostName() : lastConsole;
     intentionalDisconnect = true;
     connection->leave(rest);
     stop();
+    notifier.notify(services.strings.format(rest ? "akira/stream/going_to_rest" : "akira/stream/disconnected_from", console));
 }
 
 void StreamDriver::cancel()
@@ -448,6 +515,7 @@ void StreamDriver::cancel()
     intentionalDisconnect = true;
     connection->leave(false);
     stop();
+    notifier.notify(services.strings.text("akira/connection/cancelled"));
 }
 
 void StreamDriver::reconnect()
@@ -472,6 +540,96 @@ void StreamDriver::showStats(play::StatsOverlayMode mode)
 {
     services.session.get().setStatsOverlayMode(mode);
     controls.showStats(mode);
+    statsBoard.show(mode);
+}
+
+auto StreamDriver::savedHudPosition() const -> std::optional<play::TouchClaim::Fraction>
+{
+    const float x = services.stream.statsOverlayX();
+    const float y = services.stream.statsOverlayY();
+    if (x < 0.0f || y < 0.0f)
+        return std::nullopt;
+    return play::TouchClaim::Fraction{ .x = x, .y = y };
+}
+
+auto StreamDriver::readout() -> play::StatsReadout
+{
+    play::Session& session = services.session.get();
+    std::optional<std::string> tunnel;
+    if (services.wireGuard.isConnected())
+        tunnel = services.wireGuard.getTunnelIP();
+    return play::StatsReadout(play::StatsReadout::Sample{
+        .stats = session.getStreamStats(),
+        .upscaling = session.upscaling(),
+        .decoder = std::string(session.video().decoderStat()),
+        .context = session.connectionContext(),
+        .tunnel = std::move(tunnel),
+    });
+}
+
+void StreamDriver::showHud()
+{
+    const play::StatsOverlayMode mode = services.session.get().getStatsOverlayMode();
+    statsBoard.show(mode);
+    if (mode == play::StatsOverlayMode::Off || hud || dock || !videoActive)
+        return;
+    statsBoard.refresh(readout());
+    statsBoard.place(hudPlacement.origin());
+    nextStatsSample = Clock::now() + statsInterval;
+    hud.emplace(application.root().overlays().show(composition::OverlayLayer::hud,
+        play::ui::StatsHud(statsBoard, hudPlacement, palette),
+        runtime::OverlayBehaviour{
+            .input = composition::OverlayInput::passthrough,
+            .alignment = composition::Alignment::top_leading,
+            .transition = ::arisa::motion::Transition::opacity(),
+        }));
+    hudPlacement.show(true);
+    log::info("[ARISA] stats HUD shown");
+}
+
+void StreamDriver::hideHud()
+{
+    if (!hud)
+        return;
+    hud.reset();
+    hudPlacement.show(false);
+}
+
+void StreamDriver::followHud()
+{
+    if (!hud)
+        return;
+    const Clock::time_point now = Clock::now();
+    if (now >= nextStatsSample)
+    {
+        statsBoard.refresh(readout());
+        nextStatsSample = now + statsInterval;
+    }
+    if (const std::uint64_t revision = hudPlacement.revision(); revision != hudRevision)
+    {
+        hudRevision = revision;
+        statsBoard.place(hudPlacement.origin());
+    }
+    adoptHudPosition();
+}
+
+void StreamDriver::adoptHudPosition()
+{
+    if (const std::optional<play::TouchClaim::Fraction> settled = hudPlacement.takeSettled())
+    {
+        services.stream.setStatsOverlayPosition(settled->x, settled->y);
+        hudPositionUnsaved = true;
+    }
+}
+
+void StreamDriver::keepHudPosition()
+{
+    adoptHudPosition();
+    if (!hudPositionUnsaved)
+        return;
+    hudPositionUnsaved = false;
+    services.store.save();
+    log::info("[ARISA] stats HUD position saved");
 }
 
 auto StreamDriver::stats() -> play::StreamStats
@@ -506,6 +664,7 @@ void StreamDriver::focusChanged(bool focused)
 
 void StreamDriver::stop()
 {
+    confirmLeave.reset();
     closeDock();
     passcode.reset();
     prompt.reset();
@@ -515,6 +674,10 @@ void StreamDriver::stop()
         couch.model->reset();
     if (couch.table)
         couch.table->detach();
+    hideHud();
+    keepHudPosition();
+    if (videoActive)
+        services.session.get().claimTouches(nullptr);
     videoOwnsScreen.reset();
     padsOwned.reset();
     if (videoActive)

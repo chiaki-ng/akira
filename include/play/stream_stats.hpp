@@ -67,6 +67,8 @@ struct StreamStats
     bool analog_triggers_active = false;
     uint8_t analog_l2 = 0;
     uint8_t analog_r2 = 0;
+
+    friend bool operator==(const StreamStats&, const StreamStats&) = default;
 };
 
 }

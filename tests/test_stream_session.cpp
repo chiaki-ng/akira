@@ -154,6 +154,18 @@ TEST(stream_summary_grades_loss_and_formats_meta)
     CHECK(StreamSummary(stats).health() == StreamSummary::Health::Poor);
 }
 
+TEST(stream_summary_never_shows_a_zero_resolution)
+{
+    akira::play::StreamStats stats;
+    stats.requested_fps = 60;
+    stats.stream_duration_seconds = 7;
+    CHECK_EQ(StreamSummary(stats).meta(), std::string("60 fps \xc2\xb7 0m07s"));
+    stats.requested_fps = 0;
+    CHECK_EQ(StreamSummary(stats).meta(), std::string("0m07s"));
+    stats.video_height = 1080;
+    CHECK_EQ(StreamSummary(stats).meta(), std::string("1080p \xc2\xb7 0m07s"));
+}
+
 TEST(paused_frame_blurs_and_drops_pixels)
 {
     std::vector<std::uint8_t> pixels(16 * 16 * 4, 0);

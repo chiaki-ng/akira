@@ -150,7 +150,7 @@ Status Service::statusOf(const Catalog& catalog, PlusMembership plusMembership) 
     }
 
     status.availability = Availability::CatalogAvailable;
-    status.title = strings.format("akira/cloud/status_catalog_title", status.gameCount);
+    status.title = strings.counted("akira/cloud/status_catalog_title", status.gameCount);
     status.detail = strings.text("akira/cloud/status_catalog_detail");
     status.canBrowse = true;
     return status;

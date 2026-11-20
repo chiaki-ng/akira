@@ -154,7 +154,9 @@
     "badge_unavailable": "Unavailable",
     "badge_unverified": "Not verified",
     "card_count": "{} games available",
+    "card_count_one": "{} game available",
     "count_all": "{} games",
+    "count_all_one": "{} game",
     "count_filtered": "{} of {}",
     "card_link": "Link your PSN account",
     "card_relink": "Session expired. Sign in again.",
@@ -183,8 +185,10 @@
     "status_checking_title": "Checking cloud",
     "status_checking_detail": "Refreshing your cloud catalog and access state.",
     "status_ready_title": "{} cloud games ready",
+    "status_ready_title_one": "{} cloud game ready",
     "status_ready_detail": "Open your catalog and start a stream straight from Akira.",
     "status_catalog_title": "{} cloud games in the catalog",
+    "status_catalog_title_one": "{} cloud game in the catalog",
     "status_catalog_detail": "Your catalog is available. Sony verifies PlayStation Plus Premium access for each game when you start it.",
     "status_subscription_title": "PlayStation Plus Premium required",
     "status_subscription_detail": "You can browse the catalog, but this account cannot start cloud streams without a PlayStation Plus tier that includes game streaming.",
@@ -508,7 +512,8 @@
     "fail_crash": "Remote Play crashed on the console",
     "starting_stream": "Starting your stream",
     "step_of": "Step {} of {}",
-    "login_pin_needed": "This console asks for its login PIN. Save it under Console PIN in the console's options."
+    "login_pin_needed": "This console asks for its login PIN. Save it under Console PIN in the console's options.",
+    "cancelled": "Cancelled"
   },
   "stream": {
     "started": "Stream started successfully",
@@ -547,7 +552,13 @@
     "quit_remote_shutdown": "Remote shutdown",
     "quit_psn_regist_failed": "PSN registration failed",
     "ps4_console_unregistered": "PS4 Console Unregistered\n\nCan't proceed. Register your main PS4 locally with this profile first.",
-    "quit_unknown": "Unknown error (code: {})"
+    "quit_unknown": "Unknown error (code: {})",
+    "turn_off_title": "Turn off {}?",
+    "turn_off_message": "Sleep Console on Exit is on.",
+    "keep_on": "Keep On",
+    "turn_off": "Turn Off",
+    "disconnected_from": "Disconnected from {}",
+    "going_to_rest": "{} is going to rest mode"
   },
   "stream_menu": {
     "title": "Stream Menu",

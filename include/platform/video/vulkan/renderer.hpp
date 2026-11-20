@@ -71,6 +71,7 @@ public:
     bool takeOverlayPositionDirty() override;
 #endif
     float getRenderFPS() const override { return m_render_fps.load(std::memory_order_relaxed); }
+    auto upscaling() const -> play::UpscalingSummary override;
     void setPaused(bool paused) override { m_paused.store(paused, std::memory_order_relaxed); }
 #if AKIRA_STATS_OVERLAY
     void setConnectionContext(const std::string& context) override;
@@ -280,17 +281,7 @@ private:
         std::array<std::uint32_t, 4> rcasConstants{};
     };
 
-    struct FsrSummary
-    {
-        bool active = false;
-        bool easu = false;
-        bool rcas = false;
-        bool supersampling = false;
-        float sharpness = 0.2f;
-        int inputHeight = 0;
-        int targetHeight = 0;
-        int displayHeight = 0;
-    };
+    using FsrSummary = play::UpscalingSummary;
 
     class FsrState
     {
@@ -522,7 +513,7 @@ private:
     int m_configured_width = 0;
     int m_configured_height = 0;
 
-    std::mutex m_fsr_summary_mutex;
+    mutable std::mutex m_fsr_summary_mutex;
     FsrSummary m_fsr_summary;
 
     std::mutex m_frame_mutex;

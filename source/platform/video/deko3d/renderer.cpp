@@ -83,6 +83,22 @@ void Deko3dRenderer::setConnectionContext(const std::string& context)
 }
 #endif
 
+auto Deko3dRenderer::upscaling() const -> play::UpscalingSummary
+{
+    if (!m_fsr_enabled)
+        return {};
+    return play::UpscalingSummary{
+        .active = true,
+        .easu = m_easu_enabled,
+        .rcas = m_rcas_enabled,
+        .supersampling = m_fsr_supersampling,
+        .sharpness = m_fsr_sharpness,
+        .inputHeight = m_frame_height,
+        .targetHeight = m_easu_enabled ? m_fsr_target_height : m_display_height,
+        .displayHeight = m_display_height,
+    };
+}
+
 Deko3dRenderer::Deko3dRenderer(GpuHost& gpu, std::unique_ptr<ShaderSource> shaders, std::string decoderLabel,
     play::StreamSettings& stream, const play::StreamState& streamState, const network::WireGuardManager& wireGuard,
     const video::OverlayPalette& palette)

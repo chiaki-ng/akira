@@ -393,7 +393,7 @@ auto GamePage::rating(const GameDetail::Rating& rated) const -> composition::Ele
                                .spacing = theme::Space{ 4.0F } },
             components::Text(rated.averageText).font(theme::Font::system(40.0F)).font_weight(theme::Font::Weight::semibold),
             components::HStack(components::HStackOptions{ .spacing = theme::Space{ 2.0F } }, std::move(stars)),
-            components::Text(strings->format("akira/cloud/rating_count", rated.count))
+            components::Text(strings->counted("akira/cloud/rating_count", rated.count))
                 .font(theme::Font::footnote)
                 .foreground_style(theme::ColourRole::secondary_label)),
         components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,

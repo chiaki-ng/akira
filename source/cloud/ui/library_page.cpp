@@ -88,7 +88,7 @@ auto LibraryPage::toolbar(const CloudModel::View& view) const -> composition::El
     {
         const std::string count = view.games.size() != view.listed
             ? strings->format("akira/cloud/count_filtered", view.games.size(), view.listed)
-            : strings->format("akira/cloud/count_all", view.listed);
+            : strings->counted("akira/cloud/count_all", view.listed);
         row.push_back(components::Text(count).font(theme::Font::subheadline).foreground_style(theme::ColourRole::secondary_label));
     }
     row.push_back(components::Spacer());

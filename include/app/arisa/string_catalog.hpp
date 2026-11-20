@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 
@@ -20,6 +21,9 @@ public:
 
     auto text(std::string_view key) const -> std::string override;
     auto loaded() const -> bool;
+
+protected:
+    auto pattern(std::string_view key, std::int64_t count) const -> std::string override;
 
 private:
     static auto load(const ::arisa::provider::AssetProvider& assets) -> ::arisa::text::StringCatalog;
