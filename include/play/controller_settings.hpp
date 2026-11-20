@@ -55,6 +55,11 @@ public:
     void setButtonMapping(const ButtonMapping& value) { mapping = value; }
     static ButtonMapping defaultButtonMapping();
 
+    bool touchpadEnabled() const { return touchpad; }
+    bool swipeUpEnabled() const { return swipeUp; }
+    bool swipeDownEnabled() const { return swipeDown; }
+    bool swipeLeftEnabled() const { return swipeLeft; }
+    bool swipeRightEnabled() const { return swipeRight; }
     void setTouchpadEnabled(bool enabled) { touchpad = enabled; }
     void setSwipeUpEnabled(bool enabled) { swipeUp = enabled; }
     void setSwipeDownEnabled(bool enabled) { swipeDown = enabled; }

@@ -68,6 +68,8 @@ public:
     void setRcasEnabled(bool enabled) { rcas = enabled; }
     float rcasSharpness() const { return sharpness; }
     void setRcasSharpness(float value) { sharpness = value; }
+    int rcasStrength() const;
+    void setRcasStrength(int percent);
 
     bool ditheringEnabled() const { return dithering; }
     void setDitheringEnabled(bool enabled) { dithering = enabled; }

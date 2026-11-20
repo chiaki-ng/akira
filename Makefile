@@ -153,6 +153,7 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/settings/settings_store.cpp \
                 $(CURDIR)/source/settings/developer_settings.cpp \
                 $(CURDIR)/source/play/stream_settings.cpp \
+                $(CURDIR)/source/play/picture_profile.cpp \
                 $(CURDIR)/source/play/controller_settings.cpp \
                 $(CURDIR)/source/cloud/cloud_settings.cpp \
                 $(CURDIR)/source/cloud/saved_datacenters.cpp \

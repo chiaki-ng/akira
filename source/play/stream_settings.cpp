@@ -2,6 +2,7 @@
 #include "settings/settings_store.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <string>
 
 namespace akira::play {
@@ -196,6 +197,16 @@ void StreamSettings::setFsrTarget(StreamProfile profile, int height)
         case StreamProfile::Cloud:
         default: break;
     }
+}
+
+int StreamSettings::rcasStrength() const
+{
+    return std::clamp(static_cast<int>(std::lround((1.0f - sharpness / 2.0f) * 100.0f)), 0, 100);
+}
+
+void StreamSettings::setRcasStrength(int percent)
+{
+    sharpness = (1.0f - static_cast<float>(std::clamp(percent, 0, 100)) / 100.0f) * 2.0f;
 }
 
 int StreamSettings::upscaleTargetHeight(StreamProfile profile, VideoResolution resolution) const
