@@ -1,6 +1,7 @@
 #include "cloud/models.hpp"
 
 #include <format>
+#include <string>
 
 namespace akira::cloud {
 
@@ -33,6 +34,13 @@ std::string Game::countdown(int64_t seconds)
 std::string Game::artworkUrl() const
 {
     return !landscapeImageUrl.empty() ? landscapeImageUrl : imageUrl;
+}
+
+std::string Game::sizedArt(const std::string& url, int width)
+{
+    if (width > 0 && url.find('?') == std::string::npos && url.starts_with("https://image.api.playstation.com/"))
+        return url + "?w=" + std::to_string(width);
+    return url;
 }
 
 int Catalog::launchableCount() const

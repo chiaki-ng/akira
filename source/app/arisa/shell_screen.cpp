@@ -36,6 +36,10 @@
 #include "app/arisa/rail.hpp"
 #include "app/version.hpp"
 #include "consoles/ui/console_grid.hpp"
+#include "trophies/ui/trophies_screen.hpp"
+#if AKIRA_CLOUD
+#include "cloud/ui/cloud_screen.hpp"
+#endif
 #include "play/ui/connecting_screen.hpp"
 #include "settings/ui/settings_screen.hpp"
 
@@ -73,7 +77,7 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
     const bool connecting = view.phase == ShellModel::Phase::Connecting;
     const bool settings = view.settings && view.phase == ShellModel::Phase::Home;
     composition::Element shell =
-        ending(announced(home(), view.phase == ShellModel::Phase::Streaming), view);
+        ending(announced(home(view.page), view.phase == ShellModel::Phase::Streaming), view);
     composition::Element panel = components::Group();
     if (settings)
         panel = settingsPanel(context.environment(components::Environment::theme).glass().panel);
@@ -86,16 +90,19 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
     composition::Element flow = components::Group();
     if (onboarding)
         flow = accounts::ui::AccountFlow(*profiles, *strings);
-    return std::move(shell)
-        .overlay(settings, composition::OverlayLayer::sheet, std::move(panel))
-        .overlay(connecting, composition::OverlayLayer::sheet, std::move(loading))
-        .overlay(onboarding, composition::OverlayLayer::sheet, std::move(flow));
+    composition::Element shown = std::move(shell)
+                                     .overlay(settings, composition::OverlayLayer::sheet, std::move(panel))
+                                     .overlay(connecting, composition::OverlayLayer::sheet, std::move(loading))
+                                     .overlay(onboarding, composition::OverlayLayer::sheet, std::move(flow));
+    if (parts->art)
+        return std::move(shown).async_image_url_session(parts->art->session());
+    return shown;
 }
 
-auto ShellScreen::home() const -> composition::Element
+auto ShellScreen::home(ShellModel::Page shown) const -> composition::Element
 {
     return components::ZStack(components::ZStackOptions{ .alignment = composition::Alignment::top_leading },
-        backdrop(), page(), composition::Element(Rail(*model, *strings))
+        backdrop(), page(shown), composition::Element(Rail(*model, *strings))
             .padding(theme::Space{ Rail::inset })
             .frame({ .max_height = composition::infinity, .alignment = composition::Alignment::top_leading }),
         hints());
@@ -115,14 +122,13 @@ auto ShellScreen::backdrop() -> composition::Element
         .id(composition::ElementKey{ "shell.backdrop" });
 }
 
-auto ShellScreen::page() const -> composition::Element
+auto ShellScreen::page(ShellModel::Page shown) const -> composition::Element
 {
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ pageSpacing } },
-        Header(strings->text("akira/tabs/consoles")),
-        composition::Element(consoles::ui::ConsoleGrid(*parts->shelf, *parts->consoles, *strings))
-            .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
-                .alignment = composition::Alignment::top_leading }))
+        Header(pageTitle(shown)),
+        pageContent(shown).frame({ .max_width = composition::infinity, .max_height = composition::infinity,
+            .alignment = composition::Alignment::top_leading }))
         .padding(theme::Insets{ .top = theme::Space{ pageTop },
             .leading = theme::Space{ pageLeading },
             .bottom = theme::Space{ pageBottom },
@@ -130,6 +136,30 @@ auto ShellScreen::page() const -> composition::Element
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
             .alignment = composition::Alignment::top_leading })
         .id(composition::ElementKey{ "shell.page" });
+}
+
+auto ShellScreen::pageTitle(ShellModel::Page shown) const -> std::string
+{
+    switch (shown)
+    {
+        case ShellModel::Page::Cloud: return strings->text("akira/cloud/card_title");
+        case ShellModel::Page::Trophies: return strings->text("akira/tabs/trophies");
+        case ShellModel::Page::Consoles: break;
+    }
+    return strings->text("akira/tabs/consoles");
+}
+
+auto ShellScreen::pageContent(ShellModel::Page shown) const -> composition::Element
+{
+#if AKIRA_CLOUD
+    if (shown == ShellModel::Page::Cloud && parts->cloud)
+        return composition::Element(cloud::ui::CloudScreen(*parts->cloud, *strings)).id(composition::ElementKey{ "shell.cloud" });
+#endif
+    if (shown == ShellModel::Page::Trophies && parts->trophies)
+        return composition::Element(trophies::ui::TrophiesScreen(*parts->trophies, *strings))
+            .id(composition::ElementKey{ "shell.trophies" });
+    return composition::Element(consoles::ui::ConsoleGrid(*parts->shelf, *parts->consoles, parts->recent, *strings))
+        .id(composition::ElementKey{ "shell.consoles" });
 }
 
 auto ShellScreen::hints() -> composition::Element

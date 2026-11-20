@@ -29,6 +29,7 @@
 #include "consoles/ui/console_card.hpp"
 #include "consoles/ui/console_field_sheet.hpp"
 #include "consoles/ui/pin_pad.hpp"
+#include "consoles/ui/recent_rail.hpp"
 #include "consoles/ui/registration_progress.hpp"
 
 namespace akira::consoles::ui {
@@ -39,15 +40,21 @@ namespace provider = ::arisa::provider;
 namespace theme = ::arisa::theme;
 
 ConsoleGrid::ConsoleGrid(ConsoleShelf& shelf, ConsoleCommands& commands, const app::Strings& strings)
+    : ConsoleGrid(shelf, commands, nullptr, strings)
+{
+}
+
+ConsoleGrid::ConsoleGrid(ConsoleShelf& shelf, ConsoleCommands& commands, RecentShelf* recent, const app::Strings& strings)
     : shelf(&shelf)
     , commands(&commands)
+    , recent(recent)
     , strings(&strings)
 {
 }
 
 bool ConsoleGrid::operator==(const ConsoleGrid& other) const
 {
-    return shelf == other.shelf && commands == other.commands && strings == other.strings;
+    return shelf == other.shelf && commands == other.commands && recent == other.recent && strings == other.strings;
 }
 
 auto ConsoleGrid::columnsFor(float width, std::size_t cards) -> int
@@ -94,7 +101,12 @@ auto ConsoleGrid::content(const ConsoleShelf::View& view, float width) const -> 
             addButton())
             .frame({ .max_width = composition::infinity, .min_height = emptyHeight })
             .id(composition::ElementKey{ "consoles.empty" });
-    return grid(view.cards, width);
+    if (!recent)
+        return grid(view.cards, width);
+    return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                                  .spacing = theme::Space{ recentGap } },
+        grid(view.cards, width), RecentRail(*recent, *commands, *strings))
+        .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::leading });
 }
 
 auto ConsoleGrid::grid(const std::vector<ConsoleShelf::Card>& cards, float width) const -> composition::Element

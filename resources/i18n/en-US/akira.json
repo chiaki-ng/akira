@@ -105,7 +105,20 @@
     "eyebrow_ps4": "PLAYSTATION 4",
     "route_local": "Home network",
     "route_remote": "Internet",
-    "route_manual": "Manual address"
+    "route_manual": "Manual address",
+    "recent_title": "Recently played on {}",
+    "recent_today": "Today",
+    "recent_yesterday": "Yesterday",
+    "recent_days": "{} days ago",
+    "recent_weeks": "{} weeks ago",
+    "recent_months": "{} months ago",
+    "recent_years": "{} years ago",
+    "recent_starting": "Starting {}",
+    "recent_start_failed": "{} could not start",
+    "recent_days_one": "{} day ago",
+    "recent_weeks_one": "{} week ago",
+    "recent_months_one": "{} month ago",
+    "recent_years_one": "{} year ago"
   },
   "cloud": {
     "title": "Cloud Library",
@@ -408,7 +421,8 @@
     "played_minutes_ago": "{}m ago",
     "played_hours_ago": "{}h ago",
     "played_days_ago": "{}d ago",
-    "disabled_for_profile": "Trophies are disabled for this profile"
+    "disabled_for_profile": "Trophies are disabled for this profile",
+    "percent_complete": "{}% complete"
   },
   "add_host": {
     "title": "Add PlayStation Console",

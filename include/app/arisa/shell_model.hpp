@@ -12,6 +12,7 @@ namespace akira::app::arisa {
 class ShellModel {
 public:
     enum class Phase { Starting, Home, Connecting, Streaming };
+    enum class Page { Consoles, Cloud, Trophies };
 
     struct Ending {
         std::string title;
@@ -26,6 +27,9 @@ public:
         play::ui::ConnectingScreen::Progress progress;
         std::optional<Ending> ending;
         bool settings = false;
+        Page page = Page::Consoles;
+        bool cloudOffered = false;
+        bool trophiesOffered = false;
 
         friend bool operator==(const View&, const View&) = default;
     };
@@ -40,6 +44,8 @@ public:
     void ended(Ending ending);
     void dismissEnding();
     void showSettings(bool shown);
+    void show(Page page);
+    void offer(bool cloud, bool trophies);
 
 private:
     ::arisa::composition::Observable<View> state;

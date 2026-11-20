@@ -4,6 +4,7 @@
 
 #include <arisa/runtime/application_options.hpp>
 
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -168,10 +169,7 @@ void App::buildScreens()
     });
     mapping.emplace(services.controllers, services.store, *controls, *capture);
     CrashReport::stage("arisa accounts");
-    desk.emplace(services, notices, [this] {
-        if (consoleOperations)
-            consoleOperations->refresh();
-    });
+    desk.emplace(services, notices, [this] { profileChanged(); });
     accountModel.emplace(accounts::ui::AccountModel::Parts{
         .desk = *desk,
         .notifier = notices,
@@ -198,11 +196,13 @@ void App::buildScreens()
             },
         });
     CrashReport::stage("arisa discovery");
-    consoleOperations.emplace(services, shelf, notices, [this](consoles::Host& host) { driver->start(host); },
+    consoleOperations.emplace(services, shelf, recent, notices, [this](consoles::Host& host) { driver->start(host); },
         [this] {
             if (accountModel)
                 accountModel->welcome(false, accountModel->view().get().entries.empty());
         });
+    CrashReport::stage("arisa pages");
+    buildPages();
     parts = ShellScreen::Parts{
         .shelf = &shelf,
         .consoles = &*consoleOperations,
@@ -217,11 +217,59 @@ void App::buildScreens()
             .accounts = &*accountModel,
             .logs = &*logs,
         },
+        .art = &*artSession,
+        .recent = &recent,
+        .trophies = &*trophyModel,
+#if AKIRA_CLOUD
+        .cloud = &*cloudModel,
+#endif
     };
+    offerPages();
     CrashReport::stage("arisa shell ready");
     accountModel->reload();
     model.ready();
     accountModel->openIfEmpty();
+}
+
+void App::buildPages()
+{
+    Services& services = graph->services();
+    art.emplace(services.http, services.dispatcher);
+    artSession.emplace(*art);
+    trophyDesk.emplace(services);
+    trophyModel.emplace(*trophyDesk, notices, services.strings);
+#if AKIRA_CLOUD
+    cloudDesk.emplace(
+        services,
+        [this](std::shared_ptr<consoles::Host> host) {
+            if (driver)
+                driver->startCloud(std::move(host));
+        },
+        [this] {
+            if (accountModel)
+                accountModel->startQr();
+        });
+    cloudModel.emplace(*cloudDesk, notices, services.strings);
+#endif
+}
+
+void App::profileChanged()
+{
+    if (consoleOperations)
+        consoleOperations->refresh();
+    if (trophyModel)
+        trophyModel->reset();
+    offerPages();
+}
+
+void App::offerPages()
+{
+#if AKIRA_CLOUD
+    constexpr bool cloud = true;
+#else
+    constexpr bool cloud = false;
+#endif
+    model.offer(cloud, graph->services().accounts.activeProfileTrophiesEnabled());
 }
 
 void App::buildCouch()
@@ -284,6 +332,13 @@ bool App::frame()
     window->tick();
     if (driver)
         driver->tick();
+    const auto now = std::chrono::steady_clock::now();
+    if (trophyModel)
+        trophyModel->tick(now);
+#if AKIRA_CLOUD
+    if (cloudModel)
+        cloudModel->tick(now);
+#endif
     return !quitting && !appletMainLoop();
 }
 
@@ -301,6 +356,12 @@ int App::run()
     if (!ran)
         log::error("[ARISA] the frame loop stopped: {}", ran.error().explanation());
 
+#if AKIRA_CLOUD
+    cloudModel.reset();
+    cloudDesk.reset();
+#endif
+    trophyModel.reset();
+    trophyDesk.reset();
     consoleOperations.reset();
     driver.reset();
     couch.reset();

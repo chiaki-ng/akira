@@ -724,9 +724,8 @@ void Service::detailsOf(const Game& game, const platform::StopToken& stop, Detai
 
 auto Service::sizedImage(const std::string& url, int width) -> std::optional<catalog::ImageRef>
 {
-    if (width > 0 && url.find('?') == std::string::npos && url.starts_with("https://image.api.playstation.com/"))
-        if (auto sized = catalog::ImageRef::at(url + "?w=" + std::to_string(width)))
-            return sized;
+    if (auto sized = catalog::ImageRef::at(Game::sizedArt(url, width)))
+        return sized;
     return catalog::ImageRef::at(url);
 }
 

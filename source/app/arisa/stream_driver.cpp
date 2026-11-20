@@ -528,6 +528,7 @@ void StreamDriver::stop()
     controllerReady = false;
     session.FreeVideo();
     host = nullptr;
+    owned.reset();
     menuHold = play::MenuHold();
     model.home();
     if (ended)
@@ -551,8 +552,51 @@ void StreamDriver::onConnectProgress(const libchiaking::play::ConnectProgress& p
     flow.follow(progress.step, progress.reconnecting);
 }
 
-void StreamDriver::onLaunchProgress(const libchiaking::play::LaunchProgress&)
+void StreamDriver::startCloud(std::shared_ptr<consoles::Host> target)
 {
+    if (!target || connection || waitingForPads || picker)
+        return;
+    owned = std::move(target);
+    start(*owned);
+    if (!connection && !waitingForPads)
+        owned.reset();
+}
+
+auto StreamDriver::launchStep(libchiaking::play::LaunchPhase phase) -> int
+{
+    switch (phase)
+    {
+        case libchiaking::play::LaunchPhase::starting: return 1;
+        case libchiaking::play::LaunchPhase::preparing: return 2;
+        case libchiaking::play::LaunchPhase::finding_server: return 3;
+        case libchiaking::play::LaunchPhase::connecting: return 4;
+    }
+    return 1;
+}
+
+auto StreamDriver::launchStepKey(int step) -> const char*
+{
+    switch (step)
+    {
+        case 2: return "akira/cloud/start_preparing";
+        case 3: return "akira/cloud/start_finding_server";
+        case 4: return "akira/cloud/start_connecting";
+        default: break;
+    }
+    return "akira/cloud/start_checking";
+}
+
+void StreamDriver::onLaunchProgress(const libchiaking::play::LaunchProgress& progress)
+{
+    if (!connection)
+        return;
+    const int step = launchStep(progress.phase());
+    std::string status = services.strings.text(launchStepKey(step));
+    if (step <= 3)
+        if (const auto queue = progress.queue_position())
+            status = services.strings.format("akira/cloud/start_queued", *queue);
+    model.stage(play::ui::ConnectingScreen::Progress{
+        .console = host ? host->getHostName() : lastConsole, .status = std::move(status), .step = step, .steps = 4 });
 }
 
 void StreamDriver::onPlaying()

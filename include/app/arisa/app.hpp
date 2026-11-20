@@ -12,6 +12,7 @@
 #include <arisa/provider/standard/directory_storage.hpp>
 #include <arisa/runtime/application.hpp>
 
+#include "app/arisa/art_session.hpp"
 #include "app/arisa/couch_bridge.hpp"
 #include "app/arisa/dispatcher.hpp"
 #include "app/arisa/gpu.hpp"
@@ -19,6 +20,11 @@
 #include "app/arisa/pad_capture.hpp"
 #include "app/arisa/pad_workbench.hpp"
 #include "app/arisa/profile_desk.hpp"
+#include "app/arisa/psn_trophy_desk.hpp"
+#if AKIRA_CLOUD
+#include "app/arisa/psn_cloud_desk.hpp"
+#include "cloud/ui/cloud_model.hpp"
+#endif
 #include "app/arisa/upkeep.hpp"
 #include "app/arisa/wireguard_tunnel.hpp"
 #include "app/arisa/overlay_palette.hpp"
@@ -29,9 +35,11 @@
 #include "app/arisa/theme_packs.hpp"
 #include "app/arisa/window.hpp"
 #include "accounts/ui/account_model.hpp"
+#include "app/game_art.hpp"
 #include "app/service_graph.hpp"
 #include "consoles/ui/console_operations.hpp"
 #include "consoles/ui/console_shelf.hpp"
+#include "consoles/ui/recent_shelf.hpp"
 #include "log/ui/log_shelf.hpp"
 #include "network/ui/nat_check.hpp"
 #include "network/ui/tunnel_control.hpp"
@@ -42,6 +50,7 @@
 #include "settings/ui/control_options.hpp"
 #include "settings/ui/picture_options.hpp"
 #include "settings/ui/settings_model.hpp"
+#include "trophies/ui/trophy_model.hpp"
 
 namespace akira::app::arisa {
 
@@ -68,6 +77,9 @@ private:
     void startServices();
     void buildScreens();
     void buildCouch();
+    void buildPages();
+    void profileChanged();
+    void offerPages();
     auto features() -> settings::DeviceFeatures;
     bool frame();
     bool firstFrameShown = false;
@@ -87,7 +99,10 @@ private:
     ShellModel model;
     Notices notices;
     consoles::ui::ConsoleShelf shelf;
+    consoles::ui::RecentShelf recent;
     ShellScreen::Parts parts;
+    std::optional<GameArt> art;
+    std::optional<ArtSession> artSession;
     std::optional<::arisa::runtime::Application> application;
     std::optional<Dispatcher> dispatcher;
     std::optional<ServiceGraph> graph;
@@ -109,6 +124,12 @@ private:
     std::optional<play::ui::Couch> couch;
     std::shared_ptr<StreamDriver> driver;
     std::optional<consoles::ui::ConsoleOperations> consoleOperations;
+    std::optional<PsnTrophyDesk> trophyDesk;
+    std::optional<trophies::ui::TrophyModel> trophyModel;
+#if AKIRA_CLOUD
+    std::optional<PsnCloudDesk> cloudDesk;
+    std::optional<cloud::ui::CloudModel> cloudModel;
+#endif
 };
 
 }

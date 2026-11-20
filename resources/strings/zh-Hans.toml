@@ -442,6 +442,15 @@
 "akira/hosts/psn_online_id_required_register" = "需要 PSN 在线 ID\n\nPS4 固件版本 < 9.0 时，请在设置中输入您的 PSN 用户名后再注册。"
 "akira/hosts/psn_remote_play" = "PSN 远程游玩"
 "akira/hosts/ready" = "就绪"
+"akira/hosts/recent_days" = { one = "{0} day ago", other = "{0} days ago" }
+"akira/hosts/recent_months" = { one = "{0} month ago", other = "{0} months ago" }
+"akira/hosts/recent_start_failed" = "{0} could not start"
+"akira/hosts/recent_starting" = "Starting {0}"
+"akira/hosts/recent_title" = "Recently played on {0}"
+"akira/hosts/recent_today" = "Today"
+"akira/hosts/recent_weeks" = { one = "{0} week ago", other = "{0} weeks ago" }
+"akira/hosts/recent_years" = { one = "{0} year ago", other = "{0} years ago" }
+"akira/hosts/recent_yesterday" = "Yesterday"
 "akira/hosts/register" = "注册"
 "akira/hosts/register_auto" = "自动（通过 PSN）"
 "akira/hosts/register_cancel_hint" = "按 B 取消"
@@ -1073,6 +1082,7 @@
 "akira/trophies/hidden_name" = "隐藏奖杯"
 "akira/trophies/loading" = "正在加载奖杯..."
 "akira/trophies/no_psn_token" = "未提供 PSN 令牌。\n请在设置中关联 PlayStation 账号以使用奖杯功能。"
+"akira/trophies/percent_complete" = "{0}% complete"
 "akira/trophies/play_and_last" = "{0}，最近游玩于{1}"
 "akira/trophies/play_hours" = "已游玩 {0} 小时"
 "akira/trophies/play_minutes" = "已游玩 {0} 分钟"

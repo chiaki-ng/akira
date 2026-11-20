@@ -56,6 +56,7 @@ public:
     void findRemote() override {}
     auto findsRemote() const -> bool override { return false; }
     void setUpAccount() override { ++setUps; }
+    void launchTitle(const std::string&, const std::string&) override {}
 
     std::vector<std::string> played;
     int setUps = 0;

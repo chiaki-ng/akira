@@ -442,6 +442,15 @@
 "akira/hosts/psn_online_id_required_register" = "PSN Online ID Required\n\nFor PS4 firmware < 9.0, please enter your PSN username in Settings before registering."
 "akira/hosts/psn_remote_play" = "PSN Remote Play"
 "akira/hosts/ready" = "Ready"
+"akira/hosts/recent_days" = { one = "{0} day ago", other = "{0} days ago" }
+"akira/hosts/recent_months" = { one = "{0} month ago", other = "{0} months ago" }
+"akira/hosts/recent_start_failed" = "{0} could not start"
+"akira/hosts/recent_starting" = "Starting {0}"
+"akira/hosts/recent_title" = "Recently played on {0}"
+"akira/hosts/recent_today" = "Today"
+"akira/hosts/recent_weeks" = { one = "{0} week ago", other = "{0} weeks ago" }
+"akira/hosts/recent_years" = { one = "{0} year ago", other = "{0} years ago" }
+"akira/hosts/recent_yesterday" = "Yesterday"
 "akira/hosts/register" = "Register"
 "akira/hosts/register_auto" = "Automatic (over PSN)"
 "akira/hosts/register_cancel_hint" = "Press B to cancel"
@@ -1069,6 +1078,7 @@
 "akira/trophies/hidden_name" = "Hidden trophy"
 "akira/trophies/loading" = "Loading trophies..."
 "akira/trophies/no_psn_token" = "No PSN token supplied.\nLink your PlayStation account in Settings to use trophies."
+"akira/trophies/percent_complete" = "{0}% complete"
 "akira/trophies/play_and_last" = "{0}, last played {1}"
 "akira/trophies/play_hours" = "{0}h played"
 "akira/trophies/play_minutes" = "{0}m played"

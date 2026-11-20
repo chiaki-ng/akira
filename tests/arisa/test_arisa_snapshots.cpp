@@ -116,6 +116,7 @@ public:
     void findRemote() override {}
     auto findsRemote() const -> bool override { return true; }
     void setUpAccount() override {}
+    void launchTitle(const std::string&, const std::string&) override {}
 };
 
 class QuietStream final : public akira::play::ui::StreamCommands {

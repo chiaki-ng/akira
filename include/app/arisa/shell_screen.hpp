@@ -7,6 +7,7 @@
 #include <arisa/composition/element.hpp>
 #include <arisa/theme/glass.hpp>
 
+#include "app/arisa/art_session.hpp"
 #include "app/arisa/notices.hpp"
 #include "app/arisa/shell_model.hpp"
 #include "app/strings.hpp"
@@ -14,6 +15,18 @@
 #include "consoles/ui/console_shelf.hpp"
 #include "play/ui/stream_commands.hpp"
 #include "settings/ui/settings_screen.hpp"
+
+namespace akira::trophies::ui {
+class TrophyModel;
+}
+
+namespace akira::cloud::ui {
+class CloudModel;
+}
+
+namespace akira::consoles::ui {
+class RecentShelf;
+}
 
 namespace akira::app::arisa {
 
@@ -24,6 +37,10 @@ public:
         consoles::ui::ConsoleCommands* consoles = nullptr;
         play::ui::StreamCommands* stream = nullptr;
         settings::ui::SettingsScreen::Parts settings;
+        const ArtSession* art = nullptr;
+        consoles::ui::RecentShelf* recent = nullptr;
+        trophies::ui::TrophyModel* trophies = nullptr;
+        cloud::ui::CloudModel* cloud = nullptr;
     };
 
     static constexpr float pageLeading = 112.0F;
@@ -46,8 +63,10 @@ public:
     auto body(::arisa::composition::Context& context) const -> ::arisa::composition::Element override;
 
 private:
-    auto home() const -> ::arisa::composition::Element;
-    auto page() const -> ::arisa::composition::Element;
+    auto home(ShellModel::Page shown) const -> ::arisa::composition::Element;
+    auto page(ShellModel::Page shown) const -> ::arisa::composition::Element;
+    auto pageTitle(ShellModel::Page shown) const -> std::string;
+    auto pageContent(ShellModel::Page shown) const -> ::arisa::composition::Element;
     auto settingsPanel(::arisa::theme::Glass glass) const -> ::arisa::composition::Element;
     auto announced(::arisa::composition::Element content, bool streaming) const -> ::arisa::composition::Element;
     auto ending(::arisa::composition::Element content, const ShellModel::View& view) const

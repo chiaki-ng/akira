@@ -26,6 +26,7 @@ public:
     virtual void findRemote() = 0;
     virtual auto findsRemote() const -> bool = 0;
     virtual void setUpAccount() = 0;
+    virtual void launchTitle(const std::string& catalogName, const std::string& titleId) = 0;
 };
 
 }

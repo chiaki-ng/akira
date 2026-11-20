@@ -57,6 +57,7 @@ public:
 
     void watchFocus();
     void start(consoles::Host& host);
+    void startCloud(std::shared_ptr<consoles::Host> host);
     void tick();
     void padArrived(play::PadId pad);
     auto active() const -> bool { return connection != nullptr; }
@@ -101,6 +102,8 @@ private:
     void closeDock();
     void focusChanged(bool focused);
     void stop();
+    static auto launchStep(libchiaking::play::LaunchPhase phase) -> int;
+    static auto launchStepKey(int step) -> const char*;
     void fail(const std::string& text, bool reconnect);
 
     Services& services;
@@ -117,6 +120,7 @@ private:
     play::ConnectFlow flow;
     std::shared_ptr<play::Connection> connection;
     consoles::Host* host = nullptr;
+    std::shared_ptr<consoles::Host> owned;
     std::string lastConsole;
     bool videoActive = false;
     bool sessionStarted = false;

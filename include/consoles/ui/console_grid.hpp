@@ -13,6 +13,7 @@
 #include "app/strings.hpp"
 #include "consoles/ui/console_commands.hpp"
 #include "consoles/ui/console_shelf.hpp"
+#include "consoles/ui/recent_shelf.hpp"
 
 namespace akira::consoles::ui {
 
@@ -23,7 +24,10 @@ public:
     static constexpr float emptyHeight = 420.0F;
     static constexpr ::arisa::composition::StateKey<float> available{ "console-grid-width", 0.0F };
 
+    static constexpr float recentGap = 26.0F;
+
     ConsoleGrid(ConsoleShelf& shelf, ConsoleCommands& commands, const app::Strings& strings);
+    ConsoleGrid(ConsoleShelf& shelf, ConsoleCommands& commands, RecentShelf* recent, const app::Strings& strings);
 
     bool operator==(const ConsoleGrid& other) const;
 
@@ -48,6 +52,7 @@ private:
 
     ConsoleShelf* shelf;
     ConsoleCommands* commands;
+    RecentShelf* recent = nullptr;
     const app::Strings* strings;
 };
 

@@ -1,13 +1,21 @@
 #pragma once
 
+#include <chrono>
 #include <functional>
+#include <memory>
+#include <optional>
 #include <string>
+#include <vector>
+
+#include <libchiaking/consoles.hpp>
+#include <libchiaking/platform/platform.hpp>
 
 #include "consoles/console_actions.hpp"
 #include "consoles/console_list.hpp"
 #include "consoles/register_flow.hpp"
 #include "consoles/ui/console_commands.hpp"
 #include "consoles/ui/console_shelf.hpp"
+#include "consoles/ui/recent_shelf.hpp"
 
 namespace akira::app {
 class Notifier;
@@ -25,7 +33,8 @@ public:
     using Connect = std::function<void(Host&)>;
     using SetUp = std::function<void()>;
 
-    ConsoleOperations(app::Services& services, ConsoleShelf& shelf, app::Notifier& notifier, Connect connect, SetUp setUp);
+    ConsoleOperations(app::Services& services, ConsoleShelf& shelf, RecentShelf& recent, app::Notifier& notifier,
+        Connect connect, SetUp setUp);
     ~ConsoleOperations() override;
 
     ConsoleOperations(const ConsoleOperations&) = delete;
@@ -51,8 +60,20 @@ public:
     void findRemote() override;
     auto findsRemote() const -> bool override;
     void setUpAccount() override;
+    void launchTitle(const std::string& catalogName, const std::string& titleId) override;
 
 private:
+    using Clock = std::chrono::steady_clock;
+    using Installed = std::vector<libchiaking::consoles::InstalledTitle>;
+
+    static constexpr std::chrono::minutes recentFreshFor{ 10 };
+
+    void refreshRecent();
+    void showRecent(const std::string& catalogName, Installed titles);
+    void titleStarted(const std::string& catalogName, const std::string& name,
+        libchiaking::Expected<libchiaking::consoles::StartState, libchiaking::consoles::StartFailure> started);
+    auto recentHost() const -> Host*;
+    static auto played(const Installed& titles) -> std::vector<RecentPlay::Title>;
     auto host(const std::string& catalogName) const -> Host*;
     auto actions() const -> ConsoleActions;
     auto list() const -> ConsoleList;
@@ -68,9 +89,15 @@ private:
 
     app::Services& services;
     ConsoleShelf& shelf;
+    RecentShelf& recent;
     app::Notifier& notifier;
     Connect connect;
     SetUp setUp;
+    Installed installed;
+    std::string recentFor;
+    std::optional<Clock::time_point> recentUntil;
+    libchiaking::platform::StopSource recentStop;
+    std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 };
 
 }

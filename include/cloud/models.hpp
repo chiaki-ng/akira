@@ -52,6 +52,8 @@ struct BundledGame {
     std::string productId;
     std::string entitlementId;
     bool launchable = false;
+
+    friend bool operator==(const BundledGame&, const BundledGame&) = default;
 };
 
 struct Game {
@@ -97,6 +99,9 @@ struct Game {
     std::string artworkUrl() const;
 
     static std::string countdown(int64_t seconds);
+    static std::string sizedArt(const std::string& url, int width);
+
+    friend bool operator==(const Game&, const Game&) = default;
 };
 
 struct GameDetail {
@@ -111,12 +116,16 @@ struct GameDetail {
         std::string averageText;
         int64_t count = 0;
         std::array<int, 5> percentByStars{};
+
+        friend bool operator==(const Rating&, const Rating&) = default;
     };
 
     struct Age {
         std::string name;
         std::string descriptors;
         std::string icon;
+
+        friend bool operator==(const Age&, const Age&) = default;
     };
 
     Art art = Art::None;
@@ -128,6 +137,8 @@ struct GameDetail {
     std::string publisher;
     std::optional<int64_t> releasedMs;
     std::vector<std::string> genres;
+
+    friend bool operator==(const GameDetail&, const GameDetail&) = default;
 };
 
 struct Catalog {

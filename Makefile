@@ -108,6 +108,22 @@ ARISA_TEST_MODELS   = $(CURDIR)/source/log/log.cpp \
                       $(CURDIR)/source/log/log_folder.cpp \
                       $(CURDIR)/source/log/log_excerpt.cpp \
                       $(CURDIR)/library/qrcodegen/qrcodegen.cpp \
+                      $(CURDIR)/source/consoles/recent_play.cpp \
+                      $(CURDIR)/source/trophies/title_listing.cpp \
+                      $(CURDIR)/source/trophies/trophy_listing.cpp \
+                      $(CURDIR)/source/cloud/models.cpp \
+                      $(CURDIR)/source/cloud/library_listing.cpp \
+                      $(CURDIR)/source/cloud/library_status.cpp \
+                      $(CURDIR)/source/cloud/fetch_progress.cpp \
+                      $(CURDIR)/source/cloud/game_actions.cpp \
+                      $(CURDIR)/source/cloud/launch_checks.cpp \
+                      $(CURDIR)/source/cloud/title_refresh_cooldown.cpp \
+                      $(CURDIR)/source/cloud/cloud_shortcuts.cpp \
+                      $(CURDIR)/source/cloud/release_notice.cpp \
+                      $(CURDIR)/source/cloud/game_badges.cpp \
+                      $(CURDIR)/source/cloud/game_facts.cpp \
+                      $(CORE_DIR)/src/core/trophies/model/ids.cpp \
+                      $(CORE_DIR)/src/core/utils/text/ascii.cpp \
                       $(CORE_DIR)/src/core/play/model/outcome.cpp \
                       $(CORE_DIR)/src/core/consoles/model/pairing/pairing.cpp \
                       $(CORE_DIR)/src/platform/memory/secure_zero_darwin.cpp
@@ -127,6 +143,12 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/play/ui/pad_picker.cpp \
                       $(CURDIR)/source/play/ui/couch_prompt.cpp \
                       $(CURDIR)/source/play/ui/seat_passcode.cpp \
+                      $(CURDIR)/source/consoles/ui/recent_shelf.cpp \
+                      $(CURDIR)/source/consoles/ui/recent_rail.cpp \
+                      $(wildcard $(CURDIR)/source/trophies/ui/*.cpp) \
+                      $(wildcard $(CURDIR)/source/cloud/ui/*.cpp) \
+                      $(CURDIR)/source/app/arisa/artwork.cpp \
+                      $(CURDIR)/source/app/arisa/art_session.cpp \
                       $(wildcard $(CURDIR)/source/accounts/ui/*.cpp) \
                       $(wildcard $(CURDIR)/source/log/ui/*.cpp) \
                       $(wildcard $(CURDIR)/source/settings/ui/*.cpp) \
@@ -244,6 +266,9 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/app/app_settings.cpp \
                 $(CURDIR)/source/network/dns_client.cpp \
                 $(CURDIR)/source/trophies/icon_cache.cpp \
+                $(CURDIR)/source/trophies/title_listing.cpp \
+                $(CURDIR)/source/trophies/trophy_listing.cpp \
+                $(CURDIR)/source/consoles/recent_play.cpp \
                 $(CURDIR)/source/platform/video/viddec/h264_sps.cpp \
                 $(TEST_PLATFORM_SRC)
 CORE_DIR     := $(or $(call override_path,CORE),$(CURDIR)/library/libchiaki-core)
@@ -264,7 +289,8 @@ CORE_TEST_SRC := $(CORE_DIR)/src/platform/crypto/provider.cpp \
                  $(CORE_DIR)/src/core/consoles/model/console/device_uid.cpp \
                  $(CORE_DIR)/src/core/consoles/model/console/host.cpp \
                  $(CORE_DIR)/src/core/consoles/model/pairing/pairing.cpp \
-                 $(CORE_DIR)/src/core/play/model/outcome.cpp
+                 $(CORE_DIR)/src/core/play/model/outcome.cpp \
+                 $(CORE_DIR)/src/core/trophies/model/ids.cpp
 JSONC_PREFIX ?= $(shell pkg-config --variable=prefix json-c 2>/dev/null || echo /opt/homebrew)
 SIMDUTF_PREFIX ?= $(shell pkg-config --variable=prefix simdutf 2>/dev/null || echo /opt/homebrew)
 OPENSSL_PREFIX ?= $(shell pkg-config --variable=prefix openssl 2>/dev/null || echo /opt/homebrew/opt/openssl@3)
@@ -384,11 +410,11 @@ test-arisa:
 		-e 's/@APP_VERSION_NACP@/0.0.0/' -e 's/@BUILD_CHANNEL@/dev/' -e 's/@GIT_COMMIT@/test/' -e 's/@BUILD_DATE@/test/' \
 		"$(CURDIR)/cmake/akira_version.h.in" > "$(ARISA_TEST_DIR)/generated/akira_version.h"
 	@for source in $(ARISA_TEST_MODELS); do \
-		nice -n 10 $(ARISA_HOST_CXX) -std=c++23 -O0 -g -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 -I"$(CURDIR)/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(CURDIR)/library/qrcodegen" \
+		nice -n 10 $(ARISA_HOST_CXX) -std=c++23 -O0 -g -DAKIRA_CLOUD=1 -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 -I"$(CURDIR)/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(CURDIR)/library/qrcodegen" \
 			-I"$(CURDIR)/library/tomlplusplus/include" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" \
 			-c "$$source" -o "$(ARISA_TEST_DIR)/$$(basename "$$source" .cpp).o" || exit 1; \
 	done
-	@nice -n 10 $(ARISA_HOST_CXX) -std=c++23 -O0 -g -fno-rtti -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
+	@nice -n 10 $(ARISA_HOST_CXX) -std=c++23 -O0 -g -fno-rtti -DAKIRA_CLOUD=1 -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
 		-DAKIRA_RESOURCES_DIR=\"$(CURDIR)/resources\" -DARISA_ASSETS_DIR=\"$(ARISA_HOST_PREFIX)/share/arisa/assets\" \
 		-DAKIRA_SHOTS_DIR=\"$(CURDIR)/work/shots\" -I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(ARISA_HOST_PREFIX)/include" \
 		-I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(ARISA_TEST_DIR)/generated" -I"$(CURDIR)/library/tomlplusplus/include" \

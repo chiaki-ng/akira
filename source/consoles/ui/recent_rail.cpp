@@ -1,0 +1,103 @@
+#include "consoles/ui/recent_rail.hpp"
+
+#include <arisa/components/button.hpp>
+#include <arisa/components/button_style.hpp>
+#include <arisa/components/group.hpp>
+#include <arisa/components/hstack.hpp>
+#include <arisa/components/image.hpp>
+#include <arisa/components/scroll_view.hpp>
+#include <arisa/components/text.hpp>
+#include <arisa/components/vstack.hpp>
+#include <arisa/components/zstack.hpp>
+#include <arisa/composition/axis.hpp>
+#include <arisa/theme/glass.hpp>
+#include <arisa/theme/shape.hpp>
+#include <arisa/theme/space.hpp>
+#include <arisa/theme/typography.hpp>
+
+#include <utility>
+#include <vector>
+
+#include "app/arisa/artwork.hpp"
+
+namespace akira::consoles::ui {
+
+namespace components = ::arisa::components;
+namespace composition = ::arisa::composition;
+namespace theme = ::arisa::theme;
+
+RecentRail::RecentRail(RecentShelf& shelf, ConsoleCommands& commands, const app::Strings& strings)
+    : shelf(&shelf)
+    , commands(&commands)
+    , strings(&strings)
+{
+}
+
+auto RecentRail::body(composition::Context& context) const -> composition::Element
+{
+    const RecentShelf::View& view = context.read(shelf->view());
+    if (view.titles.empty())
+        return components::Group();
+    const RecentPlay::Clock::time_point now = RecentPlay::Clock::now();
+    std::vector<composition::Element> tiles;
+    for (const RecentPlay::Title& title : view.titles)
+        tiles.push_back(tile(view.catalogName, title, now));
+    return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                                  .spacing = theme::space::md },
+        components::Text(strings->format("akira/hosts/recent_title", view.console))
+            .font(theme::Font::headline)
+            .line_limit(1),
+        components::ScrollView(composition::Axes::horizontal, false,
+            components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::top,
+                                   .spacing = theme::Space{ tileSpacing } },
+                std::move(tiles))
+                .padding(theme::Edge::vertical, theme::Space{ 4.0F })))
+        .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::leading })
+        .focus_section()
+        .id(composition::ElementKey{ "consoles.recent" });
+}
+
+auto RecentRail::tile(const std::string& catalogName, const RecentPlay::Title& title,
+    RecentPlay::Clock::time_point now) const -> composition::Element
+{
+    composition::Element art =
+        composition::Element(app::arisa::Artwork(title.coverUrl, "sports_esports"))
+            .frame({ .width = artSize, .height = artSize })
+            .overlay(composition::Alignment::bottom_trailing,
+                components::Image(components::Image::SystemName{ "play_arrow" })
+                    .font(theme::Font::headline)
+                    .frame({ .width = playSize, .height = playSize })
+                    .glass_effect(theme::Glass::clear(), theme::Shape::circle())
+                    .padding(theme::Space{ playInset }))
+            .clip_shape(theme::Shape::rounded(artRadius));
+    composition::Element label =
+        components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                               .spacing = theme::Space{ 3.0F } },
+            std::move(art),
+            components::Text(title.name)
+                .font(theme::Font::subheadline)
+                .font_weight(theme::Font::Weight::semibold)
+                .line_limit(1)
+                .padding(theme::Edge::top, theme::Space{ 6.0F }),
+            components::HStack(components::HStackOptions{ .spacing = theme::Space{ 4.0F } },
+                components::Image(components::Image::SystemName{ "history" }),
+                components::Text(when(title, now)).line_limit(1))
+                .font(theme::Font::caption)
+                .foreground_style(theme::ColourRole::secondary_label))
+            .frame({ .width = artSize, .alignment = composition::Alignment::leading });
+    ConsoleCommands* held = commands;
+    return components::Button([held, catalogName, titleId = title.titleId] { held->launchTitle(catalogName, titleId); },
+        std::move(label))
+        .button_style(components::ButtonStyle::plain())
+        .id(composition::ElementKey{ "consoles.recent." + title.titleId });
+}
+
+auto RecentRail::when(const RecentPlay::Title& title, RecentPlay::Clock::time_point now) const -> std::string
+{
+    if (!title.lastUsed)
+        return strings->text(title.ps5 ? "akira/hosts/eyebrow_ps5" : "akira/hosts/eyebrow_ps4");
+    const RecentPlay::Age age = RecentPlay::age(*title.lastUsed, now);
+    return strings->format(RecentPlay::ageKey(age.span), age.count);
+}
+
+}

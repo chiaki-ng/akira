@@ -16,6 +16,7 @@
 #include <arisa/theme/typography.hpp>
 
 #include <utility>
+#include <vector>
 
 namespace akira::app::arisa {
 
@@ -31,14 +32,22 @@ Rail::Rail(ShellModel& model, const app::Strings& strings)
 
 auto Rail::body(composition::Context& context) const -> composition::Element
 {
-    const bool settings = context.read(model->view()).settings;
+    const ShellModel::View& view = context.read(model->view());
     ShellModel* held = model;
-    return components::VStack(components::VStackOptions{ .spacing = theme::Space{ spacing } },
-        stop(strings->text("akira/tabs/consoles"), "sports_esports", !settings, [held] { held->showSettings(false); },
-            "rail.consoles"),
-        components::Spacer(),
-        stop(strings->text("akira/tabs/settings"), "settings", settings, [held] { held->showSettings(true); },
-            "rail.settings"))
+    const auto on = [&view](ShellModel::Page page) { return !view.settings && view.page == page; };
+    std::vector<composition::Element> stops;
+    stops.push_back(stop(strings->text("akira/tabs/consoles"), "sports_esports", on(ShellModel::Page::Consoles),
+        [held] { held->show(ShellModel::Page::Consoles); }, "rail.consoles"));
+    if (view.cloudOffered)
+        stops.push_back(stop(strings->text("akira/cloud/card_title"), "cloud", on(ShellModel::Page::Cloud),
+            [held] { held->show(ShellModel::Page::Cloud); }, "rail.cloud"));
+    if (view.trophiesOffered)
+        stops.push_back(stop(strings->text("akira/tabs/trophies"), "trophy", on(ShellModel::Page::Trophies),
+            [held] { held->show(ShellModel::Page::Trophies); }, "rail.trophies"));
+    stops.push_back(components::Spacer());
+    stops.push_back(stop(strings->text("akira/tabs/settings"), "settings", view.settings,
+        [held] { held->showSettings(true); }, "rail.settings"));
+    return components::VStack(components::VStackOptions{ .spacing = theme::Space{ spacing } }, std::move(stops))
         .padding(theme::Space{ padding })
         .frame({ .width = width, .max_height = composition::infinity })
         .glass_effect(context.environment(components::Environment::theme).glass().panel,

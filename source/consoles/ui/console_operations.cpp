@@ -19,13 +19,16 @@
 #include "consoles/remote_lookup.hpp"
 #include "log/log.hpp"
 #include "play/chiaki_core.hpp"
+#include "util/http.hpp"
+#include "util/http_pool.hpp"
 
 namespace akira::consoles::ui {
 
-ConsoleOperations::ConsoleOperations(app::Services& services, ConsoleShelf& shelf, app::Notifier& notifier,
-    Connect connect, SetUp setUp)
+ConsoleOperations::ConsoleOperations(app::Services& services, ConsoleShelf& shelf, RecentShelf& recent,
+    app::Notifier& notifier, Connect connect, SetUp setUp)
     : services(services)
     , shelf(shelf)
+    , recent(recent)
     , notifier(notifier)
     , connect(std::move(connect))
     , setUp(std::move(setUp))
@@ -40,6 +43,8 @@ void ConsoleOperations::setUpAccount()
 
 ConsoleOperations::~ConsoleOperations()
 {
+    *alive = false;
+    static_cast<void>(recentStop.request_stop());
     services.discovery.setOnHostDiscovered(nullptr);
     services.discovery.setOnHostsChanged(nullptr);
 }
@@ -68,6 +73,117 @@ void ConsoleOperations::follow()
 void ConsoleOperations::refresh()
 {
     shelf.show(list());
+    refreshRecent();
+}
+
+auto ConsoleOperations::recentHost() const -> Host*
+{
+    for (const auto& [name, entry] : services.hosts.entries())
+        if (entry && entry->isPS5() && entry->isRegistered() && entry->getConsole())
+            return entry.get();
+    return nullptr;
+}
+
+void ConsoleOperations::refreshRecent()
+{
+    Host* target = recentHost();
+    accounts::Accounts* accounts = services.core.accounts();
+    accounts::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
+    if (!target || !user || !user->has_psn_account())
+    {
+        recentFor.clear();
+        recentUntil.reset();
+        installed.clear();
+        recent.clear();
+        return;
+    }
+    const std::string name = target->getHostName();
+    if (name == recentFor && recentUntil && Clock::now() < *recentUntil)
+        return;
+    recentFor = name;
+    recentUntil = Clock::now() + recentFreshFor;
+    static_cast<void>(recentStop.request_stop());
+    recentStop = libchiaking::platform::StopSource{};
+    services.http.submit([this, guard = alive, name, console = target->getConsole(), user = std::move(user),
+                             stop = recentStop.token()](HttpSession&) {
+        auto titles = console->titles(*user, stop);
+        if (!titles)
+        {
+            log::warning("[CONSOLES] recently played on {} unavailable: reason {}", name,
+                static_cast<int>(titles.error().reason));
+            return;
+        }
+        log::info("[CONSOLES] {} installed titles on {}", titles->size(), name);
+        services.dispatcher.post([this, guard, name, listed = std::move(*titles)]() mutable {
+            if (*guard)
+                showRecent(name, std::move(listed));
+        });
+    });
+}
+
+auto ConsoleOperations::played(const Installed& titles) -> std::vector<RecentPlay::Title>
+{
+    std::vector<RecentPlay::Title> made;
+    made.reserve(titles.size());
+    for (const libchiaking::consoles::InstalledTitle& title : titles)
+    {
+        std::optional<RecentPlay::Clock::time_point> used;
+        if (title.last_used())
+            used = title.last_used()->at;
+        made.push_back(RecentPlay::Title{ .titleId = title.title_id(),
+            .name = title.name(),
+            .coverUrl = title.cover_url(),
+            .ps5 = title.platform() == libchiaking::consoles::Generation::ps5,
+            .lastUsed = used,
+            .recentlyPlayed = title.recently_played() });
+    }
+    return made;
+}
+
+void ConsoleOperations::showRecent(const std::string& catalogName, Installed titles)
+{
+    if (catalogName != recentFor)
+        return;
+    Host* target = host(catalogName);
+    if (!target)
+        return;
+    installed = std::move(titles);
+    recent.show(catalogName, target->getHostName(), RecentPlay(played(installed)));
+}
+
+void ConsoleOperations::launchTitle(const std::string& catalogName, const std::string& titleId)
+{
+    Host* target = host(catalogName);
+    const auto title = std::ranges::find_if(installed,
+        [&titleId](const libchiaking::consoles::InstalledTitle& listed) { return listed.title_id() == titleId; });
+    accounts::Accounts* accounts = services.core.accounts();
+    accounts::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
+    if (!target || title == installed.end() || !user || !target->getConsole())
+        return;
+    log::info("[CONSOLES] starting {} on {}", title->name(), catalogName);
+    notifier.notify(services.strings.format("akira/hosts/recent_starting", title->name()));
+    services.http.submit([this, guard = alive, catalogName, chosen = *title, console = target->getConsole(),
+                             user = std::move(user), stop = recentStop.token()](HttpSession&) {
+        auto started = console->start(chosen, *user, nullptr, stop);
+        services.dispatcher.post([this, guard, catalogName, name = chosen.name(), started = std::move(started)]() mutable {
+            if (*guard)
+                titleStarted(catalogName, name, std::move(started));
+        });
+    });
+}
+
+void ConsoleOperations::titleStarted(const std::string& catalogName, const std::string& name,
+    libchiaking::Expected<libchiaking::consoles::StartState, libchiaking::consoles::StartFailure> started)
+{
+    if (!started || *started == libchiaking::consoles::StartState::failed)
+    {
+        log::warning("[CONSOLES] {} did not start on {}: reason {}", name, catalogName,
+            started ? -1 : static_cast<int>(started.error().reason));
+        notifier.notify(services.strings.format("akira/hosts/recent_start_failed", name));
+        return;
+    }
+    if (Host* target = host(catalogName))
+        play(*target);
 }
 
 void ConsoleOperations::streamEnded()

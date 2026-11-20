@@ -53,4 +53,24 @@ void ShellModel::showSettings(bool shown)
     state.write(&View::settings, shown);
 }
 
+void ShellModel::show(Page page)
+{
+    state.update([page](View& view) {
+        view.settings = false;
+        if ((page == Page::Cloud && !view.cloudOffered) || (page == Page::Trophies && !view.trophiesOffered))
+            return;
+        view.page = page;
+    });
+}
+
+void ShellModel::offer(bool cloud, bool trophies)
+{
+    state.update([cloud, trophies](View& view) {
+        view.cloudOffered = cloud;
+        view.trophiesOffered = trophies;
+        if ((view.page == Page::Cloud && !cloud) || (view.page == Page::Trophies && !trophies))
+            view.page = Page::Consoles;
+    });
+}
+
 }
