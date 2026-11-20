@@ -18,6 +18,7 @@ public:
     auto format(std::string_view key, const Args&... args) const -> std::string
     {
         const std::string pattern = text(key);
+#if __cpp_exceptions
         try
         {
             return std::vformat(pattern, std::make_format_args(args...));
@@ -27,6 +28,9 @@ public:
             log::error("Invalid format \"{}\" from string \"{}\": {}", pattern, key, failure.what());
             return std::string(key);
         }
+#else
+        return std::vformat(pattern, std::make_format_args(args...));
+#endif
     }
 };
 
