@@ -100,7 +100,12 @@
     "play": "Play",
     "wake_and_play": "Wake and play",
     "add_console": "Add console",
-    "profile_required": "Sign in to PSN in akira first"
+    "profile_required": "Sign in to PSN in akira first",
+    "eyebrow_ps5": "PLAYSTATION 5",
+    "eyebrow_ps4": "PLAYSTATION 4",
+    "route_local": "Home network",
+    "route_remote": "Internet",
+    "route_manual": "Manual address"
   },
   "cloud": {
     "title": "Cloud Library",

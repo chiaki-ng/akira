@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -12,10 +13,6 @@
 namespace akira::app {
 class Strings;
 class UiDispatcher;
-}
-
-namespace akira::play {
-class ChiakiCore;
 }
 
 namespace akira::network::ui {
@@ -32,7 +29,9 @@ public:
         friend bool operator==(const Status&, const Status&) = default;
     };
 
-    NatCheck(app::UiDispatcher& dispatcher, play::ChiakiCore& core, const app::Strings& strings);
+    using Probe = std::function<NatReport()>;
+
+    NatCheck(app::UiDispatcher& dispatcher, Probe probe, const app::Strings& strings);
     ~NatCheck();
 
     NatCheck(const NatCheck&) = delete;
@@ -46,7 +45,7 @@ private:
     void finish(const NatReport& report);
 
     app::UiDispatcher& dispatcher;
-    play::ChiakiCore& core;
+    Probe probe;
     const app::Strings& strings;
     std::shared_ptr<std::atomic<bool>> alive = std::make_shared<std::atomic<bool>>(true);
     ::arisa::composition::Observable<Status> state;

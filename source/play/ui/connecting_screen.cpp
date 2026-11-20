@@ -4,11 +4,15 @@
 #include <arisa/components/button_role.hpp>
 #include <arisa/components/button_style.hpp>
 #include <arisa/components/group.hpp>
-#include <arisa/components/hstack.hpp>
+#include <arisa/components/panel_radius.hpp>
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
+#include <arisa/controls/progress_view.hpp>
+#include <arisa/controls/progress_view_style.hpp>
+#include <arisa/graphics/gradient.hpp>
+#include <arisa/graphics/shape_style.hpp>
+#include <arisa/theme/colour_value.hpp>
 #include <arisa/theme/glass.hpp>
-#include <arisa/theme/shape.hpp>
 #include <arisa/theme/space.hpp>
 #include <arisa/theme/typography.hpp>
 
@@ -20,6 +24,9 @@ namespace akira::play::ui {
 
 namespace components = ::arisa::components;
 namespace composition = ::arisa::composition;
+namespace controls = ::arisa::controls;
+namespace graphics = ::arisa::graphics;
+namespace motion = ::arisa::motion;
 namespace theme = ::arisa::theme;
 
 ConnectingScreen::ConnectingScreen(Progress progress, StreamCommands& commands, const app::Strings& strings)
@@ -50,55 +57,47 @@ auto ConnectingScreen::activeSegment(int step, int steps) -> int
 
 auto ConnectingScreen::bar() const -> composition::Element
 {
-    const int active = activeSegment(progress.step, progress.steps);
-    std::vector<composition::Element> pieces;
-    for (int index = 0; index < segments; ++index)
-    {
-        theme::ColourValue fill = theme::ColourRole::quaternary_label;
-        if (index < active)
-            fill = theme::ColourRole::green;
-        else if (index == active)
-            fill = theme::ColourRole::accent;
-        pieces.push_back(composition::Element(components::Group())
-                             .frame({ .width = index == active ? 34.0F : 26.0F, .height = 6.0F })
-                             .background(fill, theme::Shape::capsule())
-                             .id(composition::ElementKey{ index == active ? "connecting.segment.active"
-                                                                           : "connecting.segment" }));
-    }
-    return components::HStack(components::HStackOptions{ .spacing = theme::Space{ 9.0F } }, std::move(pieces));
+    const int steps = std::max(progress.steps, 1);
+    const double done = static_cast<double>(activeSegment(progress.step, steps)) / static_cast<double>(segments);
+    return controls::ProgressView(done, 1.0)
+        .progress_view_style(controls::ProgressViewStyle::segmented(segments))
+        .id(composition::ElementKey{ "connecting.progress" });
 }
 
 auto ConnectingScreen::body(composition::Context&) const -> composition::Element
 {
     auto cancel = [commands = commands] { commands->cancel(); };
-    composition::Element panel =
+    composition::Element card =
         components::VStack(components::VStackOptions{ .spacing = theme::space::none },
-            components::Text(progress.console)
-                .font(theme::Font::subheadline)
-                .foreground_style(theme::ColourRole::secondary_label)
-                .id(composition::ElementKey{ "connecting.console" }),
             components::Text(strings->text("akira/connection/starting_stream"))
-                .font(theme::Font::title)
-                .padding(theme::Edge::top, theme::Space{ 6.0F }),
+                .font(theme::Font::system(titleSize, theme::Font::Weight::semibold))
+                .tracking(titleTracking),
             bar().padding(theme::Edge::top, theme::Space{ 24.0F }),
             components::Text(progress.status)
-                .font(theme::Font::callout)
-                .foreground_style(theme::ColourRole::secondary_label)
+                .font(theme::Font::body)
+                .foreground_style(theme::ColourValue(theme::ColourRole::label).opacity(0.72F))
                 .padding(theme::Edge::top, theme::Space{ 15.0F })
                 .id(composition::ElementKey{ "connecting.status" }),
             components::Text(strings->format("akira/connection/step_of", progress.step, progress.steps))
-                .font(theme::Font::footnote)
-                .foreground_style(theme::ColourRole::tertiary_label)
-                .padding(theme::Edge::top, theme::Space{ 4.0F })
+                .font(theme::Font::caption)
+                .foreground_style(theme::ColourValue(theme::ColourRole::label).opacity(0.55F))
+                .padding(theme::Edge::top, theme::Space{ 10.0F })
                 .id(composition::ElementKey{ "connecting.step" }),
+            composition::Element(components::Group()).frame({ .height = 32.0F }),
             components::Button(strings->text("akira/common/cancel"), components::ButtonRole::cancel, cancel)
                 .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
-                .padding(theme::Edge::top, theme::Space{ 32.0F })
                 .id(composition::ElementKey{ "connecting.cancel" }))
             .padding(theme::Insets::symmetric(theme::Space{ 56.0F }, theme::Space{ 42.0F }))
-            .glass_effect(theme::Glass::regular(), theme::Shape::rounded(28.0F));
-    return components::VStack(std::move(panel))
+            .frame({ .min_width = cardWidth })
+            .glass_panel(components::PanelRadius::modal);
+    const graphics::Gradient glow(std::vector<theme::ColourValue>{
+        theme::ColourValue(theme::ColourRole::accent).opacity(0.12F),
+        theme::ColourValue(theme::ColourRole::accent).opacity(0.0F) });
+    return components::VStack(std::move(card))
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
+        .background(graphics::ShapeStyle(graphics::EllipticalGradient{ .gradient = glow,
+            .center = motion::UnitPoint{ 0.5F, 0.4F },
+            .end_radius_fraction = 0.7F }))
         .background(theme::ColourRole::window_background)
         .on_exit_command(strings->text("akira/common/cancel"), cancel)
         .id(composition::ElementKey{ "connecting" });

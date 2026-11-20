@@ -2,10 +2,7 @@
 
 #include <switch.h>
 
-#include <arisa/appearance/appearance_policy.hpp>
-#include <arisa/appearance/appearance_settings.hpp>
 #include <arisa/runtime/application_options.hpp>
-#include <arisa/theme/colour.hpp>
 
 #include <cstdlib>
 #include <utility>
@@ -14,14 +11,14 @@
 #include "app/crash_report.hpp"
 #include "consoles/host.hpp"
 #include "log/log.hpp"
+#include "network/nat_probe.hpp"
+#include "network/nat_report.hpp"
 #include "platform/factory.hpp"
 
 namespace akira::app::arisa {
 
-namespace appearance = ::arisa::appearance;
 namespace provider = ::arisa::provider;
 namespace runtime = ::arisa::runtime;
-namespace theme = ::arisa::theme;
 
 App::App()
     : threading(ThreadPlan::policy())
@@ -75,15 +72,7 @@ bool App::openApplication()
 {
     CrashReport::stage("arisa application");
     runtime::ApplicationOptions options{};
-    options.appearance = runtime::AppearanceOptions{
-        .policy = appearance::AppearancePolicy{
-            .application = "akira",
-            .defaults = appearance::AppearanceSettings{
-                .color_scheme = appearance::ColorSchemePreference::dark,
-                .accent = theme::Colour::hex(0x0091FF),
-            },
-        },
-    };
+    options.appearance = themes.options();
     auto created = runtime::Application::create(*providers, ShellScreen(model, notices, parts, *strings), std::move(options));
     if (!created)
     {
@@ -136,9 +125,10 @@ void App::buildScreens()
     log::info("[ARISA] {} help entries", help->size());
     picture.emplace(services.stream, services.store, services.platform.supplies(platform::PlatformCapability::fsr_4k));
     controls.emplace(services.controllers, services.store);
-    nat.emplace(services.dispatcher, services.core, services.strings);
+    nat.emplace(services.dispatcher, [&core = services.core] { return network::NatReport(network::NatProbe(core).check()); },
+        services.strings);
     CrashReport::stage("arisa stream driver");
-    driver = std::make_shared<StreamDriver>(services, *application, *window, model, notices, [this] {
+    driver = std::make_shared<StreamDriver>(services, *application, *window, model, notices, *controls, [this] {
         if (consoleOperations)
             consoleOperations->streamEnded();
     });

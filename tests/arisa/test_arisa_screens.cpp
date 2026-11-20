@@ -68,6 +68,7 @@ public:
     void resetMotion() override {}
     void showStats(akira::play::StatsOverlayMode) override {}
     auto stats() -> akira::play::StreamStats override { return {}; }
+    auto decoder() -> std::string override { return {}; }
 
     int cancelled = 0;
 };
@@ -164,12 +165,12 @@ TEST(arisa_console_grid_shows_the_console_list_and_follows_discovery)
     REQUIRE(application->frame().has_value());
 
     const composition::Node& root = application->root().tree().root();
-    CHECK(shows(root, "Consoles"));
     CHECK(shows(root, "Living room"));
     CHECK(shows(root, "Study"));
     CHECK(has(*application, "Living room.primary"));
     CHECK(has(*application, "Study.primary"));
-    CHECK(has(*application, "consoles.add"));
+    CHECK(has(*application, "Living room.route"));
+    CHECK(!has(*application, "consoles.add"));
 
     shelf.show(ConsoleList({ facts("Living room", true, true), facts("Study", false, true), facts("Bedroom", true, true) },
         ConsoleList::Profile::Signed));
@@ -214,7 +215,7 @@ TEST(arisa_connecting_screen_steps_through_the_connect_flow)
     REQUIRE(application.has_value());
     REQUIRE(application->frame().has_value());
     CHECK(shows(application->root().tree().root(), "Starting your stream"));
-    CHECK(shows(application->root().tree().root(), "Living room"));
+    CHECK(has(*application, "connecting.progress"));
 
     struct Expected {
         ConnectStep step;
@@ -237,7 +238,6 @@ TEST(arisa_connecting_screen_steps_through_the_connect_flow)
         CHECK(shows(application->root().tree().root(), expected.status));
         CHECK(shows(application->root().tree().root(), expected.counter));
         CHECK(ConnectingScreen::activeSegment(shown.step, shown.steps) == expected.segment);
-        CHECK(has(*application, "connecting.segment.active"));
     }
 
     CHECK(application->root().activate(composition::ElementKey{ "connecting.cancel" }));

@@ -3,6 +3,7 @@
 #include <arisa/components/button.hpp>
 #include <arisa/components/button_role.hpp>
 #include <arisa/components/button_style.hpp>
+#include <arisa/components/control_size.hpp>
 #include <arisa/components/content_unavailable_view.hpp>
 #include <arisa/components/group.hpp>
 #include <arisa/components/hstack.hpp>
@@ -12,13 +13,13 @@
 #include <arisa/components/vstack.hpp>
 #include <arisa/composition/geometry_proxy.hpp>
 #include <arisa/composition/overlay_layer.hpp>
+#include <arisa/composition/presentation_sizing.hpp>
 #include <arisa/composition/visibility.hpp>
 #include <arisa/presentation/alert.hpp>
 #include <arisa/presentation/presentations.hpp>
 #include <arisa/provider/input/buttons.hpp>
 #include <arisa/theme/glass.hpp>
 #include <arisa/theme/space.hpp>
-#include <arisa/theme/typography.hpp>
 
 #include <algorithm>
 #include <type_traits>
@@ -57,62 +58,62 @@ auto ConsoleGrid::columnsFor(float width, std::size_t cards) -> int
 auto ConsoleGrid::body(composition::Context& context) const -> composition::Element
 {
     const ConsoleShelf::View& view = context.read(shelf->view());
-    const auto perRow = context.state(columns);
-    const std::size_t count = view.cards.size();
+    const auto width = context.state(available);
     composition::Element screen =
-        components::ScrollView(
-            components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
-                                   .spacing = theme::space::lg },
-                components::Text(strings->text("akira/tabs/consoles")).font(theme::Font::large_title),
-                content(view, perRow.get()))
-                .padding(theme::Insets::symmetric(theme::space::xl, theme::space::lg))
-                .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::top_leading }))
+        components::ScrollView(content(view, width.get())
+                                   .padding(theme::Insets{ .top = theme::Space{ 4.0F }, .bottom = theme::Space{ 30.0F } })
+                                   .frame({ .max_width = composition::infinity,
+                                       .alignment = composition::Alignment::top_leading }))
             .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
             .on_geometry_change(
-                std::type_identity<int>{},
-                [count](const composition::GeometryProxy& proxy) { return columnsFor(proxy.size().width, count); },
-                [perRow](const int& wanted) { perRow.set(wanted); });
+                std::type_identity<float>{}, [](const composition::GeometryProxy& proxy) { return proxy.size().width; },
+                [width](const float& measured) { width.set(measured); });
     if (view.hasProfile)
         screen = std::move(screen).on_command(provider::Button::plus, strings->text("akira/hosts/add_console"),
             [shelf = shelf] { shelf->openAdd(true); });
     return prompted(std::move(screen), view);
 }
 
-auto ConsoleGrid::content(const ConsoleShelf::View& view, int perRow) const -> composition::Element
+auto ConsoleGrid::content(const ConsoleShelf::View& view, float width) const -> composition::Element
 {
     if (!view.hasProfile)
         return components::ContentUnavailableView(strings->text("akira/hosts/setup_account"), "person",
             components::Text(strings->text("akira/hosts/profile_required")))
+            .frame({ .max_width = composition::infinity, .min_height = emptyHeight })
             .id(composition::ElementKey{ "consoles.no-profile" });
     if (view.cards.empty())
         return components::VStack(components::VStackOptions{ .spacing = theme::space::lg },
             components::ContentUnavailableView(strings->text("akira/hosts/no_consoles"), "tv",
                 components::Text(strings->text("akira/hosts/no_consoles_hint"))),
             addButton())
-            .frame({ .max_width = composition::infinity })
+            .frame({ .max_width = composition::infinity, .min_height = emptyHeight })
             .id(composition::ElementKey{ "consoles.empty" });
-    return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
-                                  .spacing = theme::Space{ spacing } },
-        grid(view.cards, perRow), addButton());
+    return grid(view.cards, width);
 }
 
-auto ConsoleGrid::grid(const std::vector<ConsoleShelf::Card>& cards, int perRow) const -> composition::Element
+auto ConsoleGrid::grid(const std::vector<ConsoleShelf::Card>& cards, float width) const -> composition::Element
 {
+    const std::size_t perRow = static_cast<std::size_t>(columnsFor(width, cards.size()));
+    const bool compact = perRow > 1;
+    const float cardWidth = (width - spacing) / 2.0F;
     std::vector<composition::Element> rows;
-    const std::size_t width = static_cast<std::size_t>(std::max(perRow, 1));
-    for (std::size_t start = 0; start < cards.size(); start += width)
+    for (std::size_t start = 0; start < cards.size(); start += perRow)
     {
         std::vector<composition::Element> row;
-        for (std::size_t index = start; index < std::min(start + width, cards.size()); ++index)
-            row.push_back(composition::Element(ConsoleCard(cards[index], *commands, *strings)).flex_grow(1.0F));
-        if (width > 1 && row.size() < width)
-            row.push_back(components::Spacer().frame({ .max_width = composition::infinity }).flex_grow(1.0F));
+        for (std::size_t index = start; index < std::min(start + perRow, cards.size()); ++index)
+        {
+            composition::Element card = ConsoleCard(cards[index], compact, *commands, *strings);
+            row.push_back(compact ? std::move(card).frame({ .width = cardWidth })
+                                  : std::move(card).frame({ .max_width = composition::infinity }));
+        }
         rows.push_back(components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::top,
                                               .spacing = theme::Space{ spacing } },
             std::move(row)));
     }
-    return components::VStack(components::VStackOptions{ .spacing = theme::Space{ spacing } }, std::move(rows))
-        .frame({ .max_width = composition::infinity })
+    return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                                  .spacing = theme::Space{ spacing } },
+        std::move(rows))
+        .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::leading })
         .focus_section()
         .id(composition::ElementKey{ "consoles.grid" });
 }
@@ -122,6 +123,7 @@ auto ConsoleGrid::addButton() const -> composition::Element
     return components::Button(strings->text("akira/hosts/add_console"), components::Image::SystemName{ "add" },
         [shelf = shelf] { shelf->openAdd(true); })
         .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
+        .control_size(components::ControlSize::large)
         .id(composition::ElementKey{ "consoles.add" });
 }
 
@@ -236,22 +238,26 @@ auto ConsoleGrid::sheets(composition::Element screen, const ConsoleShelf::View& 
         .sheet(asked(ConsoleShelf::Ask::Pin),
             [commands = commands, strings = strings, prompt, target] {
                 return composition::Element(PinPad(prompt ? prompt->catalogName : std::string(),
-                    target ? target->name : std::string(), target && target->ps5, *commands, *strings));
+                    target ? target->name : std::string(), target && target->ps5, *commands, *strings))
+                    .presentation_sizing(composition::PresentationSizing::fitted);
             })
         .sheet(asked(ConsoleShelf::Ask::ConsolePin),
             [shelf = shelf, commands = commands, strings = strings, prompt] {
                 return composition::Element(ConsoleFieldSheet(ConsoleFieldSheet::Field::ConsolePin,
                     prompt ? prompt->catalogName : std::string(), prompt ? prompt->text : std::string(), *shelf,
-                    *commands, *strings));
+                    *commands, *strings))
+                    .presentation_sizing(composition::PresentationSizing::fitted);
             })
         .sheet(asked(ConsoleShelf::Ask::Address),
             [shelf = shelf, commands = commands, strings = strings, prompt] {
                 return composition::Element(ConsoleFieldSheet(ConsoleFieldSheet::Field::Address,
                     prompt ? prompt->catalogName : std::string(), prompt ? prompt->text : std::string(), *shelf,
-                    *commands, *strings));
+                    *commands, *strings))
+                    .presentation_sizing(composition::PresentationSizing::fitted);
             })
         .sheet(adding(), [shelf = shelf, commands = commands, strings = strings] {
-            return composition::Element(AddConsoleSheet(*shelf, *commands, *strings));
+            return composition::Element(AddConsoleSheet(*shelf, *commands, *strings))
+                    .presentation_sizing(composition::PresentationSizing::fitted);
         });
 }
 

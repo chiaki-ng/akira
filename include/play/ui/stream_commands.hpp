@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "play/stream_stats.hpp"
 
 namespace akira::play::ui {
@@ -15,6 +17,7 @@ public:
     virtual void resetMotion() = 0;
     virtual void showStats(StatsOverlayMode mode) = 0;
     virtual auto stats() -> StreamStats = 0;
+    virtual auto decoder() -> std::string = 0;
 };
 
 }

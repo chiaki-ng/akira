@@ -18,6 +18,7 @@
 #include "play/menu_hold.hpp"
 #include "play/stream_controls.hpp"
 #include "play/ui/stream_commands.hpp"
+#include "settings/ui/control_options.hpp"
 
 namespace akira::consoles {
 class Host;
@@ -37,7 +38,7 @@ class StreamDriver final : public play::ConnectionListener,
                            public std::enable_shared_from_this<StreamDriver> {
 public:
     StreamDriver(Services& services, ::arisa::runtime::Application& application, Window& window, ShellModel& model,
-        Notifier& notifier, std::function<void()> ended);
+        Notifier& notifier, settings::ui::ControlOptions& controlOptions, std::function<void()> ended);
     ~StreamDriver() override;
 
     StreamDriver(const StreamDriver&) = delete;
@@ -55,6 +56,7 @@ public:
     void resetMotion() override;
     void showStats(play::StatsOverlayMode mode) override;
     auto stats() -> play::StreamStats override;
+    auto decoder() -> std::string override;
 
     void onConnectProgress(const libchiaking::play::ConnectProgress& progress) override;
     void onLaunchProgress(const libchiaking::play::LaunchProgress& progress) override;
@@ -80,6 +82,7 @@ private:
     ::arisa::runtime::Application& application;
     Window& window;
     ShellModel& model;
+    settings::ui::ControlOptions& controlOptions;
     Notifier& notifier;
     std::function<void()> ended;
     play::StreamControls controls;

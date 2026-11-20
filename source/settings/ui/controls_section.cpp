@@ -50,7 +50,7 @@ auto ControlsSection::swipe(ControlOptions::Swipe direction, const char* key, co
                 return false;
             },
             [edit, direction](bool value) { edit->setSwipe(direction, value); }))
-        .help(help->body("settings/swipeGestures"))
+        .help(help->title("settings/swipeGestures"), help->body("settings/swipeGestures"))
         .id(composition::ElementKey{ id });
 }
 
@@ -61,7 +61,7 @@ auto ControlsSection::touchpad(const ControlOptions::Values& values) const -> co
     rows.push_back(controls::Toggle(strings->text("akira/settings/touchpad"),
         composition::Binding<bool>([edit] { return edit->view().get().touchpad; },
             [edit](bool value) { edit->setTouchpad(value); }))
-                       .help(help->body("settings/touchpad"))
+                       .help(help->title("settings/touchpad"), help->body("settings/touchpad"))
                        .id(composition::ElementKey{ "controls.touchpad" }));
     if (values.touchpad)
     {
@@ -101,7 +101,7 @@ auto ControlsSection::rumble() const -> composition::Element
                 items.push_back(components::Text(label).tag(source));
             return composition::Element(components::Group(std::move(items)));
         })
-                       .help(help->body("settings/rumbleSource"))
+                       .help(help->title("settings/rumbleSource"), help->body("settings/rumbleSource"))
                        .id(composition::ElementKey{ "controls.rumble" }));
     rows.push_back(controls::Picker(strings->text("akira/settings/haptic_intensity"),
         composition::Binding<play::HapticIntensity>([edit] { return edit->view().get().intensity; },
@@ -112,7 +112,7 @@ auto ControlsSection::rumble() const -> composition::Element
                 items.push_back(components::Text(label).tag(intensity));
             return composition::Element(components::Group(std::move(items)));
         })
-                       .help(help->body("settings/hapticIntensity"))
+                       .help(help->title("settings/hapticIntensity"), help->body("settings/hapticIntensity"))
                        .id(composition::ElementKey{ "controls.intensity" }));
     return structure::Section(
         structure::Section::Labels{ .header = components::Text(strings->text("akira/settings/rumble_source_heading")) },

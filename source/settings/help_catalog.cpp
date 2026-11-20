@@ -46,6 +46,12 @@ std::optional<HelpCatalog::Entry> HelpCatalog::find(std::string_view id) const
     return found->second;
 }
 
+std::string HelpCatalog::title(std::string_view id) const
+{
+    const auto found = entries.find(id);
+    return found == entries.end() ? std::string() : found->second.title;
+}
+
 std::string HelpCatalog::body(std::string_view id) const
 {
     const auto found = entries.find(id);

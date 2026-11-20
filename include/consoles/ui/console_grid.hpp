@@ -20,7 +20,8 @@ class ConsoleGrid final : public ::arisa::composition::Component {
 public:
     static constexpr float twoColumnWidth = 1100.0F;
     static constexpr float spacing = 18.0F;
-    static constexpr ::arisa::composition::StateKey<int> columns{ "console-grid-columns", 1 };
+    static constexpr float emptyHeight = 420.0F;
+    static constexpr ::arisa::composition::StateKey<float> available{ "console-grid-width", 0.0F };
 
     ConsoleGrid(ConsoleShelf& shelf, ConsoleCommands& commands, const app::Strings& strings);
 
@@ -31,8 +32,8 @@ public:
     static auto columnsFor(float width, std::size_t cards) -> int;
 
 private:
-    auto content(const ConsoleShelf::View& view, int perRow) const -> ::arisa::composition::Element;
-    auto grid(const std::vector<ConsoleShelf::Card>& cards, int perRow) const -> ::arisa::composition::Element;
+    auto content(const ConsoleShelf::View& view, float width) const -> ::arisa::composition::Element;
+    auto grid(const std::vector<ConsoleShelf::Card>& cards, float width) const -> ::arisa::composition::Element;
     auto addButton() const -> ::arisa::composition::Element;
     auto prompted(::arisa::composition::Element screen, const ConsoleShelf::View& view) const
         -> ::arisa::composition::Element;

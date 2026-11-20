@@ -16,6 +16,12 @@ namespace akira::consoles::ui {
 class PinPad final : public ::arisa::composition::Component {
 public:
     static constexpr std::size_t length = 8;
+    static constexpr float boxWidth = 42.0F;
+    static constexpr float boxHeight = 52.0F;
+    static constexpr float boxRadius = 10.0F;
+    static constexpr float keyWidth = 42.0F;
+    static constexpr float keyHeight = 36.0F;
+    static constexpr float keyRadius = 9.0F;
     static const ::arisa::composition::StateKey<std::string> digits;
 
     PinPad(std::string catalogName, std::string name, bool ps5, ConsoleCommands& commands, const app::Strings& strings);

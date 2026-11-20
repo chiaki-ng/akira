@@ -1,0 +1,15 @@
+schema = 1
+name = "akira-anniversary"
+extends = "akira-default"
+accent = "#5B8FD6"
+
+[colours]
+window_background = { light = "#E7E6DC", dark = "#2B2B2E" }
+system_grouped_background = { light = "#E7E6DC", dark = "#2B2B2E" }
+label = { light = "#2C2D28", dark = "#F0EFE9" }
+secondary_label = { light = "#5C5D54", dark = "#B6B5AC" }
+tertiary_label = { light = "#84857B", dark = "#7C7C74" }
+control_background = { light = "#D1D2CA", dark = "#37373B" }
+
+[liquid_glass]
+tint = { light = "#D1D2CA9E", dark = "#37373B9E" }

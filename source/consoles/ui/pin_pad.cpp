@@ -5,7 +5,9 @@
 #include <arisa/components/button_style.hpp>
 #include <arisa/components/hstack.hpp>
 #include <arisa/components/image.hpp>
+#include <arisa/components/shape_view.hpp>
 #include <arisa/components/spacer.hpp>
+#include <arisa/theme/colour_value.hpp>
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
 #include <arisa/provider/input/buttons.hpp>
@@ -51,9 +53,11 @@ auto PinPad::body(composition::Context& context) const -> composition::Element
                                     .id(composition::ElementKey{ "pin.pair" });
     composition::Element form = components::VStack(
         components::VStackOptions{ .alignment = components::HorizontalAlignment::leading, .spacing = theme::space::md },
-        components::Text(strings->format("akira/pin/pair_with", name)).font(theme::Font::title2),
+        components::Text(strings->format("akira/pin/pair_with", name))
+            .font(theme::Font::title2)
+            .font_weight(theme::Font::Weight::semibold),
         components::Text(strings->text("akira/pin/registration_prompt"))
-            .font(theme::Font::subheadline)
+            .font(theme::Font::callout)
             .foreground_style(theme::ColourRole::secondary_label),
         boxes(entered.get()), keys(entered),
         components::HStack(components::HStackOptions{ .spacing = theme::space::md }, components::Spacer(),
@@ -85,13 +89,15 @@ auto PinPad::boxes(const std::string& entered) -> composition::Element
     {
         const bool current = index == entered.size();
         const std::string digit = index < entered.size() ? std::string(1, entered[index]) : std::string();
-        shown.push_back(components::Text(digit)
-                            .font(theme::Font::title2)
-                            .frame({ .width = 40.0F, .height = 48.0F })
-                            .background(theme::ColourRole::quaternary_system_fill, theme::Shape::rounded(10.0F))
-                            .border(current ? theme::ColourValue(theme::ColourRole::accent)
-                                            : theme::ColourValue(theme::ColourRole::separator),
-                                current ? theme::Stroke{ 2.0F } : theme::Stroke::hairline()));
+        composition::Element box = components::Text(digit)
+                                       .font(theme::Font::system(24.0F, theme::Font::Weight::semibold))
+                                       .frame({ .width = boxWidth, .height = boxHeight })
+                                       .background(theme::ColourValue(theme::ColourRole::label).opacity(0.07F),
+                                           theme::Shape::rounded(boxRadius));
+        if (current)
+            box = std::move(box).overlay(components::ShapeView(theme::Shape::rounded(boxRadius))
+                                             .stroke_border(theme::ColourRole::accent, 2.0F));
+        shown.push_back(std::move(box));
     }
     return components::HStack(components::HStackOptions{ .spacing = theme::space::sm }, std::move(shown));
 }
@@ -111,8 +117,11 @@ auto PinPad::keys(composition::StateHandle<std::string> entered) -> composition:
                     if (entered.get().size() < length)
                         entered.update([digit](std::string& text) { text.push_back(digit); });
                 })
-                                    .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
-                                    .frame({ .width = 56.0F, .height = 44.0F })
+                                    .font(theme::Font::system(16.0F, theme::Font::Weight::semibold))
+                                    .button_style(components::ButtonStyle::plain())
+                                    .frame({ .width = keyWidth, .height = keyHeight })
+                                    .background(theme::ColourValue(theme::ColourRole::label).opacity(0.07F),
+                                        theme::Shape::rounded(keyRadius))
                                     .id(composition::ElementKey{ std::string("pin.key.") + digit }));
         }
         rows.push_back(components::HStack(components::HStackOptions{ .spacing = theme::space::sm }, std::move(keysInRow)));
@@ -123,9 +132,10 @@ auto PinPad::keys(composition::StateHandle<std::string> entered) -> composition:
                 if (!entered.get().empty())
                     entered.update([](std::string& text) { text.pop_back(); });
             },
-            components::Image(components::Image::SystemName{ "backspace" }))
-            .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
-            .frame({ .width = 56.0F, .height = 44.0F })
+            components::Image(components::Image::SystemName{ "arrow_back" }))
+            .button_style(components::ButtonStyle::plain())
+            .frame({ .width = keyWidth, .height = keyHeight })
+            .background(theme::ColourValue(theme::ColourRole::label).opacity(0.07F), theme::Shape::rounded(keyRadius))
             .id(composition::ElementKey{ "pin.backspace" }));
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::space::sm },

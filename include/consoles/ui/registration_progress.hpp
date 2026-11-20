@@ -12,6 +12,8 @@ namespace akira::consoles::ui {
 
 class RegistrationProgress final : public ::arisa::composition::Component {
 public:
+    static constexpr float scrim = 0.32F;
+
     RegistrationProgress(ConsoleShelf::Registering progress, ConsoleCommands& commands, const app::Strings& strings);
 
     bool operator==(const RegistrationProgress& other) const = default;

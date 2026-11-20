@@ -25,6 +25,7 @@ public:
         Phase phase = Phase::Starting;
         play::ui::ConnectingScreen::Progress progress;
         std::optional<Ending> ending;
+        bool settings = false;
 
         friend bool operator==(const View&, const View&) = default;
     };
@@ -38,6 +39,7 @@ public:
     void home();
     void ended(Ending ending);
     void dismissEnding();
+    void showSettings(bool shown);
 
 private:
     ::arisa::composition::Observable<View> state;

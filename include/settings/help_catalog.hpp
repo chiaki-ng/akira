@@ -20,6 +20,7 @@ public:
     HelpCatalog(const std::filesystem::path& directory, std::string_view locale);
 
     std::optional<Entry> find(std::string_view id) const;
+    std::string title(std::string_view id) const;
     std::string body(std::string_view id) const;
     std::size_t size() const { return entries.size(); }
 

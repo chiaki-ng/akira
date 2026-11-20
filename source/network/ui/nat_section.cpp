@@ -41,8 +41,8 @@ auto NatSection::body(composition::Context& context) const -> composition::Eleme
         components::Image::SystemName{ "lan" }, [check = check] { check->start(); })
                          .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
                          .disabled(status.checking)
-                         .help(help->body("settings/natType"))
-                         .id(composition::ElementKey{ "nat.check" }));
+                         .id(composition::ElementKey{ "nat.check" })
+                         .help(help->title("settings/natType"), help->body("settings/natType")));
     if (status.checking)
         action.push_back(controls::ProgressView());
     rows.push_back(components::HStack(components::HStackOptions{ .spacing = theme::space::md }, std::move(action)));

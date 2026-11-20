@@ -14,6 +14,8 @@
 #include <arisa/controls/text_field.hpp>
 #include <arisa/provider/text_input/text_input_traits.hpp>
 #include <arisa/structure/form.hpp>
+#include <arisa/structure/form_style.hpp>
+#include <arisa/composition/visibility.hpp>
 #include <arisa/structure/section.hpp>
 #include <arisa/theme/glass.hpp>
 #include <arisa/theme/space.hpp>
@@ -80,7 +82,9 @@ auto AddConsoleSheet::body(composition::Context& context) const -> composition::
                     return composition::Element(components::Group(components::Text(ps5Label).tag(true),
                         components::Text(ps4Label).tag(false)));
                 })
-                .picker_style(controls::PickerStyle::segmented()))),
+                .picker_style(controls::PickerStyle::segmented())))
+            .form_style(structure::FormStyle::cards())
+            .scroll_content_background(composition::Visibility::hidden),
         components::HStack(components::HStackOptions{ .spacing = theme::space::md }, std::move(leading)))
         .padding(theme::Space{ 24.0F })
         .frame({ .min_width = 520.0F });

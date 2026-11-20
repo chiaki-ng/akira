@@ -31,7 +31,7 @@ private:
     auto stream(const play::PictureProfile& profile) const -> ::arisa::composition::Element;
     auto upscaling(const play::PictureProfile& profile, const PictureOptions::Values& values) const
         -> ::arisa::composition::Element;
-    auto helpFor(play::StreamProfile profile, std::string_view row) const -> std::string;
+    static auto helpId(play::StreamProfile profile, std::string_view row) -> std::string;
     auto upscaleLabel(int target) const -> std::string;
 
     PictureOptions* options;

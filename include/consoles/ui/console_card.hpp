@@ -15,11 +15,19 @@ namespace akira::consoles::ui {
 
 class ConsoleCard final : public ::arisa::composition::Component {
 public:
-    static constexpr float artWidth = 90.0F;
-    static constexpr float artHeight = 120.0F;
-    static constexpr float cornerRadius = 24.0F;
+    static constexpr float artWidth = 84.0F;
+    static constexpr float artHeight = 112.0F;
+    static constexpr float spacing = 24.0F;
+    static constexpr float horizontalPadding = 28.0F;
+    static constexpr float verticalPadding = 18.0F;
+    static constexpr float compactVerticalPadding = 20.0F;
+    static constexpr float nameSize = 26.0F;
+    static constexpr float compactNameSize = 24.0F;
+    static constexpr float eyebrowSize = 13.0F;
+    static constexpr float eyebrowTracking = 2.2F;
+    static constexpr float tagRadius = 9.0F;
 
-    ConsoleCard(ConsoleShelf::Card card, ConsoleCommands& commands, const app::Strings& strings);
+    ConsoleCard(ConsoleShelf::Card card, bool compact, ConsoleCommands& commands, const app::Strings& strings);
 
     bool operator==(const ConsoleCard& other) const;
 
@@ -38,6 +46,7 @@ private:
     auto offersWake() const -> bool;
 
     ConsoleShelf::Card card;
+    bool compact;
     ConsoleCommands* commands;
     const app::Strings* strings;
 };

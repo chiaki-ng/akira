@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include <arisa/composition/component.hpp>
 #include <arisa/composition/context.hpp>
 #include <arisa/composition/element.hpp>
@@ -16,6 +18,9 @@ namespace akira::settings::ui {
 class SettingsScreen final : public ::arisa::composition::Component {
 public:
     enum class Page { Picture, Controls, Network };
+
+    static constexpr float contentWidth = 760.0F;
+    static constexpr std::array<Page, 3> pages{ Page::Picture, Page::Controls, Page::Network };
 
     static constexpr ::arisa::composition::StateKey<Page> page{ "settings-page", Page::Picture };
 

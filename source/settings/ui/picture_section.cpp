@@ -36,10 +36,10 @@ PictureSection::PictureSection(PictureOptions& options, const HelpCatalog& help,
 {
 }
 
-auto PictureSection::helpFor(play::StreamProfile profile, std::string_view row) const -> std::string
+auto PictureSection::helpId(play::StreamProfile profile, std::string_view row) -> std::string
 {
     const std::string prefix = profile == play::StreamProfile::Remote ? "settings/remote" : "settings/local";
-    return help->body(prefix + std::string(row));
+    return prefix + std::string(row);
 }
 
 auto PictureSection::upscaleLabel(int target) const -> std::string
@@ -71,7 +71,7 @@ auto PictureSection::routePicker(composition::StateHandle<play::StreamProfile> c
                 components::Text(remote).tag(play::StreamProfile::Remote)));
         })
         .picker_style(controls::PickerStyle::segmented())
-        .help(help->body("settings/streamProfile"))
+        .help(help->title("settings/streamProfile"), help->body("settings/streamProfile"))
         .id(composition::ElementKey{ "picture.route" });
 }
 
@@ -95,7 +95,7 @@ auto PictureSection::stream(const play::PictureProfile& profile) const -> compos
                     items.push_back(components::Text(label).tag(resolution));
                 return composition::Element(components::Group(std::move(items)));
             })
-                           .help(helpFor(which, "Resolution"))
+                           .help(help->title(helpId(which, "Resolution")), help->body(helpId(which, "Resolution")))
                            .id(composition::ElementKey{ "picture.resolution" }));
     }
     const std::string fps30 = strings->text("akira/settings/fps_30");
@@ -107,8 +107,7 @@ auto PictureSection::stream(const play::PictureProfile& profile) const -> compos
             return composition::Element(components::Group(components::Text(fps30).tag(play::VideoFps::Fps30),
                 components::Text(fps60).tag(play::VideoFps::Fps60)));
         })
-                       .picker_style(controls::PickerStyle::segmented())
-                       .help(helpFor(which, "Fps"))
+                       .help(help->title(helpId(which, "Fps")), help->body(helpId(which, "Fps")))
                        .id(composition::ElementKey{ "picture.fps" }));
     rows.push_back(components::VStack(
         components::VStackOptions{ .alignment = components::HorizontalAlignment::leading, .spacing = theme::space::xs },
@@ -123,7 +122,7 @@ auto PictureSection::stream(const play::PictureProfile& profile) const -> compos
             static_cast<double>(play::PictureProfile::bitrateStep),
             components::Text(strings->text("akira/settings/bitrate_short")))
             .labels_hidden())
-                       .help(helpFor(which, "Bitrate"))
+                       .help(help->title(helpId(which, "Bitrate")), help->body(helpId(which, "Bitrate")))
                        .id(composition::ElementKey{ "picture.bitrate" }));
     return structure::Section(
         structure::Section::Labels{ .header = components::Text(strings->text("akira/settings/stream_heading")) },
@@ -148,7 +147,7 @@ auto PictureSection::upscaling(const play::PictureProfile& profile, const Pictur
                 items.push_back(components::Text(label).tag(target));
             return composition::Element(components::Group(std::move(items)));
         })
-                       .help(help->body("settings/upscaleTarget"))
+                       .help(help->title("settings/upscaleTarget"), help->body("settings/upscaleTarget"))
                        .id(composition::ElementKey{ "picture.upscale" }));
     if (profile.upscaling())
         rows.push_back(components::LabeledContent(strings->text("akira/settings/streams_at"),
@@ -157,7 +156,7 @@ auto PictureSection::upscaling(const play::PictureProfile& profile, const Pictur
     rows.push_back(controls::Toggle(strings->text("akira/settings/rcas"),
         composition::Binding<bool>([edit] { return edit->view().get().rcas; },
             [edit](bool value) { edit->setRcas(value); }))
-                       .help(help->body("settings/rcasEnabled"))
+                       .help(help->title("settings/rcasEnabled"), help->body("settings/rcasEnabled"))
                        .id(composition::ElementKey{ "picture.rcas" }));
     if (values.rcas)
         rows.push_back(components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
@@ -170,7 +169,7 @@ auto PictureSection::upscaling(const play::PictureProfile& profile, const Pictur
                 controls::ClosedRange<double>{ .lower_bound = 0.0, .upper_bound = 100.0 }, 5.0,
                 components::Text(strings->text("akira/settings/rcas_strength")))
                 .labels_hidden())
-                           .help(help->body("settings/rcasSharpness"))
+                           .help(help->title("settings/rcasSharpness"), help->body("settings/rcasSharpness"))
                            .id(composition::ElementKey{ "picture.rcas-strength" }));
     return structure::Section(
         structure::Section::Labels{ .header = components::Text(strings->text("akira/settings/upscaling")) },

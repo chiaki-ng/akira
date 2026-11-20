@@ -15,6 +15,9 @@ namespace akira::play::ui {
 class ConnectingScreen final : public ::arisa::composition::Component {
 public:
     static constexpr int segments = 4;
+    static constexpr float titleSize = 30.0F;
+    static constexpr float titleTracking = -0.7F;
+    static constexpr float cardWidth = 420.0F;
 
     struct Progress {
         std::string console;

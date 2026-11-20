@@ -19,6 +19,7 @@
 #include "app/arisa/shell_screen.hpp"
 #include "app/arisa/stream_driver.hpp"
 #include "app/arisa/string_catalog.hpp"
+#include "app/arisa/theme_packs.hpp"
 #include "app/arisa/window.hpp"
 #include "app/service_graph.hpp"
 #include "consoles/ui/console_operations.hpp"
@@ -43,6 +44,7 @@ public:
 
 private:
     static constexpr const char* helpDirectory = "romfs:/help";
+    static constexpr const char* themeFolder = "romfs:/";
     static constexpr std::string_view crashDirectory = "sdmc:/switch/akira/crashes";
     static constexpr std::string_view crashApp = "akira-arisa";
 
@@ -63,6 +65,7 @@ private:
     std::optional<Gpu> gpu;
     platform::NpadRumble rumble;
     OverlayPalette overlayPalette;
+    ThemePacks themes{ themeFolder };
     ShellModel model;
     Notices notices;
     consoles::ui::ConsoleShelf shelf;

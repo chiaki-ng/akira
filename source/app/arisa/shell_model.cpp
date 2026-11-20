@@ -16,6 +16,7 @@ void ShellModel::connecting(std::string console)
         view.phase = Phase::Connecting;
         view.progress = play::ui::ConnectingScreen::Progress{ .console = std::move(console) };
         view.ending.reset();
+        view.settings = false;
     });
 }
 
@@ -45,6 +46,11 @@ void ShellModel::ended(Ending ending)
 void ShellModel::dismissEnding()
 {
     state.write(&View::ending, std::optional<Ending>());
+}
+
+void ShellModel::showSettings(bool shown)
+{
+    state.write(&View::settings, shown);
 }
 
 }

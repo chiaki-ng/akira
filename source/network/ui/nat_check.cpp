@@ -2,13 +2,14 @@
 
 #include "app/strings.hpp"
 #include "app/ui_dispatcher.hpp"
-#include "network/nat_probe.hpp"
+
+#include <utility>
 
 namespace akira::network::ui {
 
-NatCheck::NatCheck(app::UiDispatcher& dispatcher, play::ChiakiCore& core, const app::Strings& strings)
+NatCheck::NatCheck(app::UiDispatcher& dispatcher, Probe probe, const app::Strings& strings)
     : dispatcher(dispatcher)
-    , core(core)
+    , probe(std::move(probe))
     , strings(strings)
 {
 }
@@ -23,8 +24,8 @@ void NatCheck::start()
     if (state.get().checking)
         return;
     state.set(Status{ .checking = true });
-    dispatcher.runOnWorker([this, &ui = dispatcher, &core = core, guard = alive] {
-        NatReport report(NatProbe(core).check());
+    dispatcher.runOnWorker([this, &ui = dispatcher, run = probe, guard = alive] {
+        NatReport report = run();
         if (!guard->load())
             return;
         ui.post([this, guard, report = std::move(report)] {

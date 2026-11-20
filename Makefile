@@ -71,7 +71,7 @@ ARISA_PREFIX        = $(ARISA_UNPACK)/$(ARISA_NAME)
 ARISA_BUILD_NAME    = arisa-$(PLATFORM)$(if $(filter ounce_vulkan,$(PLATFORM)_$(ARISA_GPU)),-vulkan)
 ARISA_NRO_FILE      = $(CURDIR)/build/$(ARISA_BUILD_NAME)/akira-arisa.nro
 ARISA_HOST_NAME    := arisa-$(ARISA_VERSION)-macos-arm64
-ARISA_HOST_SHA256  := 2d6d6d712f447e0edcab524c2d20785e0c58d787db32e0f5e8c4f060b51cf46d
+ARISA_HOST_SHA256  := e548d3a2e9001f62f7babd0ce13d458e5e60ebf5533791cf06d9906a0d806231
 ARISA_HOST_ARCHIVE  = $(ARISA_PACKAGE_DIR)/$(ARISA_HOST_NAME).tar.gz
 ARISA_HOST_UNPACK   = $(CURDIR)/build/arisa-package/$(ARISA_HOST_SHA256)
 ARISA_HOST_PREFIX   = $(ARISA_HOST_UNPACK)/$(ARISA_HOST_NAME)
@@ -84,7 +84,15 @@ ARISA_TEST_MODELS   = $(CURDIR)/source/log/log.cpp \
                       $(CURDIR)/source/play/connect_flow.cpp \
                       $(CURDIR)/source/play/connect_failure.cpp \
                       $(CURDIR)/source/play/stream_summary.cpp \
-                      $(CORE_DIR)/src/core/play/model/outcome.cpp
+                      $(CURDIR)/source/play/stream_settings.cpp \
+                      $(CURDIR)/source/play/controller_settings.cpp \
+                      $(CURDIR)/source/play/picture_profile.cpp \
+                      $(CURDIR)/source/settings/settings_store.cpp \
+                      $(CURDIR)/source/settings/help_catalog.cpp \
+                      $(CURDIR)/source/network/nat_report.cpp \
+                      $(CORE_DIR)/src/core/play/model/outcome.cpp \
+                      $(CORE_DIR)/src/core/consoles/model/pairing/pairing.cpp \
+                      $(CORE_DIR)/src/platform/memory/secure_zero_darwin.cpp
 ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/consoles/ui/console_grid.cpp \
                       $(CURDIR)/source/consoles/ui/console_card.cpp \
@@ -93,7 +101,16 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/consoles/ui/add_console_sheet.cpp \
                       $(CURDIR)/source/consoles/ui/registration_progress.cpp \
                       $(CURDIR)/source/play/ui/connecting_screen.cpp \
-                      $(CURDIR)/source/play/ui/stream_dock.cpp
+                      $(CURDIR)/source/play/ui/stream_dock.cpp \
+                      $(wildcard $(CURDIR)/source/settings/ui/*.cpp) \
+                      $(wildcard $(CURDIR)/source/network/ui/*.cpp) \
+                      $(CURDIR)/source/app/arisa/shell_screen.cpp \
+                      $(CURDIR)/source/app/arisa/shell_model.cpp \
+                      $(CURDIR)/source/app/arisa/notices.cpp \
+                      $(CURDIR)/source/app/arisa/rail.cpp \
+                      $(CURDIR)/source/app/arisa/header.cpp \
+                      $(CURDIR)/source/app/arisa/theme_packs.cpp
+ARISA_TEST_STB      = $(CURDIR)/library/borealis/library/lib/extern/glfw/deps
 NRO_FILE     := $(CURDIR)/build/$(PLATFORM)/akira.nro
 ELF_FILE     := build/$(PLATFORM)/akira.elf
 FTP_PORT     ?= 5000
@@ -322,17 +339,25 @@ test-arisa:
 	@if [ ! -f "$(ARISA_HOST_PREFIX)/lib/libarisa.a" ]; then mkdir -p "$(ARISA_HOST_UNPACK)" && tar -xzf "$(ARISA_HOST_ARCHIVE)" -C "$(ARISA_HOST_UNPACK)"; fi
 	@mkdir -p "$(ARISA_TEST_DIR)"
 	@printf "$(GREEN)[*]$(NC) Building arisa seam and screen tests...\n"
+	@mkdir -p "$(ARISA_TEST_DIR)/generated"
+	@sed -e 's/@VERSION_MAJOR@/0/' -e 's/@VERSION_MINOR@/0/' -e 's/@VERSION_PATCH@/0/' -e 's/@APP_VERSION@/test/' \
+		-e 's/@APP_VERSION_NACP@/0.0.0/' -e 's/@BUILD_CHANNEL@/dev/' -e 's/@GIT_COMMIT@/test/' -e 's/@BUILD_DATE@/test/' \
+		"$(CURDIR)/cmake/akira_version.h.in" > "$(ARISA_TEST_DIR)/generated/akira_version.h"
 	@for source in $(ARISA_TEST_MODELS); do \
-		$(ARISA_HOST_CXX) -std=c++23 -O0 -g -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 -I"$(CURDIR)/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" \
+		nice -n 10 $(ARISA_HOST_CXX) -std=c++23 -O0 -g -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 -I"$(CURDIR)/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" \
+			-I"$(CURDIR)/library/tomlplusplus/include" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" \
 			-c "$$source" -o "$(ARISA_TEST_DIR)/$$(basename "$$source" .cpp).o" || exit 1; \
 	done
-	@$(ARISA_HOST_CXX) -std=c++23 -O0 -g -fno-rtti -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
-		-DAKIRA_RESOURCES_DIR=\"$(CURDIR)/resources\" -I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(ARISA_HOST_PREFIX)/include" \
-		-I"$(CORE_DIR)/include" -I"$(CORE_DIR)" \
+	@nice -n 10 $(ARISA_HOST_CXX) -std=c++23 -O0 -g -fno-rtti -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
+		-DAKIRA_RESOURCES_DIR=\"$(CURDIR)/resources\" -DARISA_ASSETS_DIR=\"$(ARISA_HOST_PREFIX)/share/arisa/assets\" \
+		-DAKIRA_SHOTS_DIR=\"$(CURDIR)/work/shots\" -I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(ARISA_HOST_PREFIX)/include" \
+		-I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(ARISA_TEST_DIR)/generated" -I"$(CURDIR)/library/tomlplusplus/include" \
+		-I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" -isystem "$(ARISA_TEST_STB)" \
 		"$(CURDIR)/tests/test_main.cpp" $(wildcard $(CURDIR)/tests/arisa/*.cpp) \
 		"$(CURDIR)/source/app/arisa/dispatcher.cpp" "$(CURDIR)/source/app/arisa/string_catalog.cpp" $(ARISA_TEST_SCREENS) \
 		$(foreach source,$(ARISA_TEST_MODELS),"$(ARISA_TEST_DIR)/$(basename $(notdir $(source))).o") \
-		"$(ARISA_HOST_PREFIX)/lib/libarisa.a" -o "$(ARISA_TEST_DIR)/seam_tests"
+		"$(ARISA_HOST_PREFIX)/lib/libarisa.a" -L"$(JSONC_PREFIX)/lib" -ljson-c -L"$(SIMDUTF_PREFIX)/lib" -lsimdutf \
+		-o "$(ARISA_TEST_DIR)/seam_tests"
 	@printf "$(GREEN)[*]$(NC) Running arisa seam tests...\n"
 	@"$(ARISA_TEST_DIR)/seam_tests"
 

@@ -1,0 +1,7 @@
+schema = 1
+name = "akira-glass"
+extends = "akira-default"
+
+[liquid_glass]
+blur = 2.5
+tint = { light = "#0000000D", dark = "#FFFFFF0D" }

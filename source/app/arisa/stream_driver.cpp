@@ -35,11 +35,12 @@ namespace provider = ::arisa::provider;
 namespace runtime = ::arisa::runtime;
 
 StreamDriver::StreamDriver(Services& services, runtime::Application& application, Window& window, ShellModel& model,
-    Notifier& notifier, std::function<void()> ended)
+    Notifier& notifier, settings::ui::ControlOptions& controlOptions, std::function<void()> ended)
     : services(services)
     , application(application)
     , window(window)
     , model(model)
+    , controlOptions(controlOptions)
     , notifier(notifier)
     , ended(std::move(ended))
 {
@@ -176,7 +177,7 @@ void StreamDriver::openDock()
                 .sleepOffered = controls.offersSleep(),
                 .statsMode = session.getStatsOverlayMode(),
             },
-            *this, services.strings),
+            *this, controlOptions, services.strings),
         runtime::OverlayBehaviour{
             .input = composition::OverlayInput::modal,
             .alignment = composition::Alignment::bottom,
@@ -247,6 +248,14 @@ void StreamDriver::showStats(play::StatsOverlayMode mode)
 auto StreamDriver::stats() -> play::StreamStats
 {
     return services.session.get().getStreamStats();
+}
+
+auto StreamDriver::decoder() -> std::string
+{
+    play::Session& session = services.session.get();
+    if (!session.getStreamStats().is_hardware_decoder)
+        return "SW";
+    return std::string(session.video().decoderStat());
 }
 
 void StreamDriver::focusChanged(bool focused)
