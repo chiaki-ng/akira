@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 
+#include <arisa/provider/audio/absent.hpp>
 #include <arisa/provider/horizon/horizon_factory.hpp>
 #include <arisa/provider/horizon/horizon_threading.hpp>
 #include <arisa/runtime/application.hpp>
@@ -46,8 +47,10 @@ private:
     void startServices();
     void buildScreens();
     bool frame();
+    bool firstFrameShown = false;
 
     ::arisa::provider::horizon::HorizonThreadingProvider threading;
+    ::arisa::provider::AbsentAudioProvider silence;
     std::optional<::arisa::provider::horizon::HorizonProviderFactory> providers;
     std::optional<Window> window;
     std::optional<StringCatalog> strings;

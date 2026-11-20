@@ -34,7 +34,7 @@ App::~App() = default;
 bool App::openProviders()
 {
     CrashReport::stage("arisa providers");
-    auto created = provider::horizon::HorizonProviderFactory::create(provider::Providers{ .threading = threading });
+    auto created = provider::horizon::HorizonProviderFactory::create(provider::Providers{ .threading = threading, .audio = silence });
     if (!created)
     {
         log::error("[ARISA] the providers could not start: {}", created.error().explanation());
@@ -90,15 +90,24 @@ bool App::openApplication()
 
 void App::startServices()
 {
+    CrashReport::stage("arisa log");
     graph->openLog();
     log::info("[ARISA] ui thread core {}", svcGetCurrentProcessorNumber());
+    CrashReport::stage("arisa ffmpeg log");
     graph->startFfmpegLog();
+    CrashReport::stage("arisa core");
     graph->startCore();
+    CrashReport::stage("arisa services");
     graph->startServices();
+    CrashReport::stage("arisa display");
     graph->platform().display().prepare();
+    CrashReport::stage("arisa sdl");
     static_cast<void>(graph->startSdl());
+    CrashReport::stage("arisa focus");
     graph->followFocus();
+    CrashReport::stage("arisa async log");
     graph->startAsyncLogging();
+    CrashReport::stage("arisa prepare video");
     graph->platform().prepareVideo();
     buildScreens();
 }
@@ -106,16 +115,19 @@ void App::startServices()
 void App::buildScreens()
 {
     Services& services = graph->services();
+    CrashReport::stage("arisa settings screens");
     help.emplace(helpDirectory, std::string());
     log::info("[ARISA] {} help entries", help->size());
     picture.emplace(services.stream, services.store, services.platform.supplies(platform::PlatformCapability::fsr_4k));
     controls.emplace(services.controllers, services.store);
     nat.emplace(services.dispatcher, services.core, services.strings);
+    CrashReport::stage("arisa stream driver");
     driver = std::make_shared<StreamDriver>(services, *application, *window, model, notices, [this] {
         if (consoleOperations)
             consoleOperations->streamEnded();
     });
     driver->watchFocus();
+    CrashReport::stage("arisa discovery");
     consoleOperations.emplace(services, shelf, notices, [this](consoles::Host& host) { driver->start(host); });
     consoleOperations->follow();
     parts = ShellScreen::Parts{
@@ -132,6 +144,11 @@ void App::buildScreens()
 
 bool App::frame()
 {
+    if (!firstFrameShown)
+    {
+        firstFrameShown = true;
+        CrashReport::stage("arisa first frame");
+    }
     window->tick();
     if (driver)
         driver->tick();
