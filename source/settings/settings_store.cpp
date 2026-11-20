@@ -1,6 +1,4 @@
 #include "settings/settings_store.hpp"
-
-#include "app/crash_report.hpp"
 #include "settings/migrations/registry.hpp"
 #include "util/base64.hpp"
 #include "log/log.hpp"
@@ -76,7 +74,13 @@ void SettingsStore::parseToml()
     log::info("Parsing TOML config file: {}", file.string());
 
     try {
-        config = toml::parse_file(file.string());
+        auto parsed = toml::parse_file(file.string());
+        if (!parsed) {
+            config = toml::table{};
+            log::error("Failed to parse TOML config: {}", parsed.error().description());
+            return;
+        }
+        config = std::move(parsed).table();
 
         // Best-effort: on failure (e.g. newer config version) load fields as-is
         // and skip the rewrite rather than aborting startup.
@@ -89,9 +93,6 @@ void SettingsStore::parseToml()
         } catch (const tomlmigrate::MigrationError& err) {
             log::error("Config migration skipped, loading fields as-is: {}", err.what());
         }
-    } catch (const toml::parse_error& err) {
-        config = toml::table{};
-        log::error("Failed to parse TOML config: {}", err.what());
     } catch (const std::exception& err) {
         config = toml::table{};
         log::error("Failed to load TOML config: {}", err.what());
@@ -373,12 +374,8 @@ bool SettingsStore::trySave()
     std::lock_guard<std::mutex> writeLock(writeMutex);
     log::info("Writing config file: {}", file.string());
     ensureDirectory();
-    app::CrashReport::stage("save snapshot");
     owned = snapshot();
-    app::CrashReport::stage("save persist");
-    const bool saved = persist(owned);
-    app::CrashReport::stage("save written");
-    return saved;
+    return persist(owned);
 }
 
 bool SettingsStore::saveLive()

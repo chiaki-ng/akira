@@ -91,7 +91,13 @@ public:
     std::pair<std::string, Result> migrate_string(
         std::string_view toml_text,
         std::optional<Version> target = std::nullopt) const {
-        toml::table doc = toml::parse(toml_text);
+        auto parsed = toml::parse(toml_text);
+        if (!parsed) {
+            std::ostringstream msg;
+            msg << "failed to parse: " << parsed.error().description();
+            throw MigrationError(msg.str());
+        }
+        toml::table doc = std::move(parsed).table();
         Result res = migrate(doc, target);
         std::ostringstream out;
         out << doc;
@@ -101,14 +107,13 @@ public:
     Result migrate_file(const std::filesystem::path& path,
                         std::optional<Version> target = std::nullopt,
                         bool dry_run = false) const {
-        toml::table doc;
-        try {
-            doc = toml::parse_file(path.string());
-        } catch (const toml::parse_error& e) {
+        auto parsed = toml::parse_file(path.string());
+        if (!parsed) {
             std::ostringstream msg;
-            msg << "failed to parse " << path << ": " << e.description();
+            msg << "failed to parse " << path << ": " << parsed.error().description();
             throw MigrationError(msg.str());
         }
+        toml::table doc = std::move(parsed).table();
 
         Result res = migrate(doc, target);
         if (dry_run || !res.changed()) return res;

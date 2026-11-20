@@ -463,8 +463,8 @@ TEST(settings_round_trip_writes_the_fixture_back_unchanged)
         LoadedSettings settings(directory.path());
         settings.store.save();
     }
-    const toml::table written = toml::parse_file((directory.path() / "akira.toml").string());
-    CHECK(sameTables(written, toml::parse(fixture())));
+    const toml::table written = toml::parse_file((directory.path() / "akira.toml").string()).table();
+    CHECK(sameTables(written, toml::parse(fixture()).table()));
     CHECK(!std::filesystem::exists(directory.path() / std::format("akira.toml.v{}.bak",
         akira::settings::migrations::buildSettingsMigrator().latest_version())));
 }
@@ -477,12 +477,12 @@ TEST(settings_round_trip_is_stable_across_a_second_save)
         LoadedSettings settings(directory.path());
         settings.store.save();
     }
-    const toml::table first = toml::parse_file((directory.path() / "akira.toml").string());
+    const toml::table first = toml::parse_file((directory.path() / "akira.toml").string()).table();
     {
         LoadedSettings settings(directory.path());
         settings.store.save();
     }
-    CHECK(sameTables(toml::parse_file((directory.path() / "akira.toml").string()), first));
+    CHECK(sameTables(toml::parse_file((directory.path() / "akira.toml").string()).table(), first));
 }
 
 TEST(settings_round_trip_reads_every_typed_value)
@@ -661,7 +661,7 @@ TEST(settings_store_writes_only_the_live_stores_on_a_live_save)
         settings.cloud.datacenters().setDatacenters(false, {});
         CHECK(settings.store.saveLive());
     }
-    const toml::table written = toml::parse_file((directory.path() / "akira.toml").string());
+    const toml::table written = toml::parse_file((directory.path() / "akira.toml").string()).table();
     CHECK_EQ(written["ui"]["theme"].value_or(std::string{}), std::string("glass"));
     CHECK(!written["cloud"]["datacenters"]["psnow"]);
     CHECK(written["cloud"]["datacenters"]["pscloud"].is_array());
@@ -676,7 +676,7 @@ TEST(settings_store_migrates_and_backs_up_an_old_config)
         CHECK(settings.stream.videoRenderer() == akira::play::RendererKind::Drako3d);
     }
     CHECK(std::filesystem::exists(directory.path() / "akira.toml.v11.bak"));
-    const toml::table written = toml::parse_file((directory.path() / "akira.toml").string());
+    const toml::table written = toml::parse_file((directory.path() / "akira.toml").string()).table();
     CHECK_EQ(written["version"].value_or(int64_t{0}), akira::settings::migrations::buildSettingsMigrator().latest_version());
     CHECK(written["input"]["rumble"]["switch"].is_table());
 }

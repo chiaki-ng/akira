@@ -33,7 +33,7 @@ toml::table run_migrate(std::string_view src)
     akira::settings::migrations::register_m006_split_cloud_video_by_service(m);
     akira::settings::migrations::register_m007_split_psn_sign_ins(m);
 
-    toml::table doc = toml::parse(src);
+    toml::table doc = toml::parse(src).table();
     m.migrate(doc);
     return doc;
 }
@@ -669,7 +669,7 @@ hardware_id = "aabbccddeeff"
 name = "PS5"
 )";
 
-    toml::table doc = toml::parse(src);
+    toml::table doc = toml::parse(src).table();
     akira::settings::migrations::buildSettingsMigrator().migrate(doc);
 
     CHECK_EQ(version_of(doc), 12);
@@ -702,7 +702,7 @@ version = 9
 [stream]
 takion_version = 15
 packet_loss_max = 0.05
-)");
+)").table();
     akira::settings::migrations::buildSettingsMigrator().migrate(doc);
 
     CHECK_EQ(version_of(doc), 12);
@@ -713,7 +713,7 @@ packet_loss_max = 0.05
     for (const char* target : {"ps4", "ps5", "ps5_cloud", "ps_now"})
         CHECK_EQ(tint(versions, target), int64_t(15));
 
-    toml::table untouched = toml::parse("version = 9\n[stream]\npacket_loss_max = 0.05\n");
+    toml::table untouched = toml::parse("version = 9\n[stream]\npacket_loss_max = 0.05\n").table();
     akira::settings::migrations::buildSettingsMigrator().migrate(untouched);
     CHECK(!untouched["stream"].as_table()->contains("takion_versions"));
 }
@@ -734,7 +734,7 @@ fsr_enabled = true
 [video.vpn]
 resolution = "720p"
 fsr_enabled = false
-)");
+)").table();
     akira::settings::migrations::buildSettingsMigrator().migrate(doc);
 
     CHECK_EQ(version_of(doc), 12);
@@ -743,21 +743,21 @@ fsr_enabled = false
     CHECK_EQ(tint((*video)["remote"].as_table(), "fsr_target"), int64_t(1080));
     CHECK(!(*video)["vpn"].as_table()->contains("fsr_target"));
 
-    toml::table kept = toml::parse("version = 10\n[video.local]\nresolution = \"1080p\"\nfsr_enabled = true\nfsr_target = 2160\n");
+    toml::table kept = toml::parse("version = 10\n[video.local]\nresolution = \"1080p\"\nfsr_enabled = true\nfsr_target = 2160\n").table();
     akira::settings::migrations::buildSettingsMigrator().migrate(kept);
     CHECK_EQ(tint(kept["video"]["local"].as_table(), "fsr_target"), int64_t(2160));
 }
 
 TEST(m011_makes_drako3d_the_renderer)
 {
-    toml::table doc = toml::parse("version = 11\n[video]\nrenderer = \"vulkan\"\nzero_copy = true\n");
+    toml::table doc = toml::parse("version = 11\n[video]\nrenderer = \"vulkan\"\nzero_copy = true\n").table();
     akira::settings::migrations::buildSettingsMigrator().migrate(doc);
 
     CHECK_EQ(version_of(doc), 12);
     CHECK_EQ(doc["video"]["renderer"].value_or(std::string()), std::string("drako3d"));
     CHECK(doc["video"]["zero_copy"].value_or(false));
 
-    toml::table fresh = toml::parse("version = 11\n");
+    toml::table fresh = toml::parse("version = 11\n").table();
     akira::settings::migrations::buildSettingsMigrator().migrate(fresh);
     CHECK(!fresh.contains("video"));
 }

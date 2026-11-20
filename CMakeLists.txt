@@ -80,6 +80,7 @@ include(${BOREALIS_LIBRARY}/cmake/toolchain.cmake)
 project(akira)
 
 add_compile_options(-fno-omit-frame-pointer)
+add_compile_definitions(TOML_EXCEPTIONS=0)
 if (AKIRA_SHELL STREQUAL "arisa")
     add_compile_options("SHELL:-include ${AKIRA_ARISA_PREFIX}/include/arisa/provider/diagnostics/trap.h")
 endif()

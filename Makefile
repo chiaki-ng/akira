@@ -308,7 +308,7 @@ test: platform
 	fi
 	@mkdir -p "$(CURDIR)/build/tests/$(PLATFORM)"
 	@printf "$(GREEN)[*]$(NC) Building host tests...\n"
-	@c++ -std=c++23 -g -O0 -Wall -Wextra -Wno-unused-parameter -DAKIRA_MUTE_CORE_LOGS=0 \
+	@c++ -std=c++23 -g -O0 -Wall -Wextra -Wno-unused-parameter -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
 		-DAKIRA_RESOURCES_DIR=\"$(CURDIR)/resources\" -I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" \
 		-I"$(CURDIR)/library/tomlplusplus/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(OPENSSL_PREFIX)/include" \
 		$(TEST_SRC) $(CORE_TEST_SRC) -L"$(JSONC_PREFIX)/lib" -ljson-c -L"$(SIMDUTF_PREFIX)/lib" -lsimdutf \
@@ -323,10 +323,10 @@ test-arisa:
 	@mkdir -p "$(ARISA_TEST_DIR)"
 	@printf "$(GREEN)[*]$(NC) Building arisa seam and screen tests...\n"
 	@for source in $(ARISA_TEST_MODELS); do \
-		$(ARISA_HOST_CXX) -std=c++23 -O0 -g -DAKIRA_MUTE_CORE_LOGS=0 -I"$(CURDIR)/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" \
+		$(ARISA_HOST_CXX) -std=c++23 -O0 -g -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 -I"$(CURDIR)/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" \
 			-c "$$source" -o "$(ARISA_TEST_DIR)/$$(basename "$$source" .cpp).o" || exit 1; \
 	done
-	@$(ARISA_HOST_CXX) -std=c++23 -O0 -g -fno-rtti -DAKIRA_MUTE_CORE_LOGS=0 \
+	@$(ARISA_HOST_CXX) -std=c++23 -O0 -g -fno-rtti -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
 		-DAKIRA_RESOURCES_DIR=\"$(CURDIR)/resources\" -I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(ARISA_HOST_PREFIX)/include" \
 		-I"$(CORE_DIR)/include" -I"$(CORE_DIR)" \
 		"$(CURDIR)/tests/test_main.cpp" $(wildcard $(CURDIR)/tests/arisa/*.cpp) \
