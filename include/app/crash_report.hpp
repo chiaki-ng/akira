@@ -45,10 +45,19 @@ private:
         std::size_t m_length = 0;
     };
 
+    struct Frames {
+        std::array<std::uint64_t, MaxFrames> addresses{};
+        std::size_t count = 0;
+    };
+
     [[noreturn]] static void onTerminate();
+    static Frames walk(std::uint64_t pc, std::uint64_t lr, std::uint64_t fp);
+    static void submitFatal(const ThreadExceptionDump& dump, const Frames& frames);
+    static void submitFatal(FatalCpuContext& context, const Frames& frames);
     static void header(Writer& writer, std::string_view kind);
     static void address(Writer& writer, std::string_view label, std::uint64_t value);
     static void backtrace(Writer& writer, std::uint64_t pc, std::uint64_t lr, std::uint64_t fp);
+    static void print(Writer& writer, const Frames& frames);
     static bool readable(std::uint64_t address, std::size_t size);
     static std::string_view describe(std::uint32_t errorDesc);
     static void save(std::string_view text);

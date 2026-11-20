@@ -80,6 +80,9 @@ include(${BOREALIS_LIBRARY}/cmake/toolchain.cmake)
 project(akira)
 
 add_compile_options(-fno-omit-frame-pointer)
+if (AKIRA_SHELL STREQUAL "arisa")
+    add_compile_options("SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/include/app/trap_hook.h")
+endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 

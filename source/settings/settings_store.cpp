@@ -1,4 +1,6 @@
 #include "settings/settings_store.hpp"
+
+#include "app/crash_report.hpp"
 #include "settings/migrations/registry.hpp"
 #include "util/base64.hpp"
 #include "log/log.hpp"
@@ -371,8 +373,12 @@ bool SettingsStore::trySave()
     std::lock_guard<std::mutex> writeLock(writeMutex);
     log::info("Writing config file: {}", file.string());
     ensureDirectory();
+    app::CrashReport::stage("save snapshot");
     owned = snapshot();
-    return persist(owned);
+    app::CrashReport::stage("save persist");
+    const bool saved = persist(owned);
+    app::CrashReport::stage("save written");
+    return saved;
 }
 
 bool SettingsStore::saveLive()

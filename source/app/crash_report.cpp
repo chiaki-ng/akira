@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
+#include <span>
 #include <typeinfo>
 
 extern "C" char __start__[];
@@ -26,6 +27,10 @@ void CrashReport::install(const char* appName, const char* version, const char* 
     std::array<char, 160> line{};
     const auto out = std::format_to_n(line.data(), line.size() - 1, "{} {} boot trace\n", s_appName, s_version);
     write(s_bootPath.data(), {line.data(), static_cast<std::size_t>(out.size)}, false);
+    u64 debugger = 0;
+    const Result debuggerQuery = svcGetInfo(&debugger, InfoType_DebuggerAttached, INVALID_HANDLE, 0);
+    const auto probe = std::format_to_n(line.data(), line.size() - 1, "debugger-attached query 0x{:x} value {}\n", debuggerQuery, debugger);
+    write(s_bootPath.data(), {line.data(), std::min<std::size_t>(static_cast<std::size_t>(probe.size), line.size() - 1)}, true);
     stage("install");
 }
 
@@ -48,9 +53,17 @@ void CrashReport::onAbort(std::string_view kind, std::string_view detail, std::u
     header(writer, kind);
     if (!detail.empty())
         writer.line("{}", detail);
-    backtrace(writer, returnAddress, 0, frame);
+    const Frames frames = walk(returnAddress, 0, frame);
+    print(writer, frames);
     save(writer.text());
     echo(writer.text());
+    FatalCpuContext context{};
+    context.aarch64_ctx.pc = returnAddress;
+    context.aarch64_ctx.lr = returnAddress;
+    context.aarch64_ctx.fp = frame;
+    context.aarch64_ctx.sp = frame;
+    context.aarch64_ctx.register_set_flags = (1ULL << 29) | (1ULL << 30) | (1ULL << 31) | (1ULL << 32);
+    submitFatal(context, frames);
 }
 
 void CrashReport::onResult(std::string_view kind, Result result, std::uint64_t returnAddress, std::uint64_t frame)
@@ -80,9 +93,11 @@ void CrashReport::onException(const ThreadExceptionDump& dump)
         else
             writer.line("x{:<2} 0x{:016x}", i, dump.cpu_gprs[i].x);
     }
-    backtrace(writer, dump.pc.x, dump.lr.x, dump.fp.x);
+    const Frames frames = walk(dump.pc.x, dump.lr.x, dump.fp.x);
+    print(writer, frames);
     save(writer.text());
     echo(writer.text());
+    submitFatal(dump, frames);
 }
 
 void CrashReport::onTerminate()
@@ -133,28 +148,69 @@ void CrashReport::address(Writer& writer, std::string_view label, std::uint64_t 
         writer.line("{} 0x{:016x}", label, value);
 }
 
-void CrashReport::backtrace(Writer& writer, std::uint64_t pc, std::uint64_t lr, std::uint64_t fp)
+auto CrashReport::walk(std::uint64_t pc, std::uint64_t lr, std::uint64_t fp) -> Frames
 {
-    writer.line("backtrace");
-    address(writer, "  #0", pc);
-    std::size_t frame = 1;
-    if (lr != 0) {
-        address(writer, "  #1", lr);
-        frame = 2;
-    }
-    while (frame < MaxFrames && fp != 0 && (fp & 0xF) == 0 && readable(fp, 16)) {
+    Frames frames;
+    frames.addresses[frames.count++] = pc;
+    if (lr != 0)
+        frames.addresses[frames.count++] = lr;
+    while (frames.count < MaxFrames && fp != 0 && (fp & 0xF) == 0 && readable(fp, 16)) {
         const auto* record = reinterpret_cast<const std::uint64_t*>(fp);
         const std::uint64_t next = record[0];
         const std::uint64_t ret = record[1];
         if (ret == 0)
             break;
-        std::array<char, 8> label{};
-        std::format_to_n(label.data(), label.size() - 1, "  #{}", frame++);
-        address(writer, label.data(), ret);
+        frames.addresses[frames.count++] = ret;
         if (next <= fp)
             break;
         fp = next;
     }
+    return frames;
+}
+
+void CrashReport::backtrace(Writer& writer, std::uint64_t pc, std::uint64_t lr, std::uint64_t fp)
+{
+    print(writer, walk(pc, lr, fp));
+}
+
+void CrashReport::print(Writer& writer, const Frames& frames)
+{
+    writer.line("backtrace");
+    for (std::size_t index = 0; index < frames.count; ++index) {
+        std::array<char, 8> label{};
+        std::format_to_n(label.data(), label.size() - 1, "  #{}", index);
+        address(writer, label.data(), frames.addresses[index]);
+    }
+}
+
+void CrashReport::submitFatal(const ThreadExceptionDump& dump, const Frames& frames)
+{
+    FatalCpuContext context{};
+    FatalAarch64Context& cpu = context.aarch64_ctx;
+    for (std::size_t index = 0; index < 29; ++index)
+        cpu.x[index] = dump.cpu_gprs[index].x;
+    cpu.fp = dump.fp.x;
+    cpu.lr = dump.lr.x;
+    cpu.sp = dump.sp.x;
+    cpu.pc = dump.pc.x;
+    cpu.pstate = dump.pstate;
+    cpu.afsr0 = dump.afsr0;
+    cpu.afsr1 = dump.afsr1;
+    cpu.esr = dump.esr;
+    cpu.far = dump.far.x;
+    cpu.register_set_flags = 0x1FFFFFFFFULL;
+    context.type = dump.error_desc;
+    submitFatal(context, frames);
+}
+
+void CrashReport::submitFatal(FatalCpuContext& context, const Frames& frames)
+{
+    FatalAarch64Context& cpu = context.aarch64_ctx;
+    std::ranges::copy(std::span{frames.addresses}.first(frames.count), std::begin(cpu.stack_trace));
+    cpu.stack_trace_size = static_cast<u32>(frames.count);
+    cpu.start_address = reinterpret_cast<std::uint64_t>(__start__);
+    context.is_aarch32 = false;
+    fatalThrowWithContext(MAKERESULT(Module_Libnx, LibnxError_ShouldNotHappen), FatalPolicy_ErrorReport, &context);
 }
 
 bool CrashReport::readable(std::uint64_t address, std::size_t size)

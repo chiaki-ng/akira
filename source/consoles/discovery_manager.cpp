@@ -165,20 +165,24 @@ void DiscoveryManager::linkSavedConsoles()
         }
     }
 
+    app::CrashReport::stage("link hosts matched");
     for (const auto& console : known.everything())
     {
         if (!console->is_saved())
             continue;
         if (hostFor(*console))
             continue;
+        app::CrashReport::stage("link host create");
         Host* host = hostCatalog.getOrCreate(console->name());
         host->setHostType(HostType::Auto);
         host->linkConsole(console);
         changed = true;
     }
 
+    app::CrashReport::stage(changed ? "link save" : "link unchanged");
     if (changed)
         settingsStore.save();
+    app::CrashReport::stage("link done");
 }
 
 auto DiscoveryManager::searchRanges() -> consoles::SearchRanges
