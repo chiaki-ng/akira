@@ -1,0 +1,462 @@
+#include "consoles/ui/console_operations.hpp"
+
+#include <algorithm>
+#include <iterator>
+#include <utility>
+#include <vector>
+
+#include "accounts/accounts.hpp"
+#include "app/notifier.hpp"
+#include "app/services.hpp"
+#include "app/strings.hpp"
+#include "app/ui_dispatcher.hpp"
+#include "consoles/discovery_gate.hpp"
+#include "consoles/discovery_manager.hpp"
+#include "consoles/host.hpp"
+#include "consoles/host_catalog.hpp"
+#include "consoles/remote_lookup.hpp"
+#include "log/log.hpp"
+#include "play/chiaki_core.hpp"
+
+namespace akira::consoles::ui {
+
+ConsoleOperations::ConsoleOperations(app::Services& services, ConsoleShelf& shelf, app::Notifier& notifier,
+    Connect connect)
+    : services(services)
+    , shelf(shelf)
+    , notifier(notifier)
+    , connect(std::move(connect))
+{
+}
+
+ConsoleOperations::~ConsoleOperations()
+{
+    services.discovery.setOnHostDiscovered(nullptr);
+    services.discovery.setOnHostsChanged(nullptr);
+}
+
+void ConsoleOperations::follow()
+{
+    services.discoveryGate.appeared();
+    services.discovery.setOnHostDiscovered([this](Host* found) {
+        if (services.discoveryGate.discovered(found != nullptr, true) != DiscoveryGate::Discovered::Update)
+            return;
+        services.dispatcher.post([this] { refresh(); });
+    });
+    services.discovery.setOnHostsChanged([this] {
+        if (services.discoveryGate.hostsChanged(true))
+            services.dispatcher.post([this] { refresh(); });
+    });
+    if (!services.discovery.isServiceEnabled())
+        services.discovery.setServiceEnabled(true);
+    refresh();
+}
+
+void ConsoleOperations::refresh()
+{
+    shelf.show(list());
+}
+
+void ConsoleOperations::streamEnded()
+{
+    services.discoveryGate.connectionEnded();
+    refresh();
+}
+
+auto ConsoleOperations::host(const std::string& catalogName) const -> Host*
+{
+    const auto& entries = services.hosts.entries();
+    const auto found = entries.find(catalogName);
+    return found == entries.end() ? nullptr : found->second.get();
+}
+
+auto ConsoleOperations::actions() const -> ConsoleActions
+{
+    return ConsoleActions(services.hosts, services.store, services.accounts, services.developer, services.wireGuard,
+        services.core);
+}
+
+auto ConsoleOperations::list() const -> ConsoleList
+{
+    return ConsoleList(services.hosts.facts(),
+        ConsoleList::profileFor(!services.accounts.profiles().empty(), services.accounts.isLegacyProfileActive()));
+}
+
+auto ConsoleOperations::identityMissing(const Host& target, bool registering) -> bool
+{
+    const auto missing = actions().missingIdentity(target);
+    if (!missing)
+        return false;
+    const char* key = nullptr;
+    if (*missing == PsnIdentity::Missing::AccountId)
+        key = registering ? "akira/hosts/psn_account_id_required_register" : "akira/hosts/psn_account_id_required";
+    else
+        key = registering ? "akira/hosts/psn_online_id_required_register" : "akira/hosts/psn_online_id_required";
+    shelf.ask(ConsoleShelf::Prompt{
+        .ask = ConsoleShelf::Ask::Notice, .catalogName = target.getHostName(), .text = services.strings.text(key) });
+    return true;
+}
+
+void ConsoleOperations::primary(const std::string& catalogName)
+{
+    Host* target = host(catalogName);
+    if (!target)
+        return;
+    const auto action = list().entry(target->facts()).primaryAction();
+    if (!action)
+    {
+        log::warning("[CONSOLES] no primary action for {}", catalogName);
+        return;
+    }
+    switch (*action)
+    {
+        case ConsoleEntry::Action::Connect:
+        case ConsoleEntry::Action::Wake: play(*target); break;
+        case ConsoleEntry::Action::Register: beginRegistration(*target); break;
+        case ConsoleEntry::Action::Link: offerLink(*target); break;
+    }
+}
+
+void ConsoleOperations::play(Host& target)
+{
+    log::info("[CONSOLES] play on {}", target.getHostName());
+    if (target.isPsnRemotePlayDisabled())
+        notifier.notify(services.strings.text("akira/connection/fail_rp_disabled"));
+    if (identityMissing(target, false))
+        return;
+    services.discoveryGate.connectionStarted();
+    connect(target);
+}
+
+void ConsoleOperations::beginRegistration(Host& target)
+{
+    if (services.registration.registering())
+        return;
+    if (identityMissing(target, true))
+        return;
+    if (target.canPairOverInternet())
+    {
+        shelf.ask(ConsoleShelf::Prompt{ .ask = ConsoleShelf::Ask::RegisterHow, .catalogName = target.getHostName() });
+        return;
+    }
+    askPin(target.getHostName());
+}
+
+void ConsoleOperations::offerLink(Host& target)
+{
+    const std::vector<std::string> targets = list().linkTargets();
+    if (targets.empty())
+    {
+        notifier.notify(services.strings.text("akira/hosts/no_registered_hosts"));
+        return;
+    }
+    shelf.ask(ConsoleShelf::Prompt{
+        .ask = ConsoleShelf::Ask::Link, .catalogName = target.getHostName(), .choices = targets });
+}
+
+void ConsoleOperations::option(const std::string& catalogName, ConsoleEntry::Option chosen)
+{
+    Host* target = host(catalogName);
+    if (!target)
+        return;
+    switch (chosen)
+    {
+        case ConsoleEntry::Option::ConsolePin:
+            shelf.ask(ConsoleShelf::Prompt{
+                .ask = ConsoleShelf::Ask::ConsolePin, .catalogName = catalogName, .text = target->getConsolePIN() });
+            break;
+        case ConsoleEntry::Option::AddAddress:
+        case ConsoleEntry::Option::SetAddress:
+            shelf.ask(ConsoleShelf::Prompt{
+                .ask = ConsoleShelf::Ask::Address, .catalogName = catalogName, .text = target->getHostAddr() });
+            break;
+        case ConsoleEntry::Option::TakionVersion:
+        {
+            const TakionPinChoice choice = actions().takionPins(*target);
+            const auto configured = choice.configuredVersion();
+            const std::string fallback = configured ? "v" + std::to_string(*configured)
+                                                    : services.strings.text("akira/settings/dev_takion_version_auto");
+            std::vector<std::string> labels{ services.strings.format("akira/hosts/takion_follow_settings", fallback) };
+            std::ranges::transform(choice.versions(), std::back_inserter(labels),
+                [](std::uint32_t version) { return "v" + std::to_string(version); });
+            shelf.ask(ConsoleShelf::Prompt{ .ask = ConsoleShelf::Ask::TakionVersion,
+                .catalogName = catalogName,
+                .choices = std::move(labels),
+                .selected = choice.selected() });
+            break;
+        }
+        case ConsoleEntry::Option::Delete:
+            shelf.ask(ConsoleShelf::Prompt{ .ask = ConsoleShelf::Ask::Delete,
+                .catalogName = catalogName,
+                .text = services.strings.format("akira/hosts/delete_confirm", target->getHostName()) });
+            break;
+    }
+}
+
+void ConsoleOperations::wake(const std::string& catalogName)
+{
+    Host* target = host(catalogName);
+    if (!target)
+        return;
+    notifier.notify(services.strings.format(
+        actions().wake(*target) ? "akira/hosts/wake_sent" : "akira/hosts/wake_failed", target->getHostName()));
+}
+
+void ConsoleOperations::askPin(const std::string& catalogName)
+{
+    if (services.registration.registering() || !host(catalogName))
+        return;
+    shelf.ask(ConsoleShelf::Prompt{ .ask = ConsoleShelf::Ask::Pin, .catalogName = catalogName });
+}
+
+void ConsoleOperations::registerWithPin(const std::string& catalogName, const std::string& pin)
+{
+    Host* target = host(catalogName);
+    shelf.dismiss();
+    if (!target)
+        return;
+    services.registration.beginPin();
+    const HostRegisterError result = actions().registerWithPin(*target, pin, [this, catalogName](Host::PairingOutcome outcome) {
+        services.dispatcher.post([this, catalogName, outcome] { pinEnded(catalogName, outcome); });
+    });
+    if (const auto refusal = services.registration.pinRefused(result))
+        notifier.notify(refusalText(*refusal));
+}
+
+void ConsoleOperations::pinEnded(const std::string& catalogName, Host::PairingOutcome outcome)
+{
+    switch (services.registration.pinEnded(outcome))
+    {
+        case RegisterFlow::Notice::Success:
+            log::info("[CONSOLES] registered {}", catalogName);
+            notifier.notify(services.strings.text("akira/hosts/registration_success"));
+            break;
+        case RegisterFlow::Notice::Canceled:
+            notifier.notify(services.strings.text("akira/hosts/registration_canceled"));
+            break;
+        case RegisterFlow::Notice::Failed:
+            notifier.notify(services.strings.text("akira/hosts/registration_failed"));
+            break;
+    }
+    refresh();
+}
+
+void ConsoleOperations::registerOverInternet(const std::string& catalogName)
+{
+    Host* target = host(catalogName);
+    shelf.dismiss();
+    if (!target || !services.registration.beginInternet())
+        return;
+    internetStage(catalogName, 1, 4);
+    const HostRegisterError result = actions().registerOverInternet(*target,
+        [this, catalogName](int index, int total) {
+            services.dispatcher.post([this, catalogName, index, total] { internetStage(catalogName, index, total); });
+        },
+        [this, catalogName](Host::PairingOutcome outcome) {
+            services.dispatcher.post([this, catalogName, outcome] { internetEnded(catalogName, outcome); });
+        });
+    if (!services.registration.internetStarted(result))
+    {
+        shelf.registering(std::nullopt);
+        notifier.notify(services.strings.text("akira/hosts/auto_register_fallback"));
+        askPin(catalogName);
+    }
+}
+
+void ConsoleOperations::internetStage(const std::string& catalogName, int index, int total)
+{
+    if (!services.registration.registering())
+        return;
+    const char* key = nullptr;
+    switch (RegisterFlow::stage(index))
+    {
+        case RegisterFlow::Stage::Account: key = "akira/hosts/register_stage_account"; break;
+        case RegisterFlow::Stage::Console: key = "akira/hosts/register_stage_console"; break;
+        case RegisterFlow::Stage::Connect: key = "akira/hosts/register_stage_connect"; break;
+        case RegisterFlow::Stage::Finish: key = "akira/hosts/register_stage_finish"; break;
+    }
+    shelf.registering(ConsoleShelf::Registering{ .catalogName = catalogName,
+        .stage = services.strings.format("akira/hosts/register_stage_fmt", index, total, services.strings.text(key)) });
+}
+
+void ConsoleOperations::internetEnded(const std::string& catalogName, Host::PairingOutcome outcome)
+{
+    const RegisterFlow::InternetEnd end = services.registration.internetEnded(outcome);
+    shelf.registering(std::nullopt);
+    switch (end)
+    {
+        case RegisterFlow::InternetEnd::Success:
+            notifier.notify(services.strings.text("akira/hosts/registration_success"));
+            refresh();
+            return;
+        case RegisterFlow::InternetEnd::Quiet:
+            return;
+        case RegisterFlow::InternetEnd::FallBackToPin:
+            break;
+    }
+    notifier.notify(services.strings.text("akira/hosts/auto_register_fallback"));
+    askPin(catalogName);
+}
+
+void ConsoleOperations::cancelRegistration(const std::string& catalogName)
+{
+    Host* target = host(catalogName);
+    const bool internet = shelf.view().get().registering.has_value();
+    if (internet)
+        services.registration.userCanceled();
+    if (target)
+        actions().cancelRegistration(*target);
+    services.registration.stopped();
+    shelf.registering(std::nullopt);
+    shelf.dismiss();
+    log::info("[CONSOLES] registration of {} cancelled", catalogName);
+}
+
+void ConsoleOperations::link(const std::string& catalogName, const std::string& localName)
+{
+    Host* remote = host(catalogName);
+    shelf.dismiss();
+    if (!remote)
+        return;
+    const auto linked = actions().link(*remote, localName);
+    if (!linked)
+    {
+        if (linked.error() == ConsoleActions::LinkRefusal::NameTaken)
+            notifier.notify(services.strings.format("akira/hosts/link_name_taken",
+                ConsoleEntry(remote->facts(), false).displayName()));
+        return;
+    }
+    notifier.notify(services.strings.format("akira/hosts/linked_to", *linked));
+    refresh();
+}
+
+void ConsoleOperations::setConsolePin(const std::string& catalogName, const std::string& pin)
+{
+    Host* target = host(catalogName);
+    shelf.dismiss();
+    if (!target)
+        return;
+    notifier.notify(services.strings.text(actions().setConsolePin(*target, pin) ? "akira/host_settings/console_pin_saved"
+                                                                                : "akira/host_settings/console_pin_invalid"));
+}
+
+void ConsoleOperations::setAddress(const std::string& catalogName, const std::string& address)
+{
+    Host* target = host(catalogName);
+    shelf.dismiss();
+    if (!target)
+        return;
+    const auto moved = actions().moveTo(*target, address);
+    if (!moved)
+    {
+        notifier.notify(services.strings.text(moved.error() == Host::AddressRefusal::Invalid
+                ? "akira/hosts/address_invalid"
+                : "akira/hosts/address_not_saved"));
+        return;
+    }
+    if (*moved == ConsoleActions::AddressChange::Unchanged)
+        return;
+    notifier.notify(services.strings.format("akira/hosts/address_saved", target->getHostName(), address));
+    refresh();
+}
+
+void ConsoleOperations::pinTakion(const std::string& catalogName, int index)
+{
+    Host* target = host(catalogName);
+    shelf.dismiss();
+    if (!target)
+        return;
+    const TakionPinChoice choice = actions().takionPins(*target);
+    if (!choice.contains(index))
+        return;
+    const auto version = choice.versionAt(index);
+    actions().pinTakion(*target, version);
+    if (!version)
+        notifier.notify(services.strings.format("akira/hosts/takion_follows", target->getHostName()));
+    else
+        notifier.notify(
+            services.strings.format("akira/hosts/takion_pinned", target->getHostName(), std::to_string(*version)));
+}
+
+void ConsoleOperations::remove(const std::string& catalogName)
+{
+    shelf.dismiss();
+    Host* target = host(catalogName);
+    if (!target)
+        return;
+    const std::string name = target->getHostName();
+    log::info("[CONSOLES] deleting {}", name);
+    actions().remove(name);
+    notifier.notify(services.strings.text("akira/hosts/host_deleted"));
+    refresh();
+}
+
+void ConsoleOperations::addManual(const std::string& name, const std::string& address, bool ps5)
+{
+    const auto added = actions().addManual(name, address,
+        ps5 ? libchiaking::consoles::Generation::ps5 : libchiaking::consoles::Generation::ps4);
+    if (!added)
+    {
+        notifier.notify(manualRefusalText(added.error()));
+        return;
+    }
+    shelf.openAdd(false);
+    notifier.notify(services.strings.text("akira/add_host/success"));
+    refresh();
+}
+
+void ConsoleOperations::findRemote()
+{
+    accounts::Accounts* psn = services.core.accounts();
+    const RemoteLookup lookup(psn ? std::optional(psn->state()) : std::nullopt);
+    if (!lookup.allowed())
+    {
+        notifier.notify(services.strings.text("akira/hosts/no_psn_token"));
+        return;
+    }
+    notifier.notify(services.strings.text(lookup.notice() == RemoteLookup::Notice::Finding
+            ? "akira/hosts/finding_remote"
+            : "akira/hosts/token_expired_refreshing"));
+    shelf.openAdd(false);
+    services.discovery.refreshRemoteDevices(
+        [this](const DiscoveryManager::RemoteRefreshResult& result) {
+            services.dispatcher.post([this, result] {
+                if (!result.success)
+                    notifier.notify(services.strings.format("akira/hosts/token_refresh_failed", result.message));
+                refresh();
+            });
+        },
+        true);
+}
+
+auto ConsoleOperations::findsRemote() const -> bool
+{
+    return !services.accounts.isLegacyProfileActive();
+}
+
+auto ConsoleOperations::refusalText(RegisterFlow::Refusal refusal) const -> std::string
+{
+    switch (refusal)
+    {
+        case RegisterFlow::Refusal::AccountId: return services.strings.text("akira/hosts/error_psn_account_id");
+        case RegisterFlow::Refusal::OnlineId: return services.strings.text("akira/hosts/error_psn_online_id");
+        case RegisterFlow::Refusal::ConsoleType: return services.strings.text("akira/hosts/error_console_type");
+        case RegisterFlow::Refusal::Failed: break;
+    }
+    return services.strings.text("akira/hosts/error_registration_failed");
+}
+
+auto ConsoleOperations::manualRefusalText(ConsoleActions::ManualRefusal refusal) const -> std::string
+{
+    switch (refusal)
+    {
+        case ConsoleActions::ManualRefusal::NoName: return services.strings.text("akira/add_host/error_no_name");
+        case ConsoleActions::ManualRefusal::NoAddress: return services.strings.text("akira/add_host/error_no_ip");
+        case ConsoleActions::ManualRefusal::InvalidAddress: return services.strings.text("akira/add_host/error_invalid_ip");
+        case ConsoleActions::ManualRefusal::DuplicateName:
+            return services.strings.text("akira/add_host/error_duplicate_name");
+    }
+    return services.strings.text("akira/add_host/error_invalid_ip");
+}
+
+}
