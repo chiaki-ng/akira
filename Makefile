@@ -57,7 +57,7 @@ ARISA_FLAVOUR_nx_drako3d    := switch
 ARISA_FLAVOUR_nx_vulkan     := switch
 ARISA_FLAVOUR_ounce_drako3d := switch2
 ARISA_FLAVOUR_ounce_vulkan  := switch2
-ARISA_SHA256_switch         := 5c011bb8b2f4829507d2b7405053b19320f175f2dde661df2bcd8c57f1739fb3
+ARISA_SHA256_switch         := 4f3353e44fd7045763ba179c2fb72af17ae209c14b2b87022e66ddf17a7db519
 ARISA_SHA256_switch2        := fec97b40b606e012902a13e4afdc2c263815b1d8d73ee64eb1b8a8125aee2eaa
 ARISA_RECIPE_switch         := make package TARGET=switch
 ARISA_RECIPE_switch2        := make package-switch2
