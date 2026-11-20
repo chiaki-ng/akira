@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace akira::settings {
 
@@ -26,6 +28,14 @@ public:
         friend bool operator==(const UpdateProgress&, const UpdateProgress&) = default;
     };
 
+    struct DiscoveryLog {
+        std::uint64_t version = 0;
+        std::vector<std::string> lines;
+        bool enabled = false;
+
+        friend bool operator==(const DiscoveryLog&, const DiscoveryLog&) = default;
+    };
+
     virtual ~Maintenance() = default;
 
     virtual auto legacyProfile() const -> bool = 0;
@@ -40,6 +50,11 @@ public:
     virtual void installUpdate(std::function<void(UpdateProgress)> progress) = 0;
     virtual void cancelUpdate() = 0;
     virtual void quit() = 0;
+    virtual auto discoveryLog() const -> DiscoveryLog = 0;
+    virtual auto discoveryLogVersion() const -> std::uint64_t = 0;
+    virtual void clearDiscoveryLog() = 0;
+    virtual void runBenchmark(std::function<void(std::string)> line, std::function<void()> done) = 0;
+    virtual void stopBenchmark() = 0;
 };
 
 }

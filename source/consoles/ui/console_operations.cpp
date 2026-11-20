@@ -23,12 +23,19 @@
 namespace akira::consoles::ui {
 
 ConsoleOperations::ConsoleOperations(app::Services& services, ConsoleShelf& shelf, app::Notifier& notifier,
-    Connect connect)
+    Connect connect, SetUp setUp)
     : services(services)
     , shelf(shelf)
     , notifier(notifier)
     , connect(std::move(connect))
+    , setUp(std::move(setUp))
 {
+}
+
+void ConsoleOperations::setUpAccount()
+{
+    if (setUp)
+        setUp();
 }
 
 ConsoleOperations::~ConsoleOperations()

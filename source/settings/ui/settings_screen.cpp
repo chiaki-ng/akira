@@ -30,15 +30,21 @@
 #include <cstddef>
 #include <utility>
 
+#include "accounts/ui/account_section.hpp"
+#include "app/arisa/about_page.hpp"
+#include "app/arisa/build_info_page.hpp"
 #include "app/version.hpp"
+#include "log/ui/log_browser.hpp"
 #include "network/ui/nat_section.hpp"
 #include "network/ui/tunnel_section.hpp"
 #include "play/ui/button_board_view.hpp"
 #include "settings/developer_settings.hpp"
 #include "settings/ui/config_page.hpp"
+#include "settings/ui/benchmark_page.hpp"
 #include "settings/ui/controls_section.hpp"
 #include "settings/ui/debug_section.hpp"
 #include "settings/ui/developer_section.hpp"
+#include "settings/ui/discovery_log_page.hpp"
 #include "settings/ui/entry_sheet.hpp"
 #include "settings/ui/general_section.hpp"
 #include "settings/ui/pad_page.hpp"
@@ -63,7 +69,10 @@ SettingsScreen::SettingsScreen(Parts parts, const app::Strings& strings)
 
 auto SettingsScreen::pages(const SettingsModel& model) -> std::vector<Page>
 {
-    std::vector<Page> shown{ Page::General, Page::Picture, Page::Controls };
+    std::vector<Page> shown;
+    if (model.features().accounts)
+        shown.push_back(Page::Account);
+    shown.insert(shown.end(), { Page::General, Page::Picture, Page::Controls });
     if (model.features().selfUpdate)
         shown.push_back(Page::Updates);
     shown.push_back(Page::Network);
@@ -74,6 +83,8 @@ auto SettingsScreen::pages(const SettingsModel& model) -> std::vector<Page>
         shown.push_back(Page::PowerUser);
         shown.push_back(Page::Developer);
     }
+    shown.push_back(Page::BuildInfo);
+    shown.push_back(Page::About);
     return shown;
 }
 
@@ -89,6 +100,9 @@ auto SettingsScreen::title(Page shown) const -> std::string
 {
     switch (shown)
     {
+        case Page::Account: return strings->text("akira/settings/menu_account");
+        case Page::BuildInfo: return strings->text("akira/settings/menu_build_info");
+        case Page::About: return strings->text("akira/settings/menu_about");
         case Page::General: return strings->text("akira/settings/menu_general");
         case Page::Picture: return strings->text("akira/settings/menu_picture");
         case Page::Controls: return strings->text("akira/settings/menu_controls");
@@ -106,6 +120,9 @@ auto SettingsScreen::symbol(Page shown) -> std::string
 {
     switch (shown)
     {
+        case Page::Account: return "account_circle";
+        case Page::BuildInfo: return "memory";
+        case Page::About: return "info";
         case Page::General: return "settings";
         case Page::Picture: return "tv";
         case Page::Controls: return "sports_esports";
@@ -125,6 +142,12 @@ auto SettingsScreen::content(Page shown) const -> composition::Element
     const HelpCatalog& help = *parts.help;
     switch (shown)
     {
+        case Page::Account:
+            if (parts.accounts)
+                return accounts::ui::AccountSection(*parts.accounts, help, *strings);
+            break;
+        case Page::BuildInfo: return app::arisa::BuildInfoPage(model.features().buildInfoFile, *strings);
+        case Page::About: return app::arisa::AboutPage(*strings);
         case Page::General: return GeneralSection(model, help, *strings);
         case Page::Picture: break;
         case Page::Controls: return ControlsSection(model, help, *strings);
@@ -157,6 +180,20 @@ auto SettingsScreen::detail(const SettingsModel::Status& status) const -> compos
         case SettingsModel::Detail::Pad:
             heading = status.pad < status.pads.size() ? status.pads[status.pad].label : std::string();
             shown = PadPage(*model, *parts.help, *strings);
+            break;
+        case SettingsModel::Detail::Logs:
+            heading = strings->text("akira/settings/dev_logs");
+            if (parts.logs)
+                shown = composition::Element(log::ui::LogBrowser(*parts.logs, *strings))
+                            .on_appear([logs = parts.logs] { logs->open(); });
+            break;
+        case SettingsModel::Detail::DiscoveryLog:
+            heading = strings->text("akira/settings/discovery_log_viewer");
+            shown = DiscoveryLogPage(*model, *strings);
+            break;
+        case SettingsModel::Detail::Benchmark:
+            heading = strings->text("akira/benchmark/title");
+            shown = BenchmarkPage(*model, *strings);
             break;
         case SettingsModel::Detail::None: break;
     }

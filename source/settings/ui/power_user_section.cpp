@@ -69,6 +69,8 @@ auto PowerUserSection::body(composition::Context& context) const -> composition:
     return structure::Form(rows.section(rows.text("akira/settings/streaming_heading"), std::move(streaming)),
         rows.section(rows.text("akira/settings/holepunch_heading"), std::move(holepunch)),
         rows.section(rows.text("akira/settings/tools_heading"),
+            rows.action(rows.text("akira/settings/run_benchmark"), "memory", "settings/runBenchmark",
+                [edit = model] { edit->runBenchmark(); }),
             rows.action(rows.text("akira/settings/flush_trophy_cache"), "delete", "settings/flushTrophyCache",
                 [&maintenance, &notifier, flushed] {
                     maintenance.flushTrophyCache();

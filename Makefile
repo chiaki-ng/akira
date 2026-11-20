@@ -101,6 +101,13 @@ ARISA_TEST_MODELS   = $(CURDIR)/source/log/log.cpp \
                       $(CURDIR)/source/app/app_settings.cpp \
                       $(CURDIR)/source/play/combo_capture.cpp \
                       $(CURDIR)/source/play/button_board.cpp \
+                      $(CURDIR)/source/play/pad_choice.cpp \
+                      $(CURDIR)/source/play/seat_board.cpp \
+                      $(CURDIR)/source/app/qr_matrix.cpp \
+                      $(CURDIR)/source/app/build_info.cpp \
+                      $(CURDIR)/source/log/log_folder.cpp \
+                      $(CURDIR)/source/log/log_excerpt.cpp \
+                      $(CURDIR)/library/qrcodegen/qrcodegen.cpp \
                       $(CORE_DIR)/src/core/play/model/outcome.cpp \
                       $(CORE_DIR)/src/core/consoles/model/pairing/pairing.cpp \
                       $(CORE_DIR)/src/platform/memory/secure_zero_darwin.cpp
@@ -115,6 +122,13 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/play/ui/stream_dock.cpp \
                       $(CURDIR)/source/play/ui/mapping.cpp \
                       $(CURDIR)/source/play/ui/button_board_view.cpp \
+                      $(CURDIR)/source/play/ui/couch.cpp \
+                      $(CURDIR)/source/play/ui/players_panel.cpp \
+                      $(CURDIR)/source/play/ui/pad_picker.cpp \
+                      $(CURDIR)/source/play/ui/couch_prompt.cpp \
+                      $(CURDIR)/source/play/ui/seat_passcode.cpp \
+                      $(wildcard $(CURDIR)/source/accounts/ui/*.cpp) \
+                      $(wildcard $(CURDIR)/source/log/ui/*.cpp) \
                       $(wildcard $(CURDIR)/source/settings/ui/*.cpp) \
                       $(wildcard $(CURDIR)/source/network/ui/*.cpp) \
                       $(CURDIR)/source/app/arisa/shell_screen.cpp \
@@ -122,7 +136,10 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/app/arisa/notices.cpp \
                       $(CURDIR)/source/app/arisa/rail.cpp \
                       $(CURDIR)/source/app/arisa/header.cpp \
-                      $(CURDIR)/source/app/arisa/theme_packs.cpp
+                      $(CURDIR)/source/app/arisa/theme_packs.cpp \
+                      $(CURDIR)/source/app/arisa/qr_code.cpp \
+                      $(CURDIR)/source/app/arisa/about_page.cpp \
+                      $(CURDIR)/source/app/arisa/build_info_page.cpp
 ARISA_TEST_STB      = $(CURDIR)/library/borealis/library/lib/extern/glfw/deps
 NRO_FILE     := $(CURDIR)/build/$(PLATFORM)/akira.nro
 ELF_FILE     := build/$(PLATFORM)/akira.elf
@@ -187,6 +204,13 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/log/log.cpp \
                 $(CURDIR)/source/log/core_log.cpp \
                 $(CURDIR)/source/log/log_tail.cpp \
+                $(CURDIR)/source/log/log_folder.cpp \
+                $(CURDIR)/source/log/log_excerpt.cpp \
+                $(CURDIR)/source/app/build_info.cpp \
+                $(CURDIR)/source/app/qr_matrix.cpp \
+                $(CURDIR)/library/qrcodegen/qrcodegen.cpp \
+                $(CURDIR)/source/play/pad_choice.cpp \
+                $(CURDIR)/source/play/seat_board.cpp \
                 $(CURDIR)/source/play/connect_failure.cpp \
                 $(CURDIR)/source/play/connect_flow.cpp \
                 $(CURDIR)/source/play/session_ending.cpp \
@@ -343,7 +367,7 @@ test: platform
 	@printf "$(GREEN)[*]$(NC) Building host tests...\n"
 	@c++ -std=c++23 -g -O0 -Wall -Wextra -Wno-unused-parameter -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
 		-DAKIRA_RESOURCES_DIR=\"$(CURDIR)/resources\" -I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" \
-		-I"$(CURDIR)/library/tomlplusplus/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(OPENSSL_PREFIX)/include" \
+		-I"$(CURDIR)/library/tomlplusplus/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(OPENSSL_PREFIX)/include" -I"$(CURDIR)/library/qrcodegen" \
 		$(TEST_SRC) $(CORE_TEST_SRC) -L"$(JSONC_PREFIX)/lib" -ljson-c -L"$(SIMDUTF_PREFIX)/lib" -lsimdutf \
 		-L"$(OPENSSL_PREFIX)/lib" -lcrypto -o "$(TEST_BIN)"
 	@printf "$(GREEN)[*]$(NC) Running host tests...\n"
@@ -360,7 +384,7 @@ test-arisa:
 		-e 's/@APP_VERSION_NACP@/0.0.0/' -e 's/@BUILD_CHANNEL@/dev/' -e 's/@GIT_COMMIT@/test/' -e 's/@BUILD_DATE@/test/' \
 		"$(CURDIR)/cmake/akira_version.h.in" > "$(ARISA_TEST_DIR)/generated/akira_version.h"
 	@for source in $(ARISA_TEST_MODELS); do \
-		nice -n 10 $(ARISA_HOST_CXX) -std=c++23 -O0 -g -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 -I"$(CURDIR)/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" \
+		nice -n 10 $(ARISA_HOST_CXX) -std=c++23 -O0 -g -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 -I"$(CURDIR)/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(CURDIR)/library/qrcodegen" \
 			-I"$(CURDIR)/library/tomlplusplus/include" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" \
 			-c "$$source" -o "$(ARISA_TEST_DIR)/$$(basename "$$source" .cpp).o" || exit 1; \
 	done

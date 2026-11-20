@@ -6,6 +6,8 @@
 #include <optional>
 #include <string>
 
+#include <libchiaking/platform/platform.hpp>
+
 #include "app/services.hpp"
 #include "platform/updates/update_info.hpp"
 #include "settings/maintenance.hpp"
@@ -40,6 +42,11 @@ public:
     void installUpdate(std::function<void(UpdateProgress)> progress) override;
     void cancelUpdate() override;
     void quit() override;
+    auto discoveryLog() const -> DiscoveryLog override;
+    auto discoveryLogVersion() const -> std::uint64_t override;
+    void clearDiscoveryLog() override;
+    void runBenchmark(std::function<void(std::string)> line, std::function<void()> done) override;
+    void stopBenchmark() override;
 
 private:
     static constexpr std::int64_t launchCheckInterval = 86400;
@@ -54,6 +61,7 @@ private:
     std::optional<platform::UpdateInfo> offered;
     std::shared_ptr<std::atomic<bool>> cancelled = std::make_shared<std::atomic<bool>>(false);
     std::shared_ptr<std::atomic<bool>> alive = std::make_shared<std::atomic<bool>>(true);
+    libchiaking::platform::Thread benchmark;
 };
 
 }

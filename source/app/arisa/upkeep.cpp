@@ -8,6 +8,7 @@
 
 #include "accounts/account_settings.hpp"
 #include "app/app_settings.hpp"
+#include "app/ghash_benchmark.hpp"
 #include "app/notifier.hpp"
 #include "app/strings.hpp"
 #include "app/ui_dispatcher.hpp"
@@ -15,6 +16,7 @@
 #include "consoles/discovery_manager.hpp"
 #include "log/log.hpp"
 #include "platform/factory.hpp"
+#include "play/chiaki_core.hpp"
 #include "settings/developer_settings.hpp"
 #include "settings/settings_store.hpp"
 #include "trophies/trophy_manager.hpp"
@@ -34,6 +36,49 @@ Upkeep::~Upkeep()
 {
     alive->store(false);
     cancelled->store(true);
+    stopBenchmark();
+}
+
+auto Upkeep::discoveryLog() const -> DiscoveryLog
+{
+    return DiscoveryLog{ .version = consoles::DiscoveryManager::getDiscoveryLogVersion(),
+        .lines = consoles::DiscoveryManager::getDiscoveryLogSnapshot(),
+        .enabled = services.developer.discoveryLog() };
+}
+
+auto Upkeep::discoveryLogVersion() const -> std::uint64_t
+{
+    return consoles::DiscoveryManager::getDiscoveryLogVersion();
+}
+
+void Upkeep::clearDiscoveryLog()
+{
+    consoles::DiscoveryManager::clearDiscoveryLog();
+}
+
+void Upkeep::runBenchmark(std::function<void(std::string)> line, std::function<void()> done)
+{
+    stopBenchmark();
+    play::ChiakiCore& core = services.core;
+    auto deliver = [this, line](std::string text) { post([line, text = std::move(text)] { line(text); }); };
+    auto started = libchiaking::platform::Thread::start(core.threading(), "benchmark", libchiaking::platform::ThreadRole::crypto,
+        [this, &core, deliver, done](libchiaking::platform::StopToken token) {
+            GhashBenchmark(core.crypto(), core.clock(), services.strings).run(token, deliver);
+            post(done);
+        });
+    if (!started)
+    {
+        line(services.strings.text("akira/benchmark/error_thread"));
+        done();
+        return;
+    }
+    benchmark = std::move(started).value();
+}
+
+void Upkeep::stopBenchmark()
+{
+    static_cast<void>(benchmark.request_stop());
+    benchmark = libchiaking::platform::Thread{};
 }
 
 void Upkeep::post(std::function<void()> work)

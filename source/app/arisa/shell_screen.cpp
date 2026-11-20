@@ -31,6 +31,7 @@
 #include <format>
 #include <utility>
 
+#include "accounts/ui/account_flow.hpp"
 #include "app/arisa/header.hpp"
 #include "app/arisa/rail.hpp"
 #include "app/version.hpp"
@@ -79,9 +80,16 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
     composition::Element loading = components::Group();
     if (connecting)
         loading = play::ui::ConnectingScreen(view.progress, *parts->stream, *strings);
+    accounts::ui::AccountModel* profiles = parts->settings.accounts;
+    const bool onboarding = profiles && view.phase == ShellModel::Phase::Home
+        && context.read(profiles->view()).flow != accounts::ui::AccountModel::Flow::None;
+    composition::Element flow = components::Group();
+    if (onboarding)
+        flow = accounts::ui::AccountFlow(*profiles, *strings);
     return std::move(shell)
         .overlay(settings, composition::OverlayLayer::sheet, std::move(panel))
-        .overlay(connecting, composition::OverlayLayer::sheet, std::move(loading));
+        .overlay(connecting, composition::OverlayLayer::sheet, std::move(loading))
+        .overlay(onboarding, composition::OverlayLayer::sheet, std::move(flow));
 }
 
 auto ShellScreen::home() const -> composition::Element

@@ -67,6 +67,8 @@ auto DeveloperSection::body(composition::Context& context) const -> composition:
         [edit] { edit->probeTls(); }));
     if (!status.tls.empty())
         testing.push_back(rows.note(status.tls, status.tls.starts_with("FAIL")));
+    testing.push_back(rows.link(rows.text("akira/settings/dev_logs"), features.logFolder.string(), "settings/devLogs",
+        [edit] { edit->open(SettingsModel::Detail::Logs); }));
     return structure::Form(rows.section(rows.text("akira/settings/takion_heading"), std::move(versions)),
         rows.section(rows.text("akira/settings/testing_heading"), std::move(testing)));
 }

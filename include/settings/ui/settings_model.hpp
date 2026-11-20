@@ -41,7 +41,7 @@ namespace akira::settings::ui {
 
 class SettingsModel {
 public:
-    enum class Detail { None, Mapping, Pad };
+    enum class Detail { None, Mapping, Pad, Logs, DiscoveryLog, Benchmark };
     enum class Entry { None, Subnet, Dns, UpdateServer };
 
     struct Parts {
@@ -71,11 +71,15 @@ public:
         std::optional<Maintenance::UpdateProgress> install;
         Entry entry = Entry::None;
         Entry rejected = Entry::None;
+        Maintenance::DiscoveryLog discovery;
+        std::vector<std::string> benchmark;
+        bool benchmarking = false;
 
         friend bool operator==(const Status&, const Status&) = default;
     };
 
     static constexpr int unlockTaps = 7;
+    static constexpr std::size_t benchmarkLines = 200;
     static constexpr std::chrono::milliseconds tapWindow{ 3000 };
 
     explicit SettingsModel(Parts parts);
@@ -104,6 +108,11 @@ public:
     void submit(const std::string& text);
     void dismissEntry();
     void dismissRejection();
+
+    void openDiscoveryLog();
+    void refreshDiscoveryLog();
+    void clearDiscoveryLog();
+    void runBenchmark();
 
     void probeTls();
     void checkForUpdate();

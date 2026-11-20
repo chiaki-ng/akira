@@ -34,6 +34,7 @@
 
 #include "play/stream_summary.hpp"
 #include "play/ui/button_board_view.hpp"
+#include "play/ui/players_panel.hpp"
 
 namespace akira::play::ui {
 
@@ -48,11 +49,12 @@ const composition::StateKey<StreamStats> StreamDock::sampled{ "stream-dock-stats
 const composition::StateKey<StatsOverlayMode> StreamDock::overlay{ "stream-dock-overlay", StatsOverlayMode::Off };
 
 StreamDock::StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions,
-    Mapping& mapping, const app::Strings& strings)
+    Mapping& mapping, Couch* couch, const app::Strings& strings)
     : session(std::move(session))
     , commands(&commands)
     , controlOptions(&controlOptions)
     , mapping(&mapping)
+    , couch(couch)
     , strings(&strings)
 {
 }
@@ -65,19 +67,29 @@ auto StreamDock::panels() const -> std::vector<StreamControls::Control>
     if (std::ranges::contains(session.controls, StreamControls::Control::Pad)
         || std::ranges::contains(session.controls, StreamControls::Control::Motion))
         shown.push_back(StreamControls::Control::Pad);
+    if (couch && session.players && std::ranges::contains(session.controls, StreamControls::Control::Players))
+        shown.push_back(StreamControls::Control::Players);
     if (std::ranges::contains(session.controls, StreamControls::Control::Power))
         shown.push_back(StreamControls::Control::Power);
     return shown;
 }
 
+auto StreamDock::opening(const std::vector<StreamControls::Control>& shown) const -> int
+{
+    if (!session.opening)
+        return 0;
+    const auto found = std::ranges::find(shown, *session.opening);
+    return found == shown.end() ? 0 : static_cast<int>(found - shown.begin());
+}
+
 auto StreamDock::body(composition::Context& context) const -> composition::Element
 {
-    const auto chosen = context.state(selected);
+    const std::vector<StreamControls::Control> shown = panels();
+    const auto chosen = context.state(selected, opening(shown));
     const auto stats = context.state(sampled);
     const auto mode = context.state(overlay, session.statsMode);
     const auto board = context.state(mappingShown);
     const settings::ui::ControlOptions::Values& pad = context.read(controlOptions->view());
-    const std::vector<StreamControls::Control> shown = panels();
     const StreamControls::Control current = shown.empty()
         ? StreamControls::Control::Power
         : shown[static_cast<std::size_t>(std::clamp(chosen.get(), 0, static_cast<int>(shown.size()) - 1))];
@@ -152,6 +164,8 @@ auto StreamDock::panel(StreamControls::Control shown, const StreamStats& stats,
         content = statsPanel(stats, mode);
     else if (shown == StreamControls::Control::Pad)
         content = controlsPanel(pad, board);
+    else if (shown == StreamControls::Control::Players && couch)
+        content = PlayersPanel(*couch, *strings);
     return std::move(content)
         .padding(theme::Space{ panelPadding })
         .frame({ .width = panelWidth, .alignment = composition::Alignment::leading })

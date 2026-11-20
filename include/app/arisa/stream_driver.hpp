@@ -1,10 +1,12 @@
 #pragma once
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
 
+#include <arisa/composition/element.hpp>
 #include <arisa/composition/exclusive_frame.hpp>
 #include <arisa/runtime/application.hpp>
 #include <arisa/runtime/input_block.hpp>
@@ -14,8 +16,10 @@
 #include "app/ui_window.hpp"
 #include "play/connect_flow.hpp"
 #include "play/connection.hpp"
+#include "play/couch_table.hpp"
 #include "play/menu_hold.hpp"
 #include "play/stream_controls.hpp"
+#include "play/ui/couch.hpp"
 #include "play/ui/mapping.hpp"
 #include "play/ui/stream_commands.hpp"
 #include "settings/ui/control_options.hpp"
@@ -30,6 +34,7 @@ class Notifier;
 
 namespace akira::app::arisa {
 
+class CouchBridge;
 class ShellModel;
 class Window;
 
@@ -37,8 +42,13 @@ class StreamDriver final : public play::ConnectionListener,
                            public play::ui::StreamCommands,
                            public std::enable_shared_from_this<StreamDriver> {
 public:
+    struct Couch {
+        CouchBridge* table = nullptr;
+        play::ui::Couch* model = nullptr;
+    };
+
     StreamDriver(Services& services, ::arisa::runtime::Application& application, Window& window, ShellModel& model,
-        Notifier& notifier, settings::ui::ControlOptions& controlOptions, play::ui::Mapping& mapping,
+        Notifier& notifier, settings::ui::ControlOptions& controlOptions, play::ui::Mapping& mapping, Couch couch,
         std::function<void()> ended);
     ~StreamDriver() override;
 
@@ -48,6 +58,7 @@ public:
     void watchFocus();
     void start(consoles::Host& host);
     void tick();
+    void padArrived(play::PadId pad);
     auto active() const -> bool { return connection != nullptr; }
 
     void cancel() override;
@@ -70,10 +81,23 @@ public:
     void onSeatDropped(uint8_t slot) override;
 
 private:
+    using Clock = std::chrono::steady_clock;
+
     void open(consoles::Host& host, libchiaking::play::ConsoleHandover handover);
+    [[nodiscard]] auto prepareController() -> bool;
+    void waitForPads();
+    void finishPadChoice();
+    void padChosen(play::ui::Couch::Pick pick, std::optional<play::PadId> pad);
+    void showPicker(play::ui::Couch::Picked picked);
+    void arrivalAnswered(play::ui::Couch::Arrival answer);
+    void passcodeClosed();
+    void pauseForUi();
+    void resumeAfterUi();
+    auto couchVisible() const -> bool;
+    auto modal(::arisa::composition::Element content) -> ::arisa::runtime::OverlayHandle;
     void enterVideo();
     void followMenu();
-    void openDock();
+    void openDock(std::optional<play::StreamControls::Control> opening = std::nullopt);
     void closeDock();
     void focusChanged(bool focused);
     void stop();
@@ -85,6 +109,7 @@ private:
     ShellModel& model;
     settings::ui::ControlOptions& controlOptions;
     play::ui::Mapping& mapping;
+    Couch couch;
     Notifier& notifier;
     std::function<void()> ended;
     play::StreamControls controls;
@@ -96,10 +121,20 @@ private:
     bool videoActive = false;
     bool sessionStarted = false;
     bool intentionalDisconnect = false;
+    bool controllerReady = false;
+    bool waitingForPads = false;
+    int padAttempt = 0;
+    Clock::time_point nextPadPoll{};
+    consoles::Host* pending = nullptr;
+    bool arrivalDock = false;
+    bool pausedForPasscode = false;
     std::unique_ptr<UiWindow::FocusWatch> focusWatch;
     std::optional<::arisa::runtime::InputBlock> padsOwned;
     std::optional<::arisa::composition::ExclusiveFrame> videoOwnsScreen;
     std::optional<::arisa::runtime::OverlayHandle> dock;
+    std::optional<::arisa::runtime::OverlayHandle> picker;
+    std::optional<::arisa::runtime::OverlayHandle> prompt;
+    std::optional<::arisa::runtime::OverlayHandle> passcode;
 };
 
 }

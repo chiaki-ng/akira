@@ -12,11 +12,13 @@
 #include <arisa/provider/standard/directory_storage.hpp>
 #include <arisa/runtime/application.hpp>
 
+#include "app/arisa/couch_bridge.hpp"
 #include "app/arisa/dispatcher.hpp"
 #include "app/arisa/gpu.hpp"
 #include "app/arisa/notices.hpp"
 #include "app/arisa/pad_capture.hpp"
 #include "app/arisa/pad_workbench.hpp"
+#include "app/arisa/profile_desk.hpp"
 #include "app/arisa/upkeep.hpp"
 #include "app/arisa/wireguard_tunnel.hpp"
 #include "app/arisa/overlay_palette.hpp"
@@ -26,11 +28,14 @@
 #include "app/arisa/string_catalog.hpp"
 #include "app/arisa/theme_packs.hpp"
 #include "app/arisa/window.hpp"
+#include "accounts/ui/account_model.hpp"
 #include "app/service_graph.hpp"
 #include "consoles/ui/console_operations.hpp"
 #include "consoles/ui/console_shelf.hpp"
+#include "log/ui/log_shelf.hpp"
 #include "network/ui/nat_check.hpp"
 #include "network/ui/tunnel_control.hpp"
+#include "play/ui/couch.hpp"
 #include "play/ui/mapping.hpp"
 #include "platform/rumble/npad_rumble.hpp"
 #include "settings/help_catalog.hpp"
@@ -62,6 +67,7 @@ private:
     [[nodiscard]] bool openApplication();
     void startServices();
     void buildScreens();
+    void buildCouch();
     auto features() -> settings::DeviceFeatures;
     bool frame();
     bool firstFrameShown = false;
@@ -95,7 +101,12 @@ private:
     std::optional<network::ui::TunnelControl> tunnelControl;
     std::optional<PadCapture> capture;
     std::optional<settings::ui::SettingsModel> settingsModel;
+    std::optional<ProfileDesk> desk;
+    std::optional<accounts::ui::AccountModel> accountModel;
+    std::optional<log::ui::LogShelf> logs;
     std::optional<play::ui::Mapping> mapping;
+    std::optional<CouchBridge> couchBridge;
+    std::optional<play::ui::Couch> couch;
     std::shared_ptr<StreamDriver> driver;
     std::optional<consoles::ui::ConsoleOperations> consoleOperations;
 };

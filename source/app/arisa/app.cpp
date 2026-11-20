@@ -4,18 +4,23 @@
 
 #include <arisa/runtime/application_options.hpp>
 
+#include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <utility>
 
 #include "app/arisa/thread_plan.hpp"
+#include "app/build_info.hpp"
 #include "app/crash_report.hpp"
 #include "consoles/host.hpp"
 #include "log/log.hpp"
+#include "log/log_files.hpp"
 #include "network/nat_probe.hpp"
 #include "network/nat_report.hpp"
 #include "platform/factory.hpp"
 #include "platform/video/provider.hpp"
 #include "platform/video/renderer_choice.hpp"
+#include "play/couch_seats.hpp"
 #include "settings/settings_store.hpp"
 #include "settings/takion_target.hpp"
 
@@ -162,14 +167,42 @@ void App::buildScreens()
         .features = features(),
     });
     mapping.emplace(services.controllers, services.store, *controls, *capture);
-    CrashReport::stage("arisa stream driver");
-    driver = std::make_shared<StreamDriver>(services, *application, *window, model, notices, *controls, *mapping, [this] {
+    CrashReport::stage("arisa accounts");
+    desk.emplace(services, notices, [this] {
         if (consoleOperations)
-            consoleOperations->streamEnded();
+            consoleOperations->refresh();
     });
+    accountModel.emplace(accounts::ui::AccountModel::Parts{
+        .desk = *desk,
+        .notifier = notices,
+        .strings = services.strings,
+        .emptied = [this] { model.showSettings(false); },
+    });
+    logs.emplace(log::LogFiles::directory);
+    CrashReport::stage("arisa couch");
+    buildCouch();
+    CrashReport::stage("arisa stream driver");
+    driver = std::make_shared<StreamDriver>(services, *application, *window, model, notices, *controls, *mapping,
+        StreamDriver::Couch{ .table = couchBridge ? &*couchBridge : nullptr, .model = couch ? &*couch : nullptr },
+        [this] {
+            if (consoleOperations)
+                consoleOperations->streamEnded();
+        });
     driver->watchFocus();
+    if (couchBridge && couch)
+        couchBridge->follow(CouchBridge::Events{
+            .joined = [this](play::PadId pad, std::uint8_t slot) { couch->joined(pad, slot); },
+            .arrived = [this](play::PadId pad) {
+                if (driver)
+                    driver->padArrived(pad);
+            },
+        });
     CrashReport::stage("arisa discovery");
-    consoleOperations.emplace(services, shelf, notices, [this](consoles::Host& host) { driver->start(host); });
+    consoleOperations.emplace(services, shelf, notices, [this](consoles::Host& host) { driver->start(host); },
+        [this] {
+            if (accountModel)
+                accountModel->welcome(false, accountModel->view().get().entries.empty());
+        });
     parts = ShellScreen::Parts{
         .shelf = &shelf,
         .consoles = &*consoleOperations,
@@ -181,10 +214,27 @@ void App::buildScreens()
             .nat = &*nat,
             .tunnel = &*tunnelControl,
             .help = &*help,
+            .accounts = &*accountModel,
+            .logs = &*logs,
         },
     };
     CrashReport::stage("arisa shell ready");
+    accountModel->reload();
     model.ready();
+    accountModel->openIfEmpty();
+}
+
+void App::buildCouch()
+{
+    Services& services = graph->services();
+    if (!services.platform.supplies(platform::PlatformCapability::couch_seats))
+        return;
+    play::CouchSeats* seats = services.platform.couchSeats();
+    if (!seats)
+        return;
+    couchBridge.emplace(*seats, services.accounts, services.appSettings, services.dispatcher);
+    couch.emplace(*couchBridge, services.strings);
+    log::info("[ARISA] couch seats available");
 }
 
 auto App::features() -> settings::DeviceFeatures
@@ -197,7 +247,10 @@ auto App::features() -> settings::DeviceFeatures
         .statsExport = platform.supplies(platform::PlatformCapability::stats_export),
         .fsr4k = platform.supplies(platform::PlatformCapability::fsr_4k),
         .hevc = platform.supplies(platform::PlatformCapability::hevc),
+        .accounts = true,
         .configFile = services.store.path(),
+        .buildInfoFile = std::filesystem::path(BuildInfo::file),
+        .logFolder = std::filesystem::path(log::LogFiles::directory),
         .takionPs4 = DeveloperTuning::implemented_protocol_versions(libchiaking::consoles::Generation::ps4),
         .takionPs5 = DeveloperTuning::implemented_protocol_versions(libchiaking::consoles::Generation::ps5),
     };
@@ -250,6 +303,11 @@ int App::run()
 
     consoleOperations.reset();
     driver.reset();
+    couch.reset();
+    couchBridge.reset();
+    accountModel.reset();
+    desk.reset();
+    logs.reset();
     mapping.reset();
     settingsModel.reset();
     tunnelControl.reset();

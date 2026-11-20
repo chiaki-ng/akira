@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -14,6 +15,7 @@
 #include "app/strings.hpp"
 #include "play/stream_controls.hpp"
 #include "play/stream_stats.hpp"
+#include "play/ui/couch.hpp"
 #include "play/ui/mapping.hpp"
 #include "play/ui/stream_commands.hpp"
 #include "settings/ui/control_options.hpp"
@@ -34,6 +36,8 @@ public:
         std::vector<StreamControls::Control> controls;
         bool sleepOffered = false;
         StatsOverlayMode statsMode = StatsOverlayMode::Off;
+        bool players = false;
+        std::optional<StreamControls::Control> opening;
 
         friend bool operator==(const Session&, const Session&) = default;
     };
@@ -44,7 +48,7 @@ public:
     static const ::arisa::composition::StateKey<StatsOverlayMode> overlay;
 
     StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions, Mapping& mapping,
-        const app::Strings& strings);
+        Couch* couch, const app::Strings& strings);
 
     bool operator==(const StreamDock& other) const = default;
 
@@ -52,6 +56,7 @@ public:
 
 private:
     auto panels() const -> std::vector<StreamControls::Control>;
+    auto opening(const std::vector<StreamControls::Control>& shown) const -> int;
     auto dock(::arisa::composition::StateHandle<int> chosen, const std::vector<StreamControls::Control>& shown) const
         -> ::arisa::composition::Element;
     auto controlsPanel(const settings::ui::ControlOptions::Values& values,
@@ -77,6 +82,7 @@ private:
     StreamCommands* commands;
     settings::ui::ControlOptions* controlOptions;
     Mapping* mapping;
+    Couch* couch;
     const app::Strings* strings;
 };
 

@@ -39,7 +39,54 @@ void SettingsModel::open(Detail detail, std::size_t pad)
 
 void SettingsModel::close()
 {
+    if (state.get().benchmarking)
+        held.maintenance.stopBenchmark();
+    state.write(&Status::benchmarking, false);
     open(Detail::None);
+}
+
+void SettingsModel::openDiscoveryLog()
+{
+    state.write(&Status::discovery, held.maintenance.discoveryLog());
+    open(Detail::DiscoveryLog);
+}
+
+void SettingsModel::refreshDiscoveryLog()
+{
+    if (held.maintenance.discoveryLogVersion() == state.get().discovery.version)
+        return;
+    state.write(&Status::discovery, held.maintenance.discoveryLog());
+}
+
+void SettingsModel::clearDiscoveryLog()
+{
+    held.maintenance.clearDiscoveryLog();
+    state.write(&Status::discovery, held.maintenance.discoveryLog());
+}
+
+void SettingsModel::runBenchmark()
+{
+    if (state.get().benchmarking)
+        return;
+    state.update([](Status& status) {
+        status.benchmark.clear();
+        status.benchmarking = true;
+        status.detail = Detail::Benchmark;
+    });
+    held.maintenance.runBenchmark(
+        [this, guard = alive](std::string line) {
+            if (!*guard)
+                return;
+            state.update([&line](Status& status) {
+                status.benchmark.push_back(std::move(line));
+                if (status.benchmark.size() > benchmarkLines)
+                    status.benchmark.erase(status.benchmark.begin());
+            });
+        },
+        [this, guard = alive] {
+            if (*guard)
+                state.write(&Status::benchmarking, false);
+        });
 }
 
 void SettingsModel::scanPads()

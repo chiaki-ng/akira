@@ -25,6 +25,7 @@ public:
     virtual void addManual(const std::string& name, const std::string& address, bool ps5) = 0;
     virtual void findRemote() = 0;
     virtual auto findsRemote() const -> bool = 0;
+    virtual void setUpAccount() = 0;
 };
 
 }

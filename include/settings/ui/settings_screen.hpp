@@ -7,7 +7,9 @@
 #include <arisa/composition/element.hpp>
 #include <arisa/composition/state_key.hpp>
 
+#include "accounts/ui/account_model.hpp"
 #include "app/strings.hpp"
+#include "log/ui/log_shelf.hpp"
 #include "network/ui/nat_check.hpp"
 #include "network/ui/tunnel_control.hpp"
 #include "play/ui/mapping.hpp"
@@ -19,7 +21,7 @@ namespace akira::settings::ui {
 
 class SettingsScreen final : public ::arisa::composition::Component {
 public:
-    enum class Page { General, Picture, Controls, Updates, Network, Debug, Config, PowerUser, Developer };
+    enum class Page { Account, General, Picture, Controls, Updates, Network, Debug, Config, PowerUser, Developer, BuildInfo, About };
 
     struct Parts {
         PictureOptions* picture = nullptr;
@@ -28,6 +30,8 @@ public:
         network::ui::NatCheck* nat = nullptr;
         network::ui::TunnelControl* tunnel = nullptr;
         const HelpCatalog* help = nullptr;
+        accounts::ui::AccountModel* accounts = nullptr;
+        log::ui::LogShelf* logs = nullptr;
 
         friend bool operator==(const Parts&, const Parts&) = default;
     };

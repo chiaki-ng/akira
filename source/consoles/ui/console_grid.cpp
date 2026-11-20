@@ -77,8 +77,14 @@ auto ConsoleGrid::body(composition::Context& context) const -> composition::Elem
 auto ConsoleGrid::content(const ConsoleShelf::View& view, float width) const -> composition::Element
 {
     if (!view.hasProfile)
-        return components::ContentUnavailableView(strings->text("akira/hosts/setup_account"), "person",
-            components::Text(strings->text("akira/hosts/profile_required")))
+        return components::VStack(components::VStackOptions{ .spacing = theme::space::lg },
+            components::ContentUnavailableView(strings->text("akira/hosts/setup_account"), "person",
+                components::Text(strings->text("akira/hosts/profile_required"))),
+            components::Button(strings->text("akira/hosts/setup_account"), components::Image::SystemName{ "person_add" },
+                [commands = commands] { commands->setUpAccount(); })
+                .button_style(components::ButtonStyle::glass_prominent())
+                .control_size(components::ControlSize::large)
+                .id(composition::ElementKey{ "consoles.set-up" }))
             .frame({ .max_width = composition::infinity, .min_height = emptyHeight })
             .id(composition::ElementKey{ "consoles.no-profile" });
     if (view.cards.empty())

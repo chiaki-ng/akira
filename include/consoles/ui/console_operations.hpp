@@ -23,8 +23,9 @@ namespace akira::consoles::ui {
 class ConsoleOperations final : public ConsoleCommands {
 public:
     using Connect = std::function<void(Host&)>;
+    using SetUp = std::function<void()>;
 
-    ConsoleOperations(app::Services& services, ConsoleShelf& shelf, app::Notifier& notifier, Connect connect);
+    ConsoleOperations(app::Services& services, ConsoleShelf& shelf, app::Notifier& notifier, Connect connect, SetUp setUp);
     ~ConsoleOperations() override;
 
     ConsoleOperations(const ConsoleOperations&) = delete;
@@ -49,6 +50,7 @@ public:
     void addManual(const std::string& name, const std::string& address, bool ps5) override;
     void findRemote() override;
     auto findsRemote() const -> bool override;
+    void setUpAccount() override;
 
 private:
     auto host(const std::string& catalogName) const -> Host*;
@@ -68,6 +70,7 @@ private:
     ConsoleShelf& shelf;
     app::Notifier& notifier;
     Connect connect;
+    SetUp setUp;
 };
 
 }

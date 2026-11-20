@@ -55,8 +55,10 @@ public:
     void addManual(const std::string&, const std::string&, bool) override {}
     void findRemote() override {}
     auto findsRemote() const -> bool override { return false; }
+    void setUpAccount() override { ++setUps; }
 
     std::vector<std::string> played;
+    int setUps = 0;
 };
 
 class RecordingStream final : public akira::play::ui::StreamCommands {
@@ -195,6 +197,11 @@ TEST(arisa_console_grid_shows_the_empty_and_signed_out_states)
     REQUIRE(application->frame().has_value());
     CHECK(has(*application, "consoles.no-profile"));
     CHECK(!shows(application->root().tree().root(), "Living room"));
+
+    CHECK(has(*application, "consoles.set-up"));
+    CHECK(application->root().activate(composition::ElementKey{ "consoles.set-up" }));
+    REQUIRE(application->frame().has_value());
+    CHECK(commands.setUps == 1);
 
     shelf.show(ConsoleList({}, ConsoleList::Profile::Signed));
     REQUIRE(application->frame().has_value());

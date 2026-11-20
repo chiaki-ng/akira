@@ -33,6 +33,7 @@
 #include <utility>
 #include <vector>
 
+#include "accounts/ui/account_model.hpp"
 #include "app/arisa/notices.hpp"
 #include "app/arisa/shell_model.hpp"
 #include "app/arisa/shell_screen.hpp"
@@ -55,7 +56,14 @@
 #include "consoles/console_list.hpp"
 #include "consoles/ui/console_commands.hpp"
 #include "consoles/ui/console_shelf.hpp"
+#include "fake_account_desk.hpp"
+#include "fake_couch_table.hpp"
 #include "fake_ui_dispatcher.hpp"
+#include "log/ui/log_shelf.hpp"
+#include "play/ui/couch.hpp"
+#include "play/ui/couch_prompt.hpp"
+#include "play/ui/pad_picker.hpp"
+#include "play/ui/seat_passcode.hpp"
 #include "network/nat_report.hpp"
 #include "network/ui/nat_check.hpp"
 #include "play/controller_settings.hpp"
@@ -107,6 +115,7 @@ public:
     void addManual(const std::string&, const std::string&, bool) override {}
     void findRemote() override {}
     auto findsRemote() const -> bool override { return true; }
+    void setUpAccount() override {}
 };
 
 class QuietStream final : public akira::play::ui::StreamCommands {
@@ -158,6 +167,25 @@ public:
     void installUpdate(std::function<void(UpdateProgress)>) override {}
     void cancelUpdate() override {}
     void quit() override {}
+    auto discoveryLog() const -> DiscoveryLog override
+    {
+        return DiscoveryLog{ .version = 3,
+            .lines = { "21:40:12 [DISCOVERY] probe 192.168.20.255:9302", "21:40:12 [DISCOVERY] reply 192.168.20.40 PS5 ready",
+                "21:40:13 [DISCOVERY] sweep 192.168.30.0/24 (other subnet)", "21:40:14 [DISCOVERY] reply 192.168.30.12 PS4 standby" },
+            .enabled = true };
+    }
+    auto discoveryLogVersion() const -> std::uint64_t override { return 3; }
+    void clearDiscoveryLog() override {}
+    void runBenchmark(std::function<void(std::string)> line, std::function<void()> done) override
+    {
+        for (const char* shown : { "========================================", "        GHASH Benchmark Results",
+                 "========================================", "", "Iterations per test: 10000", "",
+                 "----------------------------------------", "Testing 64 byte blocks...", "",
+                 "  [PMULL] Running 10000 iterations...", "  [PMULL] 412305 ops/s | 25.17 MB/s | 24.3 ms total" })
+            line(shown);
+        done();
+    }
+    void stopBenchmark() override {}
 };
 
 class SamplePads final : public akira::settings::PadBench {
@@ -235,14 +263,18 @@ public:
               .pads = pads,
               .capture = capture,
               .notifier = notifier,
-              .features = akira::settings::DeviceFeatures{ .selfUpdate = true, .statsExport = true, .cloud = true,
+              .features = akira::settings::DeviceFeatures{ .selfUpdate = true, .statsExport = true, .cloud = true, .accounts = true,
                   .configFile = std::filesystem::path(AKIRA_RESOURCES_DIR) / ".." / "tests" / "arisa" / "sample_akira.toml",
+                  .buildInfoFile = std::filesystem::path(AKIRA_RESOURCES_DIR) / ".." / "tests" / "arisa" / "sample_build_info.txt",
+                  .logFolder = root / "logs",
                   .takionPs4 = { 9 }, .takionPs5 = { 20 }, .takionPs5Cloud = { 23 }, .takionPsNow = { 12 } },
           })
         , mapping(controllers, store, controls, capture)
         , tunnelControl(dispatcher, tunnel)
+        , logs(root / "logs")
     {
         store.finishLoading();
+        seedLogs();
         developer.setPowerUserMenuUnlocked(true);
         loadAssets();
         strings.emplace(providers.assets(), StringCatalog::fallbackLocale);
@@ -252,6 +284,9 @@ public:
                 return akira::network::NatReport(libchiaking::play::NatType::type2);
             },
             *strings);
+        couch.emplace(couchTable, *strings);
+        accounts.emplace(akira::accounts::ui::AccountModel::Parts{ .desk = desk, .notifier = notifier, .strings = *strings });
+        accounts->reload();
         parts = ShellScreen::Parts{
             .shelf = &shelf,
             .consoles = &consoles,
@@ -263,6 +298,8 @@ public:
                 .nat = &*nat,
                 .tunnel = &tunnelControl,
                 .help = &help,
+                .accounts = &*accounts,
+                .logs = &logs,
             },
         };
     }
@@ -383,7 +420,43 @@ public:
                     .sleepOffered = true,
                     .statsMode = akira::play::StatsOverlayMode::Compact,
                 },
-                streamCommands, controls, mapping, *strings));
+                streamCommands, controls, mapping, nullptr, *strings));
+    }
+
+    auto playersDock() -> composition::Element
+    {
+        using Control = akira::play::StreamControls::Control;
+        return components::ZStack(components::ZStackOptions{ .alignment = composition::Alignment::bottom }, video(),
+            akira::play::ui::StreamDock(
+                akira::play::ui::StreamDock::Session{
+                    .console = "Living room",
+                    .controls = { Control::Power, Control::Stats, Control::Pad, Control::Players, Control::Motion },
+                    .sleepOffered = true,
+                    .statsMode = akira::play::StatsOverlayMode::Off,
+                    .players = true,
+                    .opening = Control::Players,
+                },
+                streamCommands, controls, mapping, &*couch, *strings));
+    }
+
+    auto overVideo(composition::Element shown) -> composition::Element
+    {
+        return components::ZStack(video(), std::move(shown));
+    }
+
+    void seatCouch()
+    {
+        couchTable.listed = {
+            tests::FakeCouchTable::pad(0, "Pro Controller", akira::play::CouchTable::PadKind::SwitchPro, false, false),
+            tests::FakeCouchTable::pad(1, "DualSense", akira::play::CouchTable::PadKind::PlayStation, true, true),
+            tests::FakeCouchTable::pad(2, "DualShock 4", akira::play::CouchTable::PadKind::PlayStation, true, true),
+        };
+        couchTable.listed[2].art = "img/pads/dualshock4.png";
+        couchTable.choices = { akira::play::CouchProfileChoice{ .profileId = 7, .label = "Couch guest" },
+            akira::play::CouchProfileChoice{ .profileId = 8, .label = "mika" },
+            akira::play::CouchProfileChoice{ .profileId = 9, .label = "aoi" } };
+        couchTable.seatPad(1, 1, akira::play::CouchSeat{ .phase = akira::play::SeatPhase::Playing, .accountLabel = "mika" });
+        couch->refresh();
     }
 
     void streamWithDock()
@@ -399,7 +472,7 @@ public:
                     .sleepOffered = true,
                     .statsMode = akira::play::StatsOverlayMode::Off,
                 },
-                streamCommands, controls, mapping, *strings),
+                streamCommands, controls, mapping, nullptr, *strings),
             runtime::OverlayBehaviour{ .input = composition::OverlayInput::modal, .alignment = composition::Alignment::bottom }));
     }
 
@@ -441,6 +514,11 @@ public:
 
     auto settingsModel() -> akira::settings::ui::SettingsModel& { return settings; }
     auto board() -> akira::play::ui::Mapping& { return mapping; }
+    auto couchModel() -> akira::play::ui::Couch& { return *couch; }
+    auto accountModel() -> akira::accounts::ui::AccountModel& { return *accounts; }
+    auto accountDesk() -> tests::FakeAccountDesk& { return desk; }
+    auto table() -> tests::FakeCouchTable& { return couchTable; }
+    auto text() -> const StringCatalog& { return *strings; }
 
     ShellModel model;
     Notices notices;
@@ -456,10 +534,28 @@ private:
         add("arisa/fonts/MaterialSymbolsRoundedFilled.ttf", fonts / "MaterialSymbolsRoundedFilled.ttf");
         add("img/console/ps5.png", resources / "img" / "console" / "ps5.png");
         add("img/console/ps4.png", resources / "img" / "console" / "ps4.png");
+        add("img/icon.jpg", resources / "img" / "icon.jpg");
+        for (const auto& entry : std::filesystem::directory_iterator(resources / "platform" / "nx" / "img" / "pads"))
+            if (entry.path().extension() == ".png")
+                add("img/pads/" + entry.path().filename().string(), entry.path());
         for (const char* folder : { "ps5", "buttons" })
             for (const auto& entry : std::filesystem::directory_iterator(resources / "img" / folder))
                 add("img/" + std::string(folder) + "/" + entry.path().filename().string(), entry.path());
         add("strings/en.toml", resources / "strings" / "en.toml");
+    }
+
+    void seedLogs()
+    {
+        const std::filesystem::path folder = root / "logs";
+        std::filesystem::create_directories(folder / "connections");
+        std::ofstream(folder / "akira.log") << "21:40:12 [INFO] akira 2.4 starting on nx\n"
+                                               "21:40:12 [INFO] [ARISA] ui thread core 0\n"
+                                               "21:40:13 [DEBUG] discovery reply 192.168.20.40 PS5 ready\n"
+                                               "21:40:13 [WARN] console clock is 4 s ahead\n"
+                                               "21:40:14 [ERROR] takion: retransmit window exhausted\n"
+                                               "    at Connection::feed\n"
+                                               "21:40:15 [INFO] stream recovered\n";
+        std::ofstream(folder / "connections" / "living-room.log") << "21:41:02 [INFO] rtt 12 ms loss 0.0%\n";
     }
 
     void add(std::string_view at, const std::filesystem::path& file)
@@ -503,6 +599,11 @@ private:
     std::optional<runtime::Application> application;
     std::optional<composition::ExclusiveFrame> exclusive;
     std::optional<runtime::OverlayHandle> dockShown;
+    tests::FakeCouchTable couchTable;
+    std::optional<akira::play::ui::Couch> couch;
+    tests::FakeAccountDesk desk;
+    std::optional<akira::accounts::ui::AccountModel> accounts;
+    akira::log::ui::LogShelf logs;
 };
 
 }
@@ -592,8 +693,9 @@ TEST(arisa_shot_connecting)
 
 TEST(arisa_shot_settings_pages)
 {
-    constexpr std::array names{ "settings_general", "settings_picture", "settings_controls", "settings_updates",
-        "settings_network", "settings_debug", "settings_config", "settings_power_user", "settings_developer" };
+    constexpr std::array names{ "settings_account", "settings_general", "settings_picture", "settings_controls",
+        "settings_updates", "settings_network", "settings_debug", "settings_config", "settings_power_user",
+        "settings_developer", "settings_build_info", "settings_about" };
     Shots shots;
     shots.model.ready();
     shots.showHouse();
@@ -606,7 +708,7 @@ TEST(arisa_shot_settings_pages)
     }
     shots.checkNat();
     REQUIRE(shots.settle());
-    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 4)));
+    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 5)));
     CHECK(shots.write("settings_network_checked"));
 }
 
@@ -705,3 +807,157 @@ TEST(arisa_stream_dock_focus_moves_with_the_dock_buttons)
     CHECK(shots.focusedWithin("stream-dock.tabs"));
 }
 
+
+TEST(arisa_shot_couch_players)
+{
+    Shots shots;
+    shots.seatCouch();
+    REQUIRE(shots.start(shots.playersDock()));
+    CHECK(shots.write("couch_players"));
+    shots.table().progress = 0.0F;
+    shots.couchModel().invite();
+    REQUIRE(shots.settle());
+    CHECK(shots.couchModel().view().get().mode == akira::play::ui::Couch::Mode::ChoosingProfile);
+    CHECK(shots.write("couch_choose_profile"));
+    shots.couchModel().selectProfile(9);
+    shots.table().progress = 0.35F;
+    shots.couchModel().refresh();
+    REQUIRE(shots.settle());
+    CHECK(shots.couchModel().view().get().mode == akira::play::ui::Couch::Mode::Claiming);
+    CHECK(shots.write("couch_claiming"));
+}
+
+TEST(arisa_shot_couch_refused_seat)
+{
+    Shots shots;
+    shots.seatCouch();
+    shots.table().seatPad(2, 2, akira::play::CouchSeat{ .phase = akira::play::SeatPhase::Failed,
+        .refusal = libchiaking::play::SeatRefusal::account_not_on_console(libchiaking::controllers::SeatNumber::masked(2)),
+        .profileId = 7 });
+    shots.couchModel().refresh();
+    REQUIRE(shots.start(shots.playersDock()));
+    CHECK(shots.write("couch_refused"));
+}
+
+TEST(arisa_shot_couch_pad_picker)
+{
+    Shots shots;
+    shots.seatCouch();
+    const auto now = akira::play::ui::Couch::Clock::now();
+    shots.couchModel().askPad(shots.table().pads(), now, [](akira::play::ui::Couch::Pick, std::optional<akira::play::PadId>) {});
+    shots.table().picked.clear();
+    shots.couchModel().tick(now);
+    shots.table().picked = { 1 };
+    shots.couchModel().tick(now);
+    REQUIRE(shots.start(shots.overVideo(akira::play::ui::PadPicker(shots.couchModel(), shots.text()))));
+    CHECK(shots.couchModel().view().get().picker->selected == std::optional<std::size_t>(1));
+    CHECK(shots.write("couch_pad_picker"));
+}
+
+TEST(arisa_shot_couch_arrival_and_passcode)
+{
+    Shots shots;
+    shots.seatCouch();
+    shots.couchModel().arrived([](akira::play::ui::Couch::Arrival) {});
+    REQUIRE(shots.start(shots.overVideo(akira::play::ui::CouchPrompt(shots.couchModel(), shots.text()))));
+    CHECK(shots.write("couch_arrival"));
+    Shots passcode;
+    passcode.seatCouch();
+    passcode.couchModel().askPasscode(1, true, [] {});
+    REQUIRE(passcode.start(passcode.overVideo(akira::play::ui::SeatPasscode(passcode.couchModel(), passcode.text()))));
+    CHECK(passcode.write("couch_passcode"));
+}
+
+TEST(arisa_shot_onboarding)
+{
+    Shots shots;
+    shots.model.ready();
+    shots.showHouse();
+    shots.accountModel().welcome(false, true);
+    REQUIRE(shots.start(shots.shell()));
+    CHECK(shots.write("onboarding_welcome"));
+    shots.accountModel().startQr();
+    shots.accountDesk().qr(akira::accounts::AccountDesk::QrProgress{ .step = akira::accounts::AccountDesk::QrStep::Waiting,
+        .url = "https://my.account.sony.com/central/signin/qr?code=482113&client=akira",
+        .expires = std::chrono::system_clock::now() + std::chrono::seconds{ 299 } });
+    REQUIRE(shots.settle());
+    CHECK(shots.write("onboarding_qr"));
+    shots.accountDesk().qr(akira::accounts::AccountDesk::QrProgress{ .step = akira::accounts::AccountDesk::QrStep::Failed,
+        .failureKey = "akira/qr_sign_in/status_declined" });
+    REQUIRE(shots.settle());
+    CHECK(shots.write("onboarding_qr_failed"));
+    shots.accountModel().startCompanion();
+    REQUIRE(shots.settle());
+    CHECK(shots.write("onboarding_companion"));
+    shots.accountModel().startLegacy();
+    shots.accountModel().createLegacy("bad", "");
+    REQUIRE(shots.settle());
+    CHECK(shots.write("onboarding_legacy"));
+}
+
+TEST(arisa_shot_settings_account_dialogs)
+{
+    Shots shots;
+    shots.model.ready();
+    shots.showHouse();
+    shots.model.showSettings(true);
+    REQUIRE(shots.start(shots.shell()));
+    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 0)));
+    shots.accountModel().askRemove(2);
+    REQUIRE(shots.settle());
+    CHECK(shots.write("settings_account_remove"));
+    shots.accountModel().dismissRemove();
+    shots.accountModel().reveal(true);
+    REQUIRE(shots.settle());
+    CHECK(shots.write("settings_account_revealed"));
+}
+
+TEST(arisa_shot_consoles_set_up)
+{
+    Shots shots;
+    shots.model.ready();
+    shots.shelf.show(ConsoleList({}, ConsoleList::Profile::None));
+    REQUIRE(shots.start(shots.shell()));
+    CHECK(shots.write("consoles_set_up"));
+}
+
+TEST(arisa_shot_settings_tools)
+{
+    Shots shots;
+    shots.model.ready();
+    shots.showHouse();
+    shots.model.showSettings(true);
+    REQUIRE(shots.start(shots.shell()));
+    shots.settingsModel().open(akira::settings::ui::SettingsModel::Detail::Logs);
+    REQUIRE(shots.settle());
+    CHECK(shots.write("settings_logs"));
+    REQUIRE(shots.press("logs.entry.akira.log"));
+    CHECK(shots.write("settings_log_file"));
+    shots.settingsModel().openDiscoveryLog();
+    REQUIRE(shots.settle());
+    CHECK(shots.write("settings_discovery_log"));
+    shots.settingsModel().runBenchmark();
+    REQUIRE(shots.settle());
+    CHECK(!shots.settingsModel().view().get().benchmarking);
+    CHECK(shots.settingsModel().view().get().benchmark.size() == 11);
+    CHECK(shots.write("settings_benchmark"));
+    shots.settingsModel().close();
+    REQUIRE(shots.settle());
+    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 11)));
+    REQUIRE(shots.press("about.link.chiaki-ng"));
+    CHECK(shots.write("settings_about_qr"));
+}
+
+TEST(arisa_settings_discovery_log_follows_the_journal)
+{
+    Shots shots;
+    akira::settings::ui::SettingsModel& settings = shots.settingsModel();
+    settings.openDiscoveryLog();
+    CHECK(settings.view().get().detail == akira::settings::ui::SettingsModel::Detail::DiscoveryLog);
+    CHECK(settings.view().get().discovery.lines.size() == 4);
+    CHECK(settings.view().get().discovery.enabled);
+    settings.refreshDiscoveryLog();
+    CHECK(settings.view().get().discovery.version == 3);
+    settings.close();
+    CHECK(settings.view().get().detail == akira::settings::ui::SettingsModel::Detail::None);
+}

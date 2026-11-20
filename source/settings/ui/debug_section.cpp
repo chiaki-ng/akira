@@ -52,6 +52,9 @@ auto DebugSection::body(composition::Context& context) const -> composition::Ele
         &DeveloperSettings::setDiscoveryLog));
     shown.push_back(flag("akira/settings/ffmpeg_log", "settings/debugFfmpegLog", &DeveloperSettings::ffmpegLog,
         &DeveloperSettings::setFfmpegLog));
+    SettingsModel* edit = model;
+    shown.push_back(rows.action(rows.text("akira/settings/discovery_log_viewer"), "wifi_find", "settings/openDiscoveryLog",
+        [edit] { edit->openDiscoveryLog(); }));
     return structure::Form(rows.section(rows.text("akira/settings/debug_logging"), std::move(shown)));
 }
 

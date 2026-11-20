@@ -1,0 +1,15 @@
+akira 2.4.0+b02a8e5 (dev)
+Commit: b02a8e5
+Build: 2026-11-20 09:12:44 UTC
+
+=== Core ===
+libchiaki-core: 2c84cee
+Takion: PS4 v9, PS5 v20
+
+=== Custom Libraries ===
+curl 8.21.0-libnx (libnx TLS)
+ffmpeg 9.0.1 (nvtegra)
+
+=== Toolchain ===
+devkitA64: r30
+GCC: 16.1.0
