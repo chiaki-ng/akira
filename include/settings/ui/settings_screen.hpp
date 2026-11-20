@@ -1,6 +1,6 @@
 #pragma once
 
-#include <array>
+#include <vector>
 
 #include <arisa/composition/component.hpp>
 #include <arisa/composition/context.hpp>
@@ -9,37 +9,52 @@
 
 #include "app/strings.hpp"
 #include "network/ui/nat_check.hpp"
+#include "network/ui/tunnel_control.hpp"
+#include "play/ui/mapping.hpp"
 #include "settings/help_catalog.hpp"
-#include "settings/ui/control_options.hpp"
 #include "settings/ui/picture_options.hpp"
+#include "settings/ui/settings_model.hpp"
 
 namespace akira::settings::ui {
 
 class SettingsScreen final : public ::arisa::composition::Component {
 public:
-    enum class Page { Picture, Controls, Network };
+    enum class Page { General, Picture, Controls, Updates, Network, Debug, Config, PowerUser, Developer };
+
+    struct Parts {
+        PictureOptions* picture = nullptr;
+        SettingsModel* model = nullptr;
+        play::ui::Mapping* mapping = nullptr;
+        network::ui::NatCheck* nat = nullptr;
+        network::ui::TunnelControl* tunnel = nullptr;
+        const HelpCatalog* help = nullptr;
+
+        friend bool operator==(const Parts&, const Parts&) = default;
+    };
 
     static constexpr float contentWidth = 760.0F;
-    static constexpr std::array<Page, 3> pages{ Page::Picture, Page::Controls, Page::Network };
+    static constexpr float boardWidth = 800.0F;
 
-    static constexpr ::arisa::composition::StateKey<Page> page{ "settings-page", Page::Picture };
+    static constexpr ::arisa::composition::StateKey<Page> page{ "settings-page", Page::General };
 
-    SettingsScreen(PictureOptions& picture, ControlOptions& controlOptions, network::ui::NatCheck& nat,
-        const HelpCatalog& help, const app::Strings& strings);
+    SettingsScreen(Parts parts, const app::Strings& strings);
 
     bool operator==(const SettingsScreen& other) const = default;
 
     auto body(::arisa::composition::Context& context) const -> ::arisa::composition::Element override;
 
-    static auto next(Page current, int step) -> Page;
+    static auto pages(const SettingsModel& model) -> std::vector<Page>;
+    static auto next(const std::vector<Page>& shown, Page current, int step) -> Page;
 
 private:
     auto content(Page shown) const -> ::arisa::composition::Element;
+    auto detail(const SettingsModel::Status& status) const -> ::arisa::composition::Element;
+    auto presented(::arisa::composition::Element screen, const SettingsModel::Status& status) const
+        -> ::arisa::composition::Element;
+    auto title(Page shown) const -> std::string;
+    static auto symbol(Page shown) -> std::string;
 
-    PictureOptions* picture;
-    ControlOptions* controlOptions;
-    network::ui::NatCheck* nat;
-    const HelpCatalog* help;
+    Parts parts;
     const app::Strings* strings;
 };
 

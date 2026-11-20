@@ -9,7 +9,6 @@
 #include <arisa/components/text.hpp>
 #include <arisa/controls/progress_view.hpp>
 #include <arisa/presentation/help.hpp>
-#include <arisa/structure/form.hpp>
 #include <arisa/structure/section.hpp>
 #include <arisa/theme/glass.hpp>
 #include <arisa/theme/space.hpp>
@@ -67,9 +66,9 @@ auto NatSection::body(composition::Context& context) const -> composition::Eleme
                                                          : theme::ColourValue(theme::ColourRole::red))
                            .id(composition::ElementKey{ "nat.detail" }));
     }
-    return structure::Form(structure::Section(
+    return structure::Section(
         structure::Section::Labels{ .header = components::Text(strings->text("akira/network/nat_type")) },
-        std::move(rows)));
+        std::move(rows));
 }
 
 }

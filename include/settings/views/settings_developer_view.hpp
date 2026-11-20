@@ -34,7 +34,7 @@ private:
     void initTakionSelector(brls::SelectorCell* cell, TakionTarget target, std::string title,
         std::vector<std::uint32_t> implemented);
 
-    static constexpr std::uint32_t highestCloudTakion = 23;
+    static constexpr std::uint32_t highestCloudTakion = settings::highestCloudTakion;
 
     app::Services* services = nullptr;
     std::shared_ptr<std::atomic<bool>> alive = std::make_shared<std::atomic<bool>>(true);

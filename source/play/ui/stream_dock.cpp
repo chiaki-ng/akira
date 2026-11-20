@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "play/stream_summary.hpp"
+#include "play/ui/button_board_view.hpp"
 
 namespace akira::play::ui {
 
@@ -47,10 +48,11 @@ const composition::StateKey<StreamStats> StreamDock::sampled{ "stream-dock-stats
 const composition::StateKey<StatsOverlayMode> StreamDock::overlay{ "stream-dock-overlay", StatsOverlayMode::Off };
 
 StreamDock::StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions,
-    const app::Strings& strings)
+    Mapping& mapping, const app::Strings& strings)
     : session(std::move(session))
     , commands(&commands)
     , controlOptions(&controlOptions)
+    , mapping(&mapping)
     , strings(&strings)
 {
 }
@@ -73,14 +75,25 @@ auto StreamDock::body(composition::Context& context) const -> composition::Eleme
     const auto chosen = context.state(selected);
     const auto stats = context.state(sampled);
     const auto mode = context.state(overlay, session.statsMode);
+    const auto board = context.state(mappingShown);
     const settings::ui::ControlOptions::Values& pad = context.read(controlOptions->view());
     const std::vector<StreamControls::Control> shown = panels();
     const StreamControls::Control current = shown.empty()
         ? StreamControls::Control::Power
         : shown[static_cast<std::size_t>(std::clamp(chosen.get(), 0, static_cast<int>(shown.size()) - 1))];
-    auto resume = [commands = commands] { commands->resume(); };
+    auto resume = [commands = commands, board] {
+        if (board.get())
+            board.set(false);
+        else
+            commands->resume();
+    };
+    if (board.get())
+        return components::VStack(components::VStackOptions{ .spacing = theme::Space{ dockGap } }, mappingPanel(board))
+            .padding(theme::Edge::bottom, theme::Space{ dockBottom })
+            .on_exit_command(strings->text("akira/common/back"), resume)
+            .id(composition::ElementKey{ "stream-dock" });
     return components::VStack(components::VStackOptions{ .spacing = theme::Space{ dockGap } },
-        panel(current, stats.get(), mode, pad), dock(chosen, shown))
+        panel(current, stats.get(), mode, pad, board), dock(chosen, shown))
         .padding(theme::Edge::bottom, theme::Space{ dockBottom })
         .on_exit_command(strings->text("akira/stream_menu/hint_resume"), resume)
         .task([stats, commands = commands] { return refresh(stats, commands); })
@@ -113,15 +126,32 @@ auto StreamDock::dock(composition::StateHandle<int> chosen, const std::vector<St
         .id(composition::ElementKey{ "stream-dock.tabs" });
 }
 
+auto StreamDock::mappingPanel(composition::StateHandle<bool> board) const -> composition::Element
+{
+    return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                                  .spacing = theme::Space{ panelSpacing } },
+        components::HStack(components::HStackOptions{ .spacing = theme::space::sm },
+            components::Button([board] { board.set(false); },
+                components::Image(components::Image::SystemName{ "arrow_back" }).frame({ .width = 20.0F, .height = 20.0F }))
+                .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
+                .id(composition::ElementKey{ "stream-dock.mapping-back" }),
+            components::Text(strings->text("akira/remap/title")).font(theme::Font::title2).font_weight(theme::Font::Weight::semibold)),
+        ButtonBoardView(*mapping, *strings, false))
+        .padding(theme::Space{ panelPadding })
+        .frame({ .width = panelWidth, .alignment = composition::Alignment::leading })
+        .glass_panel(components::PanelRadius::large)
+        .id(composition::ElementKey{ "stream-dock.mapping" });
+}
+
 auto StreamDock::panel(StreamControls::Control shown, const StreamStats& stats,
-    composition::StateHandle<StatsOverlayMode> mode, const settings::ui::ControlOptions::Values& pad) const
-    -> composition::Element
+    composition::StateHandle<StatsOverlayMode> mode, const settings::ui::ControlOptions::Values& pad,
+    composition::StateHandle<bool> board) const -> composition::Element
 {
     composition::Element content = powerPanel();
     if (shown == StreamControls::Control::Stats)
         content = statsPanel(stats, mode);
     else if (shown == StreamControls::Control::Pad)
-        content = controlsPanel(pad);
+        content = controlsPanel(pad, board);
     return std::move(content)
         .padding(theme::Space{ panelPadding })
         .frame({ .width = panelWidth, .alignment = composition::Alignment::leading })
@@ -165,7 +195,8 @@ auto StreamDock::swipe(settings::ui::ControlOptions::Swipe direction, const char
             [edit, direction](bool value) { edit->setSwipe(direction, value); }));
 }
 
-auto StreamDock::controlsPanel(const settings::ui::ControlOptions::Values& values) const -> composition::Element
+auto StreamDock::controlsPanel(const settings::ui::ControlOptions::Values& values, composition::StateHandle<bool> board) const
+    -> composition::Element
 {
     using Swipe = settings::ui::ControlOptions::Swipe;
     settings::ui::ControlOptions* edit = controlOptions;
@@ -184,6 +215,13 @@ auto StreamDock::controlsPanel(const settings::ui::ControlOptions::Values& value
             swipe(Swipe::Left, "akira/settings/swipe_left", values.swipeLeft),
             swipe(Swipe::Right, "akira/settings/swipe_right", values.swipeRight))
                            .toggle_style(controls::ToggleStyle::checkbox()));
+    rows.push_back(components::Button(strings->text("akira/stream_menu/button_mapping"),
+        components::Image::SystemName{ "gamepad" }, [board] { board.set(true); })
+                       .font(theme::Font::headline)
+                       .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
+                       .control_size(components::ControlSize::large)
+                       .button_sizing(components::ButtonSizing::flexible)
+                       .id(composition::ElementKey{ "stream-dock.mapping-open" }));
     if (std::ranges::contains(session.controls, StreamControls::Control::Motion))
         rows.push_back(components::Button(title(StreamControls::Control::Motion),
             components::Image::SystemName{ symbol(StreamControls::Control::Motion) },

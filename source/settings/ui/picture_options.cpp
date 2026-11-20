@@ -13,6 +13,7 @@ PictureOptions::PictureOptions(play::StreamSettings& stream, SettingsStore& stor
     , state(Values{
           .local = play::PictureProfile(stream, play::StreamProfile::Local, fsr4k),
           .remote = play::PictureProfile(stream, play::StreamProfile::Remote, fsr4k),
+          .vpn = play::PictureProfile(stream, play::StreamProfile::Vpn, fsr4k),
           .rcas = stream.rcasEnabled(),
           .rcasStrength = stream.rcasStrength(),
       })
@@ -21,7 +22,11 @@ PictureOptions::PictureOptions(play::StreamSettings& stream, SettingsStore& stor
 
 auto PictureOptions::profile(play::StreamProfile chosen) const -> const play::PictureProfile&
 {
-    return chosen == play::StreamProfile::Remote ? state.get().remote : state.get().local;
+    if (chosen == play::StreamProfile::Remote)
+        return state.get().remote;
+    if (chosen == play::StreamProfile::Vpn)
+        return state.get().vpn;
+    return state.get().local;
 }
 
 template <class Change>
@@ -33,7 +38,12 @@ void PictureOptions::change(play::StreamProfile chosen, Change&& edit)
         return;
     edited.applyTo(stream);
     state.update([&](Values& values) {
-        (chosen == play::StreamProfile::Remote ? values.remote : values.local) = edited;
+        if (chosen == play::StreamProfile::Remote)
+            values.remote = edited;
+        else if (chosen == play::StreamProfile::Vpn)
+            values.vpn = edited;
+        else
+            values.local = edited;
     });
     save();
 }

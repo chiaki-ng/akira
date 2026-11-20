@@ -90,6 +90,17 @@ ARISA_TEST_MODELS   = $(CURDIR)/source/log/log.cpp \
                       $(CURDIR)/source/settings/settings_store.cpp \
                       $(CURDIR)/source/settings/help_catalog.cpp \
                       $(CURDIR)/source/network/nat_report.cpp \
+                      $(CURDIR)/source/log/core_log.cpp \
+                      $(CURDIR)/source/settings/developer_settings.cpp \
+                      $(CURDIR)/source/settings/config_listing.cpp \
+                      $(CURDIR)/source/cloud/cloud_settings.cpp \
+                      $(CURDIR)/source/cloud/saved_datacenters.cpp \
+                      $(CURDIR)/source/network/network_settings.cpp \
+                      $(CURDIR)/source/network/custom_dns.cpp \
+                      $(CURDIR)/source/network/dns_client.cpp \
+                      $(CURDIR)/source/app/app_settings.cpp \
+                      $(CURDIR)/source/play/combo_capture.cpp \
+                      $(CURDIR)/source/play/button_board.cpp \
                       $(CORE_DIR)/src/core/play/model/outcome.cpp \
                       $(CORE_DIR)/src/core/consoles/model/pairing/pairing.cpp \
                       $(CORE_DIR)/src/platform/memory/secure_zero_darwin.cpp
@@ -102,6 +113,8 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/consoles/ui/registration_progress.cpp \
                       $(CURDIR)/source/play/ui/connecting_screen.cpp \
                       $(CURDIR)/source/play/ui/stream_dock.cpp \
+                      $(CURDIR)/source/play/ui/mapping.cpp \
+                      $(CURDIR)/source/play/ui/button_board_view.cpp \
                       $(wildcard $(CURDIR)/source/settings/ui/*.cpp) \
                       $(wildcard $(CURDIR)/source/network/ui/*.cpp) \
                       $(CURDIR)/source/app/arisa/shell_screen.cpp \
@@ -187,6 +200,9 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/settings/developer_settings.cpp \
                 $(CURDIR)/source/play/stream_settings.cpp \
                 $(CURDIR)/source/play/picture_profile.cpp \
+                $(CURDIR)/source/play/combo_capture.cpp \
+                $(CURDIR)/source/play/button_board.cpp \
+                $(CURDIR)/source/settings/config_listing.cpp \
                 $(CURDIR)/source/settings/help_catalog.cpp \
                 $(CURDIR)/source/play/controller_settings.cpp \
                 $(CURDIR)/source/cloud/cloud_settings.cpp \

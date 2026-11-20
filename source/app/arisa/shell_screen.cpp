@@ -137,7 +137,12 @@ auto ShellScreen::hints() -> composition::Element
 auto ShellScreen::settingsPanel(theme::Glass glass) const -> composition::Element
 {
     ShellModel* held = model;
-    auto close = [held] { held->showSettings(false); };
+    settings::ui::SettingsModel* settingsModel = parts->settings.model;
+    auto close = [held, settingsModel] {
+        if (settingsModel)
+            settingsModel->close();
+        held->showSettings(false);
+    };
     composition::Element heading =
         components::HStack(components::HStackOptions{ .spacing = theme::Space{ 10.0F } },
             components::Image(components::Image::SystemName{ "settings" })
@@ -153,8 +158,7 @@ auto ShellScreen::settingsPanel(theme::Glass glass) const -> composition::Elemen
                 .trailing = theme::Space{ 18.0F } });
     composition::Element panel =
         components::VStack(components::VStackOptions{ .spacing = theme::space::none }, std::move(heading),
-            composition::Element(settings::ui::SettingsScreen(
-                *parts->picture, *parts->controls, *parts->nat, *parts->help, *strings))
+            composition::Element(settings::ui::SettingsScreen(parts->settings, *strings))
                 .frame({ .max_width = composition::infinity, .max_height = composition::infinity }))
             .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
             .glass_effect(glass, components::GlassPanel::shape(components::PanelRadius::large));

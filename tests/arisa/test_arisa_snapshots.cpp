@@ -10,10 +10,18 @@
 #include <arisa/provider/headless/headless_factory.hpp>
 #include <arisa/runtime/application.hpp>
 #include <arisa/runtime/application_options.hpp>
+#include <arisa/runtime/introspection.hpp>
+#include <arisa/runtime/overlay_behaviour.hpp>
+#include <arisa/runtime/overlay_handle.hpp>
+#include <arisa/composition/exclusive_frame.hpp>
+#include <arisa/composition/overlay_layer.hpp>
+#include <arisa/provider/input/buttons.hpp>
 #include <arisa/structure/dock_bar.hpp>
 #include <arisa/theme/colour.hpp>
 
+#include <array>
 #include <atomic>
+#include <functional>
 #include <cstdio>
 #include <chrono>
 #include <filesystem>
@@ -30,6 +38,20 @@
 #include "app/arisa/shell_screen.hpp"
 #include "app/arisa/string_catalog.hpp"
 #include "app/arisa/theme_packs.hpp"
+#include "app/app_settings.hpp"
+#include "app/notifier.hpp"
+#include "cloud/cloud_settings.hpp"
+#include "network/network_settings.hpp"
+#include "network/tunnel.hpp"
+#include "network/ui/tunnel_control.hpp"
+#include "play/button_capture.hpp"
+#include "play/switch_button.hpp"
+#include "play/ui/mapping.hpp"
+#include "settings/developer_settings.hpp"
+#include "settings/maintenance.hpp"
+#include "settings/pad_bench.hpp"
+#include "settings/ui/settings_model.hpp"
+#include "settings/ui/settings_screen.hpp"
 #include "consoles/console_list.hpp"
 #include "consoles/ui/console_commands.hpp"
 #include "consoles/ui/console_shelf.hpp"
@@ -37,6 +59,7 @@
 #include "network/nat_report.hpp"
 #include "network/ui/nat_check.hpp"
 #include "play/controller_settings.hpp"
+#include "play/remap_target.hpp"
 #include "play/stream_settings.hpp"
 #include "play/ui/stream_commands.hpp"
 #include "play/ui/stream_dock.hpp"
@@ -115,6 +138,71 @@ public:
     auto decoder() -> std::string override { return "NVTEGRA"; }
 };
 
+class QuietMaintenance final : public akira::settings::Maintenance {
+public:
+    auto legacyProfile() const -> bool override { return false; }
+    auto localSubnet() const -> std::string override { return "192.168.20.0/24"; }
+    void restartDiscovery() override {}
+    void flushTrophyCache() override {}
+    void accountNameDisplayChanged() override {}
+    void consolesChanged() override {}
+    void probeTls(std::function<void(std::string)> report) override { report("PASS - service verifies CA, hostname and expiry"); }
+    void checkForUpdate(std::string, std::function<void(UpdateCheck)> done) override
+    {
+        done(UpdateCheck{ .outcome = UpdateCheck::Outcome::UpToDate });
+    }
+    void simulateUpdate(std::string, std::function<void(UpdateCheck)> done) override
+    {
+        done(UpdateCheck{ .outcome = UpdateCheck::Outcome::Available, .version = "9.9.9" });
+    }
+    void installUpdate(std::function<void(UpdateProgress)>) override {}
+    void cancelUpdate() override {}
+    void quit() override {}
+};
+
+class SamplePads final : public akira::settings::PadBench {
+public:
+    auto scan() -> std::vector<Pad> override
+    {
+        return {
+            Pad{ .label = "Pro Controller", .key = "switch", .summary = Summary::SwitchProfile, .tunesMotors = true },
+            Pad{ .label = "DualSense", .key = "dualsense", .summary = Summary::Native, .direct = true, .tunesMotors = true,
+                .drivesLightbar = true },
+            Pad{ .label = "Joy-Con (L/R)", .key = "joycon", .summary = Summary::DefaultProfile, .tunesMotors = true,
+                .joyCon = true },
+        };
+    }
+    void use(std::size_t, const akira::play::RumbleProfile&) override {}
+    void refreshOutputGates(std::size_t) override {}
+    void buzz(std::size_t, const akira::play::RumbleProfile&) override {}
+};
+
+class ScriptedCapture final : public akira::play::ButtonCapture {
+public:
+    void begin() override {}
+    auto held() -> std::uint64_t override
+    {
+        return akira::play::bits(akira::play::SwitchButton::ZL) | akira::play::bits(akira::play::SwitchButton::A);
+    }
+    void end() override {}
+};
+
+class QuietTunnel final : public akira::network::Tunnel {
+public:
+    auto configured() const -> bool override { return true; }
+    auto connected() const -> bool override { return true; }
+    auto address() const -> std::string override { return "10.8.0.6"; }
+    auto lastError() const -> std::string override { return {}; }
+    auto connect() -> bool override { return true; }
+    void disconnect() override {}
+    void restartSearch() override {}
+};
+
+class QuietNotifier final : public akira::app::Notifier {
+public:
+    void notify(std::string) override {}
+};
+
 class Shots {
 public:
     static constexpr int settleFrames = 90;
@@ -127,12 +215,35 @@ public:
         , store(root)
         , stream(store, false)
         , controllers(store)
+        , network(store, [](const std::vector<akira::network::Ipv4Address>&) {})
+        , developer(store)
+        , appSettings(store)
+        , cloudSettings(store)
         , picture(stream, store, false)
         , controls(controllers, store)
         , help(std::filesystem::path(AKIRA_RESOURCES_DIR) / "help", std::string())
         , packs(AKIRA_RESOURCES_DIR)
+        , settings(akira::settings::ui::SettingsModel::Parts{
+              .store = store,
+              .developer = developer,
+              .stream = stream,
+              .controllers = controllers,
+              .network = network,
+              .app = appSettings,
+              .cloud = cloudSettings,
+              .maintenance = maintenance,
+              .pads = pads,
+              .capture = capture,
+              .notifier = notifier,
+              .features = akira::settings::DeviceFeatures{ .selfUpdate = true, .statsExport = true, .cloud = true,
+                  .configFile = std::filesystem::path(AKIRA_RESOURCES_DIR) / ".." / "tests" / "arisa" / "sample_akira.toml",
+                  .takionPs4 = { 9 }, .takionPs5 = { 20 }, .takionPs5Cloud = { 23 }, .takionPsNow = { 12 } },
+          })
+        , mapping(controllers, store, controls, capture)
+        , tunnelControl(dispatcher, tunnel)
     {
         store.finishLoading();
+        developer.setPowerUserMenuUnlocked(true);
         loadAssets();
         strings.emplace(providers.assets(), StringCatalog::fallbackLocale);
         nat.emplace(
@@ -145,10 +256,14 @@ public:
             .shelf = &shelf,
             .consoles = &consoles,
             .stream = &streamCommands,
-            .picture = &picture,
-            .controls = &controls,
-            .nat = &*nat,
-            .help = &help,
+            .settings = akira::settings::ui::SettingsScreen::Parts{
+                .picture = &picture,
+                .model = &settings,
+                .mapping = &mapping,
+                .nat = &*nat,
+                .tunnel = &tunnelControl,
+                .help = &help,
+            },
         };
     }
 
@@ -179,9 +294,9 @@ public:
         return settle();
     }
 
-    auto settle() -> bool
+    auto settle(int frames = settleFrames) -> bool
     {
-        for (int frame = 0; frame < settleFrames; ++frame)
+        for (int frame = 0; frame < frames; ++frame)
         {
             if (!providers.clock().advance(frameStep).has_value() || !application->frame().has_value())
                 return false;
@@ -268,8 +383,64 @@ public:
                     .sleepOffered = true,
                     .statsMode = akira::play::StatsOverlayMode::Compact,
                 },
-                streamCommands, controls, *strings));
+                streamCommands, controls, mapping, *strings));
     }
+
+    void streamWithDock()
+    {
+        using Control = akira::play::StreamControls::Control;
+        exclusive.emplace(application->exclusive_frame(composition::ExclusiveFrame::Options{
+            .keep = { composition::OverlayLayer::dialog, composition::OverlayLayer::toast } }));
+        dockShown.emplace(application->root().overlays().show(composition::OverlayLayer::dialog,
+            akira::play::ui::StreamDock(
+                akira::play::ui::StreamDock::Session{
+                    .console = "Living room",
+                    .controls = { Control::Power, Control::Stats, Control::Pad, Control::Motion },
+                    .sleepOffered = true,
+                    .statsMode = akira::play::StatsOverlayMode::Off,
+                },
+                streamCommands, controls, mapping, *strings),
+            runtime::OverlayBehaviour{ .input = composition::OverlayInput::modal, .alignment = composition::Alignment::bottom }));
+    }
+
+    auto pad(provider::Buttons held, provider::Stick left = {}) -> bool
+    {
+        provider::InputFrame down;
+        down.pads[0].connected = true;
+        down.pads[0].buttons = held;
+        down.pads[0].left = left;
+        providers.input().push(down);
+        if (!settle(6))
+            return false;
+        provider::InputFrame up;
+        up.pads[0].connected = true;
+        providers.input().push(up);
+        return settle(12);
+    }
+
+    auto focused() -> std::optional<composition::NodeId>
+    {
+        return application->introspection().focus().focused;
+    }
+
+    auto focusedWithin(std::string_view key) -> bool
+    {
+        std::optional<composition::NodeId> at = focused();
+        const runtime::Introspection& look = application->introspection();
+        while (at)
+        {
+            const std::optional<runtime::Introspection::NodeRecord> record = look.node(*at);
+            if (!record)
+                return false;
+            if (record->key == key)
+                return true;
+            at = record->parent;
+        }
+        return false;
+    }
+
+    auto settingsModel() -> akira::settings::ui::SettingsModel& { return settings; }
+    auto board() -> akira::play::ui::Mapping& { return mapping; }
 
     ShellModel model;
     Notices notices;
@@ -285,6 +456,9 @@ private:
         add("arisa/fonts/MaterialSymbolsRoundedFilled.ttf", fonts / "MaterialSymbolsRoundedFilled.ttf");
         add("img/console/ps5.png", resources / "img" / "console" / "ps5.png");
         add("img/console/ps4.png", resources / "img" / "console" / "ps4.png");
+        for (const char* folder : { "ps5", "buttons" })
+            for (const auto& entry : std::filesystem::directory_iterator(resources / "img" / folder))
+                add("img/" + std::string(folder) + "/" + entry.path().filename().string(), entry.path());
         add("strings/en.toml", resources / "strings" / "en.toml");
     }
 
@@ -304,17 +478,31 @@ private:
     akira::settings::SettingsStore store;
     akira::play::StreamSettings stream;
     akira::play::ControllerSettings controllers;
+    akira::network::NetworkSettings network;
+    akira::settings::DeveloperSettings developer;
+    akira::app::AppSettings appSettings;
+    akira::cloud::CloudSettings cloudSettings;
     akira::settings::ui::PictureOptions picture;
     akira::settings::ui::ControlOptions controls;
     akira::settings::HelpCatalog help;
     ThemePacks packs;
+    QuietMaintenance maintenance;
+    SamplePads pads;
+    ScriptedCapture capture;
+    QuietNotifier notifier;
+    QuietTunnel tunnel;
     tests::FakeUiDispatcher dispatcher;
+    akira::settings::ui::SettingsModel settings;
+    akira::play::ui::Mapping mapping;
+    akira::network::ui::TunnelControl tunnelControl;
     QuietConsoles consoles;
     QuietStream streamCommands;
     std::optional<StringCatalog> strings;
     std::optional<akira::network::ui::NatCheck> nat;
     ShellScreen::Parts parts;
     std::optional<runtime::Application> application;
+    std::optional<composition::ExclusiveFrame> exclusive;
+    std::optional<runtime::OverlayHandle> dockShown;
 };
 
 }
@@ -404,19 +592,61 @@ TEST(arisa_shot_connecting)
 
 TEST(arisa_shot_settings_pages)
 {
+    constexpr std::array names{ "settings_general", "settings_picture", "settings_controls", "settings_updates",
+        "settings_network", "settings_debug", "settings_config", "settings_power_user", "settings_developer" };
     Shots shots;
     shots.model.ready();
     shots.showHouse();
     shots.model.showSettings(true);
     REQUIRE(shots.start(shots.shell()));
-    CHECK(shots.write("settings_picture"));
-    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 1)));
-    CHECK(shots.write("settings_controls"));
-    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 2)));
-    CHECK(shots.write("settings_network"));
+    for (std::size_t index = 0; index < names.size(); ++index)
+    {
+        REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, index)));
+        CHECK(shots.write(names[index]));
+    }
     shots.checkNat();
     REQUIRE(shots.settle());
+    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 4)));
     CHECK(shots.write("settings_network_checked"));
+}
+
+TEST(arisa_shot_settings_details)
+{
+    Shots shots;
+    shots.model.ready();
+    shots.showHouse();
+    shots.model.showSettings(true);
+    shots.settingsModel().scanPads();
+    shots.settingsModel().open(akira::settings::ui::SettingsModel::Detail::Mapping);
+    REQUIRE(shots.start(shots.shell()));
+    CHECK(shots.write("settings_mapping"));
+    shots.board().capture(akira::play::remapKey(akira::play::RemapTarget::Cross));
+    REQUIRE(shots.settle());
+    CHECK(shots.write("settings_mapping_capture"));
+    shots.board().cancel();
+    shots.settingsModel().open(akira::settings::ui::SettingsModel::Detail::Pad, 1);
+    REQUIRE(shots.settle());
+    CHECK(shots.write("settings_pad_dualsense"));
+    shots.settingsModel().open(akira::settings::ui::SettingsModel::Detail::Pad, 0);
+    REQUIRE(shots.settle());
+    CHECK(shots.write("settings_pad_pro"));
+    shots.settingsModel().close();
+    shots.settingsModel().ask(akira::settings::ui::SettingsModel::Entry::Subnet);
+    REQUIRE(shots.settle());
+    CHECK(shots.write("settings_subnet_entry"));
+}
+
+TEST(arisa_settings_capture_assigns_the_combo)
+{
+    Shots shots;
+    akira::play::ui::Mapping& board = shots.board();
+    const std::uint32_t cross = akira::play::remapKey(akira::play::RemapTarget::Cross);
+    board.capture(cross);
+    REQUIRE(board.view().get().capturing.has_value());
+    board.cancel();
+    CHECK(!board.view().get().capturing.has_value());
+    board.reset(cross);
+    CHECK(board.board().isDefault(cross));
 }
 
 TEST(arisa_shot_stream_dock)
@@ -426,6 +656,9 @@ TEST(arisa_shot_stream_dock)
     CHECK(shots.write("stream_dock_stats"));
     REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 1)));
     CHECK(shots.write("stream_dock_controls"));
+    REQUIRE(shots.press("stream-dock.mapping-open"));
+    CHECK(shots.write("stream_dock_mapping"));
+    REQUIRE(shots.press("stream-dock.mapping-back"));
     REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 2)));
     CHECK(shots.write("stream_dock_session"));
 }
@@ -447,3 +680,28 @@ TEST(arisa_shot_theme_packs)
     REQUIRE(light.start(light.shell(), "akira-anniversary", appearance::ColorSchemePreference::light));
     CHECK(light.write("theme_akira-anniversary_light"));
 }
+
+TEST(arisa_stream_dock_focus_moves_with_the_dock_buttons)
+{
+    Shots shots;
+    REQUIRE(shots.start(Shots::video()));
+    shots.streamWithDock();
+    REQUIRE(shots.settle());
+    CHECK(shots.focusedWithin("stream-dock.panel"));
+    REQUIRE(shots.pad(provider::Buttons{ provider::Button::dpad_down }));
+    CHECK(shots.focusedWithin("stream-dock.tabs"));
+    const std::optional<composition::NodeId> start = shots.focused();
+    REQUIRE(shots.pad(provider::Buttons{ provider::Button::dpad_left }));
+    const std::optional<composition::NodeId> left = shots.focused();
+    CHECK(left.has_value() && left != start);
+    REQUIRE(shots.pad(provider::Buttons{}, provider::Stick{ .x = 1.0F, .y = 0.0F }));
+    CHECK(shots.focused() == start);
+    REQUIRE(shots.pad(provider::Buttons{}, provider::Stick{ .x = 1.0F, .y = 0.0F }));
+    CHECK(shots.focused() != start);
+    CHECK(shots.focusedWithin("stream-dock.tabs"));
+    REQUIRE(shots.pad(provider::Buttons{ provider::Button::dpad_up }));
+    CHECK(shots.focusedWithin("stream-dock.panel"));
+    REQUIRE(shots.pad(provider::Buttons{}, provider::Stick{ .x = 0.0F, .y = -1.0F }));
+    CHECK(shots.focusedWithin("stream-dock.tabs"));
+}
+

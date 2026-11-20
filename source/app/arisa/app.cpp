@@ -14,6 +14,15 @@
 #include "network/nat_probe.hpp"
 #include "network/nat_report.hpp"
 #include "platform/factory.hpp"
+#include "platform/video/provider.hpp"
+#include "platform/video/renderer_choice.hpp"
+#include "settings/settings_store.hpp"
+#include "settings/takion_target.hpp"
+
+#include <libchiaking/play_types.hpp>
+
+#include <ranges>
+#include <vector>
 
 namespace akira::app::arisa {
 
@@ -73,6 +82,7 @@ bool App::openApplication()
     CrashReport::stage("arisa application");
     runtime::ApplicationOptions options{};
     options.appearance = themes.options();
+    options.appearance->storage = appearanceStore;
     auto created = runtime::Application::create(*providers, ShellScreen(model, notices, parts, *strings), std::move(options));
     if (!created)
     {
@@ -127,8 +137,33 @@ void App::buildScreens()
     controls.emplace(services.controllers, services.store);
     nat.emplace(services.dispatcher, [&core = services.core] { return network::NatReport(network::NatProbe(core).check()); },
         services.strings);
+    upkeep.emplace(services,
+        [this] {
+            if (consoleOperations)
+                consoleOperations->refresh();
+        },
+        [this] { quitting = true; });
+    padBench.emplace(services, rumble);
+    tunnel.emplace(services);
+    tunnelControl.emplace(services.dispatcher, *tunnel);
+    capture.emplace(*application);
+    settingsModel.emplace(settings::ui::SettingsModel::Parts{
+        .store = services.store,
+        .developer = services.developer,
+        .stream = services.stream,
+        .controllers = services.controllers,
+        .network = services.networkSettings,
+        .app = services.appSettings,
+        .cloud = services.cloudSettings,
+        .maintenance = *upkeep,
+        .pads = *padBench,
+        .capture = *capture,
+        .notifier = notices,
+        .features = features(),
+    });
+    mapping.emplace(services.controllers, services.store, *controls, *capture);
     CrashReport::stage("arisa stream driver");
-    driver = std::make_shared<StreamDriver>(services, *application, *window, model, notices, *controls, [this] {
+    driver = std::make_shared<StreamDriver>(services, *application, *window, model, notices, *controls, *mapping, [this] {
         if (consoleOperations)
             consoleOperations->streamEnded();
     });
@@ -139,13 +174,48 @@ void App::buildScreens()
         .shelf = &shelf,
         .consoles = &*consoleOperations,
         .stream = driver.get(),
-        .picture = &*picture,
-        .controls = &*controls,
-        .nat = &*nat,
-        .help = &*help,
+        .settings = settings::ui::SettingsScreen::Parts{
+            .picture = &*picture,
+            .model = &*settingsModel,
+            .mapping = &*mapping,
+            .nat = &*nat,
+            .tunnel = &*tunnelControl,
+            .help = &*help,
+        },
     };
     CrashReport::stage("arisa shell ready");
     model.ready();
+}
+
+auto App::features() -> settings::DeviceFeatures
+{
+    using libchiaking::play::DeveloperTuning;
+    Services& services = graph->services();
+    platform::PlatformFactory& platform = services.platform;
+    settings::DeviceFeatures made{
+        .selfUpdate = platform.supplies(platform::PlatformCapability::self_update),
+        .statsExport = platform.supplies(platform::PlatformCapability::stats_export),
+        .fsr4k = platform.supplies(platform::PlatformCapability::fsr_4k),
+        .hevc = platform.supplies(platform::PlatformCapability::hevc),
+        .configFile = services.store.path(),
+        .takionPs4 = DeveloperTuning::implemented_protocol_versions(libchiaking::consoles::Generation::ps4),
+        .takionPs5 = DeveloperTuning::implemented_protocol_versions(libchiaking::consoles::Generation::ps5),
+    };
+#if AKIRA_CLOUD
+    made.cloud = true;
+    made.takionPs5Cloud = DeveloperTuning::implemented_protocol_versions(libchiaking::catalog::ServiceGeneration::ps5_cloud)
+        | std::views::filter([](std::uint32_t version) { return version <= settings::highestCloudTakion; })
+        | std::ranges::to<std::vector>();
+    made.takionPsNow = DeveloperTuning::implemented_protocol_versions(libchiaking::catalog::ServiceGeneration::old_service);
+#endif
+    for (const platform::RendererChoice& choice : platform.rendererChoices())
+        made.renderers.push_back({ choice.label, choice.kind });
+    const std::unique_ptr<platform::VideoProvider> video = platform.createVideo();
+    const platform::VideoOptions options = video->options();
+    made.softwareHevc = options.softwareHevc;
+    made.zeroCopy = options.zeroCopy;
+    made.videoName = video->name();
+    return made;
 }
 
 bool App::frame()
@@ -155,11 +225,13 @@ bool App::frame()
         firstFrameShown = true;
         CrashReport::stage("arisa first frame");
         consoleOperations->follow();
+        if (settingsModel && settingsModel->features().selfUpdate)
+            upkeep->checkOnLaunch(notices);
     }
     window->tick();
     if (driver)
         driver->tick();
-    return !appletMainLoop();
+    return !quitting && !appletMainLoop();
 }
 
 int App::run()
@@ -178,6 +250,9 @@ int App::run()
 
     consoleOperations.reset();
     driver.reset();
+    mapping.reset();
+    settingsModel.reset();
+    tunnelControl.reset();
     nat.reset();
     graph->shutDown();
     return ran ? EXIT_SUCCESS : EXIT_FAILURE;

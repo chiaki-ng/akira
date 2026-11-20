@@ -19,6 +19,7 @@ public:
     struct Values {
         play::PictureProfile local;
         play::PictureProfile remote;
+        play::PictureProfile vpn;
         bool rcas = false;
         int rcasStrength = 0;
 

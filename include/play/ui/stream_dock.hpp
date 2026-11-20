@@ -14,6 +14,7 @@
 #include "app/strings.hpp"
 #include "play/stream_controls.hpp"
 #include "play/stream_stats.hpp"
+#include "play/ui/mapping.hpp"
 #include "play/ui/stream_commands.hpp"
 #include "settings/ui/control_options.hpp"
 
@@ -38,10 +39,11 @@ public:
     };
 
     static constexpr ::arisa::composition::StateKey<int> selected{ "stream-dock-selected", 0 };
+    static constexpr ::arisa::composition::StateKey<bool> mappingShown{ "stream-dock-mapping", false };
     static const ::arisa::composition::StateKey<StreamStats> sampled;
     static const ::arisa::composition::StateKey<StatsOverlayMode> overlay;
 
-    StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions,
+    StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions, Mapping& mapping,
         const app::Strings& strings);
 
     bool operator==(const StreamDock& other) const = default;
@@ -52,15 +54,17 @@ private:
     auto panels() const -> std::vector<StreamControls::Control>;
     auto dock(::arisa::composition::StateHandle<int> chosen, const std::vector<StreamControls::Control>& shown) const
         -> ::arisa::composition::Element;
-    auto controlsPanel(const settings::ui::ControlOptions::Values& values) const -> ::arisa::composition::Element;
+    auto controlsPanel(const settings::ui::ControlOptions::Values& values,
+        ::arisa::composition::StateHandle<bool> board) const -> ::arisa::composition::Element;
+    auto mappingPanel(::arisa::composition::StateHandle<bool> board) const -> ::arisa::composition::Element;
     auto swipe(settings::ui::ControlOptions::Swipe direction, const char* key, bool enabled) const
         -> ::arisa::composition::Element;
     static auto tile(std::string label, std::string value, std::string unit, ::arisa::theme::ColourValue tone)
         -> ::arisa::composition::Element;
     static auto tone(float value, float good, float fair) -> ::arisa::theme::ColourValue;
     auto panel(StreamControls::Control shown, const StreamStats& stats,
-        ::arisa::composition::StateHandle<StatsOverlayMode> mode, const settings::ui::ControlOptions::Values& pad) const
-        -> ::arisa::composition::Element;
+        ::arisa::composition::StateHandle<StatsOverlayMode> mode, const settings::ui::ControlOptions::Values& pad,
+        ::arisa::composition::StateHandle<bool> board) const -> ::arisa::composition::Element;
     auto powerPanel() const -> ::arisa::composition::Element;
     auto statsPanel(const StreamStats& stats, ::arisa::composition::StateHandle<StatsOverlayMode> mode) const
         -> ::arisa::composition::Element;
@@ -72,6 +76,7 @@ private:
     Session session;
     StreamCommands* commands;
     settings::ui::ControlOptions* controlOptions;
+    Mapping* mapping;
     const app::Strings* strings;
 };
 

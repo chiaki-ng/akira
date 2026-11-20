@@ -12,11 +12,8 @@
 #include "app/strings.hpp"
 #include "consoles/ui/console_commands.hpp"
 #include "consoles/ui/console_shelf.hpp"
-#include "network/ui/nat_check.hpp"
 #include "play/ui/stream_commands.hpp"
-#include "settings/help_catalog.hpp"
-#include "settings/ui/control_options.hpp"
-#include "settings/ui/picture_options.hpp"
+#include "settings/ui/settings_screen.hpp"
 
 namespace akira::app::arisa {
 
@@ -26,10 +23,7 @@ public:
         consoles::ui::ConsoleShelf* shelf = nullptr;
         consoles::ui::ConsoleCommands* consoles = nullptr;
         play::ui::StreamCommands* stream = nullptr;
-        settings::ui::PictureOptions* picture = nullptr;
-        settings::ui::ControlOptions* controls = nullptr;
-        network::ui::NatCheck* nat = nullptr;
-        const settings::HelpCatalog* help = nullptr;
+        settings::ui::SettingsScreen::Parts settings;
     };
 
     static constexpr float pageLeading = 112.0F;

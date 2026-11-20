@@ -9,11 +9,16 @@
 #include <arisa/provider/diagnostics/crash_reporter.hpp>
 #include <arisa/provider/horizon/horizon_factory.hpp>
 #include <arisa/provider/horizon/horizon_threading.hpp>
+#include <arisa/provider/standard/directory_storage.hpp>
 #include <arisa/runtime/application.hpp>
 
 #include "app/arisa/dispatcher.hpp"
 #include "app/arisa/gpu.hpp"
 #include "app/arisa/notices.hpp"
+#include "app/arisa/pad_capture.hpp"
+#include "app/arisa/pad_workbench.hpp"
+#include "app/arisa/upkeep.hpp"
+#include "app/arisa/wireguard_tunnel.hpp"
 #include "app/arisa/overlay_palette.hpp"
 #include "app/arisa/shell_model.hpp"
 #include "app/arisa/shell_screen.hpp"
@@ -25,10 +30,13 @@
 #include "consoles/ui/console_operations.hpp"
 #include "consoles/ui/console_shelf.hpp"
 #include "network/ui/nat_check.hpp"
+#include "network/ui/tunnel_control.hpp"
+#include "play/ui/mapping.hpp"
 #include "platform/rumble/npad_rumble.hpp"
 #include "settings/help_catalog.hpp"
 #include "settings/ui/control_options.hpp"
 #include "settings/ui/picture_options.hpp"
+#include "settings/ui/settings_model.hpp"
 
 namespace akira::app::arisa {
 
@@ -45,6 +53,7 @@ public:
 private:
     static constexpr const char* helpDirectory = "romfs:/help";
     static constexpr const char* themeFolder = "romfs:/";
+    static constexpr const char* appearanceFolder = "sdmc:/switch/akira";
     static constexpr std::string_view crashDirectory = "sdmc:/switch/akira/crashes";
     static constexpr std::string_view crashApp = "akira-arisa";
 
@@ -53,8 +62,10 @@ private:
     [[nodiscard]] bool openApplication();
     void startServices();
     void buildScreens();
+    auto features() -> settings::DeviceFeatures;
     bool frame();
     bool firstFrameShown = false;
+    bool quitting = false;
 
     std::optional<::arisa::provider::CrashReporter> crashes;
     ::arisa::provider::horizon::HorizonThreadingProvider threading;
@@ -66,6 +77,7 @@ private:
     platform::NpadRumble rumble;
     OverlayPalette overlayPalette;
     ThemePacks themes{ themeFolder };
+    ::arisa::provider::standard::DirectoryStorage appearanceStore{ appearanceFolder };
     ShellModel model;
     Notices notices;
     consoles::ui::ConsoleShelf shelf;
@@ -77,6 +89,13 @@ private:
     std::optional<settings::ui::PictureOptions> picture;
     std::optional<settings::ui::ControlOptions> controls;
     std::optional<network::ui::NatCheck> nat;
+    std::optional<Upkeep> upkeep;
+    std::optional<PadWorkbench> padBench;
+    std::optional<WireGuardTunnel> tunnel;
+    std::optional<network::ui::TunnelControl> tunnelControl;
+    std::optional<PadCapture> capture;
+    std::optional<settings::ui::SettingsModel> settingsModel;
+    std::optional<play::ui::Mapping> mapping;
     std::shared_ptr<StreamDriver> driver;
     std::optional<consoles::ui::ConsoleOperations> consoleOperations;
 };

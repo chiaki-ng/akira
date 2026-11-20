@@ -12,6 +12,9 @@ class StreamSettings;
 class PictureProfile {
 public:
     static constexpr int bitrateStep = 500;
+    static constexpr int vpnMinimumBitrate = 2000;
+    static constexpr int vpnMaximumBitrate = 15000;
+    static constexpr int vpnDefaultBitrate = 5000;
 
     PictureProfile(const StreamSettings& settings, StreamProfile profile, bool fsr4k);
 
@@ -44,6 +47,7 @@ public:
 
 private:
     int offered(int upscaleTarget) const;
+    int defaultBitrate(VideoResolution resolution) const;
     int fitted(int bitrate) const;
 
     const StreamSettings* settings;

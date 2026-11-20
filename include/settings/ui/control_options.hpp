@@ -2,8 +2,6 @@
 
 #include <arisa/composition/observable.hpp>
 
-#include "play/rumble_profile.hpp"
-
 namespace akira::play {
 class ControllerSettings;
 }
@@ -24,8 +22,6 @@ public:
         bool swipeDown = true;
         bool swipeLeft = true;
         bool swipeRight = true;
-        play::RumbleSource rumble = play::RumbleSource::Derived;
-        play::HapticIntensity intensity = play::HapticIntensity::Normal;
 
         friend bool operator==(const Values&, const Values&) = default;
     };
@@ -36,8 +32,7 @@ public:
 
     void setTouchpad(bool enabled);
     void setSwipe(Swipe direction, bool enabled);
-    void setRumble(play::RumbleSource source);
-    void setIntensity(play::HapticIntensity intensity);
+    void enableAll();
 
 private:
     void apply(Values values);

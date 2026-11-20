@@ -8,7 +8,6 @@
 #include <arisa/composition/exclusive_frame.hpp>
 #include <arisa/runtime/application.hpp>
 #include <arisa/runtime/input_block.hpp>
-#include <arisa/runtime/input_passthrough.hpp>
 #include <arisa/runtime/overlay_handle.hpp>
 
 #include "app/services.hpp"
@@ -17,6 +16,7 @@
 #include "play/connection.hpp"
 #include "play/menu_hold.hpp"
 #include "play/stream_controls.hpp"
+#include "play/ui/mapping.hpp"
 #include "play/ui/stream_commands.hpp"
 #include "settings/ui/control_options.hpp"
 
@@ -38,7 +38,8 @@ class StreamDriver final : public play::ConnectionListener,
                            public std::enable_shared_from_this<StreamDriver> {
 public:
     StreamDriver(Services& services, ::arisa::runtime::Application& application, Window& window, ShellModel& model,
-        Notifier& notifier, settings::ui::ControlOptions& controlOptions, std::function<void()> ended);
+        Notifier& notifier, settings::ui::ControlOptions& controlOptions, play::ui::Mapping& mapping,
+        std::function<void()> ended);
     ~StreamDriver() override;
 
     StreamDriver(const StreamDriver&) = delete;
@@ -83,6 +84,7 @@ private:
     Window& window;
     ShellModel& model;
     settings::ui::ControlOptions& controlOptions;
+    play::ui::Mapping& mapping;
     Notifier& notifier;
     std::function<void()> ended;
     play::StreamControls controls;
@@ -96,7 +98,6 @@ private:
     bool intentionalDisconnect = false;
     std::unique_ptr<UiWindow::FocusWatch> focusWatch;
     std::optional<::arisa::runtime::InputBlock> padsOwned;
-    std::optional<::arisa::runtime::InputPassthrough> dockButtons;
     std::optional<::arisa::composition::ExclusiveFrame> videoOwnsScreen;
     std::optional<::arisa::runtime::OverlayHandle> dock;
 };

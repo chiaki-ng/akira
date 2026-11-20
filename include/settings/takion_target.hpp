@@ -11,4 +11,6 @@ enum class TakionTarget : uint8_t {
     PSNow,
 };
 
+inline constexpr std::uint32_t highestCloudTakion = 23;
+
 }

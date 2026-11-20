@@ -12,6 +12,8 @@ namespace akira::network::ui {
 
 class NatSection final : public ::arisa::composition::Component {
 public:
+    static constexpr bool is_section = true;
+
     NatSection(NatCheck& check, const settings::HelpCatalog& help, const app::Strings& strings);
 
     bool operator==(const NatSection& other) const = default;

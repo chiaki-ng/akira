@@ -53,12 +53,23 @@ int PictureProfile::offered(int upscaleTarget) const
 
 int PictureProfile::minBitrate() const
 {
+    if (chosenProfile == StreamProfile::Vpn)
+        return vpnMinimumBitrate;
     return settings->minBitrate(chosenResolution);
 }
 
 int PictureProfile::maxBitrate() const
 {
+    if (chosenProfile == StreamProfile::Vpn)
+        return vpnMaximumBitrate;
     return settings->maxBitrate(chosenResolution);
+}
+
+int PictureProfile::defaultBitrate(VideoResolution resolution) const
+{
+    if (chosenProfile == StreamProfile::Vpn)
+        return vpnDefaultBitrate;
+    return settings->defaultBitrate(resolution);
 }
 
 int PictureProfile::fitted(int bitrate) const
@@ -73,7 +84,7 @@ void PictureProfile::chooseResolution(VideoResolution resolution)
     if (chosenResolution == resolution)
         return;
     chosenResolution = resolution;
-    chosenBitrate = fitted(settings->defaultBitrate(resolution));
+    chosenBitrate = fitted(defaultBitrate(resolution));
 }
 
 void PictureProfile::chooseUpscale(int upscaleTarget)
@@ -88,7 +99,7 @@ void PictureProfile::chooseUpscale(int upscaleTarget)
     if (source == chosenResolution)
         return;
     chosenResolution = source;
-    chosenBitrate = fitted(settings->defaultBitrate(source));
+    chosenBitrate = fitted(defaultBitrate(source));
 }
 
 void PictureProfile::chooseFps(VideoFps fps)

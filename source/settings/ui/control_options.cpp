@@ -16,8 +16,6 @@ ControlOptions::ControlOptions(play::ControllerSettings& controllers, SettingsSt
           .swipeDown = controllers.swipeDownEnabled(),
           .swipeLeft = controllers.swipeLeftEnabled(),
           .swipeRight = controllers.swipeRightEnabled(),
-          .rumble = controllers.rumbleProfile(play::kRumbleKeySwitch).rumble_source,
-          .intensity = controllers.rumbleProfile(play::kRumbleKeySwitch).haptic_intensity,
       })
 {
 }
@@ -42,18 +40,9 @@ void ControlOptions::setSwipe(Swipe direction, bool enabled)
     apply(values);
 }
 
-void ControlOptions::setRumble(play::RumbleSource source)
+void ControlOptions::enableAll()
 {
-    Values values = state.get();
-    values.rumble = source;
-    apply(values);
-}
-
-void ControlOptions::setIntensity(play::HapticIntensity intensity)
-{
-    Values values = state.get();
-    values.intensity = intensity;
-    apply(values);
+    apply(Values{});
 }
 
 void ControlOptions::apply(Values values)
@@ -65,10 +54,6 @@ void ControlOptions::apply(Values values)
     controllers.setSwipeDownEnabled(values.swipeDown);
     controllers.setSwipeLeftEnabled(values.swipeLeft);
     controllers.setSwipeRightEnabled(values.swipeRight);
-    play::RumbleProfile rumble = controllers.rumbleProfile(play::kRumbleKeySwitch);
-    rumble.rumble_source = values.rumble;
-    rumble.haptic_intensity = values.intensity;
-    controllers.setRumbleProfile(play::kRumbleKeySwitch, rumble);
     state.set(std::move(values));
     store.save();
 }

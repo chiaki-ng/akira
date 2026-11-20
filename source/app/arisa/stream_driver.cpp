@@ -35,12 +35,14 @@ namespace provider = ::arisa::provider;
 namespace runtime = ::arisa::runtime;
 
 StreamDriver::StreamDriver(Services& services, runtime::Application& application, Window& window, ShellModel& model,
-    Notifier& notifier, settings::ui::ControlOptions& controlOptions, std::function<void()> ended)
+    Notifier& notifier, settings::ui::ControlOptions& controlOptions, play::ui::Mapping& mapping,
+    std::function<void()> ended)
     : services(services)
     , application(application)
     , window(window)
     , model(model)
     , controlOptions(controlOptions)
+    , mapping(mapping)
     , notifier(notifier)
     , ended(std::move(ended))
 {
@@ -166,9 +168,7 @@ void StreamDriver::openDock()
     connection->setInputSuppressed(true);
     session.setVideoPaused(true);
     session.CleanUpHaptic();
-    dockButtons.emplace(application.pass_input(provider::Buttons{ provider::Button::a, provider::Button::b,
-        provider::Button::dpad_up, provider::Button::dpad_down, provider::Button::dpad_left,
-        provider::Button::dpad_right }));
+    padsOwned.reset();
     dock.emplace(application.root().overlays().show(composition::OverlayLayer::dialog,
         play::ui::StreamDock(
             play::ui::StreamDock::Session{
@@ -177,7 +177,7 @@ void StreamDriver::openDock()
                 .sleepOffered = controls.offersSleep(),
                 .statsMode = session.getStatsOverlayMode(),
             },
-            *this, controlOptions, services.strings),
+            *this, controlOptions, mapping, services.strings),
         runtime::OverlayBehaviour{
             .input = composition::OverlayInput::modal,
             .alignment = composition::Alignment::bottom,
@@ -187,8 +187,11 @@ void StreamDriver::openDock()
 
 void StreamDriver::closeDock()
 {
+    mapping.cancel();
+    const bool wasOpen = dock.has_value();
     dock.reset();
-    dockButtons.reset();
+    if (wasOpen && videoActive && connection)
+        padsOwned.emplace(application.block_input());
 }
 
 void StreamDriver::resume()

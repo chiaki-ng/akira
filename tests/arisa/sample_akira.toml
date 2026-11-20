@@ -1,0 +1,30 @@
+version = 5
+
+[ui]
+theme = 'playstation'
+show_stages = true
+
+[stream.local]
+resolution = 1080
+fps = 60
+bitrate = 25000
+
+[stream.remote]
+resolution = 720
+fps = 60
+bitrate = 10000
+
+[network]
+holepunch_retry = false
+port_guessing = true
+subnets = '10.8.0.0/24'
+
+[profiles.main]
+online_id = 'sample_player'
+account_id = 'c2FtcGxlYWNjb3VudA=='
+refresh_token = 'sample-refresh-token-value'
+
+[[hosts]]
+name = 'Living room'
+rp_key = 'sample-rp-key-0123456789'
+favorites = [ 'EP0000-SAMPLE' ]
