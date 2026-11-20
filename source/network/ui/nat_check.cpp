@@ -23,11 +23,11 @@ void NatCheck::start()
     if (state.get().checking)
         return;
     state.set(Status{ .checking = true });
-    dispatcher.runOnWorker([this, guard = alive] {
+    dispatcher.runOnWorker([this, &ui = dispatcher, &core = core, guard = alive] {
         NatReport report(NatProbe(core).check());
         if (!guard->load())
             return;
-        dispatcher.post([this, guard, report = std::move(report)] {
+        ui.post([this, guard, report = std::move(report)] {
             if (guard->load())
                 finish(report);
         });
