@@ -6,6 +6,7 @@
 #include "settings/settings_store.hpp"
 #include "network/wireguard_manager.hpp"
 #include "log/log.hpp"
+#include "app/crash_report.hpp"
 
 #include <ctime>
 #include <format>
@@ -139,8 +140,11 @@ void DiscoveryManager::setServiceEnabled(bool enable)
     }
 
     serviceEnabled = true;
+    app::CrashReport::stage("discovery link saved");
     linkSavedConsoles();
+    app::CrashReport::stage("discovery search");
     startSearch();
+    app::CrashReport::stage("discovery focus");
     ensureFocusSubscription();
 }
 

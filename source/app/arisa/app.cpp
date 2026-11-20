@@ -139,6 +139,7 @@ void App::buildScreens()
         .nat = &*nat,
         .help = &*help,
     };
+    CrashReport::stage("arisa shell ready");
     model.ready();
 }
 

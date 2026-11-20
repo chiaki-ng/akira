@@ -7,6 +7,7 @@
 
 #include "accounts/account_settings.hpp"
 #include "accounts/accounts.hpp"
+#include "app/crash_report.hpp"
 #include "app/notifier.hpp"
 #include "app/services.hpp"
 #include "app/strings.hpp"
@@ -38,7 +39,9 @@ ConsoleOperations::~ConsoleOperations()
 
 void ConsoleOperations::follow()
 {
+    app::CrashReport::stage("arisa discovery gate");
     services.discoveryGate.appeared();
+    app::CrashReport::stage("arisa discovery callbacks");
     services.discovery.setOnHostDiscovered([this](Host* found) {
         if (services.discoveryGate.discovered(found != nullptr, true) != DiscoveryGate::Discovered::Update)
             return;
@@ -48,8 +51,10 @@ void ConsoleOperations::follow()
         if (services.discoveryGate.hostsChanged(true))
             services.dispatcher.post([this] { refresh(); });
     });
+    app::CrashReport::stage("arisa discovery enable");
     if (!services.discovery.isServiceEnabled())
         services.discovery.setServiceEnabled(true);
+    app::CrashReport::stage("arisa shelf refresh");
     refresh();
 }
 
