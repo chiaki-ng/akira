@@ -71,7 +71,7 @@ ARISA_ARCHIVE       = $(ARISA_PACKAGE_DIR)/$(ARISA_NAME).tar.gz
 ARISA_UNPACK        = $(CURDIR)/build/arisa-package/$(ARISA_SHA256)
 ARISA_PREFIX        = $(ARISA_UNPACK)/$(ARISA_NAME)
 ARISA_BUILD_NAME    = arisa-$(PLATFORM)$(if $(filter switch2,$(ARISA_FLAVOUR)),-vulkan)
-ARISA_NRO_FILE      = $(CURDIR)/build/$(ARISA_BUILD_NAME)/akira_arisa.nro
+ARISA_NRO_FILE      = $(CURDIR)/build/$(ARISA_BUILD_NAME)/akira-arisa.nro
 ARISA_HOST_NAME    := arisa-$(ARISA_VERSION)-macos-arm64
 ARISA_HOST_SHA256  := 2d6d6d712f447e0edcab524c2d20785e0c58d787db32e0f5e8c4f060b51cf46d
 ARISA_HOST_ARCHIVE  = $(ARISA_PACKAGE_DIR)/$(ARISA_HOST_NAME).tar.gz
@@ -240,7 +240,7 @@ help:
 	@echo "  shell-nx, shell-ounce            Open shell in build container"
 	@echo "  crash-nx, crash-ounce            Symbolicate the latest Switch crash report (SWITCH_IP or LOG)"
 	@echo "  test-nx, test-ounce              Run the host-side unit tests"
-	@echo "  build-arisa-nx, build-arisa-ounce  Build akira_arisa.nro on the pinned arisa package (ARISA_GPU=drako3d|vulkan on ounce)"
+	@echo "  build-arisa-nx, build-arisa-ounce  Build akira-arisa.nro on the pinned arisa package (ARISA_GPU=drako3d|vulkan on ounce)"
 	@echo "  arisa-package-nx, arisa-package-ounce  Check and extract the pinned arisa package"
 	@echo "  test-arisa     Run the arisa shell seam tests on the headless arisa macOS package"
 	@echo "  image-tag-nx, image-tag-ounce    Print the builder image tag for this checkout"
@@ -422,7 +422,7 @@ arisa-package: platform
 	fi
 
 build-arisa: platform docker-image arisa-package
-	@printf "$(GREEN)[*]$(NC) Building akira_arisa for $(PLATFORM) with $(DOCKER_IMAGE)...\n"
+	@printf "$(GREEN)[*]$(NC) Building akira-arisa for $(PLATFORM) with $(DOCKER_IMAGE)...\n"
 	@$(DOCKER_RUN) \
 		-e AKIRA_PLATFORM="$(PLATFORM)" \
 		-e AKIRA_SHELL=arisa \

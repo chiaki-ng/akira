@@ -16,7 +16,7 @@ case "${AKIRA_ARISA_GPU}" in
 esac
 case "${AKIRA_SHELL}" in
     borealis) BUILD_NAME="${AKIRA_PLATFORM}"; NRO_TARGET=akira ;;
-    arisa) BUILD_NAME="arisa-${AKIRA_PLATFORM}"; NRO_TARGET=akira_arisa ;;
+    arisa) BUILD_NAME="arisa-${AKIRA_PLATFORM}"; NRO_TARGET=akira-arisa ;;
     *) echo "AKIRA_SHELL must be borealis or arisa, not ${AKIRA_SHELL}"; exit 1 ;;
 esac
 

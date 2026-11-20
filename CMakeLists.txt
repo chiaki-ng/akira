@@ -6,13 +6,13 @@ if (NOT AKIRA_PLATFORM MATCHES "^(nx|ounce)$")
     message(FATAL_ERROR "AKIRA_PLATFORM must be nx or ounce, not ${AKIRA_PLATFORM}")
 endif()
 
-set(AKIRA_SHELL "borealis" CACHE STRING "UI shell: borealis ships as akira, arisa builds akira_arisa")
+set(AKIRA_SHELL "borealis" CACHE STRING "UI shell: borealis ships as akira, arisa builds akira-arisa")
 set_property(CACHE AKIRA_SHELL PROPERTY STRINGS borealis arisa)
 if (NOT AKIRA_SHELL MATCHES "^(borealis|arisa)$")
     message(FATAL_ERROR "AKIRA_SHELL must be borealis or arisa, not ${AKIRA_SHELL}")
 endif()
 if (AKIRA_SHELL STREQUAL "arisa")
-    set(AKIRA_TARGET akira_arisa)
+    set(AKIRA_TARGET akira-arisa)
 else()
     set(AKIRA_TARGET akira)
 endif()
@@ -85,6 +85,9 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 # Project metadata + git-derived version
 include(version)
+if (AKIRA_SHELL STREQUAL "arisa")
+    set(APP_TITLE "akira-arisa")
+endif()
 
 # Platform options
 list(APPEND APP_PLATFORM_OPTION
