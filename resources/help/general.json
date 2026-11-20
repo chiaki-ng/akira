@@ -6,5 +6,6 @@
 
   "settings/holepunchRetry":         { "title": "Holepunch retry", "body": "Try NAT traversal up to four times instead of stopping after the first failed attempt.", "image": "" },
   "settings/requestIdrOnFecFailure": { "title": "Request IDR on FEC failure", "body": "Request a fresh keyframe when forward error correction cannot reconstruct a video frame. Recovery may briefly pause video.", "image": "" },
-  "settings/packetLossMax":          { "title": "Reported packet-loss cap", "body": "Cap the packet-loss percentage reported to the console. Lower values may prevent aggressive bitrate reductions, but can cause freezes or unrecoverable frames on poor networks.", "image": "" }
+  "settings/packetLossMax":          { "title": "Reported packet-loss cap", "body": "Cap the packet-loss percentage reported to the console. Lower values may prevent aggressive bitrate reductions, but can cause freezes or unrecoverable frames on poor networks.", "image": "" },
+  "settings/natType": { "title": "NAT type", "body": "Find how reachable this device is from the internet, as type 1, 2 or 3. Type 3 can stop Remote Play over the internet from connecting.", "image": "" }
 }

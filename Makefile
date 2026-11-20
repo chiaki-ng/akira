@@ -154,6 +154,7 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/settings/developer_settings.cpp \
                 $(CURDIR)/source/play/stream_settings.cpp \
                 $(CURDIR)/source/play/picture_profile.cpp \
+                $(CURDIR)/source/settings/help_catalog.cpp \
                 $(CURDIR)/source/play/controller_settings.cpp \
                 $(CURDIR)/source/cloud/cloud_settings.cpp \
                 $(CURDIR)/source/cloud/saved_datacenters.cpp \
@@ -292,7 +293,7 @@ test: platform
 	@mkdir -p "$(CURDIR)/build/tests/$(PLATFORM)"
 	@printf "$(GREEN)[*]$(NC) Building host tests...\n"
 	@c++ -std=c++23 -g -O0 -Wall -Wextra -Wno-unused-parameter -DAKIRA_MUTE_CORE_LOGS=0 \
-		-I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" \
+		-DAKIRA_RESOURCES_DIR=\"$(CURDIR)/resources\" -I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" \
 		-I"$(CURDIR)/library/tomlplusplus/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(OPENSSL_PREFIX)/include" \
 		$(TEST_SRC) $(CORE_TEST_SRC) -L"$(JSONC_PREFIX)/lib" -ljson-c -L"$(SIMDUTF_PREFIX)/lib" -lsimdutf \
 		-L"$(OPENSSL_PREFIX)/lib" -lcrypto -o "$(TEST_BIN)"
