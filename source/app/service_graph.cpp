@@ -232,9 +232,9 @@ void ServiceGraph::shutDown()
 
     wireGuard->disconnect();
 
-    core.reset();
-
     session->abandon();
+
+    core.reset();
 
     SDL_Quit();
     curl_global_cleanup();
