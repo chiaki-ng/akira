@@ -174,7 +174,6 @@ int App::run()
     driver.reset();
     nat.reset();
     graph->shutDown();
-    nvExit();
     return ran ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
