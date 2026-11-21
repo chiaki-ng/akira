@@ -91,6 +91,14 @@ auto GeneralSection::appearance(const appearance::AppearanceModel& look, const S
             look.update([chosen](Overrides& o) { o.color_scheme = chosen; });
         })
                         .picker_style(controls::PickerStyle::segmented()));
+    app::AppSettings& general = model->parts().app;
+    shown.push_back(rows.picker<app::RailEdge>(rows.text("akira/settings/rail_edge"), "",
+        { { app::RailEdge::Left, rows.text("akira/settings/rail_edge_left") },
+            { app::RailEdge::Top, rows.text("akira/settings/rail_edge_top") },
+            { app::RailEdge::Right, rows.text("akira/settings/rail_edge_right") },
+            { app::RailEdge::Bottom, rows.text("akira/settings/rail_edge_bottom") } },
+        [&general] { return general.railEdge(); }, [&general](app::RailEdge chosen) { general.setRailEdge(chosen); })
+                        .picker_style(controls::PickerStyle::segmented()));
     shown.push_back(accent(look));
     constexpr std::array sizes{ theme::DynamicTypeSize::x_small, theme::DynamicTypeSize::small,
         theme::DynamicTypeSize::medium, theme::DynamicTypeSize::large, theme::DynamicTypeSize::x_large,

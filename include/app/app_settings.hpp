@@ -3,6 +3,9 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
+
+#include "app/rail_edge.hpp"
 
 #include "settings/section.hpp"
 
@@ -32,6 +35,8 @@ public:
     std::string maskAccountName(const std::string& name) const;
     bool connectionShowStages() const { return showStages; }
     void setConnectionShowStages(bool show) { showStages = show; }
+    RailEdge railEdge() const { return edge; }
+    void setRailEdge(RailEdge value) { edge = value; }
     bool screenshotChord() const { return screenshots; }
     void setScreenshotChord(bool enabled) { screenshots = enabled; }
     bool sleepOnExit() const { return sleepWhenExiting; }
@@ -50,6 +55,8 @@ public:
 
 private:
     void read(const toml::table& config);
+    static auto edgeName(RailEdge value) -> std::string_view;
+    static auto edgeNamed(std::string_view name) -> std::optional<RailEdge>;
 
     settings::SettingsStore& store;
 
@@ -59,6 +66,7 @@ private:
     bool hideName = false;
     bool showStages = true;
     bool screenshots = true;
+    RailEdge edge = RailEdge::Left;
     bool sleepWhenExiting = false;
     std::string locale;
     std::string channel = "stable";

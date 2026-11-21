@@ -30,6 +30,8 @@ void AppSettings::read(const toml::table& config)
         showStages = *val;
     if (auto val = config["ui"]["screenshot_chord"].value<bool>())
         screenshots = *val;
+    if (auto val = config["ui"]["rail_edge"].value<std::string>())
+        edge = edgeNamed(*val).value_or(RailEdge::Left);
     if (auto val = config["stream"]["sleep_on_exit"].value<bool>())
         sleepWhenExiting = *val;
     if (auto val = config["debug"]["locale"].value<std::string>())
@@ -53,6 +55,7 @@ void AppSettings::write(toml::table& config) const
     if (hideName) ui.insert("hide_account_name", true);
     ui.insert("connection_show_stages", showStages);
     if (!screenshots) ui.insert("screenshot_chord", false);
+    if (edge != RailEdge::Left) ui.insert("rail_edge", std::string(edgeName(edge)));
     config.insert("ui", std::move(ui));
 
     if (sleepWhenExiting)
@@ -66,6 +69,26 @@ void AppSettings::write(toml::table& config) const
     if (lastCheck != 0) updates.insert("last_check", lastCheck);
     if (!installPath.empty()) updates.insert("install_path", installPath);
     config.insert("updates", std::move(updates));
+}
+
+auto AppSettings::edgeName(RailEdge value) -> std::string_view
+{
+    switch (value)
+    {
+        case RailEdge::Left: return "left";
+        case RailEdge::Top: return "top";
+        case RailEdge::Right: return "right";
+        case RailEdge::Bottom: return "bottom";
+    }
+    return "left";
+}
+
+auto AppSettings::edgeNamed(std::string_view name) -> std::optional<RailEdge>
+{
+    for (const RailEdge each : railEdges)
+        if (edgeName(each) == name)
+            return each;
+    return std::nullopt;
 }
 
 std::string AppSettings::maskAccountName(const std::string& name) const

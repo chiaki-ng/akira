@@ -81,6 +81,14 @@ void ShellModel::offer(bool cloud, bool trophies)
     });
 }
 
+void ShellModel::callRail()
+{
+    state.update([](View& view) {
+        if (view.phase == Phase::Home && !view.settings)
+            ++view.railCalls;
+    });
+}
+
 void ShellModel::askExit()
 {
     state.update([](View& view) {

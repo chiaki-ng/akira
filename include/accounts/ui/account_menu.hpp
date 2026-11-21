@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include <arisa/composition/component.hpp>
 #include <arisa/composition/context.hpp>
 #include <arisa/composition/element.hpp>
@@ -19,6 +21,9 @@ public:
     bool operator==(const AccountMenu& other) const = default;
 
     auto body(::arisa::composition::Context& context) const -> ::arisa::composition::Element override;
+
+    static auto choices(AccountModel& model, const AccountModel::View& view, const app::Strings& strings)
+        -> std::function<::arisa::composition::Element()>;
 
 private:
     AccountModel* model;

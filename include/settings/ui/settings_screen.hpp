@@ -39,7 +39,7 @@ public:
     static constexpr float contentWidth = 760.0F;
     static constexpr float boardWidth = 800.0F;
 
-    static constexpr ::arisa::composition::StateKey<Page> page{ "settings-page", Page::General };
+    static constexpr ::arisa::composition::StateKey<Page> page{ "settings-page", Page::About };
 
     SettingsScreen(Parts parts, const app::Strings& strings);
 

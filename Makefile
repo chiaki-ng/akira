@@ -51,14 +51,14 @@ TEST_PLATFORM_SRC := $(CURDIR)/source/platform/pads/extended/rumble_keys.cpp \
 endif
 DOCKER_IMAGE ?= akira-builder:$(IMAGE_HASH)
 ARISA_VERSION      := 0.0.1
-ARISA_TAG          := 08a6148
+ARISA_TAG          := d5092b8
 ARISA_GPU          ?= drako3d
 ARISA_FLAVOUR_nx_drako3d    := switch
 ARISA_FLAVOUR_nx_vulkan     := switch
 ARISA_FLAVOUR_ounce_drako3d := switch2
 ARISA_FLAVOUR_ounce_vulkan  := switch2
 ARISA_SHA256_switch         := 6eaf1b070d167480052225ee25a830be2d97b3708155f3d776dc530b6bc750bd
-ARISA_SHA256_switch2        := 59e472c556a5c3e92f499059f4f2e411448c0a446cd25564937de3eed7579ac1
+ARISA_SHA256_switch2        := 33df49cbde80298aef27f88faf28475f7ea88b2fd4f9bcc37c580de57706be19
 ARISA_RECIPE_switch         := make package TARGET=switch
 ARISA_RECIPE_switch2        := make package-switch2
 ARISA_PACKAGE_DIR  ?= $(abspath $(CURDIR)/../arisa/build/package)

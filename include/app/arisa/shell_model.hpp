@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <chrono>
 #include <optional>
 #include <string>
@@ -43,6 +45,7 @@ public:
         bool exiting = false;
         bool exitConfirmed = false;
         std::optional<DnsWarning> dns;
+        std::uint64_t railCalls = 0;
 
         friend bool operator==(const View&, const View&) = default;
     };
@@ -61,6 +64,7 @@ public:
     void show(Page page);
     void offer(bool cloud, bool trophies);
     void askExit();
+    void callRail();
     void dismissExit();
     void confirmExit();
     void warnDns(std::string domain, std::string server, std::chrono::steady_clock::time_point now);

@@ -8,17 +8,13 @@
 
 #include "app/strings.hpp"
 
-namespace akira::accounts::ui {
-class AccountModel;
-}
-
 namespace akira::app::arisa {
 
 class Header final : public ::arisa::composition::Component {
 public:
     static constexpr float spacing = 14.0F;
 
-    Header(std::string title, accounts::ui::AccountModel* accounts, const app::Strings& strings);
+    Header(std::string title, const app::Strings& strings);
 
     bool operator==(const Header& other) const = default;
 
@@ -26,7 +22,6 @@ public:
 
 private:
     std::string title;
-    accounts::ui::AccountModel* accounts;
     const app::Strings* strings;
 };
 

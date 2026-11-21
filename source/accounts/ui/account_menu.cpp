@@ -35,31 +35,36 @@ AccountMenu::AccountMenu(AccountModel& model, const app::Strings& strings)
 {
 }
 
+auto AccountMenu::choices(AccountModel& model, const AccountModel::View& view, const app::Strings& strings)
+    -> std::function<composition::Element()>
+{
+    AccountModel* held = &model;
+    std::vector<AccountDesk::Entry> entries = view.entries;
+    const std::string unnamed = strings.text("akira/settings/unnamed_profile");
+    const std::string add = strings.text("akira/settings/add_profile");
+    return [held, entries = std::move(entries), unnamed, add] {
+        std::vector<composition::Element> items;
+        for (const AccountDesk::Entry& entry : entries)
+        {
+            const std::string label = entry.name.empty() ? unnamed : entry.name;
+            auto chosen = [held, id = entry.id] { held->switchTo(id); };
+            composition::Element item = entry.active
+                ? composition::Element(components::Button(label, components::Image::SystemName{ "check" }, chosen))
+                : composition::Element(components::Button(label, chosen));
+            items.push_back(std::move(item).id(composition::ElementKey{ std::format("header.profile.{}", entry.id) }));
+        }
+        items.push_back(components::Divider());
+        items.push_back(components::Button(add, components::Image::SystemName{ "person_add" }, [held] { held->welcome(true); }));
+        return composition::Element(components::Group(std::move(items)));
+    };
+}
+
 auto AccountMenu::body(composition::Context& context) const -> composition::Element
 {
     const AccountModel::View& view = context.read(model->view());
     const AccountDesk::Summary shown = view.summary.value_or(AccountDesk::Summary{});
     const std::string name = shown.name.empty() ? strings->text("akira/settings/no_active_profile") : shown.name;
-    AccountModel* held = model;
-    std::vector<AccountDesk::Entry> entries = view.entries;
-    const std::string unnamed = strings->text("akira/settings/unnamed_profile");
-    const std::string add = strings->text("akira/settings/add_profile");
-    return controls::Menu(
-        [held, entries = std::move(entries), unnamed, add] {
-            std::vector<composition::Element> items;
-            for (const AccountDesk::Entry& entry : entries)
-            {
-                const std::string label = entry.name.empty() ? unnamed : entry.name;
-                auto chosen = [held, id = entry.id] { held->switchTo(id); };
-                composition::Element item = entry.active
-                    ? composition::Element(components::Button(label, components::Image::SystemName{ "check" }, chosen))
-                    : composition::Element(components::Button(label, chosen));
-                items.push_back(std::move(item).id(composition::ElementKey{ std::format("header.profile.{}", entry.id) }));
-            }
-            items.push_back(components::Divider());
-            items.push_back(components::Button(add, components::Image::SystemName{ "person_add" }, [held] { held->welcome(true); }));
-            return composition::Element(components::Group(std::move(items)));
-        },
+    return controls::Menu(choices(*model, view, *strings),
         components::HStack(components::HStackOptions{ .spacing = theme::Space{ 10.0F } },
             AccountAvatar(shown.name, shown.avatarUrl, avatarSide),
             components::Text(name).font(theme::Font::callout).font_weight(theme::Font::Weight::medium).line_limit(1)

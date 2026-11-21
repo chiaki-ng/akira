@@ -13,8 +13,6 @@
 
 #include <utility>
 
-#include "accounts/ui/account_menu.hpp"
-#include "accounts/ui/account_model.hpp"
 
 namespace akira::app::arisa {
 
@@ -23,18 +21,14 @@ namespace composition = ::arisa::composition;
 namespace status = ::arisa::components::status;
 namespace theme = ::arisa::theme;
 
-Header::Header(std::string title, accounts::ui::AccountModel* accounts, const app::Strings& strings)
+Header::Header(std::string title, const app::Strings& strings)
     : title(std::move(title))
-    , accounts(accounts)
     , strings(&strings)
 {
 }
 
-auto Header::body(composition::Context& context) const -> composition::Element
+auto Header::body(composition::Context&) const -> composition::Element
 {
-    composition::Element account = components::Group();
-    if (accounts && !context.read(accounts->view()).entries.empty())
-        account = accounts::ui::AccountMenu(*accounts, *strings);
     return components::HStack(components::HStackOptions{ .spacing = theme::Space{ spacing } },
         components::Text(title)
             .font(theme::Font::large_title)
@@ -45,8 +39,7 @@ auto Header::body(composition::Context& context) const -> composition::Element
         components::HStack(components::HStackOptions{ .spacing = theme::space::md }, status::Wireless(theme::Font::callout),
             status::Battery(theme::Font::callout.monospaced_digit(), theme::Font::callout),
             status::Clock(theme::Font::callout.monospaced_digit()))
-            .foreground_style(theme::ColourRole::secondary_label),
-        std::move(account))
+            .foreground_style(theme::ColourRole::secondary_label))
         .frame({ .max_width = composition::infinity })
         .id(composition::ElementKey{ "header" });
 }

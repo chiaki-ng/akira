@@ -286,7 +286,7 @@ auto SettingsScreen::body(composition::Context& context) const -> composition::E
     const SettingsModel::Status& status = context.read(parts.model->view());
     const std::vector<Page> shown = pages(*parts.model);
     const auto chosen = context.state(page);
-    const Page current = std::ranges::contains(shown, chosen.get()) ? chosen.get() : Page::General;
+    const Page current = std::ranges::contains(shown, chosen.get()) ? chosen.get() : Page::About;
     composition::Binding<std::size_t> selection(
         [chosen, shown] {
             const auto found = std::ranges::find(shown, chosen.get());
@@ -307,8 +307,10 @@ auto SettingsScreen::body(composition::Context& context) const -> composition::E
     SettingsModel* model = parts.model;
     composition::Element screen =
         components::VStack(components::VStackOptions{ .spacing = theme::space::none },
-            composition::Element(structure::DockBar(std::move(selection), std::move(tabs)))
+            composition::Element(structure::DockBar(std::move(selection), std::move(tabs), {},
+                                     structure::DockBar::Options{ .follows_focus = true }))
                 .control_size(components::ControlSize::small)
+                .labels_hidden()
                 .padding(theme::Edge::top, theme::Space{ 8.0F })
                 .id(composition::ElementKey{ "settings.pages" }),
             composition::Element(components::Group()).frame({ .height = 14.0F }),

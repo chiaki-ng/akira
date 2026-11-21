@@ -1,5 +1,7 @@
+#include "app/app_settings.hpp"
 #include "app/arisa/shell_screen.hpp"
 
+#include <arisa/provider/input/buttons.hpp>
 #include <arisa/components/button.hpp>
 #include <arisa/components/button_border_shape.hpp>
 #include <arisa/components/button_role.hpp>
@@ -53,6 +55,7 @@ namespace akira::app::arisa {
 
 namespace components = ::arisa::components;
 namespace composition = ::arisa::composition;
+namespace provider = ::arisa::provider;
 namespace graphics = ::arisa::graphics;
 namespace motion = ::arisa::motion;
 namespace theme = ::arisa::theme;
@@ -84,7 +87,7 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
         return appletNotice();
     const bool connecting = view.phase == ShellModel::Phase::Connecting;
     const bool settings = view.settings && view.phase == ShellModel::Phase::Home;
-    composition::Element shell = dnsCard(exitCard(ending(announced(home(view.page), view.phase == ShellModel::Phase::Streaming),
+    composition::Element shell = dnsCard(exitCard(ending(announced(home(view.page, railEdge(context)), view.phase == ShellModel::Phase::Streaming),
                                                       view, context.namespace_id(endingFocus)),
                                              view),
         view, context.namespace_id(dnsFocus));
@@ -109,14 +112,33 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
     return shown;
 }
 
-auto ShellScreen::home(ShellModel::Page shown) const -> composition::Element
+auto ShellScreen::railEdge(composition::Context& context) const -> RailEdge
+{
+    if (!parts->settings.model)
+        return RailEdge::Left;
+    static_cast<void>(context.read(parts->settings.model->view()));
+    return parts->settings.model->parts().app.railEdge();
+}
+
+auto ShellScreen::home(ShellModel::Page shown, RailEdge edge) const -> composition::Element
 {
     ShellModel* held = model;
-    return components::ZStack(components::ZStackOptions{ .alignment = composition::Alignment::top_leading },
-        backdrop(), page(shown), composition::Element(Rail(*model, *strings))
-            .padding(theme::Space{ Rail::inset })
-            .frame({ .max_height = composition::infinity, .alignment = composition::Alignment::top_leading }),
-        hints())
+    composition::Element rail = Rail(*model, *strings, parts->settings.accounts, edge);
+    composition::Element content = page(shown, edge);
+    if (!Rail::vertical(edge))
+        content = edge == RailEdge::Top
+            ? composition::Element(components::VStack(components::VStackOptions{ .spacing = theme::space::none },
+                  std::move(rail), std::move(content)))
+            : composition::Element(components::VStack(components::VStackOptions{ .spacing = theme::space::none },
+                  std::move(content), std::move(rail)));
+    std::vector<composition::Element> layers;
+    layers.push_back(backdrop());
+    layers.push_back(std::move(content));
+    layers.push_back(hints());
+    if (Rail::vertical(edge))
+        layers.push_back(std::move(rail));
+    return components::ZStack(components::ZStackOptions{ .alignment = composition::Alignment::top_leading }, std::move(layers))
+        .on_command(provider::Button::y, strings->text("akira/rail/menu"), [held] { held->callRail(); })
         .on_exit_command(strings->text("akira/app/exit"), [held] { held->askExit(); });
 }
 
@@ -125,7 +147,7 @@ auto ShellScreen::backdrop() -> composition::Element
     const graphics::Gradient glow(std::vector<theme::ColourValue>{
         theme::ColourValue(theme::ColourRole::accent).opacity(glowOpacity),
         theme::ColourValue(theme::ColourRole::accent).opacity(0.0F) });
-    return composition::Element(components::Group())
+    return composition::Element(AmbientBackground(AmbientBackground::Presence::Quiet))
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
         .background(graphics::ShapeStyle(graphics::EllipticalGradient{ .gradient = glow,
             .center = motion::UnitPoint{ 0.08F, 0.9F },
@@ -134,17 +156,17 @@ auto ShellScreen::backdrop() -> composition::Element
         .id(composition::ElementKey{ "shell.backdrop" });
 }
 
-auto ShellScreen::page(ShellModel::Page shown) const -> composition::Element
+auto ShellScreen::page(ShellModel::Page shown, RailEdge edge) const -> composition::Element
 {
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ pageSpacing } },
-        Header(pageTitle(shown), parts->settings.accounts, *strings),
+        Header(pageTitle(shown), *strings),
         pageContent(shown).frame({ .max_width = composition::infinity, .max_height = composition::infinity,
             .alignment = composition::Alignment::top_leading }))
-        .padding(theme::Insets{ .top = theme::Space{ pageTop },
-            .leading = theme::Space{ pageLeading },
-            .bottom = theme::Space{ pageBottom },
-            .trailing = theme::Space{ pageTrailing } })
+        .padding(theme::Insets{ .top = theme::Space{ edge == RailEdge::Top ? pageTopUnderBar : pageTop },
+            .leading = theme::Space{ edge == RailEdge::Left ? pageLeading : pageTrailing },
+            .bottom = theme::Space{ edge == RailEdge::Bottom ? pageBottomOverBar : pageBottom },
+            .trailing = theme::Space{ edge == RailEdge::Right ? pageLeading : pageTrailing } })
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
             .alignment = composition::Alignment::top_leading })
         .id(composition::ElementKey{ "shell.page" });

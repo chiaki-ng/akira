@@ -10,6 +10,7 @@
 #include "app/arisa/art_session.hpp"
 #include "app/arisa/notices.hpp"
 #include "app/arisa/shell_model.hpp"
+#include "app/rail_edge.hpp"
 #include "app/strings.hpp"
 #include "consoles/ui/console_commands.hpp"
 #include "consoles/ui/console_shelf.hpp"
@@ -46,6 +47,8 @@ public:
     static constexpr float pageLeading = 112.0F;
     static constexpr float pageTrailing = 24.0F;
     static constexpr float pageTop = 24.0F;
+    static constexpr float pageTopUnderBar = 4.0F;
+    static constexpr float pageBottomOverBar = 4.0F;
     static constexpr float pageBottom = 58.0F;
     static constexpr float pageSpacing = 14.0F;
     static constexpr float hintsTrailing = 24.0F;
@@ -68,8 +71,9 @@ public:
     auto body(::arisa::composition::Context& context) const -> ::arisa::composition::Element override;
 
 private:
-    auto home(ShellModel::Page shown) const -> ::arisa::composition::Element;
-    auto page(ShellModel::Page shown) const -> ::arisa::composition::Element;
+    auto home(ShellModel::Page shown, RailEdge edge) const -> ::arisa::composition::Element;
+    auto railEdge(::arisa::composition::Context& context) const -> RailEdge;
+    auto page(ShellModel::Page shown, RailEdge edge) const -> ::arisa::composition::Element;
     auto pageTitle(ShellModel::Page shown) const -> std::string;
     auto pageContent(ShellModel::Page shown) const -> ::arisa::composition::Element;
     auto settingsPanel() const -> ::arisa::composition::Element;

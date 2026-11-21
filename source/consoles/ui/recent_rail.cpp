@@ -39,9 +39,10 @@ auto RecentRail::body(composition::Context& context) const -> composition::Eleme
     if (view.titles.empty())
         return components::Group();
     const RecentPlay::Clock::time_point now = RecentPlay::Clock::now();
+    const auto focus = context.state(tileFocus);
     std::vector<composition::Element> tiles;
     for (const RecentPlay::Title& title : view.titles)
-        tiles.push_back(tile(view.catalogName, title, now));
+        tiles.push_back(tile(view.catalogName, title, now, focus));
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::space::md },
         components::Text(strings->format("akira/hosts/recent_title", view.console))
@@ -51,24 +52,27 @@ auto RecentRail::body(composition::Context& context) const -> composition::Eleme
             components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::top,
                                    .spacing = theme::Space{ tileSpacing } },
                 std::move(tiles))
-                .padding(theme::Edge::vertical, theme::Space{ 4.0F })))
+                .padding(theme::Space{ edgeInset })))
         .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::leading })
         .focus_section()
         .id(composition::ElementKey{ "consoles.recent" });
 }
 
 auto RecentRail::tile(const std::string& catalogName, const RecentPlay::Title& title,
-    RecentPlay::Clock::time_point now) const -> composition::Element
+    RecentPlay::Clock::time_point now, const composition::FocusBinding<std::string>& focus) const
+    -> composition::Element
 {
+    const bool focused = focus.get() == std::optional<std::string>{ title.titleId };
     composition::Element art =
         composition::Element(app::arisa::Artwork(title.coverUrl, "sports_esports"))
             .frame({ .width = artSize, .height = artSize })
-            .overlay(composition::Alignment::bottom_trailing,
+            .overlay(composition::Alignment::center,
                 components::Image(components::Image::SystemName{ "play_arrow" })
                     .font(theme::Font::headline)
                     .frame({ .width = playSize, .height = playSize })
                     .glass_effect(theme::Glass::clear(), theme::Shape::circle())
-                    .padding(theme::Space{ playInset }))
+                    .padding(theme::Space{ playInset })
+                    .opacity(focused ? 1.0F : 0.0F))
             .clip_shape(theme::Shape::rounded(artRadius));
     composition::Element label =
         components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
@@ -89,6 +93,7 @@ auto RecentRail::tile(const std::string& catalogName, const RecentPlay::Title& t
     return components::Button([held, catalogName, titleId = title.titleId] { held->launchTitle(catalogName, titleId); },
         std::move(label))
         .button_style(components::ButtonStyle::plain())
+        .focused(focus, title.titleId)
         .id(composition::ElementKey{ "consoles.recent." + title.titleId });
 }
 

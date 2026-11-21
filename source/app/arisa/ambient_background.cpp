@@ -100,13 +100,13 @@ auto AmbientBackground::motif(const Motif& shown, double seconds, composition::S
     const double reach = std::max(std::abs((x / size.width) - 0.5) * 2.0, std::abs((y / size.height) - 0.5) * 2.0);
     const double visible = presence == Presence::Quiet ? std::clamp((reach - 0.70) / 0.22, 0.0, 1.0) * 0.35 : 1.0;
     const double fade = std::min(1.0, progress / 0.12) * std::min(1.0, (1.0 - progress) / 0.18);
-    const double alpha = ((dark ? 0.075 : 0.065) + (shown.depth * (dark ? 0.13 : 0.10))) * fade * visible;
+    const double alpha = ((dark ? 0.075 : 0.14) + (shown.depth * (dark ? 0.13 : 0.2))) * fade * visible;
     const Sprite& sprite = sprites[static_cast<std::size_t>(shown.kind)];
     const float height = side / sprite.aspect;
     return components::Image(sprite.image)
         .resizable()
         .rendering_mode(components::Image::TemplateRenderingMode::template_)
-        .foreground_style(sprite.accent ? theme::ColourRole::accent : theme::ColourRole::label)
+        .foreground_style(sprite.accent || !dark ? theme::ColourRole::accent : theme::ColourRole::label)
         .frame({ .width = side, .height = height })
         .rotation_effect(motion::Angle::radians(rotation))
         .opacity(static_cast<float>(std::max(alpha, 0.0)))
