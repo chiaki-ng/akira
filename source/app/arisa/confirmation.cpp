@@ -59,6 +59,8 @@ auto Confirmation::button(const Choice& choice) const -> composition::Element
     made = std::move(made).button_style(choice.emphasis == Emphasis::Prominent
             ? components::ButtonStyle::glass_prominent()
             : components::ButtonStyle::glass(theme::Glass::clear()));
+    if (choice.disabled)
+        made = std::move(made).disabled(true);
     if (scope && choice.emphasis == Emphasis::Prominent)
         made = std::move(made).prefers_default_focus(*scope);
     return std::move(made).id(composition::ElementKey{ choice.key });

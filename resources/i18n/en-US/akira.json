@@ -470,6 +470,7 @@
     "scan_looking": "Looking for consoles…",
     "broadcast": "Broadcast",
     "unicast": "Unicast",
+    "local_address": "This Switch",
     "address_prompt": "IP address or hostname",
     "continue": "Continue",
     "account_loading": "Finding your PlayStation consoles…",
@@ -514,6 +515,7 @@
     "file_logging_warning": "File logging is on. Writing logs to the SD card during a stream can affect its performance.",
     "file_logging_turn_off": "Turn Off",
     "file_logging_keep_on": "Keep On",
+    "file_logging_title": "Turn off file logging?",
     "connecting": "Connecting...",
     "cancel": "Cancel",
     "failed_create_thread": "Failed to create connection thread",
@@ -1112,6 +1114,7 @@
   "network": {
     "dns_failed": "Failed to lookup {} using DNS server {}. Remote and Cloud Features may not work. Set different servers in Settings > General > Custom DNS for PlayStation.",
     "dns_ok_in": "OK in {}s",
+    "dns_failed_title": "PlayStation Network can't be reached",
     "check_nat": "Check NAT Type",
     "testing": "Testing...",
     "nat_type": "NAT Type",

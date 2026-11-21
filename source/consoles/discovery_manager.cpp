@@ -10,6 +10,7 @@
 
 #include <ctime>
 #include <format>
+#include <optional>
 
 #include <algorithm>
 #include <utility>
@@ -760,6 +761,23 @@ std::string DiscoveryManager::getLocalSubnetCidr()
         return "";
 
     return std::string(buf) + "/" + std::to_string(prefix);
+}
+
+std::optional<std::string> DiscoveryManager::getLocalAddress()
+{
+    if (R_FAILED(nifmInitialize(NifmServiceType_User)))
+        return std::nullopt;
+    u32 address = 0;
+    const Result read = nifmGetCurrentIpAddress(&address);
+    nifmExit();
+    if (R_FAILED(read) || address == 0)
+        return std::nullopt;
+    in_addr shown{};
+    shown.s_addr = address;
+    char text[INET_ADDRSTRLEN] = {};
+    if (!inet_ntop(AF_INET, &shown, text, sizeof(text)))
+        return std::nullopt;
+    return std::string(text);
 }
 
 }

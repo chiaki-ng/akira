@@ -18,6 +18,8 @@
 #include "log/log_files.hpp"
 #include "network/nat_probe.hpp"
 #include "network/nat_report.hpp"
+#include "network/sony_dns_checker.hpp"
+#include "network/sony_dns_failure.hpp"
 #include "platform/factory.hpp"
 #include "platform/video/provider.hpp"
 #include "platform/video/renderer_choice.hpp"
@@ -238,6 +240,23 @@ void App::buildScreens()
     accountModel->reload();
     model.ready();
     accountModel->openIfEmpty();
+    checkSonyDns();
+}
+
+void App::checkSonyDns()
+{
+    Services& services = graph->services();
+    if (services.accounts.isLegacyProfileActive())
+        return;
+    services.dispatcher.runOnWorker([&dns = services.dns, &dispatcher = services.dispatcher, &shown = model] {
+        const std::optional<network::SonyDnsFailure> failure = network::SonyDnsFailure::first(network::checkSonyDnsAtStartup(dns));
+        if (!failure)
+            return;
+        log::warning("[NET] Sony DNS check failed domain={} server={}", failure->domain(), failure->server());
+        dispatcher.post([&shown, failure = *failure] {
+            shown.warnDns(failure.domain(), failure.server(), std::chrono::steady_clock::now());
+        });
+    });
 }
 
 void App::buildPages()
@@ -367,13 +386,40 @@ bool App::frame()
     if (cloudModel)
         cloudModel->tick(now);
 #endif
+    model.tick(now);
     return !quitting && !model.view().get().exitConfirmed && !appletMainLoop();
+}
+
+auto App::launchedAsApplication() -> bool
+{
+    const AppletType type = appletGetAppletType();
+    return type == AppletType_Application || type == AppletType_SystemApplication;
+}
+
+int App::runRestricted()
+{
+    graph->openLog();
+    log::warning("[ARISA] launched as applet type {}; showing the application mode notice",
+        static_cast<int>(appletGetAppletType()));
+    chooseLanguage();
+    model.restricted();
+    CrashReport::stage("arisa applet notice");
+    const auto ran = application->run_until([this](runtime::Root&) {
+        window->tick();
+        return !model.view().get().exitConfirmed && !appletMainLoop();
+    });
+    if (!ran)
+        log::error("[ARISA] the frame loop stopped: {}", ran.error().explanation());
+    log::Log::process().flush();
+    return ran ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 int App::run()
 {
     if (!openProviders() || !openApplication())
         return EXIT_FAILURE;
+    if (!launchedAsApplication())
+        return runRestricted();
 
     if (!graph->startCurl())
         return EXIT_FAILURE;

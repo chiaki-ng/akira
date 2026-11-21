@@ -56,6 +56,10 @@ public:
     static constexpr float settingsScrim = 0.16F;
     static constexpr float glowOpacity = 0.10F;
     static constexpr ::arisa::composition::Namespace endingFocus{ "shell-ending" };
+    static constexpr ::arisa::composition::Namespace dnsFocus{ "shell-dns" };
+    static constexpr float noticeLogoHeight = 70.0F;
+    static constexpr float noticeMascotScale = 1.35F;
+    static constexpr float noticeWidth = 520.0F;
 
     ShellScreen(ShellModel& model, Notices& notices, const Parts& parts, const app::Strings& strings);
 
@@ -76,6 +80,9 @@ private:
         -> ::arisa::composition::Element;
     auto endingCard(const ShellModel::Ending& shown, ::arisa::composition::Namespace::ID focus) const
         -> ::arisa::composition::Element;
+    auto dnsCard(::arisa::composition::Element content, const ShellModel::View& view,
+        ::arisa::composition::Namespace::ID focus) const -> ::arisa::composition::Element;
+    auto appletNotice() const -> ::arisa::composition::Element;
     static auto backdrop() -> ::arisa::composition::Element;
     static auto hints() -> ::arisa::composition::Element;
     static auto versionText() -> std::string;

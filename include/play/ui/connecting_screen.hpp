@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include <arisa/composition/component.hpp>
 #include <arisa/composition/context.hpp>
@@ -28,6 +29,9 @@ public:
     static constexpr float capsuleGlow = 7.0F;
     static constexpr float backdropDim = 0.12F;
     static constexpr float detailWidth = 520.0F;
+    static constexpr std::size_t logRows = 9;
+    static constexpr float logWidth = 640.0F;
+    static constexpr float logHeight = 168.0F;
 
     struct Progress {
         std::string console;
@@ -36,6 +40,8 @@ public:
         int steps = ConnectFlow::stageCount;
         std::string activity;
         std::string details;
+        bool stages = true;
+        std::vector<std::string> log;
 
         friend bool operator==(const Progress&, const Progress&) = default;
     };
@@ -52,6 +58,8 @@ public:
 private:
     auto bar() const -> ::arisa::composition::Element;
     auto operation() const -> ::arisa::composition::Element;
+    auto stagesShown() const -> ::arisa::composition::Element;
+    auto logShown() const -> ::arisa::composition::Element;
     static auto pill(Capsule state) -> ::arisa::composition::Element;
 
     Progress progress;

@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "accounts/account_settings.hpp"
 #include "app/arisa/confirmation.hpp"
 #include "app/arisa/couch_bridge.hpp"
 #include "app/arisa/shell_model.hpp"
@@ -18,8 +19,10 @@
 #include "app/app_settings.hpp"
 #include "app/notifier.hpp"
 #include "app/strings.hpp"
+#include "consoles/console_actions.hpp"
 #include "consoles/host.hpp"
 #include "consoles/host_catalog.hpp"
+#include "log/app_log.hpp"
 #include "log/log.hpp"
 #include "network/network_settings.hpp"
 #include "network/wireguard_manager.hpp"
@@ -36,11 +39,13 @@
 #include "play/pad_choice.hpp"
 #include "play/ui/connecting_screen.hpp"
 #include "play/ui/couch_prompt.hpp"
+#include "play/ui/login_pin_card.hpp"
 #include "play/ui/pad_picker.hpp"
 #include "play/ui/seat_passcode.hpp"
 #include "play/ui/diagnostics_overlay.hpp"
 #include "play/ui/stream_dock.hpp"
 #include "play/stream_settings.hpp"
+#include "settings/developer_settings.hpp"
 #include "settings/settings_store.hpp"
 
 namespace akira::app::arisa {
@@ -70,6 +75,9 @@ StreamDriver::StreamDriver(Services& services, StreamStage& stage, Window& windo
 StreamDriver::~StreamDriver()
 {
     focusWatch.reset();
+    fileLogQuestion.reset();
+    loginPin.reset();
+    connectLogFollow.reset();
     confirmLeave.reset();
     hud.reset();
     if (videoActive)
@@ -114,6 +122,60 @@ void StreamDriver::watchFocus()
 }
 
 void StreamDriver::start(consoles::Host& target)
+{
+    if (connection || waitingForPads || picker || fileLogQuestion)
+        return;
+    if (services.developer.fileLogging())
+    {
+        askAboutFileLogging(target);
+        return;
+    }
+    begin(target);
+}
+
+void StreamDriver::askAboutFileLogging(consoles::Host& target)
+{
+    asking = &target;
+    std::vector<Confirmation::Choice> choices;
+    choices.push_back(Confirmation::Choice{ .label = services.strings.text("akira/connection/file_logging_keep_on"),
+        .chosen = [weak = weak_from_this()] {
+            if (const auto self = weak.lock())
+                self->fileLoggingAnswered(false);
+        },
+        .key = "file-logging.keep" });
+    choices.push_back(Confirmation::Choice{ .label = services.strings.text("akira/connection/file_logging_turn_off"),
+        .chosen = [weak = weak_from_this()] {
+            if (const auto self = weak.lock())
+                self->fileLoggingAnswered(true);
+        },
+        .emphasis = Confirmation::Emphasis::Prominent,
+        .key = "file-logging.turn-off" });
+    fileLogQuestion.emplace(modal(Confirmation(services.strings.text("akira/connection/file_logging_title"),
+        services.strings.text("akira/connection/file_logging_warning"), std::move(choices),
+        [weak = weak_from_this()] {
+            if (const auto self = weak.lock())
+                self->fileLoggingAnswered(false);
+        })
+                                      .dimmed("file-logging")));
+    log::info("[ARISA] file logging is on; asking before connecting to {}", target.getHostName());
+}
+
+void StreamDriver::fileLoggingAnswered(bool turnOff)
+{
+    fileLogQuestion.reset();
+    consoles::Host* target = std::exchange(asking, nullptr);
+    if (turnOff)
+    {
+        services.developer.setFileLogging(false);
+        services.store.save();
+        log::AppLog::close();
+        log::info("[ARISA] file logging turned off before connecting");
+    }
+    if (target)
+        begin(*target);
+}
+
+void StreamDriver::begin(consoles::Host& target)
 {
     if (connection || waitingForPads || picker)
         return;
@@ -310,9 +372,11 @@ void StreamDriver::open(consoles::Host& target, libchiaking::play::ConsoleHandov
     services.streamState.setProfile(route.profile());
     session.setVolume(services.stream.volume());
 
+    followConnectLog(target);
     log::info("[ARISA] starting stream to {}", target.getHostName());
     if (!prepareController())
     {
+        stopConnectLog();
         fail(services.strings.text("akira/stream/failed_init_controller"), false);
         return;
     }
@@ -323,6 +387,7 @@ void StreamDriver::open(consoles::Host& target, libchiaking::play::ConsoleHandov
     if (!opened)
     {
         log::error("[ARISA] the stream could not start: failure {}", static_cast<int>(opened.error()));
+        stopConnectLog();
         session.FreeController();
         controllerReady = false;
         session.FreeVideo();
@@ -338,6 +403,7 @@ void StreamDriver::open(consoles::Host& target, libchiaking::play::ConsoleHandov
     lastConsole = target.getHostName();
     sessionStarted = false;
     intentionalDisconnect = false;
+    loginPinEntered = false;
     controls = play::StreamControls();
     controls.offerSleep(!target.cloudLaunch());
     session.setStatsOverlayMode(overlayMode(services.stream.diagnostics().level));
@@ -370,9 +436,7 @@ void StreamDriver::tick()
 
     if (!videoActive)
     {
-        model.stage(launchReport.reported() ? launchProgress()
-                                            : play::ui::ConnectingScreen::progressOf(flow.ring(),
-                                                  host ? host->getHostName() : lastConsole, services.strings));
+        model.stage(launchReport.reported() ? launchProgress() : connectingProgress());
         return;
     }
 
@@ -416,6 +480,7 @@ void StreamDriver::enterVideo()
     if (videoActive)
         return;
     videoActive = true;
+    stopConnectLog();
     padsOwned.emplace(stage.blockInput());
     services.platform.display().streaming(true);
     model.streaming();
@@ -783,6 +848,8 @@ void StreamDriver::focusChanged(bool focused)
 void StreamDriver::stop()
 {
     confirmLeave.reset();
+    loginPin.reset();
+    stopConnectLog();
     closeDock();
     passcode.reset();
     prompt.reset();
@@ -848,11 +915,11 @@ void StreamDriver::onConnectProgress(const libchiaking::play::ConnectProgress& p
 
 void StreamDriver::startCloud(std::shared_ptr<consoles::Host> target)
 {
-    if (!target || connection || waitingForPads || picker)
+    if (!target || connection || waitingForPads || picker || fileLogQuestion)
         return;
     owned = std::move(target);
     start(*owned);
-    if (!connection && !waitingForPads)
+    if (!connection && !waitingForPads && !fileLogQuestion)
         owned.reset();
 }
 
@@ -903,7 +970,7 @@ void StreamDriver::onEnded(const libchiaking::play::Outcome& outcome)
         return;
     const bool cloud = host && host->isCloud();
     const play::SessionEnding ending(outcome, play::SessionEnding::Situation{
-        .loginPinEntered = false,
+        .loginPinEntered = loginPinEntered,
         .duringConnect = !videoActive,
         .consoleAwake = host && host->isAwake(),
         .cloudScreen = cloud,
@@ -911,6 +978,14 @@ void StreamDriver::onEnded(const libchiaking::play::Outcome& outcome)
     });
     const std::string reason = services.strings.text(ending.reasonKey());
     const std::string stopped = cloud ? cloudStopped(ending, outcome) : std::string();
+    if (ending.verdict() == play::SessionEnding::Verdict::Reconnect)
+    {
+        log::info("[ARISA] the first login PIN was entered; reconnecting once");
+        loginPinEntered = false;
+        stop();
+        reconnect();
+        return;
+    }
     stop();
     switch (ending.verdict())
     {
@@ -961,17 +1036,89 @@ void StreamDriver::onLoginPinNeeded(bool previousWasWrong)
     if (!connection)
         return;
     const std::string saved = host ? host->getConsolePIN() : std::string();
-    if (play::StreamRecovery::loginPin(false, previousWasWrong, saved, true) == play::StreamRecovery::LoginPinStep::SubmitSaved
-        && connection->submitLoginPin(saved))
+    switch (play::StreamRecovery::loginPin(host && host->isCloud(), previousWasWrong, saved, true))
     {
-        notifier.notify(services.strings.text("akira/stream/auto_login_pin"));
-        return;
+        case play::StreamRecovery::LoginPinStep::Ignore:
+            log::warning("[ARISA] ignoring a login PIN request for a cloud session");
+            return;
+        case play::StreamRecovery::LoginPinStep::SubmitSaved:
+            if (connection->submitLoginPin(saved))
+            {
+                notifier.notify(services.strings.text("akira/stream/auto_login_pin"));
+                return;
+            }
+            log::warning("[ARISA] the saved login PIN could not be sent; asking instead");
+            break;
+        case play::StreamRecovery::LoginPinStep::Ask:
+            break;
     }
-    log::warning("[ARISA] the console asked for a login PIN and none is saved");
-    intentionalDisconnect = true;
-    connection->leave(false);
-    stop();
-    fail(services.strings.text("akira/connection/login_pin_needed"), false);
+    askLoginPin(previousWasWrong);
+}
+
+void StreamDriver::askLoginPin(bool retry)
+{
+    loginPin.reset();
+    loginPin.emplace(modal(composition::Element(play::ui::LoginPinCard(retry, *this, services.strings))));
+    log::info("[ARISA] asking for the login PIN, retry={}", retry);
+}
+
+void StreamDriver::submitLoginPin(consoles::ConsolePin pin)
+{
+    loginPin.reset();
+    if (!connection)
+        return;
+    if (!connection->submitLoginPin(pin.text()))
+        log::warning("[ARISA] the login PIN could not be sent");
+    loginPinEntered = true;
+    if (host && !consoles::ConsoleActions(services.hosts, services.store, services.accounts, services.developer,
+                     services.wireGuard, services.core)
+                     .setConsolePin(*host, pin.text()))
+        log::warning("[ARISA] the login PIN for {} was not saved", host->getHostName());
+}
+
+void StreamDriver::cancelLoginPin()
+{
+    loginPin.reset();
+    log::info("[ARISA] login PIN cancelled");
+    cancel();
+}
+
+void StreamDriver::followConnectLog(const consoles::Host& target)
+{
+    stopConnectLog();
+    if (services.appSettings.connectionShowStages() || target.isCloud())
+        return;
+    connectLog.emplace(connectLogLines, log::LogTail::Stamp::Clock);
+    if (services.appSettings.hideAccountName())
+    {
+        for (const accounts::Profile& profile : services.accounts.profiles())
+        {
+            connectLog->mask(profile.onlineId, services.appSettings.maskAccountName(profile.onlineId));
+            connectLog->mask(profile.accountId, services.appSettings.maskAccountName(profile.accountId));
+        }
+    }
+    connectLogFollow.emplace(log::Log::process().subscribe([tail = &*connectLog](const log::Entry& entry) {
+        tail->push(entry.message);
+    }));
+    connectLog->push(services.strings.text("akira/connection/starting"));
+}
+
+void StreamDriver::stopConnectLog()
+{
+    connectLogFollow.reset();
+    connectLog.reset();
+}
+
+auto StreamDriver::connectingProgress() const -> play::ui::ConnectingScreen::Progress
+{
+    play::ui::ConnectingScreen::Progress shown =
+        play::ui::ConnectingScreen::progressOf(flow.ring(), host ? host->getHostName() : lastConsole, services.strings);
+    if (connectLog)
+    {
+        shown.stages = false;
+        shown.log = connectLog->lines();
+    }
+    return shown;
 }
 
 void StreamDriver::onSeatPasscodeNeeded(uint8_t slot, bool retry)

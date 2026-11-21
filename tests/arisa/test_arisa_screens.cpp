@@ -21,6 +21,8 @@
 #include "fake_strings.hpp"
 #include "play/connect_flow.hpp"
 #include "play/ui/connecting_screen.hpp"
+#include "play/ui/login_pin_card.hpp"
+#include <arisa/structure/digit_keypad.hpp>
 #include "play/ui/stream_commands.hpp"
 
 namespace {
@@ -74,8 +76,12 @@ public:
     void tuneVolume(akira::play::Volume) override {}
     void showDiagnostics(akira::play::DiagnosticsAppearance) override {}
     auto diagnostics() -> akira::play::DiagnosticsReport override { return {}; }
+    void submitLoginPin(akira::consoles::ConsolePin pin) override { pins.push_back(pin.text()); }
+    void cancelLoginPin() override { ++pinCancels; }
 
     int cancelled = 0;
+    std::vector<std::string> pins;
+    int pinCancels = 0;
 };
 
 class ProgressHost final : public composition::Component {
@@ -255,4 +261,50 @@ TEST(arisa_connecting_screen_steps_through_the_connect_flow)
     CHECK(application->root().activate(composition::ElementKey{ "connecting.cancel" }));
     REQUIRE(application->frame().has_value());
     CHECK(stream.cancelled == 1);
+}
+
+TEST(arisa_connecting_screen_shows_live_log_lines_when_stages_are_off)
+{
+    arisa::provider::headless::HeadlessProviderFactory providers;
+    const tests::FakeStrings text = strings();
+    RecordingStream stream;
+    ConnectingScreen::Progress shown{ .console = "Living room", .stages = false };
+    for (int line = 0; line < 14; ++line)
+        shown.log.push_back("line " + std::to_string(line));
+    composition::Observable<ConnectingScreen::Progress> progress(shown);
+    auto application = arisa::runtime::Application::create(providers, ProgressHost(progress, stream, text));
+    REQUIRE(application.has_value());
+    REQUIRE(application->frame().has_value());
+    CHECK(has(*application, "connecting.log"));
+    CHECK(!has(*application, "connecting.progress"));
+    CHECK(shows(application->root().tree().root(), "line 13"));
+    CHECK(shows(application->root().tree().root(), "line 5"));
+    CHECK(!shows(application->root().tree().root(), "line 4"));
+    CHECK(has(*application, "connecting.cancel"));
+}
+
+TEST(arisa_login_pin_card_submits_four_digits_or_cancels)
+{
+    arisa::provider::headless::HeadlessProviderFactory providers;
+    const tests::FakeStrings text = strings();
+    RecordingStream stream;
+    auto application = arisa::runtime::Application::create(providers, akira::play::ui::LoginPinCard(true, stream, text));
+    REQUIRE(application.has_value());
+    REQUIRE(application->frame().has_value());
+    CHECK(has(*application, "login-pin.error"));
+    for (const char digit : std::string("042"))
+    {
+        CHECK(application->root().activate(composition::ElementKey{ arisa::structure::DigitKeypad::key_of(digit) }));
+        REQUIRE(application->frame().has_value());
+    }
+    CHECK(application->root().activate(composition::ElementKey{ "login-pin.continue" }));
+    REQUIRE(application->frame().has_value());
+    CHECK(stream.pins.empty());
+    CHECK(application->root().activate(composition::ElementKey{ arisa::structure::DigitKeypad::key_of('0') }));
+    REQUIRE(application->frame().has_value());
+    REQUIRE(stream.pins.size() == 1);
+    CHECK(stream.pins.front() == "0420");
+    CHECK(application->root().activate(composition::ElementKey{ "login-pin.cancel" }));
+    REQUIRE(application->frame().has_value());
+    CHECK(stream.pinCancels == 1);
 }

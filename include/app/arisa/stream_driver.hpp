@@ -18,6 +18,8 @@
 #include "app/ui_window.hpp"
 #include "cloud/cloud_launch.hpp"
 #include "cloud/launch_report.hpp"
+#include "log/log.hpp"
+#include "log/log_tail.hpp"
 #include "play/connect_flow.hpp"
 #include "play/connection.hpp"
 #include "play/session_ending.hpp"
@@ -88,6 +90,8 @@ public:
     void tuneVolume(play::Volume volume) override;
     void showDiagnostics(play::DiagnosticsAppearance appearance) override;
     auto diagnostics() -> play::DiagnosticsReport override;
+    void submitLoginPin(consoles::ConsolePin pin) override;
+    void cancelLoginPin() override;
 
     void onConnectProgress(const libchiaking::play::ConnectProgress& progress) override;
     void onLaunchProgress(const libchiaking::play::LaunchProgress& progress) override;
@@ -104,7 +108,15 @@ private:
 
     static constexpr std::chrono::milliseconds statsInterval{ 250 };
     static constexpr std::chrono::milliseconds historyInterval{ 500 };
+    static constexpr std::size_t connectLogLines = 100;
 
+    void begin(consoles::Host& host);
+    void askAboutFileLogging(consoles::Host& host);
+    void fileLoggingAnswered(bool turnOff);
+    void askLoginPin(bool retry);
+    void followConnectLog(const consoles::Host& host);
+    void stopConnectLog();
+    auto connectingProgress() const -> play::ui::ConnectingScreen::Progress;
     void open(consoles::Host& host, libchiaking::play::ConsoleHandover handover);
     [[nodiscard]] auto prepareController() -> bool;
     void waitForPads();
@@ -180,6 +192,10 @@ private:
     int padAttempt = 0;
     Clock::time_point nextPadPoll{};
     consoles::Host* pending = nullptr;
+    consoles::Host* asking = nullptr;
+    bool loginPinEntered = false;
+    std::optional<log::LogTail> connectLog;
+    std::optional<log::Log::Subscription> connectLogFollow;
     bool arrivalDock = false;
     bool pausedForPasscode = false;
     std::unique_ptr<UiWindow::FocusWatch> focusWatch;
@@ -192,6 +208,8 @@ private:
     std::optional<::arisa::runtime::OverlayHandle> picker;
     std::optional<::arisa::runtime::OverlayHandle> prompt;
     std::optional<::arisa::runtime::OverlayHandle> passcode;
+    std::optional<::arisa::runtime::OverlayHandle> fileLogQuestion;
+    std::optional<::arisa::runtime::OverlayHandle> loginPin;
 };
 
 }

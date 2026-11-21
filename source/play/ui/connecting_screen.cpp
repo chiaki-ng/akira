@@ -105,6 +105,38 @@ auto ConnectingScreen::operation() const -> composition::Element
         .padding(theme::Edge::top, theme::Space{ 12.0F });
 }
 
+auto ConnectingScreen::stagesShown() const -> composition::Element
+{
+    return components::VStack(components::VStackOptions{ .spacing = theme::space::none },
+        bar().padding(theme::Edge::top, theme::Space{ 24.0F }),
+        components::Text(progress.status)
+            .font(theme::Font::callout)
+            .foreground_style(theme::ColourValue(theme::ColourRole::label).opacity(0.72F))
+            .padding(theme::Edge::top, theme::Space{ 15.0F })
+            .id(composition::ElementKey{ "connecting.status" }),
+        operation());
+}
+
+auto ConnectingScreen::logShown() const -> composition::Element
+{
+    std::vector<composition::Element> lines;
+    const std::size_t first = progress.log.size() > logRows ? progress.log.size() - logRows : 0;
+    for (std::size_t index = first; index < progress.log.size(); ++index)
+        lines.push_back(components::Text(progress.log[index])
+                            .font(theme::Font::caption.monospaced())
+                            .foreground_style(theme::ColourRole::secondary_label)
+                            .line_limit(1)
+                            .truncation_mode(composition::TruncationMode::tail)
+                            .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::leading }));
+    return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                                  .spacing = theme::Space{ 3.0F } },
+        std::move(lines))
+        .frame({ .width = logWidth, .height = logHeight, .alignment = composition::Alignment::bottom_leading })
+        .clipped()
+        .padding(theme::Edge::top, theme::Space{ 22.0F })
+        .id(composition::ElementKey{ "connecting.log" });
+}
+
 auto ConnectingScreen::body(composition::Context&) const -> composition::Element
 {
     auto cancel = [commands = commands] { commands->cancel(); };
@@ -115,13 +147,7 @@ auto ConnectingScreen::body(composition::Context&) const -> composition::Element
             components::Text(strings->text("akira/connection/starting_stream"))
                 .font(theme::Font::system(titleSize, theme::Font::Weight::semibold))
                 .tracking(titleTracking),
-            bar().padding(theme::Edge::top, theme::Space{ 24.0F }),
-            components::Text(progress.status)
-                .font(theme::Font::callout)
-                .foreground_style(theme::ColourValue(theme::ColourRole::label).opacity(0.72F))
-                .padding(theme::Edge::top, theme::Space{ 15.0F })
-                .id(composition::ElementKey{ "connecting.status" }),
-            operation(),
+            progress.stages ? stagesShown() : logShown(),
             composition::Element(components::Group()).frame({ .height = 32.0F }),
             components::Button(strings->text("akira/common/cancel"), components::ButtonRole::cancel, cancel)
                 .button_style(components::ButtonStyle::plain())

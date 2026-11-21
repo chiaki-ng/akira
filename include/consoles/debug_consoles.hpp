@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "consoles/console_facts.hpp"
 #include "consoles/host_type.hpp"
 
 namespace akira::consoles {
@@ -24,6 +25,7 @@ public:
     static constexpr int Count = 20;
 
     static std::vector<Console> list();
+    static std::vector<ConsoleFacts> facts();
 
     explicit DebugConsoles(const Make& make);
 

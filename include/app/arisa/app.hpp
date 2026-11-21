@@ -75,6 +75,9 @@ private:
     static constexpr std::string_view crashApp = "akira-arisa";
 
     void installCrashReporter();
+    static auto launchedAsApplication() -> bool;
+    int runRestricted();
+    void checkSonyDns();
     [[nodiscard]] bool openProviders();
     [[nodiscard]] bool openApplication();
     void startServices();

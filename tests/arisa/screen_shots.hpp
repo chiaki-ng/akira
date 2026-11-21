@@ -74,6 +74,8 @@ public:
     void tuneVolume(akira::play::Volume) override {}
     void showDiagnostics(akira::play::DiagnosticsAppearance) override {}
     auto diagnostics() -> akira::play::DiagnosticsReport override { return {}; }
+    void submitLoginPin(akira::consoles::ConsolePin) override {}
+    void cancelLoginPin() override {}
 };
 
 class CollectedNotices final : public akira::app::Notifier {

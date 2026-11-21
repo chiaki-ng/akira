@@ -29,10 +29,13 @@
 
 #include <chrono>
 #include <format>
+#include <functional>
 #include <utility>
 #include <vector>
 
 #include "accounts/ui/account_flow.hpp"
+#include "app/arisa/ambient_background.hpp"
+#include "app/arisa/brand_lockup.hpp"
 #include "app/arisa/confirmation.hpp"
 #include "app/arisa/header.hpp"
 #include "app/arisa/notice_toast.hpp"
@@ -77,11 +80,14 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
             .foreground_style(theme::ColourRole::tertiary_label)
             .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
             .background(theme::ColourRole::window_background);
+    if (view.phase == ShellModel::Phase::Restricted)
+        return appletNotice();
     const bool connecting = view.phase == ShellModel::Phase::Connecting;
     const bool settings = view.settings && view.phase == ShellModel::Phase::Home;
-    composition::Element shell = exitCard(
-        ending(announced(home(view.page), view.phase == ShellModel::Phase::Streaming), view, context.namespace_id(endingFocus)),
-        view);
+    composition::Element shell = dnsCard(exitCard(ending(announced(home(view.page), view.phase == ShellModel::Phase::Streaming),
+                                                      view, context.namespace_id(endingFocus)),
+                                             view),
+        view, context.namespace_id(dnsFocus));
     composition::Element panel = components::Group();
     if (settings)
         panel = settingsPanel();
@@ -274,6 +280,59 @@ auto ShellScreen::endingCard(const ShellModel::Ending& shown, composition::Names
             .emphasis = Confirmation::Emphasis::Prominent,
             .key = "ending.ok" });
     return Confirmation(shown.title, shown.message, std::move(choices), dismiss).focusing(focus).dimmed("ending");
+}
+
+auto ShellScreen::dnsCard(composition::Element content, const ShellModel::View& view, composition::Namespace::ID focus) const
+    -> composition::Element
+{
+    if (!view.dns)
+        return content;
+    ShellModel* held = model;
+    const bool waiting = view.dns->wait > 0;
+    std::vector<Confirmation::Choice> choices;
+    choices.push_back(Confirmation::Choice{
+        .label = waiting ? strings->format("akira/network/dns_ok_in", view.dns->wait) : strings->text("akira/common/ok"),
+        .chosen = [held] { held->dismissDns(); },
+        .emphasis = Confirmation::Emphasis::Prominent,
+        .key = "dns.ok",
+        .disabled = waiting });
+    std::function<void()> dismissed;
+    if (!waiting)
+        dismissed = [held] { held->dismissDns(); };
+    return std::move(content).overlay(true, composition::OverlayLayer::dialog,
+        Confirmation(strings->text("akira/network/dns_failed_title"),
+            strings->format("akira/network/dns_failed", view.dns->domain, view.dns->server), std::move(choices),
+            std::move(dismissed))
+            .focusing(focus)
+            .dimmed("dns"));
+}
+
+auto ShellScreen::appletNotice() const -> composition::Element
+{
+    ShellModel* held = model;
+    composition::Element card =
+        components::VStack(components::VStackOptions{ .spacing = theme::Space{ 18.0F } },
+            composition::Element(BrandLockup(noticeLogoHeight, noticeLogoHeight * noticeMascotScale, BrandLockup::Motion::Idle))
+                .padding(theme::Edge::bottom, theme::Space{ 12.0F }),
+            components::Text(strings->text("akira/app/applet_warning"))
+                .font(theme::Font::title3)
+                .font_weight(theme::Font::Weight::semibold)
+                .multiline_text_alignment(composition::TextAlignment::center)
+                .id(composition::ElementKey{ "applet.message" }),
+            components::Button(strings->text("akira/app/exit"), [held] { held->confirmExit(); })
+                .button_style(components::ButtonStyle::glass_prominent())
+                .id(composition::ElementKey{ "applet.exit" }))
+            .padding(theme::Insets::symmetric(theme::Space{ 48.0F }, theme::Space{ 40.0F }))
+            .frame({ .width = noticeWidth })
+            .glass_panel(components::PanelRadius::modal);
+    return components::ZStack(
+        composition::Element(AmbientBackground(AmbientBackground::Presence::Quiet))
+            .frame({ .max_width = composition::infinity, .max_height = composition::infinity }),
+        std::move(card))
+        .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
+        .background(theme::ColourRole::window_background)
+        .on_exit_command(strings->text("akira/app/exit"), [held] { held->confirmExit(); })
+        .id(composition::ElementKey{ "applet" });
 }
 
 }

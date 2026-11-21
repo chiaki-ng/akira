@@ -1,5 +1,6 @@
 #pragma once
 
+#include "consoles/console_pin.hpp"
 #include "play/colour_adjustments.hpp"
 #include "play/diagnostics_appearance.hpp"
 #include "play/diagnostics_report.hpp"
@@ -22,6 +23,8 @@ public:
     virtual void tuneVolume(Volume volume) = 0;
     virtual void showDiagnostics(DiagnosticsAppearance appearance) = 0;
     virtual auto diagnostics() -> DiagnosticsReport = 0;
+    virtual void submitLoginPin(consoles::ConsolePin pin) = 0;
+    virtual void cancelLoginPin() = 0;
 };
 
 }

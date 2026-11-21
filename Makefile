@@ -83,6 +83,8 @@ ARISA_TEST_MODELS   = $(CURDIR)/source/log/log.cpp \
                       $(CURDIR)/source/app/strings.cpp \
                       $(CURDIR)/source/consoles/console_entry.cpp \
                       $(CURDIR)/source/consoles/console_list.cpp \
+                      $(CURDIR)/source/consoles/console_pin.cpp \
+                      $(CURDIR)/source/consoles/debug_consoles.cpp \
                       $(CURDIR)/source/play/connect_flow.cpp \
                       $(CURDIR)/source/play/connect_failure.cpp \
                       $(CURDIR)/source/play/stream_summary.cpp \
@@ -154,6 +156,7 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/play/ui/pad_picker.cpp \
                       $(CURDIR)/source/play/ui/couch_prompt.cpp \
                       $(CURDIR)/source/play/ui/seat_passcode.cpp \
+                      $(CURDIR)/source/play/ui/login_pin_card.cpp \
                       $(CURDIR)/source/consoles/ui/recent_shelf.cpp \
                       $(CURDIR)/source/consoles/ui/recent_rail.cpp \
                       $(wildcard $(CURDIR)/source/trophies/ui/*.cpp) \
@@ -288,6 +291,7 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/network/network_settings.cpp \
                 $(CURDIR)/source/network/custom_dns.cpp \
                 $(CURDIR)/source/network/nat_report.cpp \
+                $(CURDIR)/source/network/sony_dns_failure.cpp \
                 $(CURDIR)/source/accounts/account_settings.cpp \
                 $(CURDIR)/source/accounts/sign_in_store.cpp \
                 $(CURDIR)/source/accounts/profile_tables.cpp \

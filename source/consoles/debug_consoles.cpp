@@ -15,6 +15,25 @@ std::vector<DebugConsoles::Console> DebugConsoles::list()
     return consoles;
 }
 
+std::vector<ConsoleFacts> DebugConsoles::facts()
+{
+    std::vector<ConsoleFacts> shown;
+    for (const Console& console : list()) {
+        shown.push_back(ConsoleFacts{
+            .catalogName = console.nickname,
+            .name = console.nickname,
+            .type = console.type,
+            .paired = true,
+            .discovered = true,
+            .ps5 = true,
+            .standby = console.resting,
+            .ready = !console.resting,
+            .presence = console.resting ? "Standby" : "Ready",
+        });
+    }
+    return shown;
+}
+
 DebugConsoles::DebugConsoles(const Make& make)
 {
     for (const Console& console : list())

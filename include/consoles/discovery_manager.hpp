@@ -5,6 +5,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -73,6 +74,7 @@ public:
     void restartSearch();
 
     std::string getLocalSubnetCidr();
+    std::optional<std::string> getLocalAddress();
 
     void setOnHostDiscovered(HostDiscoveredCallback callback) { onHostDiscovered = std::move(callback); }
     void setOnHostsChanged(HostsChangedCallback callback) { onHostsChanged = std::move(callback); }

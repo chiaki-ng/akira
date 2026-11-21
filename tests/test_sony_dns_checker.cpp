@@ -1,6 +1,8 @@
 #include "test_util.hpp"
 #include "network/sony_dns_checker.hpp"
+#include "network/sony_dns_failure.hpp"
 
+#include <string>
 #include <vector>
 
 using akira::network::DnsVerdict;
@@ -79,4 +81,37 @@ TEST(sony_dns_warning_ok_unlocks_only_after_five_seconds)
     CHECK_EQ(akira::network::secondsUntilDnsWarningOk(4999), 1);
     CHECK_EQ(akira::network::secondsUntilDnsWarningOk(5000), 0);
     CHECK_EQ(akira::network::secondsUntilDnsWarningOk(5001), 0);
+}
+
+TEST(sony_dns_failure_prefers_a_blocked_answer_over_a_timeout)
+{
+    akira::network::SonyDnsReport report;
+    report.servers.push_back({ .address = "1.1.1.1",
+        .domains = { DnsVerdict::Reachable, DnsVerdict::Inconclusive, DnsVerdict::Reachable } });
+    report.servers.push_back({ .address = "9.9.9.9",
+        .domains = { DnsVerdict::Reachable, DnsVerdict::Reachable, DnsVerdict::Blocked } });
+    const auto failure = akira::network::SonyDnsFailure::first(report);
+    REQUIRE(failure.has_value());
+    CHECK(failure->domain() == std::string("psnow.playstation.com"));
+    CHECK(failure->server() == std::string("9.9.9.9"));
+}
+
+TEST(sony_dns_failure_falls_back_to_the_first_timeout)
+{
+    akira::network::SonyDnsReport report;
+    report.servers.push_back({ .address = "8.8.8.8",
+        .domains = { DnsVerdict::Inconclusive, DnsVerdict::Reachable, DnsVerdict::Reachable } });
+    const auto failure = akira::network::SonyDnsFailure::first(report);
+    REQUIRE(failure.has_value());
+    CHECK(failure->domain() == std::string("auth.api.sonyentertainmentnetwork.com"));
+    CHECK(failure->server() == std::string("8.8.8.8"));
+}
+
+TEST(sony_dns_failure_is_empty_when_every_answer_is_reachable)
+{
+    akira::network::SonyDnsReport report;
+    report.servers.push_back({ .address = "8.8.8.8",
+        .domains = { DnsVerdict::Reachable, DnsVerdict::Reachable, DnsVerdict::Reachable } });
+    CHECK(!akira::network::SonyDnsFailure::first(report).has_value());
+    CHECK(!akira::network::SonyDnsFailure::first(akira::network::SonyDnsReport{}).has_value());
 }

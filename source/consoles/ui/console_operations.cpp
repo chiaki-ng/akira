@@ -12,6 +12,7 @@
 #include "app/services.hpp"
 #include "app/strings.hpp"
 #include "app/ui_dispatcher.hpp"
+#include "consoles/debug_consoles.hpp"
 #include "consoles/discovery_gate.hpp"
 #include "consoles/discovery_manager.hpp"
 #include "consoles/host.hpp"
@@ -19,6 +20,7 @@
 #include "consoles/remote_lookup.hpp"
 #include "log/log.hpp"
 #include "play/chiaki_core.hpp"
+#include "settings/developer_settings.hpp"
 #include "util/http.hpp"
 #include "util/http_pool.hpp"
 
@@ -210,7 +212,10 @@ auto ConsoleOperations::actions() const -> ConsoleActions
 
 auto ConsoleOperations::list() const -> ConsoleList
 {
-    return ConsoleList(services.hosts.facts(),
+    std::vector<ConsoleFacts> known = services.hosts.facts();
+    if (services.developer.fakeHosts())
+        std::ranges::move(DebugConsoles::facts(), std::back_inserter(known));
+    return ConsoleList(std::move(known),
         ConsoleList::profileFor(!services.accounts.profiles().empty(), services.accounts.isLegacyProfileActive()));
 }
 
@@ -546,7 +551,8 @@ void ConsoleOperations::publishScan()
     shelf.scanned(ConsoleShelf::Scan{ .running = sweep.serviceRunning,
         .searched = sweep.serviceRunning && !sweep.sweepActive,
         .broadcast = services.discovery.getLocalSubnetCidr(),
-        .unicast = sweep.subnets });
+        .unicast = sweep.subnets,
+        .address = services.discovery.getLocalAddress().value_or(std::string()) });
 }
 
 void ConsoleOperations::addByAddress(const std::string& address, bool ps5)

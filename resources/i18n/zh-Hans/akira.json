@@ -409,6 +409,7 @@
   },
   "add_host": {
     "title": "添加 PlayStation 主机",
+    "local_address": "本机",
     "console_name": "主机名称",
     "console_name_placeholder": "例如：客厅 PS5",
     "console_name_hint": "用于识别此主机的名称",
@@ -459,6 +460,7 @@
     "file_logging_warning": "文件日志已开启。串流期间将日志写入 SD 卡可能会影响性能。",
     "file_logging_turn_off": "关闭",
     "file_logging_keep_on": "保持开启",
+    "file_logging_title": "关闭文件日志？",
     "connecting": "连接中...",
     "cancel": "取消",
     "failed_create_thread": "创建连接线程失败",
@@ -938,6 +940,7 @@
   "network": {
     "dns_failed": "查询 {} 时，DNS 服务器 {} 未能正常解析。远程和云功能可能无法使用。可在 设置 > 通用 > PlayStation 自定义 DNS 中更换服务器。",
     "dns_ok_in": "{} 秒后可确认",
+    "dns_failed_title": "无法连接 PlayStation Network",
     "check_nat": "检测 NAT 类型",
     "testing": "检测中...",
     "nat_type": "NAT 类型",

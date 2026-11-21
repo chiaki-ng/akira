@@ -20,6 +20,7 @@ public:
         Emphasis emphasis = Emphasis::Plain;
         std::string key;
         std::optional<std::string> symbol;
+        bool disabled = false;
     };
 
     static constexpr float width = 480.0F;

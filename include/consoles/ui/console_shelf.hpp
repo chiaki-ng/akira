@@ -65,6 +65,7 @@ public:
         bool searched = false;
         std::string broadcast;
         std::vector<std::string> unicast;
+        std::string address;
 
         friend bool operator==(const Scan&, const Scan&) = default;
     };

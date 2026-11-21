@@ -78,6 +78,21 @@ TEST(debug_consoles_alternate_type_and_rest_every_fourth)
     CHECK(consoles[19].resting);
 }
 
+TEST(debug_consoles_list_as_paired_ps5_cards)
+{
+    const auto facts = DebugConsoles::facts();
+    REQUIRE(facts.size() == static_cast<std::size_t>(DebugConsoles::Count));
+    CHECK_EQ(facts.front().catalogName, std::string("PS5-Debug-1"));
+    CHECK(facts.front().paired);
+    CHECK(facts.front().ps5);
+    CHECK(facts.front().ready);
+    CHECK(facts[3].standby);
+    CHECK(!facts[3].ready);
+    CHECK(facts[1].type == HostType::Auto);
+    const ConsoleList list(facts, ConsoleList::Profile::Signed);
+    CHECK_EQ(list.shown().size(), facts.size());
+}
+
 TEST(debug_consoles_own_one_host_per_console_in_order)
 {
     std::vector<std::string> made;

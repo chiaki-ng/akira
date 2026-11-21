@@ -71,6 +71,8 @@
 #include "play/ui/couch_prompt.hpp"
 #include "play/ui/pad_picker.hpp"
 #include "play/ui/seat_passcode.hpp"
+#include "play/ui/login_pin_card.hpp"
+#include "consoles/debug_consoles.hpp"
 #include "network/nat_report.hpp"
 #include "network/ui/nat_check.hpp"
 #include "play/controller_settings.hpp"
@@ -145,6 +147,8 @@ public:
     void tuneVolume(akira::play::Volume chosen) override { volume = chosen; }
     void showDiagnostics(akira::play::DiagnosticsAppearance chosen) override { appearance = chosen; }
     auto diagnostics() -> akira::play::DiagnosticsReport override { return report(false); }
+    void submitLoginPin(akira::consoles::ConsolePin pin) override { pins.push_back(pin.text()); }
+    void cancelLoginPin() override { ++pinCancels; }
 
     static auto sample() -> akira::play::StreamStats
     {
@@ -211,6 +215,8 @@ public:
     akira::play::ColourAdjustments colour;
     akira::play::Volume volume;
     int homes = 0;
+    std::vector<std::string> pins;
+    int pinCancels = 0;
 };
 
 class QuietMaintenance final : public akira::settings::Maintenance {
@@ -580,6 +586,13 @@ public:
         couch->refresh();
     }
 
+    auto modal(composition::Element content) -> bool
+    {
+        modalShown.emplace(application->root().overlays().show(composition::OverlayLayer::dialog, std::move(content),
+            runtime::OverlayBehaviour{ .input = composition::OverlayInput::modal, .alignment = composition::Alignment::center }));
+        return settle();
+    }
+
     void streamWithDock()
     {
         using Control = akira::play::StreamControls::Control;
@@ -805,6 +818,7 @@ private:
     std::optional<runtime::Application> application;
     std::optional<composition::ExclusiveFrame> exclusive;
     std::optional<runtime::OverlayHandle> dockShown;
+    std::optional<runtime::OverlayHandle> modalShown;
     std::optional<runtime::InputBlock> streamBlocked;
     std::optional<runtime::InputPassthrough> dockPassed;
     tests::FakeCouchTable couchTable;
@@ -876,7 +890,7 @@ TEST(arisa_shot_add_console)
     shots.shelf.offerAccount(true);
     shots.shelf.openAdd(true);
     shots.shelf.scanned(ConsoleShelf::Scan{ .running = true, .searched = true, .broadcast = "192.168.20.0/24",
-        .unicast = { "192.168.30.0/24" } });
+        .unicast = { "192.168.30.0/24" }, .address = "192.168.20.31" });
     REQUIRE(shots.start(shots.shell()));
     CHECK(shots.shows("add-console.nearby.Study"));
     CHECK(shots.shows("add-console.nearby.Attic"));
@@ -1387,4 +1401,105 @@ TEST(arisa_settings_discovery_log_follows_the_journal)
     CHECK(settings.view().get().discovery.version == 3);
     settings.close();
     CHECK(settings.view().get().detail == akira::settings::ui::SettingsModel::Detail::None);
+}
+
+TEST(arisa_shot_applet_notice)
+{
+    Shots shots;
+    shots.model.restricted();
+    REQUIRE(shots.start(shots.shell()));
+    CHECK(shots.shows("applet.message"));
+    CHECK(!shots.shows("shell.page"));
+    CHECK(shots.write("applet_notice"));
+    REQUIRE(shots.press("applet.exit"));
+    CHECK(shots.model.view().get().exitConfirmed);
+}
+
+TEST(arisa_shot_dns_warning)
+{
+    using namespace std::chrono_literals;
+    Shots shots;
+    shots.model.ready();
+    shots.showHouse();
+    const auto opened = std::chrono::steady_clock::now();
+    shots.model.warnDns("m.np.playstation.com", "192.168.20.1", opened);
+    REQUIRE(shots.start(shots.shell()));
+    CHECK(shots.shows("dns.ok"));
+    CHECK(shots.write("dns_warning"));
+    REQUIRE(shots.press("dns.ok"));
+    CHECK(shots.model.view().get().dns.has_value());
+    shots.model.tick(opened + 6s);
+    REQUIRE(shots.settle());
+    REQUIRE(shots.press("dns.ok"));
+    CHECK(!shots.model.view().get().dns.has_value());
+}
+
+TEST(arisa_shot_file_logging_question)
+{
+    Shots shots;
+    shots.model.ready();
+    shots.showHouse();
+    bool turnedOff = false;
+    std::vector<akira::app::arisa::Confirmation::Choice> choices;
+    choices.push_back(akira::app::arisa::Confirmation::Choice{
+        .label = shots.text().text("akira/connection/file_logging_keep_on"), .chosen = [] {}, .key = "file-logging.keep" });
+    choices.push_back(akira::app::arisa::Confirmation::Choice{ .label = shots.text().text("akira/connection/file_logging_turn_off"),
+        .chosen = [&turnedOff] { turnedOff = true; },
+        .emphasis = akira::app::arisa::Confirmation::Emphasis::Prominent,
+        .key = "file-logging.turn-off" });
+    REQUIRE(shots.start(shots.shell()));
+    REQUIRE(shots.modal(akira::app::arisa::Confirmation(shots.text().text("akira/connection/file_logging_title"),
+        shots.text().text("akira/connection/file_logging_warning"), std::move(choices), [] {})
+            .dimmed("file-logging")));
+    CHECK(shots.write("file_logging_question"));
+    REQUIRE(shots.press("file-logging.turn-off"));
+    CHECK(turnedOff);
+}
+
+TEST(arisa_shot_connecting_log_and_login_pin)
+{
+    Shots shots;
+    shots.model.ready();
+    shots.showHouse();
+    shots.model.connecting("Living room");
+    akira::play::ui::ConnectingScreen::Progress shown{ .console = "Living room", .stages = false };
+    for (const char* line : { "21:40:12 Starting connection...", "21:40:12 [ARISA] starting stream to Living room",
+             "21:40:12 [SESSION] requesting session at 192.168.20.40", "21:40:13 [SESSION] ctrl connected, auth ok",
+             "21:40:13 [TAKION] negotiating protocol version 12", "21:40:13 [TAKION] measuring the connection",
+             "21:40:14 [SESSION] the console asks for its login PIN" })
+        shown.log.push_back(line);
+    shots.model.stage(shown);
+    REQUIRE(shots.start(shots.shell()));
+    CHECK(shots.shows("connecting.log"));
+    CHECK(shots.write("connecting_log"));
+    Shots pin;
+    pin.model.ready();
+    pin.showHouse();
+    pin.model.connecting("Living room");
+    pin.model.stage(shown);
+    REQUIRE(pin.start(pin.shell()));
+    REQUIRE(pin.modal(akira::play::ui::LoginPinCard(false, pin.streamControls(), pin.text())));
+    REQUIRE(pin.press(structure::DigitKeypad::key_of('4')));
+    REQUIRE(pin.press(structure::DigitKeypad::key_of('2')));
+    CHECK(pin.write("login_pin"));
+    Shots retry;
+    retry.model.ready();
+    retry.showHouse();
+    retry.model.connecting("Living room");
+    REQUIRE(retry.start(retry.shell()));
+    REQUIRE(retry.modal(akira::play::ui::LoginPinCard(true, retry.streamControls(), retry.text())));
+    CHECK(retry.shows("login-pin.error"));
+    CHECK(retry.write("login_pin_retry"));
+    REQUIRE(retry.press("login-pin.cancel"));
+    CHECK(retry.streamControls().pinCancels == 1);
+}
+
+TEST(arisa_shot_fake_consoles)
+{
+    Shots shots;
+    shots.model.ready();
+    shots.showConsoles(akira::consoles::DebugConsoles::facts());
+    REQUIRE(shots.start(shots.shell()));
+    CHECK(shots.shows("PS5-Debug-1.primary"));
+    CHECK(shots.write("consoles_fake"));
 }

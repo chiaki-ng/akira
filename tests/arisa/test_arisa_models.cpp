@@ -9,6 +9,11 @@
 #include <vector>
 
 #include "accounts/ui/account_model.hpp"
+#include "app/arisa/shell_model.hpp"
+#include "consoles/console_list.hpp"
+#include "consoles/debug_consoles.hpp"
+#include "consoles/ui/console_shelf.hpp"
+#include "play/ui/login_pin_card.hpp"
 #include "app/notifier.hpp"
 #include "fake_account_desk.hpp"
 #include "fake_couch_table.hpp"
@@ -414,4 +419,63 @@ TEST(arisa_log_shelf_walks_folders_and_files)
     CHECK(shelf.atRoot());
     CHECK(!shelf.back());
     std::filesystem::remove_all(root);
+}
+
+TEST(arisa_shell_model_restricts_only_from_starting)
+{
+    akira::app::arisa::ShellModel model;
+    model.restricted();
+    CHECK(model.view().get().phase == akira::app::arisa::ShellModel::Phase::Restricted);
+    model.ready();
+    CHECK(model.view().get().phase == akira::app::arisa::ShellModel::Phase::Restricted);
+    akira::app::arisa::ShellModel home;
+    home.ready();
+    home.restricted();
+    CHECK(home.view().get().phase == akira::app::arisa::ShellModel::Phase::Home);
+}
+
+TEST(arisa_shell_model_dns_warning_counts_down_before_it_can_close)
+{
+    using namespace std::chrono_literals;
+    akira::app::arisa::ShellModel model;
+    model.ready();
+    const auto opened = std::chrono::steady_clock::now();
+    model.warnDns("m.np.playstation.com", "192.168.1.1", opened);
+    REQUIRE(model.view().get().dns.has_value());
+    CHECK(model.view().get().dns->wait == 5);
+    CHECK(model.view().get().dns->domain == "m.np.playstation.com");
+    model.tick(opened + 2100ms);
+    CHECK(model.view().get().dns->wait == 3);
+    model.dismissDns();
+    CHECK(model.view().get().dns.has_value());
+    model.tick(opened + 5s);
+    CHECK(model.view().get().dns->wait == 0);
+    model.dismissDns();
+    CHECK(!model.view().get().dns.has_value());
+    model.tick(opened + 9s);
+    CHECK(!model.view().get().dns.has_value());
+}
+
+TEST(arisa_login_pin_needs_four_digits)
+{
+    CHECK(!akira::play::ui::LoginPinCard::pin("").has_value());
+    CHECK(!akira::play::ui::LoginPinCard::pin("123").has_value());
+    CHECK(!akira::play::ui::LoginPinCard::pin("12a4").has_value());
+    CHECK(!akira::play::ui::LoginPinCard::pin("12345").has_value());
+    REQUIRE(akira::play::ui::LoginPinCard::pin("0420").has_value());
+    CHECK(akira::play::ui::LoginPinCard::pin("0420")->text() == "0420");
+}
+
+TEST(arisa_fake_consoles_fill_the_grid_as_paired_consoles)
+{
+    akira::consoles::ui::ConsoleShelf shelf;
+    shelf.show(akira::consoles::ConsoleList(akira::consoles::DebugConsoles::facts(), akira::consoles::ConsoleList::Profile::Signed));
+    const auto& cards = shelf.view().get().cards;
+    REQUIRE(cards.size() == static_cast<std::size_t>(akira::consoles::DebugConsoles::Count));
+    CHECK(cards.front().name == "PS5-Debug-1");
+    CHECK(akira::consoles::ui::ConsoleShelf::presenceOf(cards[0]) == akira::consoles::ui::ConsoleShelf::Presence::Ready);
+    CHECK(akira::consoles::ui::ConsoleShelf::presenceOf(cards[3]) == akira::consoles::ui::ConsoleShelf::Presence::RestMode);
+    CHECK(cards[0].badge == akira::consoles::ConsoleEntry::Badge::Manual);
+    CHECK(cards[1].badge == akira::consoles::ConsoleEntry::Badge::Auto);
+    CHECK(shelf.view().get().nearby.empty());
 }

@@ -167,6 +167,8 @@ auto AddConsoleSheet::scanPanel(const ConsoleShelf::Scan& scan, bool found) cons
     status.push_back(components::Spacer());
     std::vector<composition::Element> rows;
     rows.push_back(components::HStack(components::HStackOptions{ .spacing = theme::Space{ 10.0F } }, std::move(status)));
+    if (!scan.address.empty())
+        rows.push_back(ranges(strings->text("akira/add_host/local_address"), scan.address));
     if (!scan.broadcast.empty())
         rows.push_back(ranges(strings->text("akira/add_host/broadcast"), scan.broadcast));
     if (!scan.unicast.empty())

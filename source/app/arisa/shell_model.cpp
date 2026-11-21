@@ -2,12 +2,20 @@
 
 #include <utility>
 
+#include "network/sony_dns_checker.hpp"
+
 namespace akira::app::arisa {
 
 void ShellModel::ready()
 {
     if (state.get().phase == Phase::Starting)
         state.write(&View::phase, Phase::Home);
+}
+
+void ShellModel::restricted()
+{
+    if (state.get().phase == Phase::Starting)
+        state.write(&View::phase, Phase::Restricted);
 }
 
 void ShellModel::connecting(std::string console)
@@ -92,6 +100,33 @@ void ShellModel::confirmExit()
         view.exiting = false;
         view.exitConfirmed = true;
     });
+}
+
+void ShellModel::warnDns(std::string domain, std::string server, std::chrono::steady_clock::time_point now)
+{
+    dnsShown = now;
+    state.write(&View::dns,
+        std::optional<DnsWarning>(DnsWarning{
+            .domain = std::move(domain), .server = std::move(server), .wait = network::secondsUntilDnsWarningOk(0) }));
+}
+
+void ShellModel::tick(std::chrono::steady_clock::time_point now)
+{
+    const std::optional<DnsWarning>& shown = state.get().dns;
+    if (!shown || !dnsShown)
+        return;
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - *dnsShown);
+    const int wait = network::secondsUntilDnsWarningOk(elapsed.count());
+    if (wait != shown->wait)
+        state.update([wait](View& view) { view.dns->wait = wait; });
+}
+
+void ShellModel::dismissDns()
+{
+    if (!state.get().dns || state.get().dns->wait > 0)
+        return;
+    dnsShown.reset();
+    state.write(&View::dns, std::optional<DnsWarning>());
 }
 
 }
