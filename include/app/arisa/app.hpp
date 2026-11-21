@@ -39,7 +39,6 @@
 #include "app/arisa/theme_packs.hpp"
 #include "app/arisa/window.hpp"
 #include "accounts/ui/account_model.hpp"
-#include "app/game_art.hpp"
 #include "app/service_graph.hpp"
 #include "consoles/ui/console_operations.hpp"
 #include "consoles/ui/console_shelf.hpp"
@@ -80,6 +79,8 @@ private:
     [[nodiscard]] bool openApplication();
     void startServices();
     void buildScreens();
+    void chooseLanguage();
+    void retryCloud(const cloud::CloudLaunch& launch);
     void buildCouch();
     void buildPages();
     void profileChanged();
@@ -105,7 +106,6 @@ private:
     consoles::ui::ConsoleShelf shelf;
     consoles::ui::RecentShelf recent;
     ShellScreen::Parts parts;
-    std::optional<GameArt> art;
     std::optional<ArtSession> artSession;
     std::optional<::arisa::runtime::Application> application;
     std::optional<StreamStage> stage;

@@ -85,6 +85,26 @@ auto ConnectingScreen::bar() const -> composition::Element
         .id(composition::ElementKey{ "connecting.progress" });
 }
 
+auto ConnectingScreen::operation() const -> composition::Element
+{
+    if (progress.activity.empty())
+        return components::Group();
+    std::vector<composition::Element> lines;
+    lines.push_back(components::Text(progress.activity)
+                        .font(theme::Font::subheadline)
+                        .foreground_style(theme::ColourRole::label)
+                        .id(composition::ElementKey{ "connecting.activity" }));
+    if (!progress.details.empty())
+        lines.push_back(components::Text(progress.details)
+                            .font(theme::Font::footnote)
+                            .foreground_style(theme::ColourRole::secondary_label)
+                            .multiline_text_alignment(composition::TextAlignment::center)
+                            .frame({ .max_width = detailWidth })
+                            .id(composition::ElementKey{ "connecting.details" }));
+    return components::VStack(components::VStackOptions{ .spacing = theme::Space{ 4.0F } }, std::move(lines))
+        .padding(theme::Edge::top, theme::Space{ 12.0F });
+}
+
 auto ConnectingScreen::body(composition::Context&) const -> composition::Element
 {
     auto cancel = [commands = commands] { commands->cancel(); };
@@ -101,6 +121,7 @@ auto ConnectingScreen::body(composition::Context&) const -> composition::Element
                 .foreground_style(theme::ColourValue(theme::ColourRole::label).opacity(0.72F))
                 .padding(theme::Edge::top, theme::Space{ 15.0F })
                 .id(composition::ElementKey{ "connecting.status" }),
+            operation(),
             composition::Element(components::Group()).frame({ .height = 32.0F }),
             components::Button(strings->text("akira/common/cancel"), components::ButtonRole::cancel, cancel)
                 .button_style(components::ButtonStyle::plain())

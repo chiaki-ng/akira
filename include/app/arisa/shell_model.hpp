@@ -18,6 +18,7 @@ public:
         std::string title;
         std::string message;
         bool reconnect = false;
+        bool retry = false;
 
         friend bool operator==(const Ending&, const Ending&) = default;
     };

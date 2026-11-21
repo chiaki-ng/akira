@@ -106,7 +106,8 @@ void ServiceGraph::startServices()
     hosts.emplace(consoleSettings, accountSettings, appSettings_, store, seams.dispatcher, *core);
     http.emplace(core->threading());
     wireGuard.emplace(developer_, *core);
-    trophies.emplace(*http, seams.dispatcher, *core);
+    art.emplace(*http, seams.dispatcher);
+    trophies.emplace(*http, *art, seams.dispatcher, *core);
 #if AKIRA_CLOUD
     cloud.emplace(accountSettings, *http, seams.dispatcher, seams.strings, *core);
 #endif
@@ -151,6 +152,7 @@ void ServiceGraph::startServices()
         .preferences = *preferences,
         .session = *session,
         .trophies = *trophies,
+        .art = *art,
         .core = *core,
 #if AKIRA_CLOUD
         .cloud = *cloud,

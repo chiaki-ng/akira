@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include "settings/section.hpp"
@@ -23,6 +24,9 @@ public:
 
     const std::string& uiTheme() const { return theme; }
     void setUiTheme(const std::string& id) { theme = id; }
+    auto savedUiTheme() const -> std::optional<std::string> { return themeSaved ? std::optional(theme) : std::nullopt; }
+    bool themePackMigrated() const { return packMigrated; }
+    void markThemePackMigrated() { packMigrated = true; }
     bool hideAccountName() const { return hideName; }
     void setHideAccountName(bool enabled) { hideName = enabled; }
     std::string maskAccountName(const std::string& name) const;
@@ -50,6 +54,8 @@ private:
     settings::SettingsStore& store;
 
     std::string theme = "playstation";
+    bool themeSaved = false;
+    bool packMigrated = false;
     bool hideName = false;
     bool showStages = true;
     bool screenshots = true;

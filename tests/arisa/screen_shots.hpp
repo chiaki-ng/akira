@@ -200,6 +200,23 @@ public:
         return stbi_write_png(path.c_str(), width, height, 4, image->pixels().data(), width * 4) != 0;
     }
 
+    auto appearance() const -> const arisa::appearance::AppearanceModel& { return *application->appearance(); }
+
+    auto focusedWithin(std::string_view key) const -> bool
+    {
+        std::optional<arisa::composition::NodeId> at = application->introspection().focus().focused;
+        while (at)
+        {
+            const std::optional<arisa::runtime::Introspection::NodeRecord> record = application->introspection().node(*at);
+            if (!record)
+                return false;
+            if (record->key == key)
+                return true;
+            at = record->parent;
+        }
+        return false;
+    }
+
     auto has(std::string_view key) const -> bool
     {
         return std::ranges::any_of(application->introspection().nodes(),

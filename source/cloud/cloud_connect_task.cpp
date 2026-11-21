@@ -30,12 +30,7 @@ auto CloudConnectTask::retrying(Service& service, const accounts::AccountSetting
                                 const app::Strings& strings, akira::play::ChiakiCore& core,
                                 const CloudLaunch& previous) -> std::unique_ptr<CloudConnectTask>
 {
-    Game game;
-    game.productId = previous.product().text();
-    game.name = previous.name();
-    game.serviceType = previous.ps5() ? "pscloud" : "psnow";
-    game.streamServiceType = game.serviceType;
-    return std::make_unique<CloudConnectTask>(service, accounts, app, dispatcher, strings, core, game);
+    return std::make_unique<CloudConnectTask>(service, accounts, app, dispatcher, strings, core, previous.game());
 }
 
 CloudConnectTask::~CloudConnectTask()

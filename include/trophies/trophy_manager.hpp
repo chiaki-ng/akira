@@ -21,9 +21,12 @@
 #include "accounts/accounts.hpp"
 #include "accounts/status.hpp"
 #include "app/ui_dispatcher.hpp"
-#include "trophies/icon_cache.hpp"
 
 class HttpPool;
+
+namespace akira::app {
+class GameArt;
+}
 
 namespace akira::play {
 class ChiakiCore;
@@ -44,7 +47,7 @@ public:
     using Profile = libchiaking::users::Profile;
     using PlayedGame = libchiaking::catalog::PlayedGame;
 
-    TrophyManager(HttpPool& http, app::UiDispatcher& dispatcher, play::ChiakiCore& core);
+    TrophyManager(HttpPool& http, app::GameArt& art, app::UiDispatcher& dispatcher, play::ChiakiCore& core);
 
     TrophyManager(const TrophyManager&) = delete;
     TrophyManager& operator=(const TrophyManager&) = delete;
@@ -88,12 +91,8 @@ private:
     static constexpr int FORCE_REFRESH_COOLDOWN_MINUTES = 360;
     static constexpr int LIBRARY_LOG_CAP = 50;
     static constexpr int ICON_PREFETCH_CAP = 120;
-    static constexpr long ICON_TIMEOUT_S = 20;
-    static constexpr size_t ICON_CACHE_MAX_BYTES = 12 * 1024 * 1024;
-    static constexpr size_t ICON_MAX_BYTES = 2 * 1024 * 1024;
     static constexpr const char* TROPHY_CACHE_DIR = "sdmc:/switch/akira/cache/trophies";
     static constexpr const char* ICON_DIR_NAME = "icons";
-    static constexpr const char* ICON_CACHE_DIR = "sdmc:/switch/akira/cache/trophies/icons";
     static constexpr const char* LEGACY_RATELIMIT_PATH = "sdmc:/switch/akira/cache/ratelimit.json";
 
     static accounts::Error failureOf(const libchiaking::users::Unanswered& cause);
@@ -120,6 +119,7 @@ private:
     void runStaleCheck();
 
     HttpPool& http;
+    app::GameArt& art;
     app::UiDispatcher& dispatcher;
     play::ChiakiCore& core;
 
@@ -134,10 +134,6 @@ private:
     int64_t librarySavedAt = 0;
     std::unordered_map<std::string, int64_t> forcedAt;
     std::map<libchiaking::trophies::NpCommunicationId, PlayedGame> playedGames;
-
-    IconCache icons{ICON_CACHE_DIR, ICON_CACHE_MAX_BYTES, ICON_MAX_BYTES};
-    mutable std::mutex iconMutex;
-    std::unordered_map<std::string, std::vector<IconCallback>> iconWaiters;
 };
 
 }

@@ -110,7 +110,13 @@ public:
     void clearCatalogCache() override { ++cacheClears; }
 
     void details(const Game&, Detailed done) override { done(facts()); }
-    void checkStorefront(const Game&, Checked done) override { done(akira::cloud::CardCheck::streams()); }
+    void checkStorefront(const Game&, Checked done) override
+    {
+        if (holdsCardCheck)
+            heldCardCheck = std::move(done);
+        else
+            done(akira::cloud::CardCheck::streams());
+    }
     void refreshTitle(const Game& asked, Refreshed done) override
     {
         Game added = asked;
@@ -122,7 +128,12 @@ public:
         clearing = asked.productId;
         for (const akira::cloud::LaunchChecks::Check check : observed)
             observe(check);
-        if (refusal)
+        if (holdsLaunch)
+        {
+            heldClear = std::move(clear);
+            heldRefuse = std::move(refuse);
+        }
+        else if (refusal)
             refuse(*refusal);
         else if (clears)
             clear(nullptr);
@@ -146,6 +157,11 @@ public:
     std::optional<akira::cloud::FetchProgress> progress;
     bool answers = true;
     bool clears = true;
+    bool holdsLaunch = false;
+    bool holdsCardCheck = false;
+    Cleared heldClear;
+    Refused heldRefuse;
+    Checked heldCardCheck;
     std::optional<std::string> refusal;
     std::vector<akira::cloud::LaunchChecks::Check> observed;
     std::vector<Game> pinned;

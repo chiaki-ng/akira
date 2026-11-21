@@ -27,12 +27,15 @@ public:
     static constexpr float capsuleSpacing = 9.0F;
     static constexpr float capsuleGlow = 7.0F;
     static constexpr float backdropDim = 0.12F;
+    static constexpr float detailWidth = 520.0F;
 
     struct Progress {
         std::string console;
         std::string status;
         int step = 1;
         int steps = ConnectFlow::stageCount;
+        std::string activity;
+        std::string details;
 
         friend bool operator==(const Progress&, const Progress&) = default;
     };
@@ -48,6 +51,7 @@ public:
 
 private:
     auto bar() const -> ::arisa::composition::Element;
+    auto operation() const -> ::arisa::composition::Element;
     static auto pill(Capsule state) -> ::arisa::composition::Element;
 
     Progress progress;

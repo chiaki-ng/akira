@@ -1,8 +1,10 @@
 #include "test_util.hpp"
 
+#include <chrono>
 #include <string>
 #include <vector>
 
+#include "cloud/launch_report.hpp"
 #include "cloud/library_listing.hpp"
 #include "cloud/ui/cloud_model.hpp"
 #include "fake_cloud_desk.hpp"
@@ -28,6 +30,17 @@ public:
     }
 
     auto start() -> bool { return shots.start(shots.shell(parts)); }
+
+    auto openFirstCard() -> bool
+    {
+        if (!shots.pad(arisa::provider::Buttons{ arisa::provider::Button::dpad_right }))
+            return false;
+        for (int step = 0; step < 6 && !shots.focusedWithin("cloud.grid"); ++step)
+            if (!shots.pad(arisa::provider::Buttons{ arisa::provider::Button::dpad_down }))
+                return false;
+        return shots.focusedWithin("cloud.grid") && shots.pad(arisa::provider::Buttons{ arisa::provider::Button::a })
+            && shots.focusedWithin("cloud.game");
+    }
 
     tests::FakeCloudDesk desk;
     tests::ScreenShots shots;
@@ -209,4 +222,149 @@ TEST(arisa_shot_cloud_state_pair)
     REQUIRE(cloud.start());
     CHECK(cloud.shots.has("cloud.state.pair"));
     CHECK(cloud.shots.write("cloud_state_pair"));
+}
+
+TEST(cloud_model_retries_a_dropped_session_from_its_game_page)
+{
+    tests::FakeCloudDesk desk;
+    tests::CollectedNotices notices;
+    tests::FakeStrings strings({});
+    CloudModel model(desk, notices, strings);
+    model.appear();
+    akira::cloud::Game previous;
+    previous.productId = tests::FakeCloudDesk::catalog()[3].productId;
+    previous.name = "Gran Turismo 7";
+    previous.serviceType = "pscloud";
+    model.retry(previous);
+    REQUIRE(model.view().get().detail.has_value());
+    CHECK(model.view().get().detail->game.imageUrl == tests::FakeCloudDesk::catalog()[3].imageUrl);
+    CHECK(desk.clearing == previous.productId);
+    CHECK(desk.launches == 1);
+    model.retry(previous);
+    CHECK(desk.launches == 2);
+    CHECK(desk.cancels == 1);
+}
+
+TEST(cloud_model_retries_a_game_missing_from_the_catalog)
+{
+    tests::FakeCloudDesk desk;
+    tests::CollectedNotices notices;
+    tests::FakeStrings strings({});
+    CloudModel model(desk, notices, strings);
+    model.appear();
+    akira::cloud::Game previous;
+    previous.productId = "EP0000-PPSA00000_00-NOTLISTED0000000";
+    previous.name = "Unlisted";
+    previous.serviceType = "pscloud";
+    model.retry(previous);
+    REQUIRE(model.view().get().detail.has_value());
+    CHECK(model.view().get().detail->game.name == "Unlisted");
+    CHECK(desk.launches == 1);
+}
+
+TEST(arisa_cloud_game_page_keeps_focus_on_play_through_the_checks)
+{
+    CloudShots cloud;
+    cloud.desk.holdsLaunch = true;
+    cloud.desk.observed = { LaunchChecks::Check::Membership };
+    REQUIRE(cloud.start());
+    REQUIRE(cloud.openFirstCard());
+    CHECK(cloud.shots.focusedWithin("cloud.game.play"));
+    REQUIRE(cloud.shots.press("cloud.game.play"));
+    CHECK(cloud.shots.focusedWithin("cloud.game"));
+    CHECK(!cloud.shots.focusedWithin("cloud.game.play"));
+    REQUIRE(static_cast<bool>(cloud.desk.heldRefuse));
+    cloud.desk.heldRefuse("Cloud streaming is not available right now.");
+    REQUIRE(cloud.shots.settle());
+    CHECK(cloud.shots.focusedWithin("cloud.game.play"));
+}
+
+TEST(arisa_cloud_game_page_moves_focus_to_play_once_the_card_check_allows_it)
+{
+    CloudShots cloud;
+    cloud.desk.holdsCardCheck = true;
+    for (akira::cloud::Game& game : cloud.desk.listed.catalog.games)
+        game.needsStorefrontCheck = true;
+    REQUIRE(cloud.start());
+    REQUIRE(cloud.openFirstCard());
+    CHECK(cloud.shots.focusedWithin("cloud.game"));
+    CHECK(!cloud.shots.focusedWithin("cloud.game.play"));
+    REQUIRE(static_cast<bool>(cloud.desk.heldCardCheck));
+    cloud.desk.heldCardCheck(akira::cloud::CardCheck::streams());
+    REQUIRE(cloud.shots.settle());
+    CHECK(cloud.shots.focusedWithin("cloud.game.play"));
+}
+
+TEST(arisa_cloud_game_page_leaves_a_chosen_button_alone)
+{
+    CloudShots cloud;
+    cloud.desk.holdsCardCheck = true;
+    for (akira::cloud::Game& game : cloud.desk.listed.catalog.games)
+        game.needsStorefrontCheck = true;
+    REQUIRE(cloud.start());
+    REQUIRE(cloud.openFirstCard());
+    REQUIRE(static_cast<bool>(cloud.desk.heldCardCheck));
+    cloud.desk.heldCardCheck(akira::cloud::CardCheck::streams());
+    REQUIRE(cloud.shots.settle());
+    REQUIRE(cloud.shots.pad(arisa::provider::Buttons{ arisa::provider::Button::dpad_right }));
+    CHECK(cloud.shots.focusedWithin("cloud.game.store"));
+    cloud.desk.holdsLaunch = true;
+    cloud.model.play();
+    REQUIRE(cloud.shots.settle());
+    REQUIRE(static_cast<bool>(cloud.desk.heldRefuse));
+    cloud.desk.heldRefuse("Cloud streaming is not available right now.");
+    REQUIRE(cloud.shots.settle());
+    CHECK(cloud.shots.focusedWithin("cloud.game.store"));
+}
+
+TEST(arisa_shot_cloud_launch_progress)
+{
+    using libchiaking::play::LaunchActivity;
+    using libchiaking::play::LaunchProgress;
+    const auto progress = LaunchProgress::at(libchiaking::catalog::ServiceGeneration::ps5_cloud,
+        LaunchActivity::allocating_server,
+        LaunchProgress::Counts{ .step = LaunchProgress::Step{ .number = 5, .of = 7 },
+            .queue_position = 4,
+            .wait_time_estimate_seconds = 150,
+            .attempt = 2,
+            .wait = libchiaking::progress::Wait{ .reason = libchiaking::progress::WaitReason::server_queue,
+                .next_try_in = std::chrono::milliseconds(10'000) },
+            .elapsed = std::chrono::seconds(42) });
+    REQUIRE(progress.has_value());
+    CloudShots cloud;
+    akira::cloud::LaunchReport report;
+    const auto now = akira::cloud::LaunchReport::Clock::now();
+    report.follow(*progress, now);
+    const auto& strings = cloud.shots.text();
+    CHECK(report.step() == 3);
+    CHECK(report.status(strings) == strings.format("akira/cloud/start_queued", 4));
+    CHECK(report.activity(strings) == strings.text("akira/cloud/activity_allocating"));
+    cloud.shots.model.connecting("Astro Bot");
+    cloud.shots.model.stage(akira::play::ui::ConnectingScreen::Progress{ .console = "Astro Bot",
+        .status = report.status(strings),
+        .step = report.step(),
+        .steps = akira::cloud::LaunchReport::steps,
+        .activity = report.activity(strings),
+        .details = report.details(strings, now + std::chrono::seconds(3)) });
+    REQUIRE(cloud.start());
+    CHECK(cloud.shots.has("connecting.activity"));
+    CHECK(cloud.shots.has("connecting.details"));
+    CHECK(cloud.shots.write("cloud_launch_progress"));
+}
+
+TEST(arisa_shot_cloud_stopped_offers_retry)
+{
+    CloudShots cloud;
+    const auto& strings = cloud.shots.text();
+    const std::string text = strings.format("akira/cloud/start_stopped", strings.text("akira/connection/fail_generic"));
+    const std::size_t split = text.find("\n\n");
+    cloud.shots.model.ended(akira::app::arisa::ShellModel::Ending{ .title = text.substr(0, split),
+        .message = text.substr(split + 2),
+        .reconnect = true,
+        .retry = true });
+    REQUIRE(cloud.start());
+    CHECK(cloud.shots.focusedWithin("ending.yes"));
+    CHECK(cloud.shots.write("alert_cloud_stopped"));
+    REQUIRE(cloud.shots.press("ending.no"));
+    CHECK(!cloud.shots.model.view().get().ending.has_value());
 }

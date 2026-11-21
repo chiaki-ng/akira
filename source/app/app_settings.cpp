@@ -18,7 +18,12 @@ AppSettings::~AppSettings()
 void AppSettings::read(const toml::table& config)
 {
     if (auto val = config["ui"]["theme"].value<std::string>())
+    {
         theme = *val;
+        themeSaved = true;
+    }
+    if (auto val = config["ui"]["theme_pack_migrated"].value<bool>())
+        packMigrated = *val;
     if (auto val = config["ui"]["hide_account_name"].value<bool>())
         hideName = *val;
     if (auto val = config["ui"]["connection_show_stages"].value<bool>())
@@ -44,6 +49,7 @@ void AppSettings::write(toml::table& config) const
 {
     toml::table ui;
     ui.insert("theme", theme);
+    if (packMigrated) ui.insert("theme_pack_migrated", true);
     if (hideName) ui.insert("hide_account_name", true);
     ui.insert("connection_show_stages", showStages);
     if (!screenshots) ui.insert("screenshot_chord", false);

@@ -61,11 +61,15 @@ auto GamePage::body(composition::Context& context) const -> composition::Element
         return components::Group();
     const CloudModel::Detail& detail = *view.detail;
     const std::optional<GameActions> shown = model->actions();
+    const auto focus = context.state(actionFocus);
+    const auto playWanted = context.state(wantsPlay);
+    const bool inside = context.focus_within();
+    const bool running = detail.checks && detail.checks->isRunning();
     std::vector<composition::Element> info;
     info.push_back(metadata(detail));
     if (shown)
     {
-        info.push_back(actionRow(detail, *shown));
+        info.push_back(actionRow(detail, *shown, focus));
         if (shown->showsLaunchChecks() && detail.checks)
             info.push_back(checkRow(*detail.checks));
         info.push_back(notes(detail, *shown));
@@ -87,13 +91,53 @@ auto GamePage::body(composition::Context& context) const -> composition::Element
     if (detail.facts)
         rows.push_back(band(*detail.facts));
     CloudModel* held = model;
-    return components::ScrollView(components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
-                                                         .spacing = theme::Space{ 18.0F } },
-                                      std::move(rows))
-                                      .padding(theme::Insets{ .bottom = theme::Space{ 24.0F } }))
-        .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
-        .on_exit_command(strings->text("akira/cloud/start_back"), [held] { held->close(); })
-        .id(composition::ElementKey{ "cloud.game" });
+    composition::Element page =
+        components::ScrollView(components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                                                      .spacing = theme::Space{ 18.0F } },
+                                   std::move(rows))
+                                   .padding(theme::Insets{ .bottom = theme::Space{ 24.0F } }))
+            .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
+            .on_exit_command(strings->text("akira/cloud/start_back"), [held] { held->close(); });
+    if (shown)
+        page = repairing(std::move(page), *shown, running, focus, playWanted, inside);
+    return std::move(page).id(composition::ElementKey{ "cloud.game" });
+}
+
+auto GamePage::layoutOf(const GameActions& shown, bool running) -> Layout
+{
+    return Layout{ .order = shown.focusOrder(), .playable = shown.play() && shown.play()->enabled() && !running };
+}
+
+auto GamePage::repair(const GameActions& shown, const Layout& before, const Layout& after,
+    std::optional<GameActions::Focus> held, bool playWanted, bool inside) -> std::optional<GameActions::Focus>
+{
+    if (inside && playWanted && after.playable && !before.playable && held != GameActions::Focus::Play)
+        return GameActions::Focus::Play;
+    if (!held)
+        return std::nullopt;
+    const auto focusable = [&after](GameActions::Focus focus) {
+        return focus == GameActions::Focus::Play ? after.playable : std::ranges::contains(after.order, focus);
+    };
+    const std::optional<GameActions::Focus> target = shown.refocus(held, before.playable, focusable);
+    return target == held ? std::nullopt : target;
+}
+
+auto GamePage::repairing(composition::Element content, const GameActions& shown, bool running,
+    composition::FocusBinding<GameActions::Focus> focus, composition::StateHandle<bool> playWanted, bool inside)
+    -> composition::Element
+{
+    const Layout layout = layoutOf(shown, running);
+    return std::move(content)
+        .on_change(focus.get(),
+            [playWanted, playable = layout.playable](const std::optional<GameActions::Focus>&,
+                const std::optional<GameActions::Focus>& now) {
+                if (now && playable)
+                    playWanted.set(*now == GameActions::Focus::Play);
+            })
+        .on_change(layout, [shown, focus, playWanted, inside](const Layout& before, const Layout& after) {
+            if (const auto target = repair(shown, before, after, focus.get(), playWanted.get(), inside))
+                focus.set(*target);
+        });
 }
 
 auto GamePage::hero(const CloudModel::Detail& detail) const -> composition::Element
@@ -204,15 +248,19 @@ auto GamePage::refreshText(const CloudModel::Refreshing& refreshing) const -> st
     return strings->text("akira/cloud/detail_refresh");
 }
 
-auto GamePage::actionRow(const CloudModel::Detail& detail, const GameActions& shown) const -> composition::Element
+auto GamePage::actionRow(const CloudModel::Detail& detail, const GameActions& shown,
+    composition::FocusBinding<GameActions::Focus> focused) const -> composition::Element
 {
     CloudModel* held = model;
     std::vector<composition::Element> row;
-    const auto add = [&row](GameActions::Focus focus, composition::Element button, bool prominent, bool enabled) {
+    const auto add = [&row, &focused](GameActions::Focus focus, composition::Element button, bool prominent, bool enabled) {
         button = prominent ? std::move(button).button_style(components::ButtonStyle::glass_prominent())
                            : std::move(button).button_style(components::ButtonStyle::glass(theme::Glass::clear()));
-        row.push_back(std::move(button).control_size(components::ControlSize::large).disabled(!enabled).id(
-            composition::ElementKey{ focusKey(focus) }));
+        row.push_back(std::move(button)
+                          .control_size(components::ControlSize::large)
+                          .disabled(!enabled)
+                          .focused(focused, focus)
+                          .id(composition::ElementKey{ focusKey(focus) }));
     };
     if (const auto& play = shown.play())
     {

@@ -353,6 +353,19 @@ void CloudModel::choose(const Game& game)
     checkAndPlay(game);
 }
 
+void CloudModel::retry(const Game& previous)
+{
+    const std::vector<Game>& listed = listing.listed();
+    const auto known = std::ranges::find(listed, previous.productId, &Game::productId);
+    const Game game = known == listed.end() ? previous : *known;
+    const auto& detail = state.get().detail;
+    const bool showing = detail
+        && (detail->game.productId == game.productId || (detail->checks && detail->checks->productId() == game.productId));
+    if (!showing)
+        open(game);
+    checkAndPlay(game);
+}
+
 void CloudModel::dismissChoice()
 {
     if (state.get().detail)

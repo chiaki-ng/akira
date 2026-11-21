@@ -258,8 +258,9 @@ auto ShellScreen::endingCard(const ShellModel::Ending& shown, composition::Names
     std::vector<Confirmation::Choice> choices;
     if (shown.reconnect)
     {
-        choices.push_back(Confirmation::Choice{ .label = strings->text("akira/stream/no"), .chosen = dismiss, .key = "ending.no" });
-        choices.push_back(Confirmation::Choice{ .label = strings->text("akira/stream/yes"),
+        choices.push_back(Confirmation::Choice{
+            .label = strings->text(shown.retry ? "akira/cloud/start_back" : "akira/stream/no"), .chosen = dismiss, .key = "ending.no" });
+        choices.push_back(Confirmation::Choice{ .label = strings->text(shown.retry ? "akira/cloud/start_retry" : "akira/stream/yes"),
             .chosen = [held, stream] {
                 held->dismissEnding();
                 stream->reconnect();

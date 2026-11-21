@@ -19,6 +19,11 @@ GameArt::GameArt(HttpPool& http, UiDispatcher& dispatcher)
 
 void GameArt::fetch(std::string url, Delivery done)
 {
+    fetch(std::move(url), ArtCache::Shelf::art, std::move(done));
+}
+
+void GameArt::fetch(std::string url, ArtCache::Shelf shelf, Delivery done)
+{
     if (url.empty())
     {
         dispatcher.runOnWorker([done = std::move(done)] { done(std::nullopt); });
@@ -26,40 +31,44 @@ void GameArt::fetch(std::string url, Delivery done)
     }
     {
         std::lock_guard<std::mutex> lock(mutex);
-        auto [entry, first] = waiting.try_emplace(url);
-        entry->second.push_back(std::move(done));
+        auto [entry, first] = waiting.try_emplace(url, Waiting{ .shelf = shelf, .deliveries = {} });
+        entry->second.deliveries.push_back(std::move(done));
         if (!first)
             return;
     }
-    http.submit([this, url](HttpSession& session) { download(session, url); });
+    http.submit([this, url, shelf](HttpSession& session) { download(session, url, shelf); });
 }
 
-void GameArt::download(HttpSession& session, const std::string& url)
+void GameArt::discard(const std::string& url)
 {
-    if (auto remembered = cache.remembered(url))
+    cache.discard(url);
+}
+
+void GameArt::clear(ArtCache::Shelf shelf)
+{
+    cache.clear(shelf);
+}
+
+void GameArt::download(HttpSession& session, const std::string& url, ArtCache::Shelf shelf)
+{
+    if (auto found = cache.find(url))
     {
-        deliver(url, converted(*remembered));
+        deliver(url, converted(*found));
         return;
     }
-    if (auto stored = cache.load(url))
-    {
-        cache.remember(url, *stored);
-        deliver(url, converted(*stored));
-        return;
-    }
-    std::optional<trophies::IconCache::Bytes> fetched = downloaded(session, url);
+    std::optional<ArtCache::Bytes> fetched = downloaded(session, url, shelf);
     if (!fetched)
     {
         deliver(url, std::nullopt);
         return;
     }
-    cache.remember(url, *fetched);
-    cache.save(url, *fetched);
+    cache.keep(shelf, url, *fetched);
     deliver(url, converted(*fetched));
 }
 
-auto GameArt::downloaded(HttpSession& session, const std::string& url) -> std::optional<trophies::IconCache::Bytes>
+auto GameArt::downloaded(HttpSession& session, const std::string& url, ArtCache::Shelf shelf) -> std::optional<ArtCache::Bytes>
 {
+    const std::size_t limit = ArtCache::itemLimit(shelf);
     const HttpResponse response = session.get(url, "", timeoutSeconds);
     if (response.transportFailed())
     {
@@ -71,12 +80,12 @@ auto GameArt::downloaded(HttpSession& session, const std::string& url) -> std::o
         log::warning("[ART] {} returned HTTP {}", url, response.status);
         return std::nullopt;
     }
-    if (response.body.empty() || response.body.size() > artLimit)
+    if (response.body.empty() || response.body.size() > limit)
     {
-        log::warning("[ART] {} is {} bytes, outside 1..{}", url, response.body.size(), artLimit);
+        log::warning("[ART] {} is {} bytes, outside 1..{}", url, response.body.size(), limit);
         return std::nullopt;
     }
-    return trophies::IconCache::Bytes(response.body.begin(), response.body.end());
+    return ArtCache::Bytes(response.body.begin(), response.body.end());
 }
 
 void GameArt::deliver(const std::string& url, std::optional<Bytes> bytes)
@@ -87,7 +96,7 @@ void GameArt::deliver(const std::string& url, std::optional<Bytes> bytes)
         auto entry = waiting.find(url);
         if (entry == waiting.end())
             return;
-        waiters = std::move(entry->second);
+        waiters = std::move(entry->second.deliveries);
         waiting.erase(entry);
     }
     dispatcher.runOnWorker([waiters = std::move(waiters), bytes = std::move(bytes)] {
@@ -96,7 +105,7 @@ void GameArt::deliver(const std::string& url, std::optional<Bytes> bytes)
     });
 }
 
-auto GameArt::converted(const trophies::IconCache::Bytes& raw) -> Bytes
+auto GameArt::converted(const ArtCache::Bytes& raw) -> Bytes
 {
     Bytes bytes(raw.size());
     std::ranges::transform(raw, bytes.begin(), [](std::uint8_t value) { return std::byte{ value }; });

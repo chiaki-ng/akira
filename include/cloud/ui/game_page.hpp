@@ -1,11 +1,16 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
 #include <arisa/composition/component.hpp>
 #include <arisa/composition/context.hpp>
 #include <arisa/composition/element.hpp>
+#include <arisa/composition/focus_binding.hpp>
+#include <arisa/composition/focus_state.hpp>
+#include <arisa/composition/state_handle.hpp>
+#include <arisa/composition/state_key.hpp>
 #include <arisa/theme/colour_value.hpp>
 
 #include "app/strings.hpp"
@@ -26,7 +31,21 @@ public:
     static constexpr float barWidth = 220.0F;
     static constexpr float notesWidth = 640.0F;
 
+    struct Layout {
+        std::vector<GameActions::Focus> order;
+        bool playable = false;
+
+        friend bool operator==(const Layout&, const Layout&) = default;
+    };
+
+    static constexpr ::arisa::composition::FocusState<GameActions::Focus> actionFocus{ "cloud.game.focus" };
+    static constexpr ::arisa::composition::StateKey<bool> wantsPlay{ "cloud.game.wants_play", true };
+
     GamePage(CloudModel& model, const app::Strings& strings);
+
+    static auto layoutOf(const GameActions& shown, bool running) -> Layout;
+    static auto repair(const GameActions& shown, const Layout& before, const Layout& after,
+        std::optional<GameActions::Focus> held, bool playWanted, bool inside) -> std::optional<GameActions::Focus>;
 
     bool operator==(const GamePage& other) const = default;
 
@@ -36,7 +55,12 @@ private:
     auto hero(const CloudModel::Detail& detail) const -> ::arisa::composition::Element;
     auto heading(const CloudModel::Detail& detail) const -> ::arisa::composition::Element;
     auto metadata(const CloudModel::Detail& detail) const -> ::arisa::composition::Element;
-    auto actionRow(const CloudModel::Detail& detail, const GameActions& shown) const -> ::arisa::composition::Element;
+    auto actionRow(const CloudModel::Detail& detail, const GameActions& shown,
+        ::arisa::composition::FocusBinding<GameActions::Focus> focus) const -> ::arisa::composition::Element;
+    static auto repairing(::arisa::composition::Element content, const GameActions& shown, bool running,
+        ::arisa::composition::FocusBinding<GameActions::Focus> focus,
+        ::arisa::composition::StateHandle<bool> playWanted, bool inside)
+        -> ::arisa::composition::Element;
     auto checkRow(const LaunchChecks& checks) const -> ::arisa::composition::Element;
     auto notes(const CloudModel::Detail& detail, const GameActions& shown) const -> ::arisa::composition::Element;
     auto band(const GameDetail& facts) const -> ::arisa::composition::Element;

@@ -16,8 +16,13 @@
 #include "app/arisa/stream_stage.hpp"
 #include "app/services.hpp"
 #include "app/ui_window.hpp"
+#include "cloud/cloud_launch.hpp"
+#include "cloud/launch_report.hpp"
 #include "play/connect_flow.hpp"
 #include "play/connection.hpp"
+#include "play/session_ending.hpp"
+#include "play/stream_launcher.hpp"
+#include "play/ui/connecting_screen.hpp"
 #include "play/couch_table.hpp"
 #include "play/menu_hold.hpp"
 #include "play/stats_hud_placement.hpp"
@@ -55,8 +60,11 @@ public:
         play::ui::Couch* model = nullptr;
     };
 
+    using CloudRetry = std::function<void(const cloud::CloudLaunch&)>;
+
     StreamDriver(Services& services, StreamStage& stage, Window& window, ShellModel& model, Notifier& notifier, settings::ui::ControlOptions& controlOptions, settings::ui::PictureOptions& picture,
-        settings::ui::SoundOptions& sound, play::ui::Mapping& mapping, Couch couch, std::function<void()> ended);
+        settings::ui::SoundOptions& sound, play::ui::Mapping& mapping, Couch couch, std::function<void()> ended,
+        CloudRetry retryCloud);
     ~StreamDriver() override;
 
     StreamDriver(const StreamDriver&) = delete;
@@ -130,9 +138,10 @@ private:
     auto offersRest() const -> bool;
     void askRest();
     void finishLeave(bool rest);
-    static auto launchStep(libchiaking::play::LaunchPhase phase) -> int;
-    static auto launchStepKey(int step) -> const char*;
-    void fail(const std::string& text, bool reconnect);
+    static auto failureKey(play::StreamLauncher::Failure failure) -> const char*;
+    auto launchProgress() const -> play::ui::ConnectingScreen::Progress;
+    auto cloudStopped(const play::SessionEnding& ending, const libchiaking::play::Outcome& outcome) const -> std::string;
+    void fail(const std::string& text, bool reconnect, bool retry = false);
 
     Services& services;
     StreamStage& stage;
@@ -145,6 +154,9 @@ private:
     Couch couch;
     Notifier& notifier;
     std::function<void()> ended;
+    CloudRetry retryCloud;
+    cloud::LaunchReport launchReport;
+    std::optional<cloud::CloudLaunch> lastCloud;
     play::StatsHudPlacement hudPlacement;
     play::ui::StatsBoard statsBoard;
     Clock::time_point nextStatsSample{};

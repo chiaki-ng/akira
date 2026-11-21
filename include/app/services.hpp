@@ -8,6 +8,7 @@ class AccountSettings;
 
 namespace akira::app {
 class AppSettings;
+class GameArt;
 class Strings;
 class UiDispatcher;
 class UiWindow;
@@ -81,6 +82,7 @@ struct Services {
     play::StreamPreferences& preferences;
     play::LazySession& session;
     trophies::TrophyManager& trophies;
+    GameArt& art;
     play::ChiakiCore& core;
 #if AKIRA_CLOUD
     cloud::Service& cloud;

@@ -141,7 +141,10 @@ void App::buildScreens()
 {
     Services& services = graph->services();
     CrashReport::stage("arisa settings screens");
-    help.emplace(helpDirectory, std::string());
+    chooseLanguage();
+    if (application->appearance() && ThemePacks::migrate(*application->appearance(), services.appSettings))
+        services.store.save();
+    help.emplace(helpDirectory, strings->language());
     log::info("[ARISA] {} help entries", help->size());
     picture.emplace(services.stream, services.store, services.platform.supplies(platform::PlatformCapability::fsr_4k));
     sound.emplace(services.stream, services.store);
@@ -186,10 +189,12 @@ void App::buildScreens()
     buildCouch();
     CrashReport::stage("arisa stream driver");
     driver = std::make_shared<StreamDriver>(services, *stage, *window, model, notices, *controls, *picture, *sound, *mapping,
-        StreamDriver::Couch{ .table = couchBridge ? &*couchBridge : nullptr, .model = couch ? &*couch : nullptr }, [this] {
+        StreamDriver::Couch{ .table = couchBridge ? &*couchBridge : nullptr, .model = couch ? &*couch : nullptr },
+        [this] {
             if (consoleOperations)
                 consoleOperations->streamEnded();
-        });
+        },
+        [this](const cloud::CloudLaunch& launch) { retryCloud(launch); });
     driver->watchFocus();
     if (couchBridge && couch)
         couchBridge->follow(CouchBridge::Events{
@@ -238,8 +243,7 @@ void App::buildScreens()
 void App::buildPages()
 {
     Services& services = graph->services();
-    art.emplace(services.http, services.dispatcher);
-    artSession.emplace(*art);
+    artSession.emplace(services.art);
     trophyDesk.emplace(services);
     trophyModel.emplace(*trophyDesk, notices, services.strings);
 #if AKIRA_CLOUD
@@ -255,6 +259,24 @@ void App::buildPages()
         });
     cloudModel.emplace(*cloudDesk, notices, services.strings);
 #endif
+}
+
+void App::retryCloud(const cloud::CloudLaunch& launch)
+{
+#if AKIRA_CLOUD
+    if (cloudModel)
+        cloudModel->retry(launch.game());
+#else
+    log::warning("[ARISA] cloud retry for {} without cloud support", launch.name());
+#endif
+}
+
+void App::chooseLanguage()
+{
+    const auto system = providers->system_info().preferred_languages();
+    if (!system)
+        log::warning("[STRINGS] the console language is unavailable: {}", system.error().explanation());
+    strings->choose(StringCatalog::resolve(graph->appSettings().debugLocale(), system.value_or(std::vector<std::string>{})));
 }
 
 void App::profileChanged()

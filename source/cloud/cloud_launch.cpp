@@ -15,6 +15,16 @@ CloudLaunch::CloudLaunch(std::shared_ptr<libchiaking::users::PsUser> player, cat
 {
 }
 
+auto CloudLaunch::game() const -> Game
+{
+    Game made;
+    made.productId = product().text();
+    made.name = name();
+    made.serviceType = ps5() ? "pscloud" : "psnow";
+    made.streamServiceType = made.serviceType;
+    return made;
+}
+
 auto CloudLaunch::start(akira::play::ChiakiCore& core, play::Preferences preferences, libchiaking::media::MediaSink& media,
                         play::SessionEvents& events) const -> Started
 {

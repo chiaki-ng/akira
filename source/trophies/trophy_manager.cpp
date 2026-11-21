@@ -1,4 +1,5 @@
 #include "trophies/trophy_manager.hpp"
+#include "app/game_art.hpp"
 #include "play/chiaki_core.hpp"
 #include "util/http.hpp"
 #include "util/http_pool.hpp"
@@ -6,6 +7,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <cstddef>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -26,8 +28,8 @@ namespace trophies = libchiaking::trophies;
 namespace catalog = libchiaking::catalog;
 using libchiaking::users::Unanswered;
 
-TrophyManager::TrophyManager(HttpPool& http, app::UiDispatcher& dispatcher, play::ChiakiCore& core)
-    : http(http), dispatcher(dispatcher), core(core)
+TrophyManager::TrophyManager(HttpPool& http, app::GameArt& art, app::UiDispatcher& dispatcher, play::ChiakiCore& core)
+    : http(http), art(art), dispatcher(dispatcher), core(core)
 {
     dropLegacyCache();
 }
@@ -185,7 +187,7 @@ void TrophyManager::flushCache()
 {
     if (auto request = begin())
         trophies().start_over(*request->user);
-    icons.clear();
+    art.clear(app::ArtCache::Shelf::trophies);
     onActiveProfileChanged();
     log::info("Trophy: cache flushed");
 }
@@ -522,101 +524,19 @@ void TrophyManager::fetchIcon(const std::string& url, IconCallback onSuccess)
 {
     if (url.empty())
         return;
-
-    {
-        std::lock_guard<std::mutex> lock(iconMutex);
-
-        if (auto cached = icons.remembered(url))
-        {
-            if (onSuccess)
-            {
-                std::vector<uint8_t> bytes = std::move(*cached);
-                dispatcher.post([onSuccess, url, bytes]() { onSuccess(url, bytes); });
-            }
-            return;
-        }
-
-        auto existing = iconWaiters.find(url);
-        bool alreadyInFlight = existing != iconWaiters.end();
-
-        if (onSuccess)
-            iconWaiters[url].push_back(std::move(onSuccess));
-        else if (!alreadyInFlight)
-            iconWaiters[url];
-
-        if (alreadyInFlight)
-            return;
-    }
-
-    http.submit([this, url](HttpSession& session) {
-        std::vector<uint8_t> bytes;
-        auto stored = icons.load(url);
-        bool usable = stored.has_value();
-        bool fromDisk = usable;
-        if (stored)
-            bytes = std::move(*stored);
-
-        if (!usable)
-        {
-            HttpResponse response = session.get(url, "", ICON_TIMEOUT_S);
-
-            if (response.transportFailed())
-            {
-                log::warning("Trophy icon fetch failed ({}): {}", url, response.error);
-            }
-            else if (response.status != 200)
-            {
-                log::warning("Trophy icon fetch returned HTTP {} for {}", response.status, url);
-            }
-            else if (response.body.size() > ICON_MAX_BYTES)
-            {
-                log::warning("Trophy icon {} is {} bytes, over the {} byte cap, dropping",
-                    url, response.body.size(), ICON_MAX_BYTES);
-            }
-            else if (response.body.empty())
-            {
-                log::warning("Trophy icon {} came back empty", url);
-            }
-            else
-            {
-                bytes.assign(response.body.begin(), response.body.end());
-                usable = true;
-            }
-        }
-
-        if (usable)
-            icons.remember(url, bytes);
-
-        std::vector<IconCallback> waiters;
-        {
-            std::lock_guard<std::mutex> lock(iconMutex);
-            auto entry = iconWaiters.find(url);
-            if (entry != iconWaiters.end())
-            {
-                waiters.swap(entry->second);
-                iconWaiters.erase(entry);
-            }
-        }
-
-        if (!usable)
-            return;
-
-        if (!fromDisk)
-            icons.save(url, bytes);
-
-        if (waiters.empty())
-            return;
-
-        dispatcher.post([waiters, url, bytes]() {
-            for (const IconCallback& waiter : waiters)
-                waiter(url, bytes);
+    art.fetch(url, app::ArtCache::Shelf::trophies,
+        [&dispatcher = dispatcher, url, onSuccess = std::move(onSuccess)](std::optional<app::ArtSource::Bytes> bytes) {
+            if (!bytes || !onSuccess)
+                return;
+            std::vector<uint8_t> raw(bytes->size());
+            std::ranges::transform(*bytes, raw.begin(), [](std::byte value) { return std::to_integer<uint8_t>(value); });
+            dispatcher.post([onSuccess, url, raw = std::move(raw)] { onSuccess(url, raw); });
         });
-    });
 }
 
 void TrophyManager::discardIcon(const std::string& url)
 {
-    icons.discard(url);
+    art.discard(url);
     log::warning("Trophy: discarded the cached icon for {}", url);
 }
 

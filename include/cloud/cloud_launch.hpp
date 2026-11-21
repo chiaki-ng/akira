@@ -7,6 +7,7 @@
 #include <libchiaking/play.hpp>
 
 #include "app/strings.hpp"
+#include "cloud/models.hpp"
 
 namespace akira::play {
 class ChiakiCore;
@@ -25,6 +26,7 @@ public:
     auto product() const noexcept -> const libchiaking::catalog::ProductId& { return cleared.product; }
     auto service() const noexcept -> libchiaking::catalog::ServiceGeneration { return cleared.service; }
     auto ps5() const noexcept -> bool { return cleared.service == libchiaking::catalog::ServiceGeneration::ps5_cloud; }
+    auto game() const -> Game;
 
     [[nodiscard]] auto start(akira::play::ChiakiCore& core, libchiaking::play::Preferences preferences,
                              libchiaking::media::MediaSink& media, libchiaking::play::SessionEvents& events) const

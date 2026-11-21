@@ -51,7 +51,7 @@ namespace runtime = ::arisa::runtime;
 
 StreamDriver::StreamDriver(Services& services, StreamStage& stage, Window& window, ShellModel& model, Notifier& notifier,
     settings::ui::ControlOptions& controlOptions, settings::ui::PictureOptions& picture, settings::ui::SoundOptions& sound,
-    play::ui::Mapping& mapping, Couch couch, std::function<void()> ended)
+    play::ui::Mapping& mapping, Couch couch, std::function<void()> ended, CloudRetry retryCloud)
     : services(services)
     , stage(stage)
     , window(window)
@@ -63,6 +63,7 @@ StreamDriver::StreamDriver(Services& services, StreamStage& stage, Window& windo
     , couch(couch)
     , notifier(notifier)
     , ended(std::move(ended))
+    , retryCloud(std::move(retryCloud))
 {
 }
 
@@ -325,16 +326,15 @@ void StreamDriver::open(consoles::Host& target, libchiaking::play::ConsoleHandov
         session.FreeController();
         controllerReady = false;
         session.FreeVideo();
-        fail(services.strings.format("akira/connection/connect_failed_title",
-                 services.strings.text(opened.error() == play::StreamLauncher::Failure::NotRegistered
-                         ? "akira/connection/fail_regist"
-                         : "akira/connection/fail_generic")),
+        fail(services.strings.format("akira/connection/connect_failed_title", services.strings.text(failureKey(opened.error()))),
             false);
         return;
     }
 
     connection = std::move(*opened);
     host = &target;
+    launchReport = cloud::LaunchReport();
+    lastCloud = target.cloudLaunch() ? std::optional(*target.cloudLaunch()) : std::nullopt;
     lastConsole = target.getHostName();
     sessionStarted = false;
     intentionalDisconnect = false;
@@ -370,8 +370,9 @@ void StreamDriver::tick()
 
     if (!videoActive)
     {
-        model.stage(play::ui::ConnectingScreen::progressOf(flow.ring(), host ? host->getHostName() : lastConsole,
-            services.strings));
+        model.stage(launchReport.reported() ? launchProgress()
+                                            : play::ui::ConnectingScreen::progressOf(flow.ring(),
+                                                  host ? host->getHostName() : lastConsole, services.strings));
         return;
     }
 
@@ -566,6 +567,15 @@ void StreamDriver::reconnect()
 {
     if (connection)
         return;
+    if (lastCloud)
+    {
+        if (!retryCloud)
+            return;
+        log::info("[ARISA] retrying the cloud launch of {}", lastCloud->name());
+        notifier.notify(services.strings.text("akira/stream/reconnecting"));
+        retryCloud(*lastCloud);
+        return;
+    }
     const auto& entries = services.hosts.entries();
     const auto found = entries.find(lastConsole);
     if (found == entries.end() || !found->second)
@@ -808,14 +818,26 @@ void StreamDriver::stop()
     log::info("[ARISA] stream stopped; back on the console list");
 }
 
-void StreamDriver::fail(const std::string& text, bool offerReconnect)
+void StreamDriver::fail(const std::string& text, bool offerReconnect, bool retry)
 {
     const std::size_t split = text.find("\n\n");
     model.ended(ShellModel::Ending{
         .title = split == std::string::npos ? text : text.substr(0, split),
         .message = split == std::string::npos ? std::string() : text.substr(split + 2),
         .reconnect = offerReconnect,
+        .retry = retry,
     });
+}
+
+auto StreamDriver::cloudStopped(const play::SessionEnding& ending, const libchiaking::play::Outcome& outcome) const
+    -> std::string
+{
+    std::string message = ending.duringConnect()
+        ? services.strings.text(ending.failureKey())
+        : services.strings.format("akira/stream/session_ended", services.strings.text(ending.reasonKey()));
+    if (outcome.launch_refused() && host && host->cloudLaunch())
+        message = cloud::CloudLaunch::refusalText(services.strings, *outcome.launch_refused(), host->cloudLaunch()->name());
+    return services.strings.format("akira/cloud/start_stopped", message);
 }
 
 void StreamDriver::onConnectProgress(const libchiaking::play::ConnectProgress& progress)
@@ -834,41 +856,37 @@ void StreamDriver::startCloud(std::shared_ptr<consoles::Host> target)
         owned.reset();
 }
 
-auto StreamDriver::launchStep(libchiaking::play::LaunchPhase phase) -> int
+auto StreamDriver::launchProgress() const -> play::ui::ConnectingScreen::Progress
 {
-    switch (phase)
-    {
-        case libchiaking::play::LaunchPhase::starting: return 1;
-        case libchiaking::play::LaunchPhase::preparing: return 2;
-        case libchiaking::play::LaunchPhase::finding_server: return 3;
-        case libchiaking::play::LaunchPhase::connecting: return 4;
-    }
-    return 1;
-}
-
-auto StreamDriver::launchStepKey(int step) -> const char*
-{
-    switch (step)
-    {
-        case 2: return "akira/cloud/start_preparing";
-        case 3: return "akira/cloud/start_finding_server";
-        case 4: return "akira/cloud/start_connecting";
-        default: break;
-    }
-    return "akira/cloud/start_checking";
+    return play::ui::ConnectingScreen::Progress{
+        .console = host ? host->getHostName() : lastConsole,
+        .status = launchReport.status(services.strings),
+        .step = launchReport.step(),
+        .steps = cloud::LaunchReport::steps,
+        .activity = launchReport.activity(services.strings),
+        .details = launchReport.details(services.strings, Clock::now()),
+    };
 }
 
 void StreamDriver::onLaunchProgress(const libchiaking::play::LaunchProgress& progress)
 {
     if (!connection)
         return;
-    const int step = launchStep(progress.phase());
-    std::string status = services.strings.text(launchStepKey(step));
-    if (step <= 3)
-        if (const auto queue = progress.queue_position())
-            status = services.strings.format("akira/cloud/start_queued", *queue);
-    model.stage(play::ui::ConnectingScreen::Progress{
-        .console = host ? host->getHostName() : lastConsole, .status = std::move(status), .step = step, .steps = 4 });
+    launchReport.follow(progress, Clock::now());
+    model.stage(launchProgress());
+}
+
+auto StreamDriver::failureKey(play::StreamLauncher::Failure failure) -> const char*
+{
+    switch (failure)
+    {
+        case play::StreamLauncher::Failure::NotRegistered: return "akira/connection/fail_regist";
+        case play::StreamLauncher::Failure::Worker: return "akira/connection/failed_create_thread";
+        case play::StreamLauncher::Failure::NoPreferences:
+        case play::StreamLauncher::Failure::Codec:
+        case play::StreamLauncher::Failure::Video: break;
+    }
+    return "akira/connection/fail_generic";
 }
 
 void StreamDriver::onPlaying()
@@ -876,20 +894,23 @@ void StreamDriver::onPlaying()
     flow.connected();
     sessionStarted = true;
     log::info("[ARISA] session playing");
+    notifier.notify(services.strings.format("akira/stream/connected_to", host ? host->getHostName() : lastConsole));
 }
 
 void StreamDriver::onEnded(const libchiaking::play::Outcome& outcome)
 {
     if (!connection)
         return;
+    const bool cloud = host && host->isCloud();
     const play::SessionEnding ending(outcome, play::SessionEnding::Situation{
         .loginPinEntered = false,
         .duringConnect = !videoActive,
         .consoleAwake = host && host->isAwake(),
-        .cloudScreen = false,
-        .cloudLaunch = false,
+        .cloudScreen = cloud,
+        .cloudLaunch = host && host->cloudLaunch(),
     });
     const std::string reason = services.strings.text(ending.reasonKey());
+    const std::string stopped = cloud ? cloudStopped(ending, outcome) : std::string();
     stop();
     switch (ending.verdict())
     {
@@ -899,8 +920,11 @@ void StreamDriver::onEnded(const libchiaking::play::Outcome& outcome)
         case play::SessionEnding::Verdict::Unpaired:
             fail(services.strings.text("akira/stream/ps4_console_unregistered"), false);
             return;
-        case play::SessionEnding::Verdict::Reconnect:
         case play::SessionEnding::Verdict::CloudFailure:
+            log::info("[ARISA] the cloud session ended, retry offered: {}", !ending.endsPlayTime());
+            fail(stopped, !ending.endsPlayTime(), true);
+            return;
+        case play::SessionEnding::Verdict::Reconnect:
         case play::SessionEnding::Verdict::LaunchRefused:
         case play::SessionEnding::Verdict::Failed:
             break;
@@ -916,6 +940,16 @@ void StreamDriver::onRefused(const libchiaking::play::StartRefusal& refusal)
 {
     if (!connection)
         return;
+    if (host && host->isCloud())
+    {
+        const cloud::CloudLaunch* launch = host->cloudLaunch();
+        const std::string text = refusal.launch() && launch
+            ? cloud::CloudLaunch::refusalText(services.strings, *refusal.launch(), launch->name())
+            : services.strings.text(play::ConnectFailure::forRefusal(refusal.kind()));
+        stop();
+        fail(services.strings.format("akira/cloud/start_stopped", text), true, true);
+        return;
+    }
     stop();
     fail(services.strings.format("akira/connection/connect_failed_title",
              services.strings.text(play::ConnectFailure::forRefusal(refusal.kind()))),

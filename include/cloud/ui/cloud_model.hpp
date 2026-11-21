@@ -103,6 +103,7 @@ public:
     void close();
     void play();
     void choose(const Game& game);
+    void retry(const Game& previous);
     void dismissChoice();
     void showStore(bool addingToLibrary);
     void dismissCode();

@@ -1,15 +1,13 @@
 #pragma once
 
-#include <cstddef>
-#include <filesystem>
 #include <map>
 #include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "app/art_cache.hpp"
 #include "app/art_source.hpp"
-#include "trophies/icon_cache.hpp"
 
 class HttpPool;
 class HttpSession;
@@ -20,30 +18,34 @@ class UiDispatcher;
 
 class GameArt final : public ArtSource {
 public:
-    static constexpr const char* directory = "sdmc:/switch/akira/cache/art";
-
     GameArt(HttpPool& http, UiDispatcher& dispatcher);
 
     GameArt(const GameArt&) = delete;
     GameArt& operator=(const GameArt&) = delete;
 
     void fetch(std::string url, Delivery done) override;
+    void fetch(std::string url, ArtCache::Shelf shelf, Delivery done);
+    void discard(const std::string& url);
+    void clear(ArtCache::Shelf shelf);
 
 private:
-    static constexpr std::size_t memoryLimit = 4 * 1024 * 1024;
-    static constexpr std::size_t artLimit = 4 * 1024 * 1024;
     static constexpr long timeoutSeconds = 20;
 
-    void download(HttpSession& session, const std::string& url);
-    auto downloaded(HttpSession& session, const std::string& url) -> std::optional<trophies::IconCache::Bytes>;
+    struct Waiting {
+        ArtCache::Shelf shelf;
+        std::vector<Delivery> deliveries;
+    };
+
+    void download(HttpSession& session, const std::string& url, ArtCache::Shelf shelf);
+    auto downloaded(HttpSession& session, const std::string& url, ArtCache::Shelf shelf) -> std::optional<ArtCache::Bytes>;
     void deliver(const std::string& url, std::optional<Bytes> bytes);
-    static auto converted(const trophies::IconCache::Bytes& raw) -> Bytes;
+    static auto converted(const ArtCache::Bytes& raw) -> Bytes;
 
     HttpPool& http;
     UiDispatcher& dispatcher;
-    trophies::IconCache cache{ directory, memoryLimit, artLimit };
+    ArtCache cache;
     std::mutex mutex;
-    std::map<std::string, std::vector<Delivery>, std::less<>> waiting;
+    std::map<std::string, Waiting, std::less<>> waiting;
 };
 
 }

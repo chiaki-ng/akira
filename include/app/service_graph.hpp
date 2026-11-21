@@ -7,6 +7,7 @@
 
 #include "accounts/account_settings.hpp"
 #include "app/app_settings.hpp"
+#include "app/game_art.hpp"
 #include "app/services.hpp"
 #include "app/ui_dispatcher.hpp"
 #include "app/ui_window.hpp"
@@ -113,6 +114,7 @@ private:
     std::optional<log::FfmpegLog> ffmpegLog;
     std::optional<HttpPool> http;
     std::optional<network::WireGuardManager> wireGuard;
+    std::optional<GameArt> art;
     std::optional<trophies::TrophyManager> trophies;
 #if AKIRA_CLOUD
     std::optional<cloud::Service> cloud;

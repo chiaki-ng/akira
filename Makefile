@@ -130,6 +130,7 @@ ARISA_TEST_MODELS   = $(CURDIR)/source/log/log.cpp \
                       $(CURDIR)/source/cloud/release_notice.cpp \
                       $(CURDIR)/source/cloud/game_badges.cpp \
                       $(CURDIR)/source/cloud/game_facts.cpp \
+                      $(CURDIR)/source/cloud/launch_report.cpp \
                       $(CORE_DIR)/src/core/trophies/model/ids.cpp \
                       $(CORE_DIR)/src/core/utils/text/ascii.cpp \
                       $(CORE_DIR)/src/core/play/model/outcome.cpp \
@@ -230,6 +231,7 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/cloud/release_notice.cpp \
                 $(CURDIR)/source/cloud/title_refresh_cooldown.cpp \
                 $(CURDIR)/source/cloud/start_steps.cpp \
+                $(CURDIR)/source/cloud/launch_report.cpp \
                 $(CURDIR)/source/cloud/fetch_progress.cpp \
                 $(CURDIR)/source/consoles/pair_crypto.cpp \
                 $(CURDIR)/source/consoles/console_address.cpp \
@@ -296,6 +298,7 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/app/app_settings.cpp \
                 $(CURDIR)/source/network/dns_client.cpp \
                 $(CURDIR)/source/trophies/icon_cache.cpp \
+                $(CURDIR)/source/app/art_cache.cpp \
                 $(CURDIR)/source/trophies/title_listing.cpp \
                 $(CURDIR)/source/trophies/trophy_listing.cpp \
                 $(CURDIR)/source/consoles/recent_play.cpp \
