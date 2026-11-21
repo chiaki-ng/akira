@@ -387,7 +387,7 @@ bool App::frame()
         cloudModel->tick(now);
 #endif
     model.tick(now);
-    return !quitting && !model.view().get().exitConfirmed && !appletMainLoop();
+    return quitting || model.view().get().exitConfirmed || !appletMainLoop();
 }
 
 auto App::launchedAsApplication() -> bool
@@ -406,7 +406,7 @@ int App::runRestricted()
     CrashReport::stage("arisa applet notice");
     const auto ran = application->run_until([this](runtime::Root&) {
         window->tick();
-        return !model.view().get().exitConfirmed && !appletMainLoop();
+        return model.view().get().exitConfirmed || !appletMainLoop();
     });
     if (!ran)
         log::error("[ARISA] the frame loop stopped: {}", ran.error().explanation());
