@@ -1,5 +1,8 @@
 #include "app/service_graph.hpp"
 
+#include <condition_variable>
+#include <mutex>
+
 #include <SDL2/SDL.h>
 #include <curl/curl.h>
 
@@ -197,27 +200,26 @@ void ServiceGraph::startAsyncLogging()
             (curlInfo->features & CURL_VERSION_IPV6) != 0,
             (curlInfo->features & CURL_VERSION_ASYNCHDNS) != 0);
     }
-    logFlush = seams.dispatcher.repeatEvery(250ms, [this] { flushLog(); });
+    logFlush = std::jthread([](std::stop_token stop) {
+        std::mutex idle;
+        std::condition_variable_any wake;
+        std::unique_lock lock(idle);
+        while (!stop.stop_requested())
+        {
+            wake.wait_for(lock, stop, 250ms, [&stop] { return stop.stop_requested(); });
+            log::Log::process().flush();
+        }
+    });
     log::info("Async logging enabled via thread pool");
 
     log::info("Chiaki library initialized");
-}
-
-void ServiceGraph::flushLog()
-{
-    if (flushInFlight->exchange(true, std::memory_order_acq_rel))
-        return;
-    seams.dispatcher.runOnWorker([inFlight = flushInFlight] {
-        log::Log::process().flush();
-        inFlight->store(false, std::memory_order_release);
-    });
 }
 
 void ServiceGraph::shutDown()
 {
     log::info("Application exiting");
 
-    logFlush.reset();
+    logFlush = {};
     focusWatches.clear();
 
     discovery->setServiceEnabled(false);

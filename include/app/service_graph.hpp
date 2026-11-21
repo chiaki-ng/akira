@@ -3,6 +3,7 @@
 #include <atomic>
 #include <memory>
 #include <optional>
+#include <thread>
 #include <vector>
 
 #include "accounts/account_settings.hpp"
@@ -92,7 +93,6 @@ private:
 
     static bool fsr4k();
     std::function<void()> signInRenewed();
-    void flushLog();
 
     UiSeams seams;
     network::CustomDns dns;
@@ -125,8 +125,7 @@ private:
     std::optional<play::LazySession> session;
     std::optional<Services> services_;
     std::vector<std::unique_ptr<UiWindow::FocusWatch>> focusWatches;
-    std::unique_ptr<UiDispatcher::Repeating> logFlush;
-    std::shared_ptr<std::atomic<bool>> flushInFlight = std::make_shared<std::atomic<bool>>(false);
+    std::jthread logFlush;
 };
 
 }
