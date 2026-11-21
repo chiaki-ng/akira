@@ -4,31 +4,25 @@
 #include <arisa/components/button_role.hpp>
 #include <arisa/components/button_style.hpp>
 #include <arisa/components/hstack.hpp>
-#include <arisa/components/labeled_content.hpp>
 #include <arisa/components/panel_radius.hpp>
 #include <arisa/components/spacer.hpp>
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
-#include <arisa/composition/visibility.hpp>
-#include <arisa/controls/text_field.hpp>
-#include <arisa/provider/text_input/text_input_traits.hpp>
-#include <arisa/structure/form.hpp>
-#include <arisa/structure/form_style.hpp>
-#include <arisa/structure/section.hpp>
+#include <arisa/composition/binding.hpp>
+#include <arisa/structure/pin_field.hpp>
 #include <arisa/theme/glass.hpp>
 #include <arisa/theme/space.hpp>
 #include <arisa/theme/typography.hpp>
 
 #include <algorithm>
 #include <cctype>
+#include <utility>
 #include <vector>
 
 namespace akira::play::ui {
 
 namespace components = ::arisa::components;
 namespace composition = ::arisa::composition;
-namespace controls = ::arisa::controls;
-namespace provider = ::arisa::provider;
 namespace structure = ::arisa::structure;
 namespace theme = ::arisa::theme;
 
@@ -62,15 +56,16 @@ auto SeatPasscode::body(composition::Context& context) const -> composition::Ele
                            .font(theme::Font::callout)
                            .foreground_style(theme::ColourRole::red)
                            .id(composition::ElementKey{ "seat-passcode.error" }));
-    rows.push_back(structure::Form(structure::Section(
-        components::LabeledContent(strings->text("akira/couch/passcode"),
-            controls::TextField(strings->text("akira/couch/passcode"), typed,
-                controls::TextFieldOptions{ .prompt = strings->format("akira/pin/digits_hint", length) })
-                .keyboard_type(provider::KeyboardType::number_pad)
-                .labels_hidden()
-                .id(composition::ElementKey{ "seat-passcode.field" }))))
-                       .form_style(structure::FormStyle::cards())
-                       .scroll_content_background(composition::Visibility::hidden));
+    auto submit = [held, typed](const std::string& passcode) {
+        if (!complete(passcode))
+            return;
+        typed.set(std::string());
+        held->submitPasscode(passcode);
+    };
+    rows.push_back(structure::PinField(length,
+        composition::Binding<std::string>([typed] { return typed.get(); }, [typed](std::string value) { typed.set(std::move(value)); }),
+        structure::PinField::Options{ .secure = true, .complete = submit })
+                       .id(composition::ElementKey{ "seat-passcode.field" }));
     rows.push_back(components::HStack(components::HStackOptions{ .spacing = theme::space::md }, components::Spacer(),
         components::Button(strings->text("akira/common/cancel"), components::ButtonRole::cancel,
             [held, typed] {
@@ -79,14 +74,7 @@ auto SeatPasscode::body(composition::Context& context) const -> composition::Ele
             })
             .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
             .id(composition::ElementKey{ "seat-passcode.cancel" }),
-        components::Button(strings->text("akira/couch/join"),
-            [held, typed] {
-                const std::string passcode = typed.get();
-                if (!complete(passcode))
-                    return;
-                typed.set(std::string());
-                held->submitPasscode(passcode);
-            })
+        components::Button(strings->text("akira/couch/join"), [submit, typed] { submit(typed.get()); })
             .button_style(components::ButtonStyle::glass_prominent())
             .disabled(!complete(typed.get()))
             .id(composition::ElementKey{ "seat-passcode.join" })));

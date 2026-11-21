@@ -9,7 +9,7 @@ namespace akira::app {
 
 QrMatrix::QrMatrix(int side, std::vector<bool> modules)
     : side(side)
-    , modules(std::move(modules))
+    , cells(std::move(modules))
 {
 }
 
@@ -35,7 +35,7 @@ auto QrMatrix::dark(int column, int row) const -> bool
 {
     if (column < 0 || row < 0 || column >= side || row >= side)
         return false;
-    return modules[static_cast<std::size_t>(row * side + column)];
+    return cells[static_cast<std::size_t>(row * side + column)];
 }
 
 }

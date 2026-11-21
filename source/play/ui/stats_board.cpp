@@ -4,14 +4,14 @@
 
 namespace akira::play::ui {
 
-void StatsBoard::show(StatsOverlayMode mode)
+void StatsBoard::show(DiagnosticsAppearance appearance)
 {
-    state.write(&View::mode, mode);
+    state.write(&View::appearance, appearance);
 }
 
-void StatsBoard::refresh(StatsReadout readout)
+void StatsBoard::refresh(DiagnosticsReport report)
 {
-    state.write(&View::readout, std::move(readout));
+    state.write(&View::report, std::move(report));
 }
 
 void StatsBoard::place(StatsHudPlacement::Point origin)

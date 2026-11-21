@@ -58,6 +58,13 @@ void StreamSettings::read(const toml::table& config)
         overlayX = static_cast<float>(*val);
     if (auto val = config["overlay"]["stats_y"].value<double>())
         overlayY = static_cast<float>(*val);
+    const auto overlay = config["overlay"];
+    appearance.level = parsed(DiagnosticsAppearance::levels, &StreamSettings::levelName,
+        overlay["diagnostics_level"].value_or(std::string_view()), appearance.level);
+    appearance.glass = parsed(DiagnosticsAppearance::glasses, &StreamSettings::glassName,
+        overlay["diagnostics_glass"].value_or(std::string_view()), appearance.glass);
+    appearance.layout = parsed(DiagnosticsAppearance::layouts, &StreamSettings::layoutName,
+        overlay["diagnostics_layout"].value_or(std::string_view()), appearance.layout);
 
     if (auto val = config["stream"]["request_idr_on_fec_failure"].value<bool>())
         idrOnFecFailure = *val;
@@ -93,12 +100,18 @@ void StreamSettings::write(toml::table& config) const
     picture.insert("rcas_sharpness", static_cast<double>(sharpness));
     config.insert("picture", std::move(picture));
 
+    toml::table overlay;
     if (overlayX >= 0.0f && overlayY >= 0.0f) {
-        toml::table overlay;
         overlay.insert("stats_x", static_cast<double>(overlayX));
         overlay.insert("stats_y", static_cast<double>(overlayY));
-        config.insert("overlay", std::move(overlay));
     }
+    if (appearance != DiagnosticsAppearance{}) {
+        overlay.insert("diagnostics_level", levelName(appearance.level));
+        overlay.insert("diagnostics_glass", glassName(appearance.glass));
+        overlay.insert("diagnostics_layout", layoutName(appearance.layout));
+    }
+    if (!overlay.empty())
+        config.insert("overlay", std::move(overlay));
 
     toml::table& stream = settings::SettingsStore::table(config, "stream");
     stream.insert("request_idr_on_fec_failure", idrOnFecFailure);
@@ -231,6 +244,44 @@ int StreamSettings::fsrTargetForResolution(VideoResolution resolution)
 void StreamSettings::setDitheringStrength(float value)
 {
     ditherStrength = std::max(1.0f, std::min(10.0f, value));
+}
+
+auto StreamSettings::levelName(DiagnosticsAppearance::Level level) -> const char*
+{
+    switch (level)
+    {
+        case DiagnosticsAppearance::Level::Off: return "off";
+        case DiagnosticsAppearance::Level::Compact: return "compact";
+        case DiagnosticsAppearance::Level::Standard: return "standard";
+        case DiagnosticsAppearance::Level::Full: return "full";
+    }
+    return "off";
+}
+
+auto StreamSettings::glassName(DiagnosticsAppearance::Glass glass) -> const char*
+{
+    switch (glass)
+    {
+        case DiagnosticsAppearance::Glass::Regular: return "regular";
+        case DiagnosticsAppearance::Glass::Clear: return "clear";
+        case DiagnosticsAppearance::Glass::ClearDimmed: return "clearDimmed";
+        case DiagnosticsAppearance::Glass::HealthTint: return "healthTint";
+        case DiagnosticsAppearance::Glass::Solid: return "solid";
+    }
+    return "regular";
+}
+
+auto StreamSettings::layoutName(DiagnosticsAppearance::Layout layout) -> const char*
+{
+    return layout == DiagnosticsAppearance::Layout::Floating ? "floating" : "sheet";
+}
+
+template <typename Value, std::size_t Count>
+auto StreamSettings::parsed(const std::array<Value, Count>& options, auto (*name)(Value)->const char*,
+    std::string_view text, Value fallback) -> Value
+{
+    const auto found = std::ranges::find_if(options, [name, text](Value option) { return text == name(option); });
+    return found == options.end() ? fallback : *found;
 }
 
 void StreamSettings::setStatsOverlayPosition(float x, float y)

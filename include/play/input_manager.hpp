@@ -13,6 +13,7 @@
 #include "play/gesture_timing.hpp"
 #include "platform/pads/pad.hpp"
 #include "play/sample_cadence.hpp"
+#include "play/screenshot_chord.hpp"
 #include "play/touch_claim.hpp"
 #include "platform/pads/provider.hpp"
 
@@ -77,6 +78,7 @@ public:
     void sendRumble(float left, float right, float freqLow, float freqHigh,
         float nonNativeScale = 1.0f);
     bool menuHeld() const { return m_menu_held.load(std::memory_order_acquire); }
+    void setScreenshotChord(bool enabled) { m_screenshot_chord.store(enabled, std::memory_order_release); }
 
     void applyPadInput(akira::platform::Pad& pad, libchiaking::controllers::ControllerState& state);
 
@@ -108,6 +110,9 @@ private:
     app::UiWindow& m_window;
     std::mutex& m_state_mutex;
     std::atomic<bool> m_menu_held{false};
+    std::atomic<bool> m_screenshot_chord{false};
+    play::ScreenshotChord m_chord;
+    u64 m_swallowed = 0;
 
     SyntheticSwipe m_swipes[4];
 

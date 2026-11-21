@@ -20,6 +20,7 @@
 #include <arisa/composition/binding.hpp>
 #include <arisa/composition/symbol_variants.hpp>
 #include <arisa/controls/menu.hpp>
+#include <arisa/controls/menu_style.hpp>
 #include <arisa/controls/picker.hpp>
 #include <arisa/controls/picker_style.hpp>
 #include <arisa/controls/text_field.hpp>
@@ -192,6 +193,7 @@ auto LibraryPage::optionsMenu(const CloudModel::View& view) const -> composition
             return composition::Element(components::Group(std::move(items)));
         },
         components::Image(components::Image::SystemName{ "more_horiz" }).frame({ .width = 22.0F, .height = 22.0F }))
+        .menu_style(controls::MenuStyle::button())
         .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
         .button_border_shape(components::ButtonBorderShape::circle())
         .id(composition::ElementKey{ "cloud.options" });

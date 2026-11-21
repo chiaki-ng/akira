@@ -59,7 +59,8 @@ auto ProfileDesk::entries() const -> std::vector<Entry>
         listed.push_back(Entry{ .id = profile.id,
             .name = profile.label().empty() ? std::string() : services.appSettings.maskAccountName(profile.label()),
             .kind = kindOf(profile),
-            .active = profile.id == active });
+            .active = profile.id == active,
+            .avatarUrl = profile.avatarUrl });
     return listed;
 }
 
@@ -166,6 +167,7 @@ void ProfileDesk::summary(std::function<void(Summary)> shown)
         .name = active->label().empty() ? std::string() : services.appSettings.maskAccountName(active->label()),
         .kind = kindOf(*active),
         .cloudKey = active->legacy ? std::string() : cloudKey(),
+        .avatarUrl = active->avatarUrl,
     });
     shown(*made);
     if (active->legacy)
@@ -177,6 +179,8 @@ void ProfileDesk::summary(std::function<void(Summary)> shown)
             if (!profile.online_id.empty())
                 made->name = services.appSettings.maskAccountName(profile.online_id);
             made->plus = profile.membership.is_ps_plus_member().value_or(false);
+            if (profile.avatar_url)
+                made->avatarUrl = *profile.avatar_url;
             shown(*made);
         },
         [](accounts::Status, const std::string&) {});

@@ -2,6 +2,7 @@
 
 #include <arisa/components/button.hpp>
 #include <arisa/components/button_border_shape.hpp>
+#include <arisa/components/button_sizing.hpp>
 #include <arisa/components/button_style.hpp>
 #include <arisa/components/divider.hpp>
 #include <arisa/components/environment.hpp>
@@ -182,8 +183,7 @@ auto TrophyPage::list(const TrophyModel::View& view, theme::Glass glass) const -
                 [page = *this](const std::pair<TrophyModel::Trophy, bool>& shown) {
                     return page.row(shown.first, shown.second);
                 }))
-            .padding(theme::Space{ 6.0F })
-            .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::top_leading }))
+            .padding(theme::Space{ 6.0F }))
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
         .glass_effect(glass, components::GlassPanel::shape(components::PanelRadius::large))
         .focus_section()
@@ -266,6 +266,7 @@ auto TrophyPage::row(const TrophyModel::Trophy& trophy, bool revealed) const -> 
         },
         std::move(label))
         .button_style(components::ButtonStyle::plain())
+        .button_sizing(components::ButtonSizing::flexible)
         .id(composition::ElementKey{ std::format("trophies.trophy.{}", id) });
 }
 

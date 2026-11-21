@@ -364,7 +364,7 @@ auto GamePage::band(const GameDetail& facts) const -> composition::Element
         std::move(parts))
         .padding(theme::Space{ 22.0F })
         .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::leading })
-        .glass_effect(theme::Glass::regular(), components::GlassPanel::shape(components::PanelRadius::medium))
+        .glass_panel(components::PanelRadius::medium)
         .id(composition::ElementKey{ "cloud.game.band" });
 }
 

@@ -79,6 +79,7 @@ public:
 
 private:
     static auto rowKey(std::string_view label, std::string_view help) -> std::string;
+    auto explained(std::string_view id) const -> bool;
     auto described(::arisa::composition::Element row, std::string_view help, const std::string& key) const
         -> ::arisa::composition::Element;
 

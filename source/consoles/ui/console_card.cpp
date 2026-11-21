@@ -16,6 +16,7 @@
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
 #include <arisa/controls/menu.hpp>
+#include <arisa/controls/menu_style.hpp>
 #include <arisa/theme/colour_value.hpp>
 #include <arisa/theme/glass.hpp>
 #include <arisa/theme/shape.hpp>
@@ -45,11 +46,13 @@ bool ConsoleCard::operator==(const ConsoleCard& other) const
     return card == other.card && compact == other.compact && commands == other.commands && strings == other.strings;
 }
 
-auto ConsoleCard::body(composition::Context& context) const -> composition::Element
+auto ConsoleCard::body(composition::Context&) const -> composition::Element
 {
     composition::Element art = components::Image(card.ps5 ? "img/console/ps5.png" : "img/console/ps4.png")
                                    .resizable()
                                    .aspect_ratio(std::nullopt, composition::ContentMode::fit)
+                                   .shadow(theme::ColourValue(theme::Colour::hex(0x000000)).opacity(artShadowOpacity),
+                                       artShadowRadius, 0.0F, artShadowDrop)
                                    .frame({ .width = artWidth, .height = artHeight })
                                    .opacity(card.dimmed ? 0.5F : 1.0F);
     composition::Element details = components::VStack(
@@ -68,8 +71,7 @@ auto ConsoleCard::body(composition::Context& context) const -> composition::Elem
         .padding(theme::Insets::symmetric(theme::Space{ horizontalPadding },
             theme::Space{ compact ? compactVerticalPadding : verticalPadding }))
         .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::leading })
-        .glass_effect(context.environment(components::Environment::theme).glass().panel,
-            components::GlassPanel::shape(components::PanelRadius::modal))
+        .glass_panel(components::PanelRadius::modal)
         .id(composition::ElementKey{ card.catalogName });
 }
 
@@ -165,6 +167,7 @@ auto ConsoleCard::optionsMenu() const -> composition::Element
             return composition::Element(components::Group(std::move(items)));
         },
         components::Image(components::Image::SystemName{ "more_horiz" }).frame({ .width = 24.0F, .height = 24.0F }))
+        .menu_style(controls::MenuStyle::button())
         .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
         .button_border_shape(components::ButtonBorderShape::circle())
         .control_size(components::ControlSize::large)

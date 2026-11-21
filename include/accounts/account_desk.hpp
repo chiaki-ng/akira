@@ -18,6 +18,7 @@ public:
         std::string name;
         Kind kind = Kind::Local;
         bool active = false;
+        std::string avatarUrl;
 
         friend bool operator==(const Entry&, const Entry&) = default;
     };
@@ -59,6 +60,7 @@ public:
         std::string cloudKey;
         bool plus = false;
         std::optional<Trophies> trophies;
+        std::string avatarUrl;
 
         friend bool operator==(const Summary&, const Summary&) = default;
     };

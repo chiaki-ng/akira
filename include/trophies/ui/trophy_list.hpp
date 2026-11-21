@@ -33,7 +33,7 @@ public:
 
 private:
     auto toolbar(const TrophyModel::View& view) const -> ::arisa::composition::Element;
-    auto summary(const TrophyModel::View& view, ::arisa::theme::Glass glass) const -> ::arisa::composition::Element;
+    auto summary(const TrophyModel::View& view) const -> ::arisa::composition::Element;
     auto rows(const TrophyModel::View& view, ::arisa::theme::Glass glass) const -> ::arisa::composition::Element;
     auto sortMenu(const TrophyModel::View& view) const -> ::arisa::composition::Element;
     auto filterMenu(const TrophyModel::View& view) const -> ::arisa::composition::Element;

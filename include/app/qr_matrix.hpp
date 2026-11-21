@@ -14,6 +14,7 @@ public:
 
     auto size() const -> int { return side; }
     auto dark(int column, int row) const -> bool;
+    auto modules() const -> const std::vector<bool>& { return cells; }
 
     friend bool operator==(const QrMatrix&, const QrMatrix&) = default;
 
@@ -21,7 +22,7 @@ private:
     QrMatrix(int side, std::vector<bool> modules);
 
     int side = 0;
-    std::vector<bool> modules;
+    std::vector<bool> cells;
 };
 
 }

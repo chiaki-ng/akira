@@ -11,17 +11,18 @@
 #include <arisa/composition/exclusive_frame.hpp>
 #include <arisa/runtime/application.hpp>
 #include <arisa/runtime/input_block.hpp>
+#include <arisa/runtime/input_passthrough.hpp>
 #include <arisa/runtime/overlay_handle.hpp>
 
 #include "app/services.hpp"
 #include "app/ui_window.hpp"
-#include "platform/video/overlay_palette.hpp"
 #include "play/connect_flow.hpp"
 #include "play/connection.hpp"
 #include "play/couch_table.hpp"
 #include "play/menu_hold.hpp"
 #include "play/stats_hud_placement.hpp"
-#include "play/stats_readout.hpp"
+#include "play/diagnostics_history.hpp"
+#include "play/diagnostics_report.hpp"
 #include "play/stream_controls.hpp"
 #include "play/ui/couch.hpp"
 #include "play/ui/mapping.hpp"
@@ -54,7 +55,7 @@ public:
 
     StreamDriver(Services& services, ::arisa::runtime::Application& application, Window& window, ShellModel& model,
         Notifier& notifier, settings::ui::ControlOptions& controlOptions, play::ui::Mapping& mapping, Couch couch,
-        const platform::video::OverlayPalette& palette, std::function<void()> ended);
+        std::function<void()> ended);
     ~StreamDriver() override;
 
     StreamDriver(const StreamDriver&) = delete;
@@ -72,9 +73,8 @@ public:
     void resume() override;
     void leave(bool rest) override;
     void resetMotion() override;
-    void showStats(play::StatsOverlayMode mode) override;
-    auto stats() -> play::StreamStats override;
-    auto decoder() -> std::string override;
+    void showDiagnostics(play::DiagnosticsAppearance appearance) override;
+    auto diagnostics() -> play::DiagnosticsReport override;
 
     void onConnectProgress(const libchiaking::play::ConnectProgress& progress) override;
     void onLaunchProgress(const libchiaking::play::LaunchProgress& progress) override;
@@ -90,6 +90,7 @@ private:
     using Clock = std::chrono::steady_clock;
 
     static constexpr std::chrono::milliseconds statsInterval{ 250 };
+    static constexpr std::chrono::milliseconds historyInterval{ 500 };
 
     void open(consoles::Host& host, libchiaking::play::ConsoleHandover handover);
     [[nodiscard]] auto prepareController() -> bool;
@@ -97,6 +98,7 @@ private:
     void finishPadChoice();
     void padChosen(play::ui::Couch::Pick pick, std::optional<play::PadId> pad);
     void showPicker(play::ui::Couch::Picked picked);
+    void closePicker();
     void arrivalAnswered(play::ui::Couch::Arrival answer);
     void passcodeClosed();
     void pauseForUi();
@@ -114,7 +116,10 @@ private:
     void adoptHudPosition();
     void keepHudPosition();
     auto savedHudPosition() const -> std::optional<play::TouchClaim::Fraction>;
-    auto readout() -> play::StatsReadout;
+    auto decoder() -> std::string;
+    void sampleDiagnostics();
+    auto cloudBandwidth() -> std::optional<std::string>;
+    static auto overlayMode(play::DiagnosticsAppearance::Level level) -> play::StatsOverlayMode;
     void stop();
     auto offersRest() const -> bool;
     void askRest();
@@ -132,10 +137,11 @@ private:
     Couch couch;
     Notifier& notifier;
     std::function<void()> ended;
-    platform::video::OverlayPalette::Colours palette;
     play::StatsHudPlacement hudPlacement;
     play::ui::StatsBoard statsBoard;
     Clock::time_point nextStatsSample{};
+    std::optional<Clock::time_point> lastHistorySample;
+    play::DiagnosticsHistory history;
     std::uint64_t hudRevision = 0;
     bool hudPositionUnsaved = false;
     play::StreamControls controls;
@@ -159,6 +165,8 @@ private:
     std::optional<::arisa::runtime::InputBlock> padsOwned;
     std::optional<::arisa::composition::ExclusiveFrame> videoOwnsScreen;
     std::optional<::arisa::runtime::OverlayHandle> dock;
+    std::optional<::arisa::runtime::InputPassthrough> dockInput;
+    std::optional<::arisa::runtime::InputPassthrough> pickerInput;
     std::optional<::arisa::runtime::OverlayHandle> hud;
     std::optional<::arisa::runtime::OverlayHandle> confirmLeave;
     std::optional<::arisa::runtime::OverlayHandle> picker;

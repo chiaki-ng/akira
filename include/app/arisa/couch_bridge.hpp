@@ -5,6 +5,9 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
+
+#include <arisa/runtime/button_capture.hpp>
 
 #include "play/couch_table.hpp"
 #include "platform/pads/pad.hpp"
@@ -42,6 +45,8 @@ public:
     void follow(Events events);
     void attach(std::weak_ptr<play::Connection> connection, bool ps5);
     void detach();
+    void watch(::arisa::runtime::ButtonCapture capture);
+    void unwatch();
 
     auto pads() const -> std::vector<Pad> override;
     auto padsSettled() const -> bool override;
@@ -68,11 +73,9 @@ public:
     void sendPasscode(std::uint8_t slot, const std::string& passcode) override;
 
 private:
-    static constexpr std::uint64_t shoulders = HidNpadButton_L | HidNpadButton_R;
-    static constexpr std::uint64_t triggers = HidNpadButton_ZL | HidNpadButton_ZR;
-
     static auto npadOf(play::PadId pad) -> HidNpadIdType { return static_cast<HidNpadIdType>(pad); }
     static auto idOf(HidNpadIdType npad) -> play::PadId { return static_cast<play::PadId>(npad); }
+    static auto slotOf(play::PadId pad) -> std::optional<std::size_t>;
     static auto kindOf(const platform::PadDescription& pad) -> PadKind;
     static auto batteries(const platform::PadDescription& pad) -> std::vector<int>;
     auto describe(const platform::PadDescription& pad, const std::map<HidNpadIdType, std::uint8_t>& roster) const -> Pad;
@@ -85,7 +88,7 @@ private:
     std::weak_ptr<play::Connection> session;
     bool console5 = false;
     Events events;
-    std::map<HidNpadIdType, PadState> states;
+    std::optional<::arisa::runtime::ButtonCapture> capture;
     std::shared_ptr<bool> alive = std::make_shared<bool>(true);
 };
 

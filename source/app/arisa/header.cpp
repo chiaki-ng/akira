@@ -33,8 +33,9 @@ auto Header::body(composition::Context&) const -> composition::Element
             .line_limit(1)
             .accessibility_add_traits(composition::AccessibilityTrait::is_header),
         components::Spacer(),
-        components::HStack(components::HStackOptions{ .spacing = theme::space::md }, status::Wireless(),
-            status::Battery(), status::Clock())
+        components::HStack(components::HStackOptions{ .spacing = theme::space::md }, status::Wireless(theme::Font::callout),
+            status::Battery(theme::Font::callout.monospaced_digit(), theme::Font::callout),
+            status::Clock(theme::Font::callout.monospaced_digit()))
             .foreground_style(theme::ColourRole::secondary_label))
         .frame({ .max_width = composition::infinity })
         .id(composition::ElementKey{ "header" });

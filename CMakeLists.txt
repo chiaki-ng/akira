@@ -177,6 +177,7 @@ target_sources(${AKIRA_TARGET} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/library/qrcod
 target_include_directories(${AKIRA_TARGET} PRIVATE
     include
     ${CMAKE_CURRENT_SOURCE_DIR}/library/qrcodegen
+    ${CMAKE_CURRENT_SOURCE_DIR}/library/stb
     # Generated version header (configure_file in cmake/version.cmake)
     ${CMAKE_BINARY_DIR}/generated
     # Shared IPC definitions

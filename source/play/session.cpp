@@ -467,6 +467,26 @@ StreamStats Session::getStreamStats()
         stats.target_bitrate_kbps = link.server.available_down_kbps;
         stats.network_frames_lost = static_cast<size_t>(observed.video.lost);
         stats.frames_recovered = static_cast<size_t>(observed.video.recovered);
+        stats.rtt_variation_ms = static_cast<float>(link.round_trip.variation_us) / 1000.0f;
+        stats.rtt_p99_ms = static_cast<float>(link.round_trip.p99_us) / 1000.0f;
+        stats.rtt_recent_max_ms = static_cast<float>(link.round_trip.recent_max_us) / 1000.0f;
+        stats.rtt_samples = link.round_trip.samples;
+        stats.transfer_valid = link.video_metrics.present;
+        stats.transfer_ms = static_cast<float>(link.video_metrics.transfer_time_us) / 1000.0f;
+        stats.frames_received = observed.video.units;
+        stats.keyframe_requests = observed.video.keyframe_requests;
+        stats.keyframe_waits = link.dependency_rejections;
+        stats.fec_repaired = link.fec_repaired_frames;
+        stats.unassembled = link.assembly_rejections;
+        stats.duplicates = link.video_duplicate;
+        stats.stale_frames = link.video_stale;
+        stats.decoder_rejections = observed.video.decoder_rejections;
+        stats.rejected_packets = link.rejected_packets;
+        stats.crypto_rejections = link.crypto_rejections;
+        stats.reorder_skipped = link.reorder_skipped;
+        stats.reorder_dropped = link.reorder_dropped;
+        stats.internal_drops = link.dropped_posts + link.send_dropped;
+        stats.session_errors = observed.loop_errors;
     }
 
     stats.visual_ms = stats.decode_ms + stats.present_ms;

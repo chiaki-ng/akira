@@ -181,8 +181,7 @@ void App::buildScreens()
     buildCouch();
     CrashReport::stage("arisa stream driver");
     driver = std::make_shared<StreamDriver>(services, *application, *window, model, notices, *controls, *mapping,
-        StreamDriver::Couch{ .table = couchBridge ? &*couchBridge : nullptr, .model = couch ? &*couch : nullptr },
-        overlayPalette, [this] {
+        StreamDriver::Couch{ .table = couchBridge ? &*couchBridge : nullptr, .model = couch ? &*couch : nullptr }, [this] {
             if (consoleOperations)
                 consoleOperations->streamEnded();
         });
@@ -330,6 +329,8 @@ bool App::frame()
             upkeep->checkOnLaunch(notices);
     }
     window->tick();
+    if (screenshots)
+        screenshots->tick();
     if (driver)
         driver->tick();
     const auto now = std::chrono::steady_clock::now();
@@ -350,6 +351,8 @@ int App::run()
     if (!graph->startCurl())
         return EXIT_FAILURE;
     startServices();
+    screenshots.emplace(providers->gpu(), notices, graph->services().appSettings, *strings, *dispatcher);
+    screenshotWatch.emplace(application->observe(*screenshots));
 
     CrashReport::stage("arisa main loop");
     const auto ran = application->run_until([this](runtime::Root&) { return frame(); });
@@ -360,6 +363,8 @@ int App::run()
     cloudModel.reset();
     cloudDesk.reset();
 #endif
+    screenshotWatch.reset();
+    screenshots.reset();
     trophyModel.reset();
     trophyDesk.reset();
     consoleOperations.reset();

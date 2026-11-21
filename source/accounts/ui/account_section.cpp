@@ -1,5 +1,7 @@
 #include "accounts/ui/account_section.hpp"
 
+#include <arisa/components/async_image.hpp>
+#include <arisa/components/async_image_phase.hpp>
 #include <arisa/components/button.hpp>
 #include <arisa/components/button_role.hpp>
 #include <arisa/components/button_sizing.hpp>
@@ -12,6 +14,7 @@
 #include <arisa/components/labeled_content.hpp>
 #include <arisa/components/spacer.hpp>
 #include <arisa/components/text.hpp>
+#include <arisa/components/url_request.hpp>
 #include <arisa/components/vstack.hpp>
 #include <arisa/composition/binding.hpp>
 #include <arisa/controls/text_field.hpp>
@@ -29,7 +32,10 @@
 #include <algorithm>
 #include <cctype>
 #include <format>
+#include <optional>
 #include <utility>
+
+#include "app/arisa/art_session.hpp"
 
 namespace akira::accounts::ui {
 
@@ -74,7 +80,22 @@ auto AccountSection::kindKey(AccountDesk::Kind kind) -> const char*
     return "akira/settings/profile_local";
 }
 
-auto AccountSection::avatar(const std::string& name, float side) -> composition::Element
+auto AccountSection::avatar(const std::string& name, const std::string& url, float side) -> composition::Element
+{
+    std::optional<components::UrlRequest> request = app::arisa::ArtSession::request(url);
+    if (!request)
+        return monogram(name, side);
+    return composition::Element(components::AsyncImage(std::move(request), components::AsyncImageOptions{},
+                                    [name, side](const components::AsyncImagePhase& phase) -> composition::Element {
+                                        if (std::optional<components::Image> image = phase.image())
+                                            return std::move(*image).resizable().scaled_to_fill();
+                                        return monogram(name, side);
+                                    }))
+        .frame({ .width = side, .height = side })
+        .clip_shape(theme::Shape::circle());
+}
+
+auto AccountSection::monogram(const std::string& name, float side) -> composition::Element
 {
     return components::Text(initial(name))
         .font(theme::Font::system(side * 0.42F, theme::Font::Weight::semibold))
@@ -120,7 +141,7 @@ auto AccountSection::card(const AccountModel::View& view) const -> composition::
                             .font(theme::Font::footnote)
                             .id(composition::ElementKey{ "account.trophies" }));
     }
-    return components::HStack(components::HStackOptions{ .spacing = theme::Space{ 16.0F } }, avatar(shown.name, avatarSize),
+    return components::HStack(components::HStackOptions{ .spacing = theme::Space{ 16.0F } }, avatar(shown.name, shown.avatarUrl, avatarSize),
         components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                .spacing = theme::Space{ 4.0F } },
             std::move(lines)),
@@ -138,7 +159,7 @@ auto AccountSection::profiles(const AccountModel::View& view) const -> compositi
     {
         const std::string name = entry.name.empty() ? strings->text("akira/settings/unnamed_profile") : entry.name;
         std::vector<composition::Element> label;
-        label.push_back(avatar(entry.name, rowAvatarSize));
+        label.push_back(avatar(entry.name, entry.avatarUrl, rowAvatarSize));
         label.push_back(components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                                .spacing = theme::Space{ 1.0F } },
             components::Text(name).line_limit(1),

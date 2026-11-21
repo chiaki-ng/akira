@@ -8,6 +8,7 @@
 #include <arisa/provider/audio/absent.hpp>
 #include <arisa/provider/diagnostics/crash_reporter.hpp>
 #include <arisa/provider/horizon/horizon_factory.hpp>
+#include <arisa/support/scoped_callback.hpp>
 #include <arisa/provider/horizon/horizon_threading.hpp>
 #include <arisa/provider/standard/directory_storage.hpp>
 #include <arisa/runtime/application.hpp>
@@ -18,6 +19,7 @@
 #include "app/arisa/gpu.hpp"
 #include "app/arisa/notices.hpp"
 #include "app/arisa/pad_capture.hpp"
+#include "app/arisa/screenshots.hpp"
 #include "app/arisa/pad_workbench.hpp"
 #include "app/arisa/profile_desk.hpp"
 #include "app/arisa/psn_trophy_desk.hpp"
@@ -123,6 +125,8 @@ private:
     std::optional<CouchBridge> couchBridge;
     std::optional<play::ui::Couch> couch;
     std::shared_ptr<StreamDriver> driver;
+    std::optional<Screenshots> screenshots;
+    std::optional<::arisa::support::ScopedCallback> screenshotWatch;
     std::optional<consoles::ui::ConsoleOperations> consoleOperations;
     std::optional<PsnTrophyDesk> trophyDesk;
     std::optional<trophies::ui::TrophyModel> trophyModel;

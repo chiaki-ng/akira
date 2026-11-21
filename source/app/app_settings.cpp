@@ -23,6 +23,8 @@ void AppSettings::read(const toml::table& config)
         hideName = *val;
     if (auto val = config["ui"]["connection_show_stages"].value<bool>())
         showStages = *val;
+    if (auto val = config["ui"]["screenshot_chord"].value<bool>())
+        screenshots = *val;
     if (auto val = config["stream"]["sleep_on_exit"].value<bool>())
         sleepWhenExiting = *val;
     if (auto val = config["debug"]["locale"].value<std::string>())
@@ -44,6 +46,7 @@ void AppSettings::write(toml::table& config) const
     ui.insert("theme", theme);
     if (hideName) ui.insert("hide_account_name", true);
     ui.insert("connection_show_stages", showStages);
+    if (!screenshots) ui.insert("screenshot_chord", false);
     config.insert("ui", std::move(ui));
 
     if (sleepWhenExiting)

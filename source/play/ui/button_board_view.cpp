@@ -14,7 +14,9 @@
 #include <arisa/composition/binding.hpp>
 #include <arisa/controls/toggle.hpp>
 #include <arisa/presentation/presentations.hpp>
+#include <arisa/composition/command_options.hpp>
 #include <arisa/provider/input/buttons.hpp>
+#include <arisa/structure/callout_board.hpp>
 #include <arisa/theme/colour_value.hpp>
 #include <arisa/theme/glass.hpp>
 #include <arisa/theme/shape.hpp>
@@ -35,7 +37,9 @@ namespace async = ::arisa::async;
 namespace components = ::arisa::components;
 namespace composition = ::arisa::composition;
 namespace controls = ::arisa::controls;
+namespace motion = ::arisa::motion;
 namespace provider = ::arisa::provider;
+namespace structure = ::arisa::structure;
 namespace theme = ::arisa::theme;
 
 ButtonBoardView::ButtonBoardView(Mapping& mapping, const app::Strings& strings, bool art)
@@ -49,14 +53,6 @@ auto ButtonBoardView::body(composition::Context& context) const -> composition::
 {
     const Mapping::Status& status = context.read(mapping->view());
     const settings::ui::ControlOptions::Values& values = context.read(mapping->options().view());
-    std::vector<composition::Element> board;
-    board.push_back(column(ButtonBoard::Side::Leading));
-    if (art)
-        board.push_back(components::Image("img/ps5/controller.png")
-                            .resizable()
-                            .aspect_ratio(700.0F / 430.0F)
-                            .frame({ .width = artWidth }));
-    board.push_back(column(ButtonBoard::Side::Trailing));
     Mapping* held = mapping;
     composition::Binding<bool> capturing([held] { return held->view().get().capturing.has_value(); },
         [held](bool open) {
@@ -65,11 +61,7 @@ auto ButtonBoardView::body(composition::Context& context) const -> composition::
         });
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ 16.0F } },
-        components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::center,
-                               .spacing = theme::Space{ 16.0F } },
-            std::move(board))
-            .focus_section()
-            .id(composition::ElementKey{ "board.chips" }),
+        callouts().focus_section().id(composition::ElementKey{ "board.chips" }),
         touchpad(values),
         components::Button(strings->text("akira/remap/reset_all"), components::Image::SystemName{ "restart_alt" },
             [held] { held->resetAll(); })
@@ -80,6 +72,52 @@ auto ButtonBoardView::body(composition::Context& context) const -> composition::
         });
 }
 
+auto ButtonBoardView::callouts() const -> composition::Element
+{
+    if (!art)
+        return components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::top,
+                                      .spacing = theme::Space{ 16.0F } },
+            column(ButtonBoard::Side::Leading), column(ButtonBoard::Side::Trailing));
+    std::vector<structure::CalloutBoard::Callout> placed;
+    for (const ButtonBoard::Target& target : ButtonBoard::targets())
+        if (target.side != ButtonBoard::Side::Touchpad)
+            placed.push_back(structure::CalloutBoard::Callout{ .chip = chip(target),
+                .anchor = anchor(target.key),
+                .side = target.side == ButtonBoard::Side::Leading ? structure::CalloutBoard::Side::leading
+                                                                  : structure::CalloutBoard::Side::trailing });
+    return structure::CalloutBoard(components::Image("img/ps5/dualsense.png").resizable().aspect_ratio(artAspect),
+        std::move(placed),
+        structure::CalloutBoard::Options{ .art = { .width = artWidth, .height = artWidth / artAspect },
+            .column_width = chipWidth,
+            .gap = leaderGap });
+}
+
+auto ButtonBoardView::anchor(std::uint32_t key) -> motion::UnitPoint
+{
+    switch (static_cast<RemapTarget>(key))
+    {
+        case RemapTarget::Cross: return { 0.809F, 0.407F };
+        case RemapTarget::Moon: return { 0.884F, 0.296F };
+        case RemapTarget::Box: return { 0.735F, 0.296F };
+        case RemapTarget::Pyramid: return { 0.809F, 0.186F };
+        case RemapTarget::Share: return { 0.264F, 0.128F };
+        case RemapTarget::Ps: return { 0.495F, 0.495F };
+        case RemapTarget::Options: return { 0.733F, 0.120F };
+        case RemapTarget::L3: return { 0.337F, 0.500F };
+        case RemapTarget::R3: return { 0.661F, 0.500F };
+        case RemapTarget::L1: return { 0.238F, 0.067F };
+        case RemapTarget::R1: return { 0.761F, 0.067F };
+        case RemapTarget::L2: return { 0.171F, 0.033F };
+        case RemapTarget::R2: return { 0.828F, 0.033F };
+        case RemapTarget::Touchpad: return { 0.499F, 0.189F };
+        case RemapTarget::DpadLeft: return { 0.130F, 0.295F };
+        case RemapTarget::DpadRight: return { 0.243F, 0.295F };
+        case RemapTarget::DpadUp: return { 0.186F, 0.212F };
+        case RemapTarget::DpadDown: return { 0.186F, 0.376F };
+    }
+    return { 0.5F, 0.5F };
+}
+
 auto ButtonBoardView::column(ButtonBoard::Side side) const -> composition::Element
 {
     std::vector<composition::Element> chips;
@@ -87,7 +125,7 @@ auto ButtonBoardView::column(ButtonBoard::Side side) const -> composition::Eleme
         if (target.side == side)
             chips.push_back(chip(target));
     return components::VStack(components::VStackOptions{ .spacing = theme::Space{ 8.0F } }, std::move(chips))
-        .frame({ .width = art ? chipWidth : compactChipWidth });
+        .frame({ .width = compactChipWidth });
 }
 
 auto ButtonBoardView::glyphs(const app::Strings& strings, const std::vector<std::uint64_t>& combo, float size)
@@ -126,7 +164,7 @@ auto ButtonBoardView::chip(const ButtonBoard::Target& target) const -> compositi
                                      .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
                                      .button_sizing(components::ButtonSizing::flexible)
                                      .on_command(provider::Button::x, strings->text("akira/remap/reset_one"),
-                                         [held, key] { held->reset(key); })
+                                         [held, key] { held->reset(key); }, composition::CommandOptions{ .hold = resetHold })
                                      .id(composition::ElementKey{ "board.chip." + std::string(target.name) });
     if (clash)
         shown = std::move(shown).background(theme::ColourValue(theme::ColourRole::red).opacity(0.3F), theme::Shape::capsule());

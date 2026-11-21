@@ -10,7 +10,11 @@
 #include <arisa/components/group.hpp>
 #include <arisa/components/hstack.hpp>
 #include <arisa/components/image.hpp>
+#include <arisa/components/grid_item.hpp>
+#include <arisa/components/lazy_vgrid.hpp>
+#include <arisa/components/labeled_content.hpp>
 #include <arisa/components/panel_radius.hpp>
+#include <arisa/components/scroll_view.hpp>
 #include <arisa/components/spacer.hpp>
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
@@ -32,7 +36,6 @@
 #include <utility>
 #include <vector>
 
-#include "play/stream_summary.hpp"
 #include "play/ui/button_board_view.hpp"
 #include "play/ui/players_panel.hpp"
 
@@ -45,8 +48,8 @@ namespace controls = ::arisa::controls;
 namespace structure = ::arisa::structure;
 namespace theme = ::arisa::theme;
 
-const composition::StateKey<StreamStats> StreamDock::sampled{ "stream-dock-stats", StreamStats{} };
-const composition::StateKey<StatsOverlayMode> StreamDock::overlay{ "stream-dock-overlay", StatsOverlayMode::Off };
+const composition::StateKey<DiagnosticsReport> StreamDock::sampled{ "stream-dock-stats", DiagnosticsReport{} };
+const composition::StateKey<DiagnosticsAppearance> StreamDock::overlay{ "stream-dock-overlay", DiagnosticsAppearance{} };
 
 StreamDock::StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions,
     Mapping& mapping, Couch* couch, const app::Strings& strings)
@@ -86,8 +89,9 @@ auto StreamDock::body(composition::Context& context) const -> composition::Eleme
 {
     const std::vector<StreamControls::Control> shown = panels();
     const auto chosen = context.state(selected, opening(shown));
-    const auto stats = context.state(sampled, commands->stats());
-    const auto mode = context.state(overlay, session.statsMode);
+    const auto stats = context.state(sampled, commands->diagnostics());
+    const auto mode = context.state(overlay, session.diagnostics);
+    const auto chosenTopic = context.state(topic);
     const auto board = context.state(mappingShown);
     const settings::ui::ControlOptions::Values& pad = context.read(controlOptions->view());
     const StreamControls::Control current = shown.empty()
@@ -105,18 +109,18 @@ auto StreamDock::body(composition::Context& context) const -> composition::Eleme
             .on_exit_command(strings->text("akira/common/back"), resume)
             .id(composition::ElementKey{ "stream-dock" });
     return components::VStack(components::VStackOptions{ .spacing = theme::Space{ dockGap } },
-        panel(current, stats.get(), mode, pad, board), dock(chosen, shown))
+        panel(current, stats.get(), mode, chosenTopic, pad, board), dock(chosen, shown))
         .padding(theme::Edge::bottom, theme::Space{ dockBottom })
         .on_exit_command(strings->text("akira/stream_menu/hint_resume"), resume)
         .task([stats, commands = commands] { return refresh(stats, commands); })
         .id(composition::ElementKey{ "stream-dock" });
 }
 
-auto StreamDock::refresh(composition::StateHandle<StreamStats> stats, StreamCommands* commands) -> async::Task<void>
+auto StreamDock::refresh(composition::StateHandle<DiagnosticsReport> stats, StreamCommands* commands) -> async::Task<void>
 {
     while (true)
     {
-        stats.set(commands->stats());
+        stats.set(commands->diagnostics());
         co_await async::sleep(std::chrono::seconds{ 1 });
     }
 }
@@ -134,7 +138,6 @@ auto StreamDock::dock(composition::StateHandle<int> chosen, const std::vector<St
     composition::Binding<std::size_t> selection([chosen] { return static_cast<std::size_t>(std::max(chosen.get(), 0)); },
         [chosen](std::size_t index) { chosen.set(static_cast<int>(index)); });
     return composition::Element(structure::DockBar(std::move(selection), std::move(items), std::move(trailing)))
-        .focus_section()
         .id(composition::ElementKey{ "stream-dock.tabs" });
 }
 
@@ -148,20 +151,20 @@ auto StreamDock::mappingPanel(composition::StateHandle<bool> board) const -> com
                 .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
                 .id(composition::ElementKey{ "stream-dock.mapping-back" }),
             components::Text(strings->text("akira/remap/title")).font(theme::Font::title2).font_weight(theme::Font::Weight::semibold)),
-        ButtonBoardView(*mapping, *strings, false))
+        components::ScrollView(ButtonBoardView(*mapping, *strings, false)).frame({ .max_height = mappingHeight }))
         .padding(theme::Space{ panelPadding })
         .frame({ .width = panelWidth, .alignment = composition::Alignment::leading })
         .glass_panel(components::PanelRadius::large)
         .id(composition::ElementKey{ "stream-dock.mapping" });
 }
 
-auto StreamDock::panel(StreamControls::Control shown, const StreamStats& stats,
-    composition::StateHandle<StatsOverlayMode> mode, const settings::ui::ControlOptions::Values& pad,
-    composition::StateHandle<bool> board) const -> composition::Element
+auto StreamDock::panel(StreamControls::Control shown, const DiagnosticsReport& report,
+    composition::StateHandle<DiagnosticsAppearance> look, composition::StateHandle<int> chosenTopic,
+    const settings::ui::ControlOptions::Values& pad, composition::StateHandle<bool> board) const -> composition::Element
 {
     composition::Element content = powerPanel();
     if (shown == StreamControls::Control::Stats)
-        content = statsPanel(stats, mode);
+        content = statsPanel(report, look, chosenTopic);
     else if (shown == StreamControls::Control::Pad)
         content = controlsPanel(pad, board);
     else if (shown == StreamControls::Control::Players && couch)
@@ -253,102 +256,148 @@ auto StreamDock::controlsPanel(const settings::ui::ControlOptions::Values& value
         std::move(rows));
 }
 
-auto StreamDock::tone(float value, float good, float fair) -> theme::ColourValue
+auto StreamDock::counter(const DiagnosticsReport::Counter& shown) const -> composition::Element
 {
-    if (value < good)
-        return theme::ColourRole::green;
-    if (value < fair)
-        return theme::ColourRole::orange;
-    return theme::ColourRole::red;
-}
-
-auto StreamDock::tile(std::string label, std::string value, std::string unit, theme::ColourValue shade)
-    -> composition::Element
-{
-    composition::Element reading = components::Text(std::move(value))
-                                       .font(theme::Font::system(20.0F, theme::Font::Weight::medium))
-                                       .foreground_style(shade)
-                                       .line_limit(1);
-    if (!unit.empty())
-        reading = components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::last_text_baseline,
-                                         .spacing = theme::Space{ 3.0F } },
-            std::move(reading),
-            components::Text(std::move(unit)).font(theme::Font::caption).foreground_style(theme::ColourRole::secondary_label));
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ 5.0F } },
-        components::Text(std::move(label)).font(theme::Font::caption).foreground_style(theme::ColourRole::secondary_label),
-        std::move(reading))
-        .padding(theme::Space{ 10.0F })
+        components::Text(strings->text(shown.label)).font(theme::Font::caption).foreground_style(theme::ColourRole::secondary_label),
+        components::Text(std::format("{}", shown.value))
+            .font(theme::Font::title3.monospaced_digit())
+            .font_weight(theme::Font::Weight::medium))
         .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::leading })
-        .background(theme::ColourValue(theme::ColourRole::label).opacity(0.07F), theme::Shape::rounded(tileRadius));
+        .padding(theme::Space{ 12.0F })
+        .background(theme::ColourValue(theme::Colour::hex(0xFFFFFF)).opacity(0.06F), theme::Shape::rounded(tileRadius));
 }
 
-auto StreamDock::statsPanel(const StreamStats& stats, composition::StateHandle<StatsOverlayMode> mode) const
+template <typename Value, std::size_t Count>
+auto StreamDock::choice(const std::array<Value, Count>& options, auto&& title,
+    composition::StateHandle<DiagnosticsAppearance> look, Value DiagnosticsAppearance::* field, const char* key) const
     -> composition::Element
 {
-    const StreamSummary summary(stats);
-    theme::ColourValue health = theme::ColourRole::green;
-    if (summary.health() == StreamSummary::Health::Fair)
-        health = theme::ColourRole::orange;
-    else if (summary.health() == StreamSummary::Health::Poor)
-        health = theme::ColourRole::red;
-    const theme::ColourValue plain = theme::ColourRole::label;
-    const float fpsShare = stats.requested_fps > 0 ? stats.fps / static_cast<float>(stats.requested_fps) : 1.0F;
-    const theme::ColourValue fpsTone = tone(1.0F - fpsShare, 0.08F, 0.25F);
-    const std::string missing = "--";
-    const std::string off = strings->text("akira/stream_menu/opt_off");
-    const std::string compact = strings->text("akira/stream_menu/opt_compact");
-    const std::string full = strings->text("akira/stream_menu/opt_full");
     StreamCommands* sink = commands;
-    composition::Binding<StatsOverlayMode> picked(
-        [mode] { return mode.get(); },
-        [mode, sink](StatsOverlayMode value) {
-            mode.set(value);
-            sink->showStats(value);
+    composition::Binding<Value> picked([look, field] { return look.get().*field; },
+        [look, field, sink](Value value) {
+            DiagnosticsAppearance next = look.get();
+            next.*field = value;
+            look.set(next);
+            sink->showDiagnostics(next);
         });
-    auto text = [this](const char* key) { return strings->text(key); };
+    std::vector<std::pair<Value, std::string>> labels;
+    for (const Value option : options)
+        labels.emplace_back(option, strings->text(title(option)));
+    return controls::Picker(strings->text(key), std::move(picked),
+        [labels] {
+            std::vector<composition::Element> items;
+            for (const auto& [option, label] : labels)
+                items.push_back(components::Text(label).tag(option));
+            return composition::Element(components::Group(std::move(items)));
+        })
+        .picker_style(controls::PickerStyle::segmented())
+        .labels_hidden()
+        .id(composition::ElementKey{ std::string("stream-dock.") + key });
+}
+
+auto StreamDock::troubleshoot(composition::StateHandle<int> chosenTopic) const -> composition::Element
+{
+    const int chosen = std::clamp(chosenTopic.get(), 0, static_cast<int>(topics.size()) - 1);
+    composition::Binding<int> picked([chosenTopic] { return chosenTopic.get(); }, [chosenTopic](int value) { chosenTopic.set(value); });
+    std::vector<std::string> labels;
+    for (const char* key : topics)
+        labels.push_back(strings->text(key));
+    std::vector<composition::Element> tips;
+    tips.push_back(components::Text(strings->text(std::format("akira/diagnostics/tips_{}_heading", chosen)))
+                       .font(theme::Font::subheadline)
+                       .font_weight(theme::Font::Weight::semibold));
+    for (int index = 0; index < tipCount(chosen); ++index)
+        tips.push_back(components::Text(strings->text(std::format("akira/diagnostics/tips_{}_{}", chosen, index)))
+                           .font(theme::Font::callout)
+                           .foreground_style(theme::ColourRole::secondary_label));
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
-                                  .spacing = theme::Space{ 14.0F } },
-        components::Text(text("akira/stream_menu/card_stats"))
-            .font(theme::Font::title2)
-            .font_weight(theme::Font::Weight::semibold),
-        components::HStack(components::HStackOptions{ .spacing = theme::space::sm },
-            composition::Element(components::Group())
-                .frame({ .width = 8.0F, .height = 8.0F })
-                .background(health, theme::Shape::capsule()),
-            components::Text(session.console).font(theme::Font::body),
-            components::Spacer(),
-            components::Text(summary.meta())
-                .font(theme::Font::callout)
-                .foreground_style(theme::ColourRole::secondary_label)
-                .id(composition::ElementKey{ "stream-dock.meta" })),
-        controls::Picker(text("akira/stream_menu/panel_stats_title"), std::move(picked),
-            [off, compact, full] {
-                return composition::Element(components::Group(components::Text(off).tag(StatsOverlayMode::Off),
-                    components::Text(compact).tag(StatsOverlayMode::Compact),
-                    components::Text(full).tag(StatsOverlayMode::Full)));
+                                  .spacing = theme::Space{ panelSpacing } },
+        components::Text(strings->text("akira/diagnostics/connection_tips")).font(theme::Font::headline),
+        controls::Picker(strings->text("akira/diagnostics/connection_tips"), std::move(picked),
+            [labels] {
+                std::vector<composition::Element> items;
+                for (std::size_t index = 0; index < labels.size(); ++index)
+                    items.push_back(components::Text(labels[index]).tag(static_cast<int>(index)));
+                return composition::Element(components::Group(std::move(items)));
             })
             .picker_style(controls::PickerStyle::segmented())
-            .labels_hidden(),
-        components::HStack(components::HStackOptions{ .spacing = theme::space::sm },
-            tile(text("akira/stream_menu/stat_fps"), std::format("{:.1f}", stats.fps), std::string(), fpsTone),
-            tile(text("akira/stream_menu/stat_rate"), std::format("{:.1f}", stats.measured_bitrate_mbps), "Mbps", plain),
-            tile(text("akira/stream_menu/stat_rtt"), stats.rtt_valid ? std::format("{:.0f}", stats.rtt_ms) : missing, "ms",
-                stats.rtt_valid ? tone(stats.rtt_ms, 30.0F, 70.0F) : plain),
-            tile(text("akira/stream_menu/stat_loss"), std::format("{:.1f}", stats.packet_loss_percent), "%",
-                tone(stats.packet_loss_percent, 0.5F, 2.0F)),
-            tile(text("akira/stream_menu/stat_lost"), std::format("{}", stats.network_frames_lost), std::string(), plain),
-            tile(text("akira/stream_menu/stat_decode"), commands->decoder(), std::string(), plain))
-            .id(composition::ElementKey{ "stream-dock.link" }),
-        components::HStack(components::HStackOptions{ .spacing = theme::space::sm },
-            tile(text("akira/stream_menu/stat_total"), stats.latency_valid ? std::format("{:.0f}", stats.total_ms) : missing,
-                "ms", stats.latency_valid ? tone(stats.total_ms, 50.0F, 100.0F) : plain),
-            tile(text("akira/stream_menu/stat_net"), stats.latency_valid ? std::format("{:.0f}", stats.net_ms) : missing, "ms",
-                plain),
-            tile(text("akira/stream_menu/stat_visual"), std::format("{:.1f}", stats.visual_ms), "ms", plain),
-            tile(text("akira/stream_menu/stat_jitter"), std::format("{:.1f}", stats.jitter_ms), "ms", plain),
-            tile(text("akira/stream_menu/stat_source"), std::format("{:.1f}", stats.source_fps), std::string(), plain))
-            .id(composition::ElementKey{ "stream-dock.latency" }));
+            .labels_hidden()
+            .id(composition::ElementKey{ "stream-dock.topics" }),
+        components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                               .spacing = theme::Space{ 10.0F } },
+            std::move(tips)));
+}
+
+auto StreamDock::tipCount(int chosen) -> int
+{
+    constexpr std::array counts{ 4, 2, 2 };
+    return counts[static_cast<std::size_t>(chosen)];
+}
+
+auto StreamDock::levelKey(DiagnosticsAppearance::Level level) -> const char*
+{
+    switch (level)
+    {
+        case DiagnosticsAppearance::Level::Off: return "akira/diagnostics/level_off";
+        case DiagnosticsAppearance::Level::Compact: return "akira/diagnostics/level_compact";
+        case DiagnosticsAppearance::Level::Standard: return "akira/diagnostics/level_standard";
+        case DiagnosticsAppearance::Level::Full: return "akira/diagnostics/level_full";
+    }
+    return "akira/diagnostics/level_off";
+}
+
+auto StreamDock::glassKey(DiagnosticsAppearance::Glass glass) -> const char*
+{
+    switch (glass)
+    {
+        case DiagnosticsAppearance::Glass::Regular: return "akira/diagnostics/glass_regular";
+        case DiagnosticsAppearance::Glass::Clear: return "akira/diagnostics/glass_clear";
+        case DiagnosticsAppearance::Glass::ClearDimmed: return "akira/diagnostics/glass_dimmed";
+        case DiagnosticsAppearance::Glass::HealthTint: return "akira/diagnostics/glass_health";
+        case DiagnosticsAppearance::Glass::Solid: return "akira/diagnostics/glass_solid";
+    }
+    return "akira/diagnostics/glass_regular";
+}
+
+auto StreamDock::layoutKey(DiagnosticsAppearance::Layout layout) -> const char*
+{
+    return layout == DiagnosticsAppearance::Layout::Floating ? "akira/diagnostics/layout_floating"
+                                                             : "akira/diagnostics/layout_sheet";
+}
+
+auto StreamDock::statsPanel(const DiagnosticsReport& report, composition::StateHandle<DiagnosticsAppearance> look,
+    composition::StateHandle<int> chosenTopic) const -> composition::Element
+{
+    std::vector<composition::Element> rows;
+    rows.push_back(components::Text(strings->text("akira/diagnostics/title"))
+                       .font(theme::Font::title2)
+                       .font_weight(theme::Font::Weight::semibold));
+    if (session.datacenter)
+        rows.push_back(components::LabeledContent(strings->text("akira/diagnostics/datacenter"), *session.datacenter));
+    if (session.bandwidth)
+        rows.push_back(components::LabeledContent(strings->text("akira/diagnostics/bandwidth"), *session.bandwidth));
+    rows.push_back(choice(DiagnosticsAppearance::levels, &StreamDock::levelKey, look, &DiagnosticsAppearance::level,
+        "akira/diagnostics/level"));
+    rows.push_back(choice(DiagnosticsAppearance::glasses, &StreamDock::glassKey, look, &DiagnosticsAppearance::glass,
+        "akira/diagnostics/glass"));
+    rows.push_back(choice(DiagnosticsAppearance::layouts, &StreamDock::layoutKey, look, &DiagnosticsAppearance::layout,
+        "akira/diagnostics/layout"));
+    std::vector<composition::Element> tiles;
+    for (const DiagnosticsReport::Counter& shown : report.counters())
+        tiles.push_back(counter(shown));
+    rows.push_back(components::LazyVGrid(
+        components::LazyVGridOptions{
+            .columns = { components::GridItem{ components::GridItem::Size::adaptive(tileMinimum), theme::Space{ tileSpacing } } },
+            .spacing = theme::Space{ tileSpacing } },
+        std::move(tiles))
+                       .id(composition::ElementKey{ "stream-dock.counters" }));
+    rows.push_back(troubleshoot(chosenTopic));
+    return components::ScrollView(components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                                                         .spacing = theme::Space{ panelSpacing } },
+                                      std::move(rows)))
+        .frame({ .max_height = diagnosticsHeight });
 }
 
 auto StreamDock::title(StreamControls::Control control) const -> std::string

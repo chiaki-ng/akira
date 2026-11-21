@@ -10,15 +10,19 @@
 #include <arisa/provider/headless/headless_factory.hpp>
 #include <arisa/runtime/application.hpp>
 #include <arisa/runtime/application_options.hpp>
+#include <arisa/runtime/input_block.hpp>
+#include <arisa/runtime/input_passthrough.hpp>
 #include <arisa/runtime/introspection.hpp>
 #include <arisa/runtime/overlay_behaviour.hpp>
 #include <arisa/runtime/overlay_handle.hpp>
 #include <arisa/composition/exclusive_frame.hpp>
 #include <arisa/composition/overlay_layer.hpp>
 #include <arisa/provider/input/buttons.hpp>
+#include <arisa/structure/digit_keypad.hpp>
 #include <arisa/structure/dock_bar.hpp>
 #include <arisa/theme/colour.hpp>
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <functional>
@@ -73,7 +77,7 @@
 #include "play/stream_settings.hpp"
 #include "play/ui/stream_commands.hpp"
 #include "play/ui/stats_board.hpp"
-#include "play/ui/stats_hud.hpp"
+#include "play/ui/diagnostics_overlay.hpp"
 #include "play/ui/stream_dock.hpp"
 #include "play/stats_hud_placement.hpp"
 #include "play/stats_readout.hpp"
@@ -106,7 +110,7 @@ using akira::consoles::ui::ConsoleShelf;
 
 class QuietConsoles final : public akira::consoles::ui::ConsoleCommands {
 public:
-    void primary(const std::string&) override {}
+    void primary(const std::string& name) override { primaries.push_back(name); }
     void option(const std::string&, ConsoleEntry::Option) override {}
     void wake(const std::string&) override {}
     void registerOverInternet(const std::string&) override {}
@@ -123,6 +127,8 @@ public:
     auto findsRemote() const -> bool override { return true; }
     void setUpAccount() override {}
     void launchTitle(const std::string&, const std::string&) override {}
+
+    std::vector<std::string> primaries;
 };
 
 class QuietStream final : public akira::play::ui::StreamCommands {
@@ -132,19 +138,35 @@ public:
     void resume() override {}
     void leave(bool) override {}
     void resetMotion() override {}
-    void showStats(akira::play::StatsOverlayMode) override {}
-    auto stats() -> akira::play::StreamStats override
+    void showDiagnostics(akira::play::DiagnosticsAppearance chosen) override { appearance = chosen; }
+    auto diagnostics() -> akira::play::DiagnosticsReport override { return report(false); }
+
+    static auto sample() -> akira::play::StreamStats
     {
         akira::play::StreamStats sampled{};
         sampled.fps = 59.9F;
         sampled.measured_bitrate_mbps = 24.6F;
         sampled.rtt_valid = true;
         sampled.rtt_ms = 12.0F;
+        sampled.rtt_variation_ms = 1.8F;
+        sampled.rtt_samples = 420;
+        sampled.rtt_p99_ms = 19.0F;
+        sampled.rtt_recent_max_ms = 22.0F;
         sampled.packet_loss_percent = 0.2F;
+        sampled.packets_received = 182340;
+        sampled.packets_lost = 41;
         sampled.network_frames_lost = 3;
+        sampled.frames_recovered = 4;
+        sampled.frames_received = 45210;
+        sampled.keyframe_requests = 2;
+        sampled.fec_repaired = 17;
         sampled.requested_width = 1920;
         sampled.requested_height = 1080;
         sampled.requested_fps = 60;
+        sampled.requested_bitrate = 30000;
+        sampled.requested_hevc = true;
+        sampled.is_hevc = true;
+        sampled.is_hardware_decoder = true;
         sampled.video_width = 1920;
         sampled.video_height = 1080;
         sampled.stream_duration_seconds = 754;
@@ -152,11 +174,35 @@ public:
         sampled.total_ms = 34.0F;
         sampled.net_ms = 12.0F;
         sampled.visual_ms = 8.4F;
+        sampled.decode_ms = 4.2F;
+        sampled.present_ms = 4.2F;
         sampled.jitter_ms = 1.2F;
         sampled.source_fps = 60.0F;
         return sampled;
     }
-    auto decoder() -> std::string override { return "NVTEGRA"; }
+
+    static auto report(bool upscaled) -> akira::play::DiagnosticsReport
+    {
+        akira::play::DiagnosticsHistory history;
+        akira::play::StreamStats stats = sample();
+        for (int step = 0; step < 90; ++step)
+        {
+            stats.measured_bitrate_mbps = 22.0F + static_cast<float>((step * 7) % 9) * 0.6F;
+            stats.source_fps = step % 23 == 0 ? 52.0F : 60.0F;
+            stats.visual_ms = 7.0F + static_cast<float>((step * 5) % 7) * 0.5F;
+            if (step == 40 || step == 71)
+                stats.network_frames_lost += 1;
+            history.record(stats, 0.5);
+        }
+        akira::play::DiagnosticsReport::Sample shown{ .stats = sample(), .decoder = "NVTEGRA",
+            .context = "PS5 \xc2\xb7 Home network" };
+        if (upscaled)
+            shown.upscaling = akira::play::UpscalingSummary{ .active = true, .easu = true, .rcas = true, .sharpness = 0.2F,
+                .inputHeight = 720, .targetHeight = 1080, .displayHeight = 1080 };
+        return akira::play::DiagnosticsReport(std::move(shown), std::move(history));
+    }
+
+    akira::play::DiagnosticsAppearance appearance;
 };
 
 class QuietMaintenance final : public akira::settings::Maintenance {
@@ -249,6 +295,8 @@ public:
     static constexpr std::chrono::milliseconds frameStep{ 16 };
     static constexpr provider::SurfaceSize handheld{ .width = provider::SurfaceWidth{ 1280 },
         .height = provider::SurfaceHeight{ 720 } };
+    static constexpr provider::SurfaceSize switch2Handheld{ .width = provider::SurfaceWidth{ 1920 },
+        .height = provider::SurfaceHeight{ 1080 } };
 
     Shots()
         : root(std::filesystem::temp_directory_path() / ("akira-shots-" + std::to_string(counter++)))
@@ -328,11 +376,14 @@ public:
     auto shell() -> composition::Element { return ShellScreen(model, notices, parts, *strings); }
 
     auto start(composition::Element screen, std::string_view theme = ThemePacks::standard,
-        appearance::ColorSchemePreference scheme = appearance::ColorSchemePreference::dark) -> bool
+        appearance::ColorSchemePreference scheme = appearance::ColorSchemePreference::dark,
+        provider::SurfaceSize size = handheld, provider::DisplayMode mode = provider::DisplayMode::handheld) -> bool
     {
-        providers.surface().set_display_mode(provider::DisplayMode::handheld);
-        providers.surface().resize(handheld);
-        providers.gpu().rasterize(handheld);
+        surfaceSize = size;
+        providers.surface().set_display_mode(mode);
+        providers.surface().resize(size);
+        providers.surface().set_scale(provider::SurfaceScale::for_pixels(size));
+        providers.gpu().rasterize(size);
         runtime::AppearanceOptions look = packs.options(theme);
         look.policy.defaults.color_scheme = scheme;
         auto created = runtime::Application::create(providers, std::move(screen),
@@ -358,6 +409,20 @@ public:
     auto press(std::string_view key) -> bool
     {
         return application->root().activate(composition::ElementKey{ std::string(key) }) && settle();
+    }
+
+    auto pressWithin(std::string_view scope, std::string_view key) -> bool
+    {
+        const runtime::Introspection& look = application->introspection();
+        for (const runtime::Introspection::NodeRecord& record : look.nodes())
+            if (record.key == key && within(record.id, scope))
+                return application->root().activate(record.id) && settle();
+        return false;
+    }
+
+    auto settingsTab(std::size_t index) -> bool
+    {
+        return pressWithin("settings.pages", structure::DockBar::key_of(structure::DockBar::tab_key, index));
     }
 
     auto themeLoaded() -> bool
@@ -430,7 +495,7 @@ public:
                     .console = "Living room",
                     .controls = { Control::Power, Control::Stats, Control::Pad, Control::Motion },
                     .sleepOffered = true,
-                    .statsMode = akira::play::StatsOverlayMode::Compact,
+                    .diagnostics = { .level = akira::play::DiagnosticsAppearance::Level::Compact },
                 },
                 streamCommands, controls, mapping, nullptr, *strings));
     }
@@ -444,7 +509,7 @@ public:
                     .console = "Living room",
                     .controls = { Control::Power, Control::Stats, Control::Pad, Control::Players, Control::Motion },
                     .sleepOffered = true,
-                    .statsMode = akira::play::StatsOverlayMode::Off,
+                    .diagnostics = {},
                     .players = true,
                     .opening = Control::Players,
                 },
@@ -456,29 +521,12 @@ public:
         return components::ZStack(video(), std::move(shown));
     }
 
-    static auto hudSample(bool upscaled) -> akira::play::StatsReadout
+    auto hud(akira::play::DiagnosticsAppearance chosen, bool upscaled) -> composition::Element
     {
-        akira::play::StreamStats stats = QuietStream().stats();
-        stats.requested_bitrate = 30000;
-        stats.requested_hevc = true;
-        stats.is_hevc = true;
-        stats.is_hardware_decoder = true;
-        stats.frames_recovered = 4;
-        stats.decode_ms = 4.2F;
-        stats.network_frames_lost = 3;
-        akira::play::StatsReadout::Sample sample{ .stats = stats, .decoder = "NVTEGRA", .context = "PS5 \xc2\xb7 Home network" };
-        if (upscaled)
-            sample.upscaling = akira::play::UpscalingSummary{ .active = true, .easu = true, .rcas = true, .sharpness = 0.2F,
-                .inputHeight = 720, .targetHeight = 1080, .displayHeight = 1080 };
-        return akira::play::StatsReadout(std::move(sample));
-    }
-
-    auto hud(akira::play::StatsOverlayMode mode, bool upscaled) -> composition::Element
-    {
-        statsBoard.show(mode);
-        statsBoard.refresh(hudSample(upscaled));
+        statsBoard.show(chosen);
+        statsBoard.refresh(QuietStream::report(upscaled));
         statsBoard.place(hudPlacement.origin());
-        return overVideo(akira::play::ui::StatsHud(statsBoard, hudPlacement, akira::app::arisa::OverlayPalette().colours()));
+        return overVideo(akira::play::ui::DiagnosticsOverlay(statsBoard, hudPlacement, *strings));
     }
 
     void dragHud(akira::play::TouchClaim::Fraction from, akira::play::TouchClaim::Fraction to)
@@ -512,13 +560,17 @@ public:
         using Control = akira::play::StreamControls::Control;
         exclusive.emplace(application->exclusive_frame(composition::ExclusiveFrame::Options{
             .keep = { composition::OverlayLayer::dialog, composition::OverlayLayer::toast } }));
+        streamBlocked.emplace(application->block_input());
+        dockPassed.emplace(application->pass_input(akira::play::ui::StreamDock::passedButtons,
+            akira::play::ui::StreamDock::passedInput));
         dockShown.emplace(application->root().overlays().show(composition::OverlayLayer::dialog,
             akira::play::ui::StreamDock(
                 akira::play::ui::StreamDock::Session{
                     .console = "Living room",
                     .controls = { Control::Power, Control::Stats, Control::Pad, Control::Motion },
                     .sleepOffered = true,
-                    .statsMode = akira::play::StatsOverlayMode::Off,
+                    .diagnostics = {},
+                    .opening = Control::Power,
                 },
                 streamCommands, controls, mapping, nullptr, *strings),
             runtime::OverlayBehaviour{ .input = composition::OverlayInput::modal, .alignment = composition::Alignment::bottom }));
@@ -539,6 +591,49 @@ public:
         return settle(12);
     }
 
+    auto tap(std::string_view key) -> bool
+    {
+        const std::optional<composition::Rect> area = areaOf(key);
+        if (!area)
+            return false;
+        const provider::PixelPoint point = pixel(centre(*area));
+        return touch(point, provider::TouchPhase::began, 4) && touch(point, provider::TouchPhase::ended, 12);
+    }
+
+    auto drag(std::string_view key, float rise) -> bool
+    {
+        constexpr int steps = 8;
+        const std::optional<composition::Rect> area = areaOf(key);
+        if (!area)
+            return false;
+        const composition::Point from = centre(*area);
+        if (!touch(pixel(from), provider::TouchPhase::began, 1))
+            return false;
+        for (int step = 1; step <= steps; ++step)
+        {
+            const float travelled = rise * static_cast<float>(step) / static_cast<float>(steps);
+            if (!touch(pixel(composition::Point{ .x = from.x, .y = from.y - travelled }), provider::TouchPhase::moved, 1))
+                return false;
+        }
+        return touch(pixel(composition::Point{ .x = from.x, .y = from.y - rise }), provider::TouchPhase::ended, 30);
+    }
+
+    auto areaOf(std::string_view key) -> std::optional<composition::Rect>
+    {
+        for (const runtime::Introspection::NodeRecord& record : application->introspection().nodes())
+            if (record.key == key)
+                return record.bounds.width > 0.0F ? record.bounds : record.frame;
+        return std::nullopt;
+    }
+
+    auto viewportWidth() -> float { return application->introspection().viewport().width; }
+
+    auto shows(std::string_view key) -> bool
+    {
+        const std::vector<runtime::Introspection::NodeRecord> all = application->introspection().nodes();
+        return std::ranges::any_of(all, [key](const runtime::Introspection::NodeRecord& record) { return record.key == key; });
+    }
+
     auto focused() -> std::optional<composition::NodeId>
     {
         return application->introspection().focus().focused;
@@ -546,7 +641,13 @@ public:
 
     auto focusedWithin(std::string_view key) -> bool
     {
-        std::optional<composition::NodeId> at = focused();
+        const std::optional<composition::NodeId> at = focused();
+        return at && within(*at, key);
+    }
+
+    auto within(composition::NodeId node, std::string_view key) -> bool
+    {
+        std::optional<composition::NodeId> at = node;
         const runtime::Introspection& look = application->introspection();
         while (at)
         {
@@ -561,6 +662,7 @@ public:
     }
 
     auto settingsModel() -> akira::settings::ui::SettingsModel& { return settings; }
+    auto consoleCommands() -> QuietConsoles& { return consoles; }
     auto board() -> akira::play::ui::Mapping& { return mapping; }
     auto couchModel() -> akira::play::ui::Couch& { return *couch; }
     auto accountModel() -> akira::accounts::ui::AccountModel& { return *accounts; }
@@ -618,7 +720,27 @@ private:
             providers.assets().add(std::move(*path), bytes);
     }
 
+    static auto centre(composition::Rect area) -> composition::Point
+    {
+        return composition::Point{ .x = area.x + (area.width * 0.5F), .y = area.y + (area.height * 0.5F) };
+    }
+
+    auto pixel(composition::Point point) -> provider::PixelPoint
+    {
+        const float factor = static_cast<float>(surfaceSize.width.value()) / viewportWidth();
+        return provider::PixelPoint{ .x = point.x * factor, .y = point.y * factor };
+    }
+
+    auto touch(provider::PixelPoint point, provider::TouchPhase phase, int frames) -> bool
+    {
+        provider::InputFrame frame;
+        frame.touches.push_back(provider::Touch{ .id = provider::TouchId{ 1 }, .position = point, .phase = phase });
+        providers.input().push(frame);
+        return settle(frames);
+    }
+
     static inline std::atomic<int> counter{ 0 };
+    provider::SurfaceSize surfaceSize = handheld;
     provider::headless::HeadlessProviderFactory providers;
     std::filesystem::path root;
     akira::settings::SettingsStore store;
@@ -651,6 +773,8 @@ private:
     std::optional<runtime::Application> application;
     std::optional<composition::ExclusiveFrame> exclusive;
     std::optional<runtime::OverlayHandle> dockShown;
+    std::optional<runtime::InputBlock> streamBlocked;
+    std::optional<runtime::InputPassthrough> dockPassed;
     tests::FakeCouchTable couchTable;
     std::optional<akira::play::ui::Couch> couch;
     tests::FakeAccountDesk desk;
@@ -715,9 +839,9 @@ TEST(arisa_shot_pin)
     shots.showHouse();
     shots.shelf.ask(ConsoleShelf::Prompt{ .ask = ConsoleShelf::Ask::Pin, .catalogName = "Study" });
     REQUIRE(shots.start(shots.shell()));
-    REQUIRE(shots.press("pin.key.4"));
-    REQUIRE(shots.press("pin.key.8"));
-    REQUIRE(shots.press("pin.key.2"));
+    REQUIRE(shots.press(structure::DigitKeypad::key_of('4')));
+    REQUIRE(shots.press(structure::DigitKeypad::key_of('8')));
+    REQUIRE(shots.press(structure::DigitKeypad::key_of('2')));
     CHECK(shots.write("pin"));
 }
 
@@ -783,18 +907,38 @@ TEST(arisa_shot_session_ended_alerts)
 
 TEST(arisa_shot_stats_hud)
 {
-    Shots compact;
-    REQUIRE(compact.start(compact.hud(akira::play::StatsOverlayMode::Compact, false)));
-    CHECK(compact.write("stats_hud_compact"));
-    Shots upscaled;
-    REQUIRE(upscaled.start(upscaled.hud(akira::play::StatsOverlayMode::Compact, true)));
-    CHECK(upscaled.write("stats_hud_compact_fsr"));
-    Shots full;
-    REQUIRE(full.start(full.hud(akira::play::StatsOverlayMode::Full, true)));
-    CHECK(full.write("stats_hud_full"));
-    full.dragHud({ .x = 60.0F / 1280.0F, .y = 60.0F / 720.0F }, { .x = 800.0F / 1280.0F, .y = 420.0F / 720.0F });
-    REQUIRE(full.settle());
-    CHECK(full.write("stats_hud_full_dragged"));
+    using Appearance = akira::play::DiagnosticsAppearance;
+    struct Case {
+        const char* name;
+        Appearance appearance;
+        bool upscaled;
+    };
+    const std::array cases{
+        Case{ "stats_hud_compact", { .level = Appearance::Level::Compact }, false },
+        Case{ "stats_hud_compact_clear", { .level = Appearance::Level::Compact, .glass = Appearance::Glass::Clear }, true },
+        Case{ "stats_hud_standard_sheet", { .level = Appearance::Level::Standard }, false },
+        Case{ "stats_hud_standard_floating",
+            { .level = Appearance::Level::Standard, .layout = Appearance::Layout::Floating }, true },
+        Case{ "stats_hud_standard_dimmed",
+            { .level = Appearance::Level::Standard, .glass = Appearance::Glass::ClearDimmed }, false },
+        Case{ "stats_hud_standard_health",
+            { .level = Appearance::Level::Standard, .glass = Appearance::Glass::HealthTint, .layout = Appearance::Layout::Floating },
+            false },
+        Case{ "stats_hud_full_sheet", { .level = Appearance::Level::Full, .glass = Appearance::Glass::Solid }, true },
+        Case{ "stats_hud_full_floating",
+            { .level = Appearance::Level::Full, .glass = Appearance::Glass::Clear, .layout = Appearance::Layout::Floating }, true },
+    };
+    for (const Case& shown : cases)
+    {
+        Shots shots;
+        REQUIRE(shots.start(shots.hud(shown.appearance, shown.upscaled)));
+        CHECK(shots.write(shown.name));
+    }
+    Shots dragged;
+    REQUIRE(dragged.start(dragged.hud({ .level = Appearance::Level::Standard }, true)));
+    dragged.dragHud({ .x = 60.0F / 1280.0F, .y = 60.0F / 720.0F }, { .x = 400.0F / 1280.0F, .y = 300.0F / 720.0F });
+    REQUIRE(dragged.settle());
+    CHECK(dragged.write("stats_hud_standard_dragged"));
 }
 
 TEST(arisa_shot_settings_pages)
@@ -809,12 +953,12 @@ TEST(arisa_shot_settings_pages)
     REQUIRE(shots.start(shots.shell()));
     for (std::size_t index = 0; index < names.size(); ++index)
     {
-        REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, index)));
+        REQUIRE(shots.settingsTab(index));
         CHECK(shots.write(names[index]));
     }
     shots.checkNat();
     REQUIRE(shots.settle());
-    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 5)));
+    REQUIRE(shots.settingsTab(5));
     CHECK(shots.write("settings_network_checked"));
 }
 
@@ -889,30 +1033,68 @@ TEST(arisa_shot_theme_packs)
     CHECK(light.write("theme_akira-anniversary_light"));
 }
 
+TEST(arisa_touch_drives_the_shell_on_every_pack)
+{
+    for (const provider::SurfaceSize size : { Shots::handheld, Shots::switch2Handheld })
+    {
+        for (const std::string_view pack : ThemePacks::names)
+        {
+            Shots shots;
+            shots.model.ready();
+            shots.showHouse();
+            REQUIRE(shots.start(shots.shell(), pack, appearance::ColorSchemePreference::dark, size));
+            CHECK(shots.viewportWidth() == 1280.0F);
+            REQUIRE(shots.tap("Living room.primary"));
+            CHECK(shots.consoleCommands().primaries == std::vector<std::string>{ "Living room" });
+        }
+        Shots settings;
+        settings.model.ready();
+        settings.showHouse();
+        settings.model.showSettings(true);
+        REQUIRE(settings.start(settings.shell(), ThemePacks::standard, appearance::ColorSchemePreference::dark, size));
+        REQUIRE(settings.settingsTab(1));
+        const std::optional<composition::Rect> before = settings.areaOf("general.accent");
+        REQUIRE(before.has_value());
+        REQUIRE(settings.drag("general.accent", 240.0F));
+        const std::optional<composition::Rect> after = settings.areaOf("general.accent");
+        REQUIRE(after.has_value());
+        CHECK(after->y < before->y - 100.0F);
+    }
+    for (const std::string_view pack : ThemePacks::names)
+    {
+        Shots docked;
+        docked.model.ready();
+        docked.showHouse();
+        REQUIRE(docked.start(docked.shell(), pack, appearance::ColorSchemePreference::dark, Shots::switch2Handheld,
+            provider::DisplayMode::docked));
+        CHECK(docked.viewportWidth() == 1280.0F);
+    }
+}
+
 TEST(arisa_stream_dock_focus_moves_with_the_dock_buttons)
 {
     Shots shots;
     REQUIRE(shots.start(Shots::video()));
     shots.streamWithDock();
     REQUIRE(shots.settle());
-    CHECK(shots.focusedWithin("stream-dock.panel"));
-    REQUIRE(shots.pad(provider::Buttons{ provider::Button::dpad_down }));
     CHECK(shots.focusedWithin("stream-dock.tabs"));
     const std::optional<composition::NodeId> start = shots.focused();
-    REQUIRE(shots.pad(provider::Buttons{ provider::Button::dpad_left }));
-    const std::optional<composition::NodeId> left = shots.focused();
-    CHECK(left.has_value() && left != start);
-    REQUIRE(shots.pad(provider::Buttons{}, provider::Stick{ .x = 1.0F, .y = 0.0F }));
+    REQUIRE(shots.pad(provider::Buttons{ provider::Button::dpad_right }));
+    const std::optional<composition::NodeId> right = shots.focused();
+    CHECK(right.has_value() && right != start);
+    CHECK(shots.focusedWithin("stream-dock.tabs"));
+    REQUIRE(shots.pad(provider::Buttons{}, provider::Stick{ .x = -1.0F, .y = 0.0F }));
     CHECK(shots.focused() == start);
     REQUIRE(shots.pad(provider::Buttons{}, provider::Stick{ .x = 1.0F, .y = 0.0F }));
-    CHECK(shots.focused() != start);
-    CHECK(shots.focusedWithin("stream-dock.tabs"));
+    CHECK(shots.focused() == right);
     REQUIRE(shots.pad(provider::Buttons{ provider::Button::dpad_up }));
     CHECK(shots.focusedWithin("stream-dock.panel"));
     REQUIRE(shots.pad(provider::Buttons{}, provider::Stick{ .x = 0.0F, .y = -1.0F }));
     CHECK(shots.focusedWithin("stream-dock.tabs"));
+    CHECK(!shots.shows("stream-dock.akira/diagnostics/level"));
+    REQUIRE(shots.tap(structure::DockBar::key_of(structure::DockBar::tab_key, 0)));
+    CHECK(shots.shows("stream-dock.akira/diagnostics/level"));
 }
-
 
 TEST(arisa_shot_couch_players)
 {
@@ -1008,7 +1190,7 @@ TEST(arisa_shot_settings_account_dialogs)
     shots.showHouse();
     shots.model.showSettings(true);
     REQUIRE(shots.start(shots.shell()));
-    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 0)));
+    REQUIRE(shots.settingsTab(0));
     shots.accountModel().askRemove(2);
     REQUIRE(shots.settle());
     CHECK(shots.write("settings_account_remove"));
@@ -1049,7 +1231,7 @@ TEST(arisa_shot_settings_tools)
     CHECK(shots.write("settings_benchmark"));
     shots.settingsModel().close();
     REQUIRE(shots.settle());
-    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 11)));
+    REQUIRE(shots.settingsTab(11));
     REQUIRE(shots.press("about.link.chiaki-ng"));
     CHECK(shots.write("settings_about_qr"));
 }

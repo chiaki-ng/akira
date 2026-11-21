@@ -1,7 +1,10 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
+#include <string_view>
 
+#include "play/diagnostics_appearance.hpp"
 #include "play/renderer_kind.hpp"
 #include "play/stream_profile.hpp"
 #include "play/video_mode.hpp"
@@ -79,6 +82,8 @@ public:
     float statsOverlayX() const { return overlayX; }
     float statsOverlayY() const { return overlayY; }
     void setStatsOverlayPosition(float x, float y);
+    auto diagnostics() const -> DiagnosticsAppearance { return appearance; }
+    void setDiagnostics(DiagnosticsAppearance chosen) { appearance = chosen; }
 
     bool zeroCopyVideo() const { return zeroCopy; }
     void setZeroCopyVideo(bool enabled) { zeroCopy = enabled; }
@@ -102,6 +107,12 @@ private:
     };
 
     static int fsrTargetForResolution(VideoResolution resolution);
+    static auto levelName(DiagnosticsAppearance::Level level) -> const char*;
+    static auto glassName(DiagnosticsAppearance::Glass glass) -> const char*;
+    static auto layoutName(DiagnosticsAppearance::Layout layout) -> const char*;
+    template <typename Value, std::size_t Count>
+    static auto parsed(const std::array<Value, Count>& options, auto (*name)(Value)->const char*, std::string_view text,
+        Value fallback) -> Value;
 
     void read(const toml::table& config);
     Video& local() { return videos[0]; }
@@ -127,6 +138,7 @@ private:
     float ditherStrength = 3.0f;
     float overlayX = -1.0f;
     float overlayY = -1.0f;
+    DiagnosticsAppearance appearance;
     bool zeroCopy = false;
     bool softwareHevcDecode = false;
     RendererKind renderer = RendererKind::Drako3d;

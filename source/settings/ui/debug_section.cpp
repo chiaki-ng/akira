@@ -4,6 +4,7 @@
 
 #include <vector>
 
+#include "app/app_settings.hpp"
 #include "settings/chiaki_log_verbosity.hpp"
 #include "settings/developer_settings.hpp"
 #include "settings/ui/setting_rows.hpp"
@@ -55,7 +56,11 @@ auto DebugSection::body(composition::Context& context) const -> composition::Ele
     SettingsModel* edit = model;
     shown.push_back(rows.action(rows.text("akira/settings/discovery_log_viewer"), "wifi_find", "settings/openDiscoveryLog",
         [edit] { edit->openDiscoveryLog(); }));
-    return structure::Form(rows.section(rows.text("akira/settings/debug_logging"), std::move(shown)));
+    app::AppSettings& app = model->parts().app;
+    return structure::Form(rows.section(rows.text("akira/settings/debug_logging"), std::move(shown)),
+        rows.section(rows.text("akira/screenshot/heading"),
+            rows.toggle(rows.text("akira/screenshot/chord"), "", [&app] { return app.screenshotChord(); },
+                [&app](bool value) { app.setScreenshotChord(value); })));
 }
 
 }

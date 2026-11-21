@@ -64,6 +64,27 @@ struct StreamStats
     float total_ms = 0.0f;
     bool latency_valid = false;
 
+    float rtt_variation_ms = 0.0f;
+    float rtt_p99_ms = 0.0f;
+    float rtt_recent_max_ms = 0.0f;
+    uint64_t rtt_samples = 0;
+    float transfer_ms = 0.0f;
+    bool transfer_valid = false;
+    uint64_t frames_received = 0;
+    uint64_t keyframe_requests = 0;
+    uint64_t keyframe_waits = 0;
+    uint64_t fec_repaired = 0;
+    uint64_t unassembled = 0;
+    uint64_t duplicates = 0;
+    uint64_t stale_frames = 0;
+    uint64_t decoder_rejections = 0;
+    uint64_t rejected_packets = 0;
+    uint64_t crypto_rejections = 0;
+    uint64_t reorder_skipped = 0;
+    uint64_t reorder_dropped = 0;
+    uint64_t internal_drops = 0;
+    uint64_t session_errors = 0;
+
     bool analog_triggers_active = false;
     uint8_t analog_l2 = 0;
     uint8_t analog_r2 = 0;

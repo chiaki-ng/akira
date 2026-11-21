@@ -1,11 +1,11 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 
-#include <switch.h>
-
+#include <arisa/provider/input/buttons.hpp>
 #include <arisa/runtime/application.hpp>
-#include <arisa/runtime/input_block.hpp>
+#include <arisa/runtime/button_capture.hpp>
 
 #include "play/button_capture.hpp"
 
@@ -20,9 +20,10 @@ public:
     void end() override;
 
 private:
+    static auto bitsOf(::arisa::provider::Buttons buttons) -> std::uint64_t;
+
     ::arisa::runtime::Application& application;
-    PadState pad{};
-    std::optional<::arisa::runtime::InputBlock> blocked;
+    std::optional<::arisa::runtime::ButtonCapture> capture;
 };
 
 }

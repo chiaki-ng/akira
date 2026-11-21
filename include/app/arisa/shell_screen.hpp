@@ -5,8 +5,8 @@
 #include <arisa/composition/component.hpp>
 #include <arisa/composition/context.hpp>
 #include <arisa/composition/element.hpp>
-#include <arisa/composition/namespace.hpp>
 #include <arisa/theme/glass.hpp>
+#include <arisa/composition/namespace.hpp>
 
 #include "app/arisa/art_session.hpp"
 #include "app/arisa/notices.hpp"
@@ -56,6 +56,7 @@ public:
     static constexpr float settingsBottom = 50.0F;
     static constexpr float settingsScrim = 0.16F;
     static constexpr float glowOpacity = 0.10F;
+    static constexpr float noticeOpacity = 0.85F;
     static constexpr ::arisa::composition::Namespace endingFocus{ "shell-ending" };
 
     ShellScreen(ShellModel& model, Notices& notices, const Parts& parts, const app::Strings& strings);

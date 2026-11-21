@@ -13,3 +13,6 @@ control_background = "#16307A"
 
 [liquid_glass]
 tint = "#16307A8C"
+
+[preferences]
+color_scheme = "dark"

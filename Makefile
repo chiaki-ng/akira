@@ -51,14 +51,14 @@ TEST_PLATFORM_SRC := $(CURDIR)/source/platform/pads/extended/rumble_keys.cpp \
 endif
 DOCKER_IMAGE ?= akira-builder:$(IMAGE_HASH)
 ARISA_VERSION      := 0.0.1
-ARISA_TAG          := v1.0
+ARISA_TAG          := ab01deb
 ARISA_GPU          ?= drako3d
 ARISA_FLAVOUR_nx_drako3d    := switch
 ARISA_FLAVOUR_nx_vulkan     := switch
 ARISA_FLAVOUR_ounce_drako3d := switch2
 ARISA_FLAVOUR_ounce_vulkan  := switch2
-ARISA_SHA256_switch         := 4f3353e44fd7045763ba179c2fb72af17ae209c14b2b87022e66ddf17a7db519
-ARISA_SHA256_switch2        := fec97b40b606e012902a13e4afdc2c263815b1d8d73ee64eb1b8a8125aee2eaa
+ARISA_SHA256_switch         := cf8781d3004918d7ec2827bc60f9022876faf1add6c15aa484e258731fa99933
+ARISA_SHA256_switch2        := 036e85839335509411fafb57899cefd536e1ef123e84466eb9e73677ba9b9c52
 ARISA_RECIPE_switch         := make package TARGET=switch
 ARISA_RECIPE_switch2        := make package-switch2
 ARISA_PACKAGE_DIR  ?= $(abspath $(CURDIR)/../arisa/build/package)
@@ -71,7 +71,7 @@ ARISA_PREFIX        = $(ARISA_UNPACK)/$(ARISA_NAME)
 ARISA_BUILD_NAME    = arisa-$(PLATFORM)$(if $(filter ounce_vulkan,$(PLATFORM)_$(ARISA_GPU)),-vulkan)
 ARISA_NRO_FILE      = $(CURDIR)/build/$(ARISA_BUILD_NAME)/akira-arisa.nro
 ARISA_HOST_NAME    := arisa-$(ARISA_VERSION)-macos-arm64
-ARISA_HOST_SHA256  := e548d3a2e9001f62f7babd0ce13d458e5e60ebf5533791cf06d9906a0d806231
+ARISA_HOST_SHA256  := fd4e96b96c377fe1d1e85855450c4a349064cea7cd1a848e86ebfebe3c617b6a
 ARISA_HOST_ARCHIVE  = $(ARISA_PACKAGE_DIR)/$(ARISA_HOST_NAME).tar.gz
 ARISA_HOST_UNPACK   = $(CURDIR)/build/arisa-package/$(ARISA_HOST_SHA256)
 ARISA_HOST_PREFIX   = $(ARISA_HOST_UNPACK)/$(ARISA_HOST_NAME)
@@ -85,6 +85,8 @@ ARISA_TEST_MODELS   = $(CURDIR)/source/log/log.cpp \
                       $(CURDIR)/source/play/connect_failure.cpp \
                       $(CURDIR)/source/play/stream_summary.cpp \
                       $(CURDIR)/source/play/stats_readout.cpp \
+                      $(CURDIR)/source/play/diagnostics_history.cpp \
+                      $(CURDIR)/source/play/diagnostics_report.cpp \
                       $(CURDIR)/source/play/stats_hud_placement.cpp \
                       $(CURDIR)/source/play/stream_settings.cpp \
                       $(CURDIR)/source/play/controller_settings.cpp \
@@ -139,7 +141,7 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/play/ui/connecting_screen.cpp \
                       $(CURDIR)/source/play/ui/stream_dock.cpp \
                       $(CURDIR)/source/play/ui/stats_board.cpp \
-                      $(CURDIR)/source/play/ui/stats_hud.cpp \
+                      $(CURDIR)/source/play/ui/diagnostics_overlay.cpp \
                       $(CURDIR)/source/play/ui/mapping.cpp \
                       $(CURDIR)/source/play/ui/button_board_view.cpp \
                       $(CURDIR)/source/play/ui/couch.cpp \
@@ -248,6 +250,10 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/play/paused_frame.cpp \
                 $(CURDIR)/source/play/stream_summary.cpp \
                 $(CURDIR)/source/play/stats_readout.cpp \
+                $(CURDIR)/source/play/diagnostics_history.cpp \
+                $(CURDIR)/source/play/diagnostics_report.cpp \
+                $(CURDIR)/source/play/screenshot_chord.cpp \
+                $(CURDIR)/source/app/screenshot.cpp \
                 $(CURDIR)/source/play/stats_hud_placement.cpp \
                 $(CURDIR)/source/play/stream_controls.cpp \
                 $(CURDIR)/source/settings/settings_store.cpp \
@@ -401,7 +407,7 @@ test: platform
 	@printf "$(GREEN)[*]$(NC) Building host tests...\n"
 	@c++ -std=c++23 -g -O0 -Wall -Wextra -Wno-unused-parameter -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
 		-DAKIRA_RESOURCES_DIR=\"$(CURDIR)/resources\" -I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" \
-		-I"$(CURDIR)/library/tomlplusplus/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(OPENSSL_PREFIX)/include" -I"$(CURDIR)/library/qrcodegen" \
+		-I"$(CURDIR)/library/tomlplusplus/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(OPENSSL_PREFIX)/include" -I"$(CURDIR)/library/qrcodegen" -isystem "$(CURDIR)/library/stb" \
 		$(TEST_SRC) $(CORE_TEST_SRC) -L"$(JSONC_PREFIX)/lib" -ljson-c -L"$(SIMDUTF_PREFIX)/lib" -lsimdutf \
 		-L"$(OPENSSL_PREFIX)/lib" -lcrypto -o "$(TEST_BIN)"
 	@printf "$(GREEN)[*]$(NC) Running host tests...\n"

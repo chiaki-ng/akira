@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <format>
 #include <utility>
 #include <vector>
 
@@ -37,7 +38,7 @@
 #include "play/ui/couch_prompt.hpp"
 #include "play/ui/pad_picker.hpp"
 #include "play/ui/seat_passcode.hpp"
-#include "play/ui/stats_hud.hpp"
+#include "play/ui/diagnostics_overlay.hpp"
 #include "play/ui/stream_dock.hpp"
 #include "play/stream_settings.hpp"
 #include "settings/settings_store.hpp"
@@ -50,7 +51,7 @@ namespace runtime = ::arisa::runtime;
 
 StreamDriver::StreamDriver(Services& services, runtime::Application& application, Window& window, ShellModel& model,
     Notifier& notifier, settings::ui::ControlOptions& controlOptions, play::ui::Mapping& mapping, Couch couch,
-    const platform::video::OverlayPalette& palette, std::function<void()> ended)
+    std::function<void()> ended)
     : services(services)
     , application(application)
     , window(window)
@@ -60,7 +61,6 @@ StreamDriver::StreamDriver(Services& services, runtime::Application& application
     , couch(couch)
     , notifier(notifier)
     , ended(std::move(ended))
-    , palette(palette.colours())
 {
 }
 
@@ -75,8 +75,9 @@ StreamDriver::~StreamDriver()
         connection->leave(sessionStarted && services.appSettings.sleepOnExit() && host && !host->isCloud());
     passcode.reset();
     prompt.reset();
-    picker.reset();
+    closePicker();
     dock.reset();
+    dockInput.reset();
     if (couch.table)
         couch.table->detach();
     connection.reset();
@@ -147,7 +148,17 @@ void StreamDriver::waitForPads()
 void StreamDriver::showPicker(play::ui::Couch::Picked picked)
 {
     couch.model->askPad(couch.table->pads(), Clock::now(), std::move(picked));
+    couch.table->watch(application.capture_buttons());
+    pickerInput.emplace(application.pass_input(play::ui::PadPicker::passedButtons, play::ui::PadPicker::passedInput));
     picker.emplace(modal(composition::Element(play::ui::PadPicker(*couch.model, services.strings))));
+}
+
+void StreamDriver::closePicker()
+{
+    picker.reset();
+    pickerInput.reset();
+    if (couch.table)
+        couch.table->unwatch();
 }
 
 void StreamDriver::finishPadChoice()
@@ -170,7 +181,7 @@ void StreamDriver::finishPadChoice()
 
 void StreamDriver::padChosen(play::ui::Couch::Pick pick, std::optional<play::PadId> pad)
 {
-    picker.reset();
+    closePicker();
     consoles::Host* target = pending;
     pending = nullptr;
     if (pick == play::ui::Couch::Pick::Cancelled)
@@ -235,7 +246,7 @@ void StreamDriver::arrivalAnswered(play::ui::Couch::Arrival answer)
                     const auto self = weak.lock();
                     if (!self)
                         return;
-                    self->picker.reset();
+                    self->closePicker();
                     if (pick == play::ui::Couch::Pick::Chosen && pad)
                         self->couch.table->choosePrimary(*pad);
                     self->resumeAfterUi();
@@ -324,7 +335,11 @@ void StreamDriver::open(consoles::Host& target, libchiaking::play::ConsoleHandov
     intentionalDisconnect = false;
     controls = play::StreamControls();
     controls.offerSleep(!target.cloudLaunch());
+    session.setStatsOverlayMode(overlayMode(services.stream.diagnostics().level));
     controls.showStats(session.getStatsOverlayMode());
+    statsBoard.show(services.stream.diagnostics());
+    history.reset();
+    lastHistorySample.reset();
     if (couch.table && couch.model)
     {
         controls.offerPlayers();
@@ -356,6 +371,7 @@ void StreamDriver::tick()
 
     if (!dock && !prompt && !passcode && !picker)
         followMenu();
+    sampleDiagnostics();
     followHud();
     if (couch.table && couch.table->degradedOnce())
         notifier.notify(services.strings.text("akira/settings/analog_triggers_degraded"));
@@ -381,6 +397,8 @@ void StreamDriver::enterVideo()
     model.streaming();
     hudPlacement.restore(savedHudPosition());
     services.session.get().claimTouches(&hudPlacement);
+    if (play::InputManager* input = services.session.get().getInputManager())
+        input->setScreenshotChord(services.appSettings.screenshotChord());
     showHud();
     log::info("[ARISA] video owns the screen; the main tree is exclusive");
 }
@@ -399,7 +417,9 @@ void StreamDriver::openDock(std::optional<play::StreamControls::Control> opening
     connection->setInputSuppressed(true);
     session.setVideoPaused(true);
     session.CleanUpHaptic();
-    padsOwned.reset();
+    if (!padsOwned)
+        padsOwned.emplace(application.block_input());
+    dockInput.emplace(application.pass_input(play::ui::StreamDock::passedButtons, play::ui::StreamDock::passedInput));
     hideHud();
     keepHudPosition();
     if (couch.model)
@@ -411,8 +431,9 @@ void StreamDriver::openDock(std::optional<play::StreamControls::Control> opening
                 .console = host ? host->getHostName() : lastConsole,
                 .controls = controls.controls(),
                 .sleepOffered = controls.offersSleep(),
-                .statsMode = session.getStatsOverlayMode(),
+                .diagnostics = services.stream.diagnostics(),
                 .players = players,
+                .bandwidth = cloudBandwidth(),
                 .opening = opening,
             },
             *this, controlOptions, mapping, couch.model, services.strings),
@@ -433,11 +454,9 @@ void StreamDriver::closeDock()
     arrivalDock = false;
     const bool wasOpen = dock.has_value();
     dock.reset();
+    dockInput.reset();
     if (wasOpen && videoActive && connection)
-    {
-        padsOwned.emplace(application.block_input());
         showHud();
-    }
 }
 
 void StreamDriver::resume()
@@ -536,11 +555,38 @@ void StreamDriver::resetMotion()
         input->resetMotionControls();
 }
 
-void StreamDriver::showStats(play::StatsOverlayMode mode)
+void StreamDriver::showDiagnostics(play::DiagnosticsAppearance appearance)
 {
+    const play::StatsOverlayMode mode = overlayMode(appearance.level);
     services.session.get().setStatsOverlayMode(mode);
     controls.showStats(mode);
-    statsBoard.show(mode);
+    statsBoard.show(appearance);
+    if (services.stream.diagnostics() == appearance)
+        return;
+    services.stream.setDiagnostics(appearance);
+    services.store.save();
+}
+
+auto StreamDriver::cloudBandwidth() -> std::optional<std::string>
+{
+    if (!host || !host->isCloud())
+        return std::nullopt;
+    const play::StreamStats stats = services.session.get().getStreamStats();
+    if (!stats.console_quality_valid || stats.target_bitrate_kbps == 0)
+        return std::nullopt;
+    return std::format("{:.1f} Mbps", stats.target_bitrate_kbps / 1000.0);
+}
+
+auto StreamDriver::overlayMode(play::DiagnosticsAppearance::Level level) -> play::StatsOverlayMode
+{
+    switch (level)
+    {
+        case play::DiagnosticsAppearance::Level::Off: return play::StatsOverlayMode::Off;
+        case play::DiagnosticsAppearance::Level::Compact: return play::StatsOverlayMode::Compact;
+        case play::DiagnosticsAppearance::Level::Standard:
+        case play::DiagnosticsAppearance::Level::Full: break;
+    }
+    return play::StatsOverlayMode::Full;
 }
 
 auto StreamDriver::savedHudPosition() const -> std::optional<play::TouchClaim::Fraction>
@@ -552,32 +598,41 @@ auto StreamDriver::savedHudPosition() const -> std::optional<play::TouchClaim::F
     return play::TouchClaim::Fraction{ .x = x, .y = y };
 }
 
-auto StreamDriver::readout() -> play::StatsReadout
+auto StreamDriver::diagnostics() -> play::DiagnosticsReport
 {
     play::Session& session = services.session.get();
-    std::optional<std::string> tunnel;
-    if (services.wireGuard.isConnected())
-        tunnel = services.wireGuard.getTunnelIP();
-    return play::StatsReadout(play::StatsReadout::Sample{
-        .stats = session.getStreamStats(),
-        .upscaling = session.upscaling(),
-        .decoder = std::string(session.video().decoderStat()),
-        .context = session.connectionContext(),
-        .tunnel = std::move(tunnel),
-    });
+    return play::DiagnosticsReport(play::DiagnosticsReport::Sample{
+                                       .stats = session.getStreamStats(),
+                                       .upscaling = session.upscaling(),
+                                       .decoder = decoder(),
+                                       .context = session.connectionContext(),
+                                   },
+        history);
+}
+
+void StreamDriver::sampleDiagnostics()
+{
+    const Clock::time_point now = Clock::now();
+    if (lastHistorySample && now - *lastHistorySample < historyInterval)
+        return;
+    const double seconds = lastHistorySample
+        ? std::chrono::duration<double>(now - *lastHistorySample).count()
+        : std::chrono::duration<double>(historyInterval).count();
+    lastHistorySample = now;
+    history.record(services.session.get().getStreamStats(), seconds);
 }
 
 void StreamDriver::showHud()
 {
-    const play::StatsOverlayMode mode = services.session.get().getStatsOverlayMode();
-    statsBoard.show(mode);
-    if (mode == play::StatsOverlayMode::Off || hud || dock || !videoActive)
+    const play::DiagnosticsAppearance appearance = services.stream.diagnostics();
+    statsBoard.show(appearance);
+    if (appearance.level == play::DiagnosticsAppearance::Level::Off || hud || dock || !videoActive)
         return;
-    statsBoard.refresh(readout());
+    statsBoard.refresh(diagnostics());
     statsBoard.place(hudPlacement.origin());
     nextStatsSample = Clock::now() + statsInterval;
     hud.emplace(application.root().overlays().show(composition::OverlayLayer::hud,
-        play::ui::StatsHud(statsBoard, hudPlacement, palette),
+        play::ui::DiagnosticsOverlay(statsBoard, hudPlacement, services.strings),
         runtime::OverlayBehaviour{
             .input = composition::OverlayInput::passthrough,
             .alignment = composition::Alignment::top_leading,
@@ -602,7 +657,7 @@ void StreamDriver::followHud()
     const Clock::time_point now = Clock::now();
     if (now >= nextStatsSample)
     {
-        statsBoard.refresh(readout());
+        statsBoard.refresh(diagnostics());
         nextStatsSample = now + statsInterval;
     }
     if (const std::uint64_t revision = hudPlacement.revision(); revision != hudRevision)
@@ -630,11 +685,6 @@ void StreamDriver::keepHudPosition()
     hudPositionUnsaved = false;
     services.store.save();
     log::info("[ARISA] stats HUD position saved");
-}
-
-auto StreamDriver::stats() -> play::StreamStats
-{
-    return services.session.get().getStreamStats();
 }
 
 auto StreamDriver::decoder() -> std::string
@@ -668,7 +718,7 @@ void StreamDriver::stop()
     closeDock();
     passcode.reset();
     prompt.reset();
-    picker.reset();
+    closePicker();
     pausedForPasscode = false;
     if (couch.model)
         couch.model->reset();

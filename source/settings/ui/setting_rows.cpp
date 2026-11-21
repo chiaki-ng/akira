@@ -15,6 +15,7 @@
 #include <arisa/theme/glass.hpp>
 #include <arisa/theme/space.hpp>
 #include <arisa/theme/typography.hpp>
+#include <arisa/structure/disclosure_row.hpp>
 
 namespace akira::settings::ui {
 
@@ -39,12 +40,8 @@ auto SettingRows::rowKey(std::string_view label, std::string_view help) -> std::
 auto SettingRows::described(composition::Element row, std::string_view id, const std::string& key) const
     -> composition::Element
 {
-    if (!id.empty())
-    {
-        const std::string title = help->title(id);
-        if (!title.empty() || !help->body(id).empty())
-            row = std::move(row).help(title, help->body(id));
-    }
+    if (explained(id))
+        row = std::move(row).help(help->title(id), help->body(id));
     return std::move(row).id(composition::ElementKey{ key });
 }
 
@@ -95,6 +92,9 @@ auto SettingRows::link(std::string label, std::string detail, std::string_view i
     -> composition::Element
 {
     const std::string key = rowKey(label, id);
+    if (!explained(id))
+        return structure::DisclosureRow(std::move(label), std::move(detail), [open = std::move(open)] { open(); })
+            .id(composition::ElementKey{ key });
     return described(components::Button([open = std::move(open)] { open(); },
                          components::HStack(components::HStackOptions{ .spacing = theme::space::sm },
                              components::Text(std::move(label)), components::Spacer(),
@@ -103,6 +103,11 @@ auto SettingRows::link(std::string label, std::string detail, std::string_view i
                                  .foreground_style(theme::ColourRole::tertiary_label)))
                          .button_sizing(components::ButtonSizing::flexible),
         id, key);
+}
+
+auto SettingRows::explained(std::string_view id) const -> bool
+{
+    return !id.empty() && (!help->title(id).empty() || !help->body(id).empty());
 }
 
 auto SettingRows::value(std::string label, std::string shown) const -> composition::Element

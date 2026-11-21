@@ -1,5 +1,6 @@
 #include "settings/ui/settings_screen.hpp"
 
+#include <arisa/components/control_size.hpp>
 #include <arisa/components/button.hpp>
 #include <arisa/components/button_border_shape.hpp>
 #include <arisa/components/button_role.hpp>
@@ -306,6 +307,7 @@ auto SettingsScreen::body(composition::Context& context) const -> composition::E
     composition::Element screen =
         components::VStack(components::VStackOptions{ .spacing = theme::space::none },
             composition::Element(structure::DockBar(std::move(selection), std::move(tabs)))
+                .control_size(components::ControlSize::small)
                 .padding(theme::Edge::top, theme::Space{ 8.0F })
                 .id(composition::ElementKey{ "settings.pages" }),
             composition::Element(components::Group()).frame({ .height = 14.0F }),

@@ -32,59 +32,61 @@ tint = { light = "#FFFFFF9E", dark = "#3030329E" }
 
 [type.large_title]
 size = 28
-weight = 700
+weight = "bold"
+tracking = -0.4
 line_height = 34
 
 [type.title]
 size = 26
-weight = 600
+weight = "semibold"
+tracking = -0.7
 line_height = 32
 
 [type.title2]
 size = 22
-weight = 600
+weight = "semibold"
 line_height = 28
 
 [type.title3]
 size = 20
-weight = 600
+weight = "semibold"
 line_height = 25
 
 [type.headline]
 size = 17
-weight = 600
+weight = "semibold"
 line_height = 22
 
 [type.subheadline]
 size = 14
-weight = 500
+weight = "medium"
 line_height = 19
 
 [type.body]
 size = 15
-weight = 400
+weight = "regular"
 line_height = 20
 
 [type.callout]
 size = 14
-weight = 400
+weight = "regular"
 line_height = 19
 
 [type.footnote]
 size = 13
-weight = 400
+weight = "regular"
 line_height = 17
 
 [type.caption]
 size = 12
-weight = 400
+weight = "regular"
 line_height = 16
 
 [type.caption2]
 size = 10.5
-weight = 500
+weight = "medium"
 line_height = 13
 
 [preferences]
 handheld_scale = 1.0
-docked_scale = 1.5
+docked_scale = 1.0

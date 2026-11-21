@@ -1,7 +1,6 @@
 #pragma once
 
-#include <functional>
-#include <string>
+#include <vector>
 
 #include <arisa/composition/component.hpp>
 #include <arisa/composition/context.hpp>
@@ -14,13 +13,7 @@ namespace akira::app::arisa {
 
 class Rail final : public ::arisa::composition::Component {
 public:
-    static constexpr float width = 72.0F;
     static constexpr float inset = 16.0F;
-    static constexpr float padding = 10.0F;
-    static constexpr float spacing = 6.0F;
-    static constexpr float iconSize = 21.0F;
-    static constexpr float stopRadius = 13.0F;
-    static constexpr float currentOpacity = 0.22F;
 
     Rail(ShellModel& model, const app::Strings& strings);
 
@@ -29,8 +22,9 @@ public:
     auto body(::arisa::composition::Context& context) const -> ::arisa::composition::Element override;
 
 private:
-    static auto stop(std::string title, std::string symbol, bool current, std::function<void()> chosen,
-        std::string key) -> ::arisa::composition::Element;
+    static auto pages(const ShellModel::View& view) -> std::vector<ShellModel::Page>;
+    auto title(ShellModel::Page page) const -> std::string;
+    static auto symbol(ShellModel::Page page) -> std::string;
 
     ShellModel* model;
     const app::Strings* strings;

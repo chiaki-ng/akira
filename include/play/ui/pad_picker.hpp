@@ -5,6 +5,8 @@
 #include <arisa/composition/component.hpp>
 #include <arisa/composition/context.hpp>
 #include <arisa/composition/element.hpp>
+#include <arisa/provider/input/buttons.hpp>
+#include <arisa/runtime/passed_input.hpp>
 
 #include "app/strings.hpp"
 #include "play/couch_table.hpp"
@@ -22,6 +24,10 @@ public:
     static constexpr float cardSpacing = 20.0F;
     static constexpr float artSide = 112.0F;
     static constexpr float scrim = 0.45F;
+    static constexpr ::arisa::provider::Buttons passedButtons{ ::arisa::provider::Button::a, ::arisa::provider::Button::b,
+        ::arisa::provider::Button::dpad_up, ::arisa::provider::Button::dpad_down, ::arisa::provider::Button::dpad_left,
+        ::arisa::provider::Button::dpad_right };
+    static constexpr ::arisa::runtime::PassedInput passedInput{ .touch = true };
 
     PadPicker(Couch& couch, const app::Strings& strings);
 

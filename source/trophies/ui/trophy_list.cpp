@@ -1,6 +1,7 @@
 #include "trophies/ui/trophy_list.hpp"
 
 #include <arisa/components/button.hpp>
+#include <arisa/components/button_sizing.hpp>
 #include <arisa/components/button_style.hpp>
 #include <arisa/components/content_unavailable_view.hpp>
 #include <arisa/components/environment.hpp>
@@ -16,6 +17,7 @@
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
 #include <arisa/controls/menu.hpp>
+#include <arisa/controls/menu_style.hpp>
 #include <arisa/controls/progress_view.hpp>
 #include <arisa/theme/colour_value.hpp>
 #include <arisa/theme/shape.hpp>
@@ -58,7 +60,7 @@ auto TrophyList::body(composition::Context& context) const -> composition::Eleme
     const theme::Glass glass = context.environment(components::Environment::theme).glass().panel;
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ spacing } },
-        toolbar(view), summary(view, glass), rows(view, glass))
+        toolbar(view), summary(view), rows(view, glass))
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
             .alignment = composition::Alignment::top_leading });
 }
@@ -90,6 +92,7 @@ auto TrophyList::sortMenu(const TrophyModel::View& view) const -> composition::E
                     [model, sort] { model->setSort(sort); }));
             return composition::Element(components::Group(std::move(items)));
         })
+        .menu_style(controls::MenuStyle::button())
         .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
         .id(composition::ElementKey{ "trophies.sort" });
 }
@@ -109,6 +112,7 @@ auto TrophyList::filterMenu(const TrophyModel::View& view) const -> composition:
                     [model, filter] { model->setFilter(filter); }));
             return composition::Element(components::Group(std::move(items)));
         })
+        .menu_style(controls::MenuStyle::button())
         .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
         .id(composition::ElementKey{ "trophies.filter" });
 }
@@ -127,7 +131,7 @@ auto TrophyList::refreshButton(const TrophyModel::View& view) const -> compositi
         .id(composition::ElementKey{ "trophies.refresh" });
 }
 
-auto TrophyList::summary(const TrophyModel::View& view, theme::Glass glass) const -> composition::Element
+auto TrophyList::summary(const TrophyModel::View& view) const -> composition::Element
 {
     composition::Element level = components::Group();
     if (view.summary)
@@ -150,7 +154,7 @@ auto TrophyList::summary(const TrophyModel::View& view, theme::Glass glass) cons
         components::Spacer(), GradeCounts(earned, GradeCounts::Size::Large))
         .padding(theme::Space{ 20.0F })
         .frame({ .max_width = composition::infinity })
-        .glass_effect(glass, components::GlassPanel::shape(components::PanelRadius::large))
+        .glass_panel(components::PanelRadius::large)
         .id(composition::ElementKey{ "trophies.summary" });
 }
 
@@ -171,8 +175,7 @@ auto TrophyList::rows(const TrophyModel::View& view, theme::Glass glass) const -
             components::ForEach(
                 view.rows, [](const TrophyModel::Row& shown) { return composition::ElementKey{ shown.title.id.text() }; },
                 [model = model](const TrophyModel::Row& shown) { return row(shown, model); }))
-            .padding(theme::Space{ listPadding })
-            .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::top_leading }))
+            .padding(theme::Space{ listPadding }))
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
         .glass_effect(glass, components::GlassPanel::shape(components::PanelRadius::large))
         .focus_section()
@@ -226,6 +229,7 @@ auto TrophyList::row(const TrophyModel::Row& shown, TrophyModel* model) -> compo
                                          .frame({ .max_width = composition::infinity });
     return components::Button([model, id = title.id.text()] { model->open(id); }, std::move(label))
         .button_style(components::ButtonStyle::plain())
+        .button_sizing(components::ButtonSizing::flexible)
         .id(composition::ElementKey{ "trophies.title." + title.id.text() });
 }
 

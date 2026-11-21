@@ -122,12 +122,14 @@ void InputManager::applyPadInput(akira::platform::Pad& pad, libchiaking::control
 
     const bool mapped = pad.usesButtonMapping();
 
-    u64 buttons = mapped ? pad.heldButtons() : 0;
+    u64 buttons = mapped ? pad.heldButtons() & ~m_swallowed : 0;
     u64 consumedButtons = 0;
 
     if (!mapped) {
         pad.readButtons(state);
         pad.readTriggers(state);
+        if (m_swallowed != 0)
+            state.buttons &= ~button(libchiaking::controllers::ControllerButton::r3);
     } else {
     const play::ButtonMapping& mapping = m_controllers.buttonMapping();
     for (const auto& [chiakiBtn, combo] : mapping) {
@@ -239,7 +241,10 @@ void InputManager::update(libchiaking::controllers::ControllerInput& input, std:
     pad->poll();
     m_menu_held.store(pad->menuHeld(), std::memory_order_release);
 
+    m_chord.update(m_screenshot_chord.load(std::memory_order_acquire) ? pad->heldButtons() : 0);
+    m_swallowed = m_chord.swallowing() ? play::ScreenshotChord::stick : 0;
     applyPadInput(*pad, input.state());
+    m_swallowed = 0;
 
     u64 buttons = pad->usesButtonMapping() ? pad->heldButtons() : 0;
 

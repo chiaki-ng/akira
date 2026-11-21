@@ -17,6 +17,7 @@
 #include <arisa/components/zstack.hpp>
 #include <arisa/composition/binding.hpp>
 #include <arisa/composition/overlay_layer.hpp>
+#include <arisa/composition/toast_options.hpp>
 #include <arisa/graphics/gradient.hpp>
 #include <arisa/graphics/shape_style.hpp>
 #include <arisa/presentation/presentations.hpp>
@@ -171,6 +172,7 @@ auto ShellScreen::hints() -> composition::Element
         .padding(theme::Insets{ .bottom = theme::Space{ hintsBottom }, .trailing = theme::Space{ hintsTrailing } })
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
             .alignment = composition::Alignment::bottom_trailing })
+        .allows_hit_testing(false)
         .id(composition::ElementKey{ "shell.hints" });
 }
 
@@ -221,14 +223,11 @@ auto ShellScreen::announced(composition::Element content, bool streaming) const 
             if (!value)
                 held->clear();
         });
-    return std::move(content).toast(std::move(shown), std::chrono::seconds{ 3 }, [streaming](const Notices::Notice& notice) {
-        composition::Element text = components::Text(notice.text).font(theme::Font::subheadline);
-        if (!streaming)
-            return text;
-        return std::move(text)
-            .padding(theme::Insets::symmetric(theme::Space{ 16.0F }, theme::Space{ 9.0F }))
-            .glass_effect(theme::Glass::regular().tint(theme::ColourRole::orange), theme::Shape::capsule());
-    });
+    composition::ToastOptions placement{ .alignment = composition::Alignment::top };
+    if (streaming)
+        placement.tint = theme::ColourValue(theme::ColourRole::orange).opacity(noticeOpacity);
+    return std::move(content).toast(std::move(shown), std::chrono::seconds{ 3 }, placement,
+        [](const Notices::Notice& notice) { return components::Text(notice.text).font(theme::Font::subheadline); });
 }
 
 auto ShellScreen::ending(composition::Element content, const ShellModel::View& view, composition::Namespace::ID focus) const

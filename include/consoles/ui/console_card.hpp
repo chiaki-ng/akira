@@ -17,6 +17,9 @@ class ConsoleCard final : public ::arisa::composition::Component {
 public:
     static constexpr float artWidth = 84.0F;
     static constexpr float artHeight = 112.0F;
+    static constexpr float artShadowOpacity = 0.35F;
+    static constexpr float artShadowRadius = 7.0F;
+    static constexpr float artShadowDrop = 10.0F;
     static constexpr float spacing = 24.0F;
     static constexpr float horizontalPadding = 28.0F;
     static constexpr float verticalPadding = 18.0F;

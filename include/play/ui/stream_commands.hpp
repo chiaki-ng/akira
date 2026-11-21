@@ -1,8 +1,7 @@
 #pragma once
 
-#include <string>
-
-#include "play/stream_stats.hpp"
+#include "play/diagnostics_appearance.hpp"
+#include "play/diagnostics_report.hpp"
 
 namespace akira::play::ui {
 
@@ -15,9 +14,8 @@ public:
     virtual void resume() = 0;
     virtual void leave(bool rest) = 0;
     virtual void resetMotion() = 0;
-    virtual void showStats(StatsOverlayMode mode) = 0;
-    virtual auto stats() -> StreamStats = 0;
-    virtual auto decoder() -> std::string = 0;
+    virtual void showDiagnostics(DiagnosticsAppearance appearance) = 0;
+    virtual auto diagnostics() -> DiagnosticsReport = 0;
 };
 
 }

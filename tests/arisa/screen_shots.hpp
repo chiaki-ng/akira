@@ -69,9 +69,8 @@ public:
     void resume() override {}
     void leave(bool) override {}
     void resetMotion() override {}
-    void showStats(akira::play::StatsOverlayMode) override {}
-    auto stats() -> akira::play::StreamStats override { return {}; }
-    auto decoder() -> std::string override { return "NVTEGRA"; }
+    void showDiagnostics(akira::play::DiagnosticsAppearance) override {}
+    auto diagnostics() -> akira::play::DiagnosticsReport override { return {}; }
 };
 
 class CollectedNotices final : public akira::app::Notifier {

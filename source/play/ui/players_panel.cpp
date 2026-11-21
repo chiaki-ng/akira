@@ -82,6 +82,7 @@ auto PlayersPanel::action(std::string label, std::string key, std::function<void
 {
     return components::Button(std::move(label), [perform = std::move(perform)] { perform(); })
         .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
+        .fixed_size()
         .id(composition::ElementKey{ std::move(key) });
 }
 
@@ -108,7 +109,7 @@ auto PlayersPanel::row(const SeatBoard::Row& shown) const -> composition::Elemen
     Couch* held = couch;
     const std::string slot = std::format("{}", shown.slot);
     std::vector<composition::Element> parts;
-    parts.push_back(led(shown.player, shown.open));
+    parts.push_back(led(shown.player, shown.open).fixed_size());
     std::vector<composition::Element> label;
     label.push_back(components::Text(shown.device)
                         .font(theme::Font::headline)
@@ -119,8 +120,8 @@ auto PlayersPanel::row(const SeatBoard::Row& shown) const -> composition::Elemen
         label.push_back(components::Text(shown.status).font(theme::Font::caption).foreground_style(tone(shown.tone)).line_limit(1));
     parts.push_back(components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                            .spacing = theme::Space{ 2.0F } },
-        std::move(label)));
-    parts.push_back(components::Spacer());
+        std::move(label))
+                        .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::leading }));
     const std::uint8_t at = shown.slot;
     switch (shown.action)
     {
@@ -135,6 +136,7 @@ auto PlayersPanel::row(const SeatBoard::Row& shown) const -> composition::Elemen
             parts.push_back(components::Button(strings->text("akira/couch/add_player"), components::Image::SystemName{ "person_add" },
                 [held] { held->invite(); })
                                 .button_style(components::ButtonStyle::glass_prominent())
+                                .fixed_size()
                                 .id(composition::ElementKey{ "players.add" }));
             break;
         case SeatBoard::Action::None: break;

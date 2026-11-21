@@ -1,5 +1,8 @@
 #include "app/arisa/couch_bridge.hpp"
 
+#include <arisa/provider/input/buttons.hpp>
+#include <arisa/provider/input/provider.hpp>
+
 #include <algorithm>
 #include <utility>
 
@@ -65,7 +68,6 @@ void CouchBridge::detach()
 {
     seats.cancelCouchJoin();
     session.reset();
-    states.clear();
 }
 
 auto CouchBridge::connection() const -> std::shared_ptr<play::Connection>
@@ -149,18 +151,35 @@ void CouchBridge::choosePrimary(play::PadId pad)
     seats.selectNpad(npadOf(pad));
 }
 
-auto CouchBridge::picking(play::PadId pad) -> bool
+void CouchBridge::watch(::arisa::runtime::ButtonCapture taken)
+{
+    capture.emplace(std::move(taken));
+}
+
+void CouchBridge::unwatch()
+{
+    capture.reset();
+}
+
+auto CouchBridge::slotOf(play::PadId pad) -> std::optional<std::size_t>
 {
     const HidNpadIdType npad = npadOf(pad);
-    auto found = states.find(npad);
-    if (found == states.end())
-    {
-        found = states.emplace(npad, PadState{}).first;
-        padInitialize(&found->second, npad);
-    }
-    padUpdate(&found->second);
-    const std::uint64_t held = padGetButtons(&found->second);
-    return (held & shoulders) == shoulders || (held & triggers) == triggers;
+    if (npad == HidNpadIdType_Handheld)
+        return 0;
+    const auto slot = static_cast<std::size_t>(npad) - static_cast<std::size_t>(HidNpadIdType_No1);
+    if (slot >= ::arisa::provider::max_pads)
+        return std::nullopt;
+    return slot;
+}
+
+auto CouchBridge::picking(play::PadId pad) -> bool
+{
+    using ::arisa::provider::Button;
+    const std::optional<std::size_t> slot = slotOf(pad);
+    if (!capture || !slot || !capture->connected(*slot))
+        return false;
+    const ::arisa::provider::Buttons held = capture->held(*slot);
+    return (held.contains(Button::l) && held.contains(Button::r)) || (held.contains(Button::zl) && held.contains(Button::zr));
 }
 
 auto CouchBridge::degradedOnce() -> bool

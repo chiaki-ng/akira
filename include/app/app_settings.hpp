@@ -28,6 +28,8 @@ public:
     std::string maskAccountName(const std::string& name) const;
     bool connectionShowStages() const { return showStages; }
     void setConnectionShowStages(bool show) { showStages = show; }
+    bool screenshotChord() const { return screenshots; }
+    void setScreenshotChord(bool enabled) { screenshots = enabled; }
     bool sleepOnExit() const { return sleepWhenExiting; }
     void setSleepOnExit(bool enabled) { sleepWhenExiting = enabled; }
     const std::string& debugLocale() const { return locale; }
@@ -50,6 +52,7 @@ private:
     std::string theme = "playstation";
     bool hideName = false;
     bool showStages = true;
+    bool screenshots = true;
     bool sleepWhenExiting = false;
     std::string locale;
     std::string channel = "stable";
