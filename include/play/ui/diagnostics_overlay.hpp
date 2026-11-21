@@ -59,6 +59,8 @@ public:
     static constexpr float floatingPadding = 10.0F;
     static constexpr float sparklineHeight = 14.0F;
     static constexpr float stripHeight = 10.0F;
+    static constexpr float rowScaleFloor = 0.7F;
+    static constexpr const char* panelSpace = "stats-hud-panel";
 
     DiagnosticsOverlay(StatsBoard& board, StatsHudPlacement& placement, const app::Strings& strings);
 
@@ -71,10 +73,18 @@ public:
     static auto stageKey(DiagnosticsReport::StageKind kind) -> const char*;
 
 private:
-    auto compact(const DiagnosticsReport& report) const -> ::arisa::composition::Element;
+    auto compact(const DiagnosticsReport& report, const DiagnosticsAppearance& appearance) const
+        -> ::arisa::composition::Element;
     auto detailed(const StatsBoard::View& view) const -> ::arisa::composition::Element;
     auto compactValue(std::string value, std::string unit, Tone tone) const -> ::arisa::composition::Element;
-    auto header(const DiagnosticsReport& report) const -> ::arisa::composition::Element;
+    auto header(const DiagnosticsReport& report, const DiagnosticsAppearance& appearance) const
+        -> ::arisa::composition::Element;
+    auto controls(const DiagnosticsAppearance& appearance) const -> ::arisa::composition::Element;
+    auto levelChip(DiagnosticsAppearance::Level level, StatsHudPlacement::Tap tap, bool selected) const
+        -> ::arisa::composition::Element;
+    auto iconChip(const char* symbol, StatsHudPlacement::Tap tap) const -> ::arisa::composition::Element;
+    auto targeted(::arisa::composition::Element control, StatsHudPlacement::Tap tap) const
+        -> ::arisa::composition::Element;
     auto stage(const DiagnosticsReport::Stage& shown, const DiagnosticsAppearance& appearance) const
         -> ::arisa::composition::Element;
     auto strip(const DiagnosticsReport& report) const -> ::arisa::composition::Element;

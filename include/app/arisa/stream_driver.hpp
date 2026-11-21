@@ -146,6 +146,8 @@ private:
     void sampleDiagnostics();
     auto cloudBandwidth() -> std::optional<std::string>;
     static auto overlayMode(play::DiagnosticsAppearance::Level level) -> play::StatsOverlayMode;
+    static auto tapped(play::DiagnosticsAppearance appearance, play::StatsHudPlacement::Tap tap)
+        -> play::DiagnosticsAppearance;
     void stop();
     auto offersRest() const -> bool;
     void askRest();

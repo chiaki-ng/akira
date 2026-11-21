@@ -6,6 +6,7 @@
 #include <arisa/runtime/overlay_behaviour.hpp>
 
 #include <algorithm>
+#include <iterator>
 #include <cstdint>
 #include <format>
 #include <utility>
@@ -762,7 +763,7 @@ void StreamDriver::showHud()
     if (appearance.level == play::DiagnosticsAppearance::Level::Off || hud || dock || !videoActive)
         return;
     statsBoard.refresh(diagnostics());
-    statsBoard.place(hudPlacement.origin());
+    statsBoard.place(hudPlacement.origin(), hudPlacement.scale());
     nextStatsSample = Clock::now() + statsInterval;
     hud.emplace(stage.overlays().show(composition::OverlayLayer::hud,
         play::ui::DiagnosticsOverlay(statsBoard, hudPlacement, services.strings),
@@ -796,9 +797,36 @@ void StreamDriver::followHud()
     if (const std::uint64_t revision = hudPlacement.revision(); revision != hudRevision)
     {
         hudRevision = revision;
-        statsBoard.place(hudPlacement.origin());
+        statsBoard.place(hudPlacement.origin(), hudPlacement.scale());
     }
+    if (const std::optional<play::StatsHudPlacement::Tap> tap = hudPlacement.takeTapped())
+        showDiagnostics(tapped(services.stream.diagnostics(), *tap));
     adoptHudPosition();
+}
+
+auto StreamDriver::tapped(play::DiagnosticsAppearance appearance, play::StatsHudPlacement::Tap tap)
+    -> play::DiagnosticsAppearance
+{
+    using Level = play::DiagnosticsAppearance::Level;
+    using Layout = play::DiagnosticsAppearance::Layout;
+    switch (tap)
+    {
+        case play::StatsHudPlacement::Tap::Compact: appearance.level = Level::Compact; break;
+        case play::StatsHudPlacement::Tap::Standard: appearance.level = Level::Standard; break;
+        case play::StatsHudPlacement::Tap::Full: appearance.level = Level::Full; break;
+        case play::StatsHudPlacement::Tap::Layout:
+            if (appearance.level != Level::Compact)
+                appearance.layout = appearance.layout == Layout::Sheet ? Layout::Floating : Layout::Sheet;
+            break;
+        case play::StatsHudPlacement::Tap::Glass:
+        {
+            const auto& glasses = play::DiagnosticsAppearance::glasses;
+            const auto at = std::ranges::find(glasses, appearance.glass);
+            appearance.glass = at == glasses.end() || std::next(at) == glasses.end() ? glasses.front() : *std::next(at);
+            break;
+        }
+    }
+    return appearance;
 }
 
 void StreamDriver::adoptHudPosition()

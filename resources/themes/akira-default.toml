@@ -14,6 +14,9 @@ green = { light = "#28CD41", dark = "#30D158" }
 orange = { light = "#FF8D28", dark = "#FF9230" }
 red = { light = "#FF383C", dark = "#FF4245" }
 
+[focus]
+style = "highlight"
+
 [radii]
 control = 9
 card = 12

@@ -51,14 +51,14 @@ TEST_PLATFORM_SRC := $(CURDIR)/source/platform/pads/extended/rumble_keys.cpp \
 endif
 DOCKER_IMAGE ?= akira-builder:$(IMAGE_HASH)
 ARISA_VERSION      := 0.0.1
-ARISA_TAG          := 555f1cc
+ARISA_TAG          := 08a6148
 ARISA_GPU          ?= drako3d
 ARISA_FLAVOUR_nx_drako3d    := switch
 ARISA_FLAVOUR_nx_vulkan     := switch
 ARISA_FLAVOUR_ounce_drako3d := switch2
 ARISA_FLAVOUR_ounce_vulkan  := switch2
 ARISA_SHA256_switch         := 6eaf1b070d167480052225ee25a830be2d97b3708155f3d776dc530b6bc750bd
-ARISA_SHA256_switch2        := fa938494d153980ccd24029c6f109dfa11e8fba916318a41f8455c4ce33f805a
+ARISA_SHA256_switch2        := 59e472c556a5c3e92f499059f4f2e411448c0a446cd25564937de3eed7579ac1
 ARISA_RECIPE_switch         := make package TARGET=switch
 ARISA_RECIPE_switch2        := make package-switch2
 ARISA_PACKAGE_DIR  ?= $(abspath $(CURDIR)/../arisa/build/package)
@@ -71,7 +71,7 @@ ARISA_PREFIX        = $(ARISA_UNPACK)/$(ARISA_NAME)
 ARISA_BUILD_NAME    = arisa-$(PLATFORM)$(if $(filter ounce_vulkan,$(PLATFORM)_$(ARISA_GPU)),-vulkan)
 ARISA_NRO_FILE      = $(CURDIR)/build/$(ARISA_BUILD_NAME)/akira-arisa.nro
 ARISA_HOST_NAME    := arisa-$(ARISA_VERSION)-macos-arm64
-ARISA_HOST_SHA256  := fda1e3dcc773ecba9a3c1bf3610fee2230130094630c828e781a6ea778c2986a
+ARISA_HOST_SHA256  := 8723ec1ecb037ca3860e5ffb01da784f74ec5c0cf741e24e617635dd6ce1e79f
 ARISA_HOST_ARCHIVE  = $(ARISA_PACKAGE_DIR)/$(ARISA_HOST_NAME).tar.gz
 ARISA_HOST_UNPACK   = $(CURDIR)/build/arisa-package/$(ARISA_HOST_SHA256)
 ARISA_HOST_PREFIX   = $(ARISA_HOST_UNPACK)/$(ARISA_HOST_NAME)

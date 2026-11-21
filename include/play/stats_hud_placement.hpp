@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <mutex>
 #include <optional>
@@ -15,6 +17,17 @@ public:
         float y = 0.0f;
 
         friend bool operator==(const Point&, const Point&) = default;
+    };
+
+    enum class Tap { Compact, Standard, Full, Layout, Glass };
+
+    struct Area {
+        float x = 0.0f;
+        float y = 0.0f;
+        float width = 0.0f;
+        float height = 0.0f;
+
+        friend bool operator==(const Area&, const Area&) = default;
     };
 
     struct Size {
@@ -37,6 +50,8 @@ public:
     void measurePanel(Size measured);
     auto origin() const -> Point;
     auto scale() const -> float;
+    void measureTarget(Tap tap, Area area);
+    auto takeTapped() -> std::optional<Tap>;
     auto revision() const -> std::uint64_t;
     auto takeSettled() -> std::optional<Fraction>;
 
@@ -48,6 +63,8 @@ private:
     auto placed() const -> Point;
     auto fitted() const -> float;
     auto drawn() const -> Size;
+    auto target(Point finger) const -> std::optional<Tap>;
+    static constexpr std::size_t tapCount = 5;
     auto touched(Fraction at) const -> Point;
     void changed();
 
@@ -57,6 +74,10 @@ private:
     Size screen;
     Size panel;
     Point grabOffset;
+    Point grabbedAt;
+    std::array<std::optional<Area>, tapCount> targets;
+    std::optional<Tap> tapped;
+    bool moved = false;
     bool shown = false;
     bool dragging = false;
     std::uint64_t revisions = 0;

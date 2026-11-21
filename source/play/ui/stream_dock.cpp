@@ -563,7 +563,10 @@ auto StreamDock::troubleshoot(composition::StateHandle<int> chosenTopic) const -
             .id(composition::ElementKey{ "stream-dock.topics" }),
         components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                .spacing = theme::Space{ 10.0F } },
-            std::move(tips)));
+            std::move(tips))
+            .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::leading })
+            .focusable()
+            .id(composition::ElementKey{ "stream-dock.tips" }));
 }
 
 auto StreamDock::tipCount(int chosen) -> int
@@ -614,12 +617,15 @@ auto StreamDock::statsPanel(const DiagnosticsReport& report, composition::StateH
         rows.push_back(components::LabeledContent(strings->text("akira/diagnostics/datacenter"), *session.datacenter));
     if (session.bandwidth)
         rows.push_back(components::LabeledContent(strings->text("akira/diagnostics/bandwidth"), *session.bandwidth));
-    rows.push_back(choice(DiagnosticsAppearance::levels, &StreamDock::levelKey, look, &DiagnosticsAppearance::level,
-        "akira/diagnostics/level"));
-    rows.push_back(choice(DiagnosticsAppearance::glasses, &StreamDock::glassKey, look, &DiagnosticsAppearance::glass,
-        "akira/diagnostics/glass"));
-    rows.push_back(choice(DiagnosticsAppearance::layouts, &StreamDock::layoutKey, look, &DiagnosticsAppearance::layout,
-        "akira/diagnostics/layout"));
+    rows.push_back(labelled("akira/diagnostics/level",
+        choice(DiagnosticsAppearance::levels, &StreamDock::levelKey, look, &DiagnosticsAppearance::level,
+            "akira/diagnostics/level")));
+    rows.push_back(labelled("akira/diagnostics/glass",
+        choice(DiagnosticsAppearance::glasses, &StreamDock::glassKey, look, &DiagnosticsAppearance::glass,
+            "akira/diagnostics/glass")));
+    rows.push_back(labelled("akira/diagnostics/layout",
+        choice(DiagnosticsAppearance::layouts, &StreamDock::layoutKey, look, &DiagnosticsAppearance::layout,
+            "akira/diagnostics/layout")));
     std::vector<composition::Element> tiles;
     for (const DiagnosticsReport::Counter& shown : report.counters())
         tiles.push_back(counter(shown));
@@ -632,8 +638,20 @@ auto StreamDock::statsPanel(const DiagnosticsReport& report, composition::StateH
     rows.push_back(troubleshoot(chosenTopic));
     return components::ScrollView(components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                                          .spacing = theme::Space{ panelSpacing } },
-                                      std::move(rows)))
-        .frame({ .max_height = diagnosticsHeight });
+                                      std::move(rows))
+                                      .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::top_leading }))
+        .frame({ .height = diagnosticsHeight, .alignment = composition::Alignment::top_leading });
+}
+
+auto StreamDock::labelled(const char* key, composition::Element control) const -> composition::Element
+{
+    return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                                  .spacing = theme::Space{ 6.0F } },
+        components::Text(strings->text(key))
+            .font(theme::Font::subheadline)
+            .font_weight(theme::Font::Weight::semibold)
+            .foreground_style(theme::ColourRole::secondary_label),
+        std::move(control));
 }
 
 auto StreamDock::title(StreamControls::Control control) const -> std::string

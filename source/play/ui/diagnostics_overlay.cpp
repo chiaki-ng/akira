@@ -2,14 +2,17 @@
 
 #include <arisa/components/environment.hpp>
 #include <arisa/components/group.hpp>
+#include <arisa/components/image.hpp>
 #include <arisa/components/hstack.hpp>
 #include <arisa/components/shape_view.hpp>
 #include <arisa/components/spacer.hpp>
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
 #include <arisa/components/zstack.hpp>
+#include <arisa/composition/coordinate_space.hpp>
 #include <arisa/composition/geometry_proxy.hpp>
 #include <arisa/composition/point.hpp>
+#include <arisa/composition/rect.hpp>
 #include <arisa/motion/unit_point.hpp>
 #include <arisa/theme/color_scheme.hpp>
 #include <arisa/theme/colour.hpp>
@@ -199,13 +202,13 @@ auto DiagnosticsOverlay::body(composition::Context& context) const -> compositio
         return components::Group();
     composition::Element panel = components::Group();
     if (view.appearance.level == DiagnosticsAppearance::Level::Compact)
-        panel = surface(compact(view.report), view.appearance.glass, view.report.overallTone(), theme::Shape::capsule());
+        panel = surface(compact(view.report, view.appearance), view.appearance.glass, view.report.overallTone(), theme::Shape::capsule());
     else if (floats(view.appearance))
         panel = detailed(view);
     else
         panel = surface(detailed(view), view.appearance.glass, view.report.overallTone(), theme::Shape::rounded(sheetRadius));
     return components::ZStack(components::ZStackOptions{ .alignment = composition::Alignment::top_leading },
-        measured(std::move(panel)).scale_effect(placement->scale(), motion::UnitPoint::top_leading).offset(view.origin.x, view.origin.y))
+        measured(std::move(panel)).scale_effect(view.scale, motion::UnitPoint::top_leading).offset(view.origin.x, view.origin.y))
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
             .alignment = composition::Alignment::top_leading })
         .environment(components::Environment::colour_scheme, std::optional<theme::ColorScheme>(theme::ColorScheme::dark))
@@ -221,6 +224,7 @@ auto DiagnosticsOverlay::body(composition::Context& context) const -> compositio
 auto DiagnosticsOverlay::measured(composition::Element panel) const -> composition::Element
 {
     return components::ZStack(std::move(panel))
+        .coordinate_space(composition::ElementKey{ panelSpace })
         .fixed_size()
         .on_geometry_change(
             std::type_identity<composition::Size>{}, [](const composition::GeometryProxy& proxy) { return proxy.size(); },
@@ -243,7 +247,8 @@ auto DiagnosticsOverlay::compactValue(std::string value, std::string unit, Tone 
         std::move(parts));
 }
 
-auto DiagnosticsOverlay::compact(const DiagnosticsReport& report) const -> composition::Element
+auto DiagnosticsOverlay::compact(const DiagnosticsReport& report, const DiagnosticsAppearance& appearance) const
+    -> composition::Element
 {
     std::vector<composition::Element> parts;
     parts.push_back(components::ZStack(composition::Element(components::Group())
@@ -261,10 +266,12 @@ auto DiagnosticsOverlay::compact(const DiagnosticsReport& report) const -> compo
                             .font_weight(theme::Font::Weight::semibold)
                             .foreground_style(headlineColour(alert->tone))
                             .line_limit(1));
+    parts.push_back(controls(appearance));
     return components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::center,
                                   .spacing = theme::Space{ 14.0F } },
         std::move(parts))
-        .padding(theme::Insets::symmetric(theme::Space{ 16.0F }, theme::Space{ 9.0F }))
+        .padding(theme::Insets{ .top = theme::Space{ 6.0F }, .leading = theme::Space{ 16.0F },
+            .bottom = theme::Space{ 6.0F }, .trailing = theme::Space{ 6.0F } })
         .fixed_size();
 }
 
@@ -278,10 +285,11 @@ auto DiagnosticsOverlay::detailed(const StatsBoard::View& view) const -> composi
     for (const DiagnosticsReport::Stage& shown : report.stages())
         stages.push_back(stage(shown, appearance));
     std::vector<composition::Element> rows;
-    rows.push_back(block(header(report), appearance, report.overallTone(), inner, 0.0F));
+    rows.push_back(block(header(report, appearance), appearance, report.overallTone(), inner, 0.0F));
     rows.push_back(components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::top,
                                           .spacing = theme::Space{ stageSpacing } },
-        std::move(stages)));
+        std::move(stages))
+                       .fixed_size());
     rows.push_back(block(strip(report), appearance, Tone::Neutral, inner, 0.0F));
     if (appearance.level == DiagnosticsAppearance::Level::Full)
     {
@@ -293,7 +301,8 @@ auto DiagnosticsOverlay::detailed(const StatsBoard::View& view) const -> composi
             cards.push_back(section(shown, width, appearance));
         rows.push_back(components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::top,
                                               .spacing = theme::Space{ stageSpacing } },
-            std::move(cards)));
+            std::move(cards))
+                           .fixed_size());
     }
     const float outer = floating ? 0.0F : panelPadding;
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
@@ -303,7 +312,8 @@ auto DiagnosticsOverlay::detailed(const StatsBoard::View& view) const -> composi
         .frame({ .width = contentWidth + outer * 2.0F });
 }
 
-auto DiagnosticsOverlay::header(const DiagnosticsReport& report) const -> composition::Element
+auto DiagnosticsOverlay::header(const DiagnosticsReport& report, const DiagnosticsAppearance& appearance) const
+    -> composition::Element
 {
     std::vector<composition::Element> chips;
     for (const DiagnosticsReport::Chip& shown : report.headerChips())
@@ -316,8 +326,67 @@ auto DiagnosticsOverlay::header(const DiagnosticsReport& report) const -> compos
             components::Text(report.uptime())
                 .font(theme::Font::callout.monospaced_digit())
                 .foreground_style(theme::ColourRole::secondary_label),
-            components::Spacer()),
+            components::Spacer(),
+            controls(appearance).fixed_size()),
         components::HStack(components::HStackOptions{ .spacing = theme::Space{ 6.0F } }, std::move(chips)));
+}
+
+auto DiagnosticsOverlay::controls(const DiagnosticsAppearance& appearance) const -> composition::Element
+{
+    using Level = DiagnosticsAppearance::Level;
+    using Tap = StatsHudPlacement::Tap;
+    std::vector<composition::Element> parts;
+    parts.push_back(components::HStack(components::HStackOptions{ .spacing = theme::Space{ 2.0F } },
+        levelChip(Level::Compact, Tap::Compact, appearance.level == Level::Compact),
+        levelChip(Level::Standard, Tap::Standard, appearance.level == Level::Standard),
+        levelChip(Level::Full, Tap::Full, appearance.level == Level::Full))
+                        .padding(theme::Space{ 2.0F })
+                        .background(theme::ColourValue(theme::Colour::hex(0xFFFFFF)).opacity(0.1F), theme::Shape::capsule()));
+    if (appearance.level != Level::Compact)
+        parts.push_back(iconChip(appearance.layout == DiagnosticsAppearance::Layout::Sheet ? "view_list" : "dashboard",
+            Tap::Layout));
+    parts.push_back(iconChip("palette", Tap::Glass));
+    return components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::center,
+                                  .spacing = theme::Space{ 6.0F } },
+        std::move(parts));
+}
+
+auto DiagnosticsOverlay::levelChip(DiagnosticsAppearance::Level level, StatsHudPlacement::Tap tap, bool selected) const
+    -> composition::Element
+{
+    const char* key = level == DiagnosticsAppearance::Level::Compact ? "akira/diagnostics/level_compact"
+        : level == DiagnosticsAppearance::Level::Standard            ? "akira/diagnostics/level_standard"
+                                                                     : "akira/diagnostics/level_full";
+    return targeted(components::Text(strings->text(key))
+                        .font(theme::Font::caption)
+                        .font_weight(selected ? theme::Font::Weight::semibold : theme::Font::Weight::regular)
+                        .line_limit(1)
+                        .padding(theme::Insets::symmetric(theme::Space{ 10.0F }, theme::Space{ 6.0F }))
+                        .background(theme::ColourValue(theme::Colour::hex(0xFFFFFF)).opacity(selected ? 0.24F : 0.0F),
+                            theme::Shape::capsule()),
+        tap);
+}
+
+auto DiagnosticsOverlay::iconChip(const char* symbol, StatsHudPlacement::Tap tap) const -> composition::Element
+{
+    return targeted(components::Image(components::Image::SystemName{ symbol })
+                        .font(theme::Font::caption)
+                        .font_weight(theme::Font::Weight::semibold)
+                        .frame({ .width = 32.0F, .height = 28.0F })
+                        .background(theme::ColourValue(theme::Colour::hex(0xFFFFFF)).opacity(0.1F), theme::Shape::capsule()),
+        tap);
+}
+
+auto DiagnosticsOverlay::targeted(composition::Element control, StatsHudPlacement::Tap tap) const -> composition::Element
+{
+    return std::move(control).on_geometry_change(
+        std::type_identity<composition::Rect>{},
+        [](const composition::GeometryProxy& proxy) {
+            return proxy.frame(composition::CoordinateSpace::named(composition::ElementKey{ panelSpace }));
+        },
+        [placement = placement, tap](const composition::Rect& area) {
+            placement->measureTarget(tap, StatsHudPlacement::Area{ .x = area.x, .y = area.y, .width = area.width, .height = area.height });
+        });
 }
 
 auto DiagnosticsOverlay::chip(const DiagnosticsReport::Chip& shown) const -> composition::Element
@@ -434,12 +503,16 @@ auto DiagnosticsOverlay::section(const DiagnosticsReport::Section& shown, float 
 auto DiagnosticsOverlay::row(const DiagnosticsReport::Row& shown) const -> composition::Element
 {
     return components::HStack(components::HStackOptions{ .spacing = theme::Space{ 6.0F } },
-        components::Text(strings->text(shown.label)).foreground_style(theme::ColourRole::secondary_label).line_limit(1),
+        components::Text(strings->text(shown.label))
+            .foreground_style(theme::ColourRole::secondary_label)
+            .line_limit(1)
+            .minimum_scale_factor(rowScaleFloor),
         components::Spacer(),
         components::Text(shown.keyed ? strings->text(shown.value) : shown.value)
             .font(theme::Font::caption.monospaced_digit())
             .foreground_style(headlineColour(shown.tone))
-            .line_limit(1))
+            .line_limit(1)
+            .minimum_scale_factor(rowScaleFloor))
         .font(theme::Font::caption);
 }
 

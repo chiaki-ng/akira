@@ -14,6 +14,7 @@ public:
         DiagnosticsAppearance appearance;
         DiagnosticsReport report;
         StatsHudPlacement::Point origin;
+        float scale = 1.0F;
 
         friend bool operator==(const View&, const View&) = default;
     };
@@ -22,7 +23,7 @@ public:
 
     void show(DiagnosticsAppearance appearance);
     void refresh(DiagnosticsReport report);
-    void place(StatsHudPlacement::Point origin);
+    void place(StatsHudPlacement::Point origin, float scale);
 
 private:
     ::arisa::composition::Observable<View> state;

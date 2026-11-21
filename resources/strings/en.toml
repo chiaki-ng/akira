@@ -736,6 +736,7 @@
 "akira/qr_sign_in/subtitle" = "No password or computer needed. Your phone approves the sign-in."
 "akira/qr_sign_in/timer_fmt" = "New code in {0}"
 "akira/qr_sign_in/title" = "Sign in with a QR code"
+"akira/rail/menu" = "Menu"
 "akira/remap/capture_hint" = "Release all buttons to confirm. Hold X on any entry to reset."
 "akira/remap/capture_prompt" = "Press button(s) for:"
 "akira/remap/circle" = "Circle"

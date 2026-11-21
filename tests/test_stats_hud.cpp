@@ -192,3 +192,33 @@ TEST(stats_hud_placement_keeps_a_small_panel_at_full_size)
     placement.measurePanel({ .width = 400.0f, .height = 40.0f });
     CHECK(near(placement.scale(), 1.0f));
 }
+
+TEST(stats_hud_placement_reports_a_tap_on_a_control_without_moving)
+{
+    StatsHudPlacement placement;
+    placement.measureScreen({ .width = 1280.0f, .height = 720.0f });
+    placement.measurePanel({ .width = 400.0f, .height = 40.0f });
+    placement.measureTarget(StatsHudPlacement::Tap::Full, { .x = 300.0f, .y = 6.0f, .width = 40.0f, .height = 28.0f });
+    placement.show(true);
+    REQUIRE(placement.grab({ .x = 344.0f / 1280.0f, .y = 44.0f / 720.0f }));
+    placement.drag({ .x = 347.0f / 1280.0f, .y = 46.0f / 720.0f });
+    placement.release();
+    const auto tapped = placement.takeTapped();
+    REQUIRE(tapped.has_value());
+    CHECK(*tapped == StatsHudPlacement::Tap::Full);
+    CHECK((placement.origin() == StatsHudPlacement::Point{ .x = 24.0f, .y = 24.0f }));
+    CHECK(!placement.takeTapped().has_value());
+}
+
+TEST(stats_hud_placement_treats_a_long_move_as_a_drag_not_a_tap)
+{
+    StatsHudPlacement placement;
+    placement.measureScreen({ .width = 1280.0f, .height = 720.0f });
+    placement.measurePanel({ .width = 400.0f, .height = 40.0f });
+    placement.measureTarget(StatsHudPlacement::Tap::Full, { .x = 300.0f, .y = 6.0f, .width = 40.0f, .height = 28.0f });
+    placement.show(true);
+    REQUIRE(placement.grab({ .x = 344.0f / 1280.0f, .y = 44.0f / 720.0f }));
+    placement.drag({ .x = 544.0f / 1280.0f, .y = 244.0f / 720.0f });
+    placement.release();
+    CHECK(!placement.takeTapped().has_value());
+}

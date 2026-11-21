@@ -736,6 +736,7 @@
 "akira/qr_sign_in/subtitle" = "无需密码或电脑，用手机批准登录即可。"
 "akira/qr_sign_in/timer_fmt" = "{0} 后更换二维码"
 "akira/qr_sign_in/title" = "扫描二维码登录"
+"akira/rail/menu" = "菜单"
 "akira/remap/capture_hint" = "松开所有按键确认。长按 X 键可重置单项。"
 "akira/remap/capture_prompt" = "请按下按键："
 "akira/remap/circle" = "圆键"

@@ -118,6 +118,7 @@ private:
     template <typename Value, std::size_t Count>
     auto choice(const std::array<Value, Count>& options, auto&& title, ::arisa::composition::StateHandle<DiagnosticsAppearance> look,
         Value DiagnosticsAppearance::* field, const char* key) const -> ::arisa::composition::Element;
+    auto labelled(const char* key, ::arisa::composition::Element control) const -> ::arisa::composition::Element;
     auto troubleshoot(::arisa::composition::StateHandle<int> chosenTopic) const -> ::arisa::composition::Element;
     static auto levelKey(DiagnosticsAppearance::Level level) -> const char*;
     static auto glassKey(DiagnosticsAppearance::Glass glass) -> const char*;

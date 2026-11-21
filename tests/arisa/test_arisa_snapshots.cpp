@@ -556,8 +556,14 @@ public:
     {
         statsBoard.show(chosen);
         statsBoard.refresh(QuietStream::report(upscaled));
-        statsBoard.place(hudPlacement.origin());
+        statsBoard.place(hudPlacement.origin(), hudPlacement.scale());
         return overVideo(akira::play::ui::DiagnosticsOverlay(statsBoard, hudPlacement, *strings));
+    }
+
+    auto followHud() -> bool
+    {
+        statsBoard.place(hudPlacement.origin(), hudPlacement.scale());
+        return settle();
     }
 
     void dragHud(akira::play::TouchClaim::Fraction from, akira::play::TouchClaim::Fraction to)
@@ -568,7 +574,7 @@ public:
             hudPlacement.drag(to);
             hudPlacement.release();
         }
-        statsBoard.place(hudPlacement.origin());
+        statsBoard.place(hudPlacement.origin(), hudPlacement.scale());
     }
 
     void seatCouch()
@@ -1047,6 +1053,7 @@ TEST(arisa_shot_stats_hud)
     {
         Shots shots;
         REQUIRE(shots.start(shots.hud(shown.appearance, shown.upscaled)));
+        REQUIRE(shots.followHud());
         CHECK(shots.write(shown.name));
     }
     Shots dragged;

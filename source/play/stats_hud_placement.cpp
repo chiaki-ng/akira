@@ -1,6 +1,7 @@
 #include "play/stats_hud_placement.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 namespace akira::play {
@@ -72,6 +73,33 @@ auto StatsHudPlacement::scale() const -> float
     return fitted();
 }
 
+void StatsHudPlacement::measureTarget(Tap tap, Area area)
+{
+    std::lock_guard guard(lock);
+    targets[static_cast<std::size_t>(tap)] = area;
+}
+
+auto StatsHudPlacement::takeTapped() -> std::optional<Tap>
+{
+    std::lock_guard guard(lock);
+    return std::exchange(tapped, std::nullopt);
+}
+
+auto StatsHudPlacement::target(Point finger) const -> std::optional<Tap>
+{
+    const Point corner = placed();
+    const float factor = fitted();
+    const float x = (finger.x - corner.x) / factor;
+    const float y = (finger.y - corner.y) / factor;
+    for (std::size_t index = 0; index < targets.size(); ++index)
+    {
+        const std::optional<Area>& area = targets[index];
+        if (area && x >= area->x && x <= area->x + area->width && y >= area->y && y <= area->y + area->height)
+            return static_cast<Tap>(index);
+    }
+    return std::nullopt;
+}
+
 auto StatsHudPlacement::placed() const -> Point
 {
     const Size shown = drawn();
@@ -116,6 +144,8 @@ auto StatsHudPlacement::grab(Fraction at) -> bool
         || finger.y > corner.y + shown.height + slop)
         return false;
     grabOffset = Point{ .x = finger.x - corner.x, .y = finger.y - corner.y };
+    grabbedAt = finger;
+    moved = false;
     dragging = true;
     return true;
 }
@@ -126,6 +156,9 @@ void StatsHudPlacement::drag(Fraction at)
     if (!dragging || screen.width <= 0.0f || screen.height <= 0.0f)
         return;
     const Point finger = touched(at);
+    if (!moved && std::hypot(finger.x - grabbedAt.x, finger.y - grabbedAt.y) < slop)
+        return;
+    moved = true;
     saved = Fraction{ .x = (finger.x - grabOffset.x) / screen.width, .y = (finger.y - grabOffset.y) / screen.height };
     changed();
 }
@@ -138,6 +171,15 @@ void StatsHudPlacement::release()
     dragging = false;
     if (screen.width <= 0.0f || screen.height <= 0.0f)
         return;
+    if (!moved)
+    {
+        if (const std::optional<Tap> hit = target(grabbedAt))
+        {
+            tapped = hit;
+            changed();
+        }
+        return;
+    }
     const Point corner = placed();
     saved = Fraction{ .x = corner.x / screen.width, .y = corner.y / screen.height };
     settled = saved;

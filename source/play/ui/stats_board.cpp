@@ -14,9 +14,10 @@ void StatsBoard::refresh(DiagnosticsReport report)
     state.write(&View::report, std::move(report));
 }
 
-void StatsBoard::place(StatsHudPlacement::Point origin)
+void StatsBoard::place(StatsHudPlacement::Point origin, float scale)
 {
     state.write(&View::origin, origin);
+    state.write(&View::scale, scale);
 }
 
 }
