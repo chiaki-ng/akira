@@ -72,7 +72,10 @@ void ConsoleOperations::follow()
 
 void ConsoleOperations::refresh()
 {
+    shelf.offerAccount(findsRemote());
     shelf.show(list());
+    if (shelf.view().get().adding)
+        publishScan();
     refreshRecent();
 }
 
@@ -283,52 +286,75 @@ void ConsoleOperations::offerLink(Host& target)
         .ask = ConsoleShelf::Ask::Link, .catalogName = target.getHostName(), .choices = targets });
 }
 
-void ConsoleOperations::option(const std::string& catalogName, ConsoleEntry::Option chosen)
+void ConsoleOperations::edit(const std::string& catalogName)
 {
     Host* target = host(catalogName);
     if (!target)
         return;
-    switch (chosen)
+    const ConsoleEntry entry = list().entry(target->facts());
+    const std::vector<ConsoleEntry::Option> options = entry.options();
+    const auto offers = [&options](ConsoleEntry::Option option) { return std::ranges::contains(options, option); };
+    ConsoleShelf::Editing editing{ .catalogName = catalogName,
+        .name = entry.displayName(),
+        .ps5 = target->isPS5(),
+        .values = ConsoleShelf::Edit{ .address = target->getHostAddr(), .pin = target->getConsolePIN() },
+        .remote = target->facts().type == HostType::Remote,
+        .address = offers(ConsoleEntry::Option::SetAddress) || offers(ConsoleEntry::Option::AddAddress),
+        .pin = offers(ConsoleEntry::Option::ConsolePin),
+        .deletable = offers(ConsoleEntry::Option::Delete) };
+    if (offers(ConsoleEntry::Option::TakionVersion))
     {
-        case ConsoleEntry::Option::ConsolePin:
-            shelf.ask(ConsoleShelf::Prompt{
-                .ask = ConsoleShelf::Ask::ConsolePin, .catalogName = catalogName, .text = target->getConsolePIN() });
-            break;
-        case ConsoleEntry::Option::AddAddress:
-        case ConsoleEntry::Option::SetAddress:
-            shelf.ask(ConsoleShelf::Prompt{
-                .ask = ConsoleShelf::Ask::Address, .catalogName = catalogName, .text = target->getHostAddr() });
-            break;
-        case ConsoleEntry::Option::TakionVersion:
-        {
-            const TakionPinChoice choice = actions().takionPins(*target);
-            const auto configured = choice.configuredVersion();
-            const std::string fallback = configured ? "v" + std::to_string(*configured)
-                                                    : services.strings.text("akira/settings/dev_takion_version_auto");
-            std::vector<std::string> labels{ services.strings.format("akira/hosts/takion_follow_settings", fallback) };
-            std::ranges::transform(choice.versions(), std::back_inserter(labels),
-                [](std::uint32_t version) { return "v" + std::to_string(version); });
-            shelf.ask(ConsoleShelf::Prompt{ .ask = ConsoleShelf::Ask::TakionVersion,
-                .catalogName = catalogName,
-                .choices = std::move(labels),
-                .selected = choice.selected() });
-            break;
-        }
-        case ConsoleEntry::Option::Delete:
-            shelf.ask(ConsoleShelf::Prompt{ .ask = ConsoleShelf::Ask::Delete,
-                .catalogName = catalogName,
-                .text = services.strings.format("akira/hosts/delete_confirm", target->getHostName()) });
-            break;
+        editing.takion = takionLabels(*target);
+        editing.values.takion = actions().takionPins(*target).selected();
     }
+    shelf.edit(std::move(editing));
 }
 
-void ConsoleOperations::wake(const std::string& catalogName)
+auto ConsoleOperations::takionLabels(Host& target) -> std::vector<std::string>
+{
+    const TakionPinChoice choice = actions().takionPins(target);
+    const auto configured = choice.configuredVersion();
+    const std::string fallback =
+        configured ? "v" + std::to_string(*configured) : services.strings.text("akira/settings/dev_takion_version_auto");
+    std::vector<std::string> labels{ services.strings.format("akira/hosts/takion_follow_settings", fallback) };
+    std::ranges::transform(choice.versions(), std::back_inserter(labels),
+        [](std::uint32_t version) { return "v" + std::to_string(version); });
+    return labels;
+}
+
+void ConsoleOperations::saveEdit(const std::string& catalogName, const ConsoleShelf::Edit& values)
+{
+    Host* target = host(catalogName);
+    const std::optional<ConsoleShelf::Editing> editing = shelf.view().get().editing;
+    if (!target || !editing || editing->catalogName != catalogName)
+        return;
+    const ConsoleShelf::Edit& before = editing->values;
+    std::optional<std::string> refused;
+    if (editing->address && values.address != before.address)
+        refused = saveAddress(*target, values.address);
+    if (!refused && editing->pin && values.pin != before.pin)
+        refused = saveConsolePin(*target, values.pin);
+    if (refused)
+    {
+        notifier.notify(*refused);
+        return;
+    }
+    if (!editing->takion.empty() && values.takion != before.takion)
+        saveTakion(*target, values.takion);
+    shelf.edit(std::nullopt);
+    notifier.notify(services.strings.text("akira/hosts/edit_saved"));
+    refresh();
+}
+
+void ConsoleOperations::askDelete(const std::string& catalogName)
 {
     Host* target = host(catalogName);
     if (!target)
         return;
-    notifier.notify(services.strings.format(
-        actions().wake(*target) ? "akira/hosts/wake_sent" : "akira/hosts/wake_failed", target->getHostName()));
+    shelf.edit(std::nullopt);
+    shelf.ask(ConsoleShelf::Prompt{ .ask = ConsoleShelf::Ask::Delete,
+        .catalogName = catalogName,
+        .text = services.strings.format("akira/hosts/delete_confirm", target->getHostName()) });
 }
 
 void ConsoleOperations::askPin(const std::string& catalogName)
@@ -459,52 +485,27 @@ void ConsoleOperations::link(const std::string& catalogName, const std::string& 
     refresh();
 }
 
-void ConsoleOperations::setConsolePin(const std::string& catalogName, const std::string& pin)
+auto ConsoleOperations::saveConsolePin(Host& target, const std::string& pin) -> std::optional<std::string>
 {
-    Host* target = host(catalogName);
-    shelf.dismiss();
-    if (!target)
-        return;
-    notifier.notify(services.strings.text(actions().setConsolePin(*target, pin) ? "akira/host_settings/console_pin_saved"
-                                                                                : "akira/host_settings/console_pin_invalid"));
+    if (actions().setConsolePin(target, pin))
+        return std::nullopt;
+    return services.strings.text("akira/host_settings/console_pin_invalid");
 }
 
-void ConsoleOperations::setAddress(const std::string& catalogName, const std::string& address)
+auto ConsoleOperations::saveAddress(Host& target, const std::string& address) -> std::optional<std::string>
 {
-    Host* target = host(catalogName);
-    shelf.dismiss();
-    if (!target)
-        return;
-    const auto moved = actions().moveTo(*target, address);
-    if (!moved)
-    {
-        notifier.notify(services.strings.text(moved.error() == Host::AddressRefusal::Invalid
-                ? "akira/hosts/address_invalid"
-                : "akira/hosts/address_not_saved"));
-        return;
-    }
-    if (*moved == ConsoleActions::AddressChange::Unchanged)
-        return;
-    notifier.notify(services.strings.format("akira/hosts/address_saved", target->getHostName(), address));
-    refresh();
+    const auto moved = actions().moveTo(target, address);
+    if (moved)
+        return std::nullopt;
+    return services.strings.text(
+        moved.error() == Host::AddressRefusal::Invalid ? "akira/hosts/address_invalid" : "akira/hosts/address_not_saved");
 }
 
-void ConsoleOperations::pinTakion(const std::string& catalogName, int index)
+void ConsoleOperations::saveTakion(Host& target, int index)
 {
-    Host* target = host(catalogName);
-    shelf.dismiss();
-    if (!target)
-        return;
-    const TakionPinChoice choice = actions().takionPins(*target);
-    if (!choice.contains(index))
-        return;
-    const auto version = choice.versionAt(index);
-    actions().pinTakion(*target, version);
-    if (!version)
-        notifier.notify(services.strings.format("akira/hosts/takion_follows", target->getHostName()));
-    else
-        notifier.notify(
-            services.strings.format("akira/hosts/takion_pinned", target->getHostName(), std::to_string(*version)));
+    const TakionPinChoice choice = actions().takionPins(target);
+    if (choice.contains(index))
+        actions().pinTakion(target, choice.versionAt(index));
 }
 
 void ConsoleOperations::remove(const std::string& catalogName)
@@ -520,18 +521,47 @@ void ConsoleOperations::remove(const std::string& catalogName)
     refresh();
 }
 
-void ConsoleOperations::addManual(const std::string& name, const std::string& address, bool ps5)
+void ConsoleOperations::openAdd()
 {
-    const auto added = actions().addManual(name, address,
+    shelf.offerAccount(findsRemote());
+    shelf.openAdd(true);
+    publishScan();
+}
+
+void ConsoleOperations::chooseAddMode(ConsoleShelf::AddMode mode)
+{
+    shelf.chooseMode(mode);
+    const std::optional<ConsoleShelf::Adding> adding = shelf.view().get().adding;
+    if (!adding || adding->mode != mode)
+        return;
+    if (mode == ConsoleShelf::AddMode::Automatic)
+        publishScan();
+    if (mode == ConsoleShelf::AddMode::PlayStation && adding->lookup == ConsoleShelf::Lookup::Idle)
+        findRemote();
+}
+
+void ConsoleOperations::publishScan()
+{
+    const DiscoveryManager::SweepStatus sweep = services.discovery.getSweepStatus();
+    shelf.scanned(ConsoleShelf::Scan{ .running = sweep.serviceRunning,
+        .searched = sweep.serviceRunning && !sweep.sweepActive,
+        .broadcast = services.discovery.getLocalSubnetCidr(),
+        .unicast = sweep.subnets });
+}
+
+void ConsoleOperations::addByAddress(const std::string& address, bool ps5)
+{
+    const auto added = actions().addManual(address, address,
         ps5 ? libchiaking::consoles::Generation::ps5 : libchiaking::consoles::Generation::ps4);
     if (!added)
     {
-        notifier.notify(manualRefusalText(added.error()));
+        shelf.addFailed(manualRefusalText(added.error()));
         return;
     }
     shelf.openAdd(false);
-    notifier.notify(services.strings.text("akira/add_host/success"));
     refresh();
+    if (Host* target = host(address))
+        beginRegistration(*target);
 }
 
 void ConsoleOperations::findRemote()
@@ -540,18 +570,19 @@ void ConsoleOperations::findRemote()
     const RemoteLookup lookup(psn ? std::optional(psn->state()) : std::nullopt);
     if (!lookup.allowed())
     {
+        shelf.lookup(ConsoleShelf::Lookup::Failed);
         notifier.notify(services.strings.text("akira/hosts/no_psn_token"));
         return;
     }
-    notifier.notify(services.strings.text(lookup.notice() == RemoteLookup::Notice::Finding
-            ? "akira/hosts/finding_remote"
-            : "akira/hosts/token_expired_refreshing"));
-    shelf.openAdd(false);
+    shelf.lookup(ConsoleShelf::Lookup::Loading);
     services.discovery.refreshRemoteDevices(
-        [this](const DiscoveryManager::RemoteRefreshResult& result) {
-            services.dispatcher.post([this, result] {
+        [this, guard = alive](const DiscoveryManager::RemoteRefreshResult& result) {
+            services.dispatcher.post([this, guard, result] {
+                if (!*guard)
+                    return;
+                shelf.lookup(result.success ? ConsoleShelf::Lookup::Ready : ConsoleShelf::Lookup::Failed);
                 if (!result.success)
-                    notifier.notify(services.strings.format("akira/hosts/token_refresh_failed", result.message));
+                    log::warning("[CONSOLES] PlayStation console list failed: {}", result.message);
                 refresh();
             });
         },

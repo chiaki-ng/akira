@@ -1,35 +1,33 @@
 #include "play/ui/connecting_screen.hpp"
 
 #include <arisa/components/button.hpp>
+#include <arisa/components/environment.hpp>
 #include <arisa/components/button_role.hpp>
 #include <arisa/components/button_style.hpp>
 #include <arisa/components/group.hpp>
 #include <arisa/components/hstack.hpp>
-#include <arisa/components/image.hpp>
 #include <arisa/components/panel_radius.hpp>
+#include <arisa/components/shape_view.hpp>
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
-#include <arisa/controls/progress_view.hpp>
-#include <arisa/controls/progress_view_style.hpp>
-#include <arisa/graphics/gradient.hpp>
-#include <arisa/graphics/shape_style.hpp>
+#include <arisa/components/zstack.hpp>
 #include <arisa/theme/colour_value.hpp>
-#include <arisa/theme/glass.hpp>
 #include <arisa/theme/shape.hpp>
 #include <arisa/theme/space.hpp>
 #include <arisa/theme/typography.hpp>
 
 #include <algorithm>
+#include <format>
 #include <utility>
 #include <vector>
+
+#include "app/arisa/ambient_background.hpp"
+#include "app/arisa/brand_lockup.hpp"
 
 namespace akira::play::ui {
 
 namespace components = ::arisa::components;
 namespace composition = ::arisa::composition;
-namespace controls = ::arisa::controls;
-namespace graphics = ::arisa::graphics;
-namespace motion = ::arisa::motion;
 namespace theme = ::arisa::theme;
 
 ConnectingScreen::ConnectingScreen(Progress progress, StreamCommands& commands, const app::Strings& strings)
@@ -51,40 +49,40 @@ auto ConnectingScreen::progressOf(const ConnectFlow::Ring& ring, std::string con
     };
 }
 
-auto ConnectingScreen::activeSegment(int step, int steps) -> int
+auto ConnectingScreen::capsule(int index, int step) -> Capsule
 {
-    if (steps <= 0)
-        return 0;
-    return std::clamp(((step - 1) * segments) / steps, 0, segments - 1);
+    const int active = std::max(step, 1) - 1;
+    if (index < active)
+        return Capsule::Done;
+    return index == active ? Capsule::Active : Capsule::Waiting;
+}
+
+auto ConnectingScreen::pill(Capsule state) -> composition::Element
+{
+    theme::ColourValue fill = theme::ColourValue(theme::ColourRole::secondary_label).opacity(0.28F);
+    if (state == Capsule::Done)
+        fill = theme::ColourValue(theme::Colour::hex(0xCEDD2A));
+    else if (state == Capsule::Active)
+        fill = theme::ColourValue(theme::ColourRole::accent);
+    composition::Element shown = components::ShapeView(theme::Shape::capsule())
+                                     .fill(fill)
+                                     .frame({ .width = state == Capsule::Active ? activeCapsuleWidth : capsuleWidth,
+                                         .height = capsuleHeight });
+    if (state == Capsule::Active)
+        return std::move(shown).shadow(theme::ColourValue(theme::ColourRole::accent).opacity(0.75F), capsuleGlow);
+    return shown;
 }
 
 auto ConnectingScreen::bar() const -> composition::Element
 {
     const int steps = std::max(progress.steps, 1);
-    const double done = static_cast<double>(activeSegment(progress.step, steps)) / static_cast<double>(segments);
-    return controls::ProgressView(done, 1.0)
-        .progress_view_style(controls::ProgressViewStyle::segmented(segments))
-        .id(composition::ElementKey{ "connecting.progress" });
-}
-
-auto ConnectingScreen::lockup() -> composition::Element
-{
-    return components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::center,
-                                  .spacing = theme::Space{ lockupGap } },
-        components::Image(logoImage)
-            .resizable()
-            .aspect_ratio(std::nullopt, composition::ContentMode::fit)
-            .frame({ .width = logoHeight * logoAspect, .height = logoHeight }),
-        components::Text("\xc3\x97")
-            .font(theme::Font::system(26.0F, theme::Font::Weight::light))
-            .foreground_style(theme::ColourRole::secondary_label),
-        components::Image(mascotImage)
-            .resizable()
-            .aspect_ratio(std::nullopt, composition::ContentMode::fill)
-            .frame({ .width = mascotSize, .height = mascotSize })
-            .clip_shape(theme::Shape::rounded(mascotRadius)))
+    std::vector<composition::Element> pills;
+    for (int index = 0; index < steps; ++index)
+        pills.push_back(pill(capsule(index, progress.step))
+                            .id(composition::ElementKey{ std::format("connecting.step.{}", index) }));
+    return components::HStack(components::HStackOptions{ .spacing = theme::Space{ capsuleSpacing } }, std::move(pills))
         .accessibility_hidden(true)
-        .id(composition::ElementKey{ "connecting.lockup" });
+        .id(composition::ElementKey{ "connecting.progress" });
 }
 
 auto ConnectingScreen::body(composition::Context&) const -> composition::Element
@@ -92,37 +90,35 @@ auto ConnectingScreen::body(composition::Context&) const -> composition::Element
     auto cancel = [commands = commands] { commands->cancel(); };
     composition::Element card =
         components::VStack(components::VStackOptions{ .spacing = theme::space::none },
-            lockup().padding(theme::Edge::bottom, theme::Space{ 26.0F }),
+            composition::Element(app::arisa::BrandLockup(logoHeight, logoHeight * mascotScale, app::arisa::BrandLockup::Motion::Connecting))
+                .padding(theme::Edge::bottom, theme::Space{ 30.0F }),
             components::Text(strings->text("akira/connection/starting_stream"))
                 .font(theme::Font::system(titleSize, theme::Font::Weight::semibold))
                 .tracking(titleTracking),
             bar().padding(theme::Edge::top, theme::Space{ 24.0F }),
             components::Text(progress.status)
-                .font(theme::Font::body)
+                .font(theme::Font::callout)
                 .foreground_style(theme::ColourValue(theme::ColourRole::label).opacity(0.72F))
                 .padding(theme::Edge::top, theme::Space{ 15.0F })
                 .id(composition::ElementKey{ "connecting.status" }),
-            components::Text(strings->format("akira/connection/step_of", progress.step, progress.steps))
-                .font(theme::Font::caption)
-                .foreground_style(theme::ColourValue(theme::ColourRole::label).opacity(0.55F))
-                .padding(theme::Edge::top, theme::Space{ 10.0F })
-                .id(composition::ElementKey{ "connecting.step" }),
             composition::Element(components::Group()).frame({ .height = 32.0F }),
             components::Button(strings->text("akira/common/cancel"), components::ButtonRole::cancel, cancel)
                 .button_style(components::ButtonStyle::plain())
-                .foreground_style(theme::ColourRole::secondary_label)
+                .foreground_style(theme::ColourValue(theme::ColourRole::label).opacity(0.78F))
                 .id(composition::ElementKey{ "connecting.cancel" }))
             .padding(theme::Insets::symmetric(theme::Space{ 56.0F }, theme::Space{ 42.0F }))
             .frame({ .min_width = cardWidth })
-            .glass_panel(components::PanelRadius::modal);
-    const graphics::Gradient glow(std::vector<theme::ColourValue>{
-        theme::ColourValue(theme::ColourRole::accent).opacity(0.12F),
-        theme::ColourValue(theme::ColourRole::accent).opacity(0.0F) });
-    return components::VStack(std::move(card))
+            .glass_panel(components::PanelRadius::modal)
+            .shadow(theme::ColourValue(theme::Colour::hex(0x000000)).opacity(0.30F), 28.0F, 0.0F, 12.0F);
+    return components::ZStack(
+        composition::Element(app::arisa::AmbientBackground(app::arisa::AmbientBackground::Presence::Quiet))
+            .frame({ .max_width = composition::infinity, .max_height = composition::infinity }),
+        composition::Element(components::Group())
+            .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
+            .background(theme::ColourValue(theme::Colour::hex(0x000000)).opacity(backdropDim))
+            .allows_hit_testing(false),
+        std::move(card))
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
-        .background(graphics::ShapeStyle(graphics::EllipticalGradient{ .gradient = glow,
-            .center = motion::UnitPoint{ 0.5F, 0.4F },
-            .end_radius_fraction = 0.7F }))
         .background(theme::ColourRole::window_background)
         .on_exit_command(strings->text("akira/common/cancel"), cancel)
         .id(composition::ElementKey{ "connecting" });

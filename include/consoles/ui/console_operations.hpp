@@ -45,20 +45,19 @@ public:
     void streamEnded();
 
     void primary(const std::string& catalogName) override;
-    void option(const std::string& catalogName, ConsoleEntry::Option option) override;
-    void wake(const std::string& catalogName) override;
     void registerOverInternet(const std::string& catalogName) override;
     void askPin(const std::string& catalogName) override;
     void registerWithPin(const std::string& catalogName, const std::string& pin) override;
     void cancelRegistration(const std::string& catalogName) override;
     void link(const std::string& catalogName, const std::string& localName) override;
-    void setConsolePin(const std::string& catalogName, const std::string& pin) override;
-    void setAddress(const std::string& catalogName, const std::string& address) override;
-    void pinTakion(const std::string& catalogName, int choice) override;
+    void edit(const std::string& catalogName) override;
+    void saveEdit(const std::string& catalogName, const ConsoleShelf::Edit& values) override;
+    void askDelete(const std::string& catalogName) override;
     void remove(const std::string& catalogName) override;
-    void addManual(const std::string& name, const std::string& address, bool ps5) override;
+    void openAdd() override;
+    void chooseAddMode(ConsoleShelf::AddMode mode) override;
+    void addByAddress(const std::string& address, bool ps5) override;
     void findRemote() override;
-    auto findsRemote() const -> bool override;
     void setUpAccount() override;
     void launchTitle(const std::string& catalogName, const std::string& titleId) override;
 
@@ -84,6 +83,12 @@ private:
     void pinEnded(const std::string& catalogName, Host::PairingOutcome outcome);
     void internetEnded(const std::string& catalogName, Host::PairingOutcome outcome);
     void internetStage(const std::string& catalogName, int index, int total);
+    auto findsRemote() const -> bool;
+    void publishScan();
+    auto saveConsolePin(Host& target, const std::string& pin) -> std::optional<std::string>;
+    auto saveAddress(Host& target, const std::string& address) -> std::optional<std::string>;
+    void saveTakion(Host& target, int choice);
+    auto takionLabels(Host& target) -> std::vector<std::string>;
     auto refusalText(RegisterFlow::Refusal refusal) const -> std::string;
     auto manualRefusalText(ConsoleActions::ManualRefusal refusal) const -> std::string;
 

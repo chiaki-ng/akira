@@ -180,7 +180,7 @@ void App::buildScreens()
     CrashReport::stage("arisa couch");
     buildCouch();
     CrashReport::stage("arisa stream driver");
-    driver = std::make_shared<StreamDriver>(services, *application, *window, model, notices, *controls, *mapping,
+    driver = std::make_shared<StreamDriver>(services, *application, *window, model, notices, *controls, *picture, *mapping,
         StreamDriver::Couch{ .table = couchBridge ? &*couchBridge : nullptr, .model = couch ? &*couch : nullptr }, [this] {
             if (consoleOperations)
                 consoleOperations->streamEnded();
@@ -340,7 +340,7 @@ bool App::frame()
     if (cloudModel)
         cloudModel->tick(now);
 #endif
-    return !quitting && !appletMainLoop();
+    return !quitting && !model.view().get().exitConfirmed && !appletMainLoop();
 }
 
 int App::run()

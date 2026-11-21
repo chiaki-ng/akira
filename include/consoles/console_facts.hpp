@@ -20,6 +20,8 @@ struct ConsoleFacts {
     bool canPairOverInternet = false;
     bool hasAddress = false;
     std::string presence;
+    std::string address;
+    bool remotePlayDisabled = false;
 };
 
 }

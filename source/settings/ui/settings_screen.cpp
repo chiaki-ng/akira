@@ -15,6 +15,8 @@
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
 #include <arisa/composition/binding.hpp>
+#include <arisa/composition/namespace.hpp>
+#include <arisa/composition/reset_focus_action.hpp>
 #include <arisa/composition/visibility.hpp>
 #include <arisa/controls/toggle_style.hpp>
 #include <arisa/presentation/alert.hpp>
@@ -286,16 +288,19 @@ auto SettingsScreen::body(composition::Context& context) const -> composition::E
     const std::vector<Page> shown = pages(*parts.model);
     const auto chosen = context.state(page);
     const Page current = std::ranges::contains(shown, chosen.get()) ? chosen.get() : Page::General;
+    const composition::Namespace::ID tabsScope = context.namespace_id(tabsFocus);
+    const composition::ResetFocusAction refocus = context.environment(components::Environment::reset_focus);
     composition::Binding<std::size_t> selection(
         [chosen, shown] {
             const auto found = std::ranges::find(shown, chosen.get());
             return found == shown.end() ? std::size_t{ 0 } : static_cast<std::size_t>(found - shown.begin());
         },
-        [chosen, shown, model = parts.model](std::size_t index) {
+        [chosen, shown, model = parts.model, refocus, tabsScope](std::size_t index) {
             if (index < shown.size())
             {
                 model->close();
                 chosen.set(shown[index]);
+                refocus(tabsScope);
             }
         });
     std::vector<structure::DockBar::Item> tabs;
@@ -307,6 +312,7 @@ auto SettingsScreen::body(composition::Context& context) const -> composition::E
     composition::Element screen =
         components::VStack(components::VStackOptions{ .spacing = theme::space::none },
             composition::Element(structure::DockBar(std::move(selection), std::move(tabs)))
+                .focus_scope(tabsScope)
                 .control_size(components::ControlSize::small)
                 .padding(theme::Edge::top, theme::Space{ 8.0F })
                 .id(composition::ElementKey{ "settings.pages" }),
@@ -322,14 +328,16 @@ auto SettingsScreen::body(composition::Context& context) const -> composition::E
             .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
                 .alignment = composition::Alignment::top })
             .on_command(provider::Button::l, strings->text("akira/settings/previous_page"),
-                [chosen, shown, current, model] {
+                [chosen, shown, current, model, refocus, tabsScope] {
                     model->close();
                     chosen.set(next(shown, current, -1));
+                    refocus(tabsScope);
                 })
             .on_command(provider::Button::r, strings->text("akira/settings/next_page"),
-                [chosen, shown, current, model] {
+                [chosen, shown, current, model, refocus, tabsScope] {
                     model->close();
                     chosen.set(next(shown, current, 1));
+                    refocus(tabsScope);
                 });
     return presented(std::move(screen), status);
 }

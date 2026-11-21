@@ -23,12 +23,17 @@
 #include "play/ui/couch.hpp"
 #include "play/ui/mapping.hpp"
 #include "play/ui/stream_commands.hpp"
+#include "play/picture_profile.hpp"
+#include "play/stream_profile.hpp"
 #include "settings/ui/control_options.hpp"
+#include "settings/ui/picture_options.hpp"
 
 namespace akira::play::ui {
 
 class StreamDock final : public ::arisa::composition::Component {
 public:
+    enum class Panel { Stream, Statistics, Controls, Players, Session };
+
     static constexpr float panelWidth = 700.0F;
     static constexpr float panelPadding = 24.0F;
     static constexpr float panelSpacing = 18.0F;
@@ -50,6 +55,7 @@ public:
         std::optional<std::string> datacenter;
         std::optional<std::string> bandwidth;
         std::optional<StreamControls::Control> opening;
+        std::optional<StreamProfile> profile;
 
         friend bool operator==(const Session&, const Session&) = default;
     };
@@ -67,26 +73,31 @@ public:
 
     StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions, Mapping& mapping,
         Couch* couch, const app::Strings& strings);
+    StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions,
+        settings::ui::PictureOptions* picture, Mapping& mapping, Couch* couch, const app::Strings& strings);
 
     bool operator==(const StreamDock& other) const = default;
 
     auto body(::arisa::composition::Context& context) const -> ::arisa::composition::Element override;
 
 private:
-    auto panels() const -> std::vector<StreamControls::Control>;
-    auto opening(const std::vector<StreamControls::Control>& shown) const -> int;
-    auto dock(::arisa::composition::StateHandle<int> chosen, const std::vector<StreamControls::Control>& shown) const
+    auto panels() const -> std::vector<Panel>;
+    auto opening(const std::vector<Panel>& shown) const -> int;
+    auto dock(::arisa::composition::StateHandle<int> chosen, const std::vector<Panel>& shown) const
         -> ::arisa::composition::Element;
+    auto streamPanel(const settings::ui::PictureOptions::Values& values) const -> ::arisa::composition::Element;
+    auto bitrateRow(StreamProfile profile, const PictureProfile& shown) const -> ::arisa::composition::Element;
+    static auto panelFor(StreamControls::Control control) -> Panel;
     auto controlsPanel(const settings::ui::ControlOptions::Values& values,
         ::arisa::composition::StateHandle<bool> board) const -> ::arisa::composition::Element;
     auto mappingPanel(::arisa::composition::StateHandle<bool> board) const -> ::arisa::composition::Element;
     auto swipe(settings::ui::ControlOptions::Swipe direction, const char* key, bool enabled) const
         -> ::arisa::composition::Element;
     auto counter(const DiagnosticsReport::Counter& shown) const -> ::arisa::composition::Element;
-    auto panel(StreamControls::Control shown, const DiagnosticsReport& report,
+    auto panel(Panel shown, const DiagnosticsReport& report,
         ::arisa::composition::StateHandle<DiagnosticsAppearance> look, ::arisa::composition::StateHandle<int> chosenTopic,
-        const settings::ui::ControlOptions::Values& pad, ::arisa::composition::StateHandle<bool> board) const
-        -> ::arisa::composition::Element;
+        const settings::ui::ControlOptions::Values& pad, ::arisa::composition::StateHandle<bool> board,
+        const std::optional<settings::ui::PictureOptions::Values>& values) const -> ::arisa::composition::Element;
     auto powerPanel() const -> ::arisa::composition::Element;
     auto statsPanel(const DiagnosticsReport& report, ::arisa::composition::StateHandle<DiagnosticsAppearance> look,
         ::arisa::composition::StateHandle<int> chosenTopic) const -> ::arisa::composition::Element;
@@ -99,13 +110,16 @@ private:
     static auto layoutKey(DiagnosticsAppearance::Layout layout) -> const char*;
     static auto tipCount(int chosen) -> int;
     auto title(StreamControls::Control control) const -> std::string;
+    auto title(Panel shown) const -> std::string;
     static auto symbol(StreamControls::Control control) -> std::string;
+    static auto symbol(Panel shown) -> std::string;
     static auto refresh(::arisa::composition::StateHandle<DiagnosticsReport> report, StreamCommands* commands)
         -> ::arisa::async::Task<void>;
 
     Session session;
     StreamCommands* commands;
     settings::ui::ControlOptions* controlOptions;
+    settings::ui::PictureOptions* picture = nullptr;
     Mapping* mapping;
     Couch* couch;
     const app::Strings* strings;

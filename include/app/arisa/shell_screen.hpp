@@ -74,6 +74,8 @@ private:
     auto announced(::arisa::composition::Element content, bool streaming) const -> ::arisa::composition::Element;
     auto ending(::arisa::composition::Element content, const ShellModel::View& view,
         ::arisa::composition::Namespace::ID focus) const -> ::arisa::composition::Element;
+    auto exitCard(::arisa::composition::Element content, const ShellModel::View& view) const
+        -> ::arisa::composition::Element;
     auto endingCard(const ShellModel::Ending& shown, ::arisa::composition::Namespace::ID focus) const
         -> ::arisa::composition::Element;
     static auto backdrop() -> ::arisa::composition::Element;

@@ -38,20 +38,19 @@ namespace tests {
 class QuietConsoleCommands final : public akira::consoles::ui::ConsoleCommands {
 public:
     void primary(const std::string& name) override { played.push_back(name); }
-    void option(const std::string&, akira::consoles::ConsoleEntry::Option) override {}
-    void wake(const std::string&) override {}
     void registerOverInternet(const std::string&) override {}
     void askPin(const std::string&) override {}
     void registerWithPin(const std::string&, const std::string&) override {}
     void cancelRegistration(const std::string&) override {}
     void link(const std::string&, const std::string&) override {}
-    void setConsolePin(const std::string&, const std::string&) override {}
-    void setAddress(const std::string&, const std::string&) override {}
-    void pinTakion(const std::string&, int) override {}
     void remove(const std::string&) override {}
-    void addManual(const std::string&, const std::string&, bool) override {}
+    void edit(const std::string&) override {}
+    void saveEdit(const std::string&, const akira::consoles::ui::ConsoleShelf::Edit&) override {}
+    void askDelete(const std::string&) override {}
+    void openAdd() override {}
+    void chooseAddMode(akira::consoles::ui::ConsoleShelf::AddMode) override {}
+    void addByAddress(const std::string&, bool) override {}
     void findRemote() override {}
-    auto findsRemote() const -> bool override { return true; }
     void setUpAccount() override {}
     void launchTitle(const std::string& name, const std::string& titleId) override
     {
@@ -66,6 +65,7 @@ class QuietStreamCommands final : public akira::play::ui::StreamCommands {
 public:
     void cancel() override {}
     void reconnect() override {}
+    void restart() override {}
     void resume() override {}
     void leave(bool) override {}
     void resetMotion() override {}

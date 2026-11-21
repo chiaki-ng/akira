@@ -23,7 +23,8 @@
     "error": "Error",
     "ps4": "PS4",
     "ps5": "PS5",
-    "registered": "Registered"
+    "registered": "Registered",
+    "retry": "Retry"
   },
   "hosts": {
     "title": "PlayStation Consoles",
@@ -118,7 +119,21 @@
     "recent_days_one": "{} day ago",
     "recent_weeks_one": "{} week ago",
     "recent_months_one": "{} month ago",
-    "recent_years_one": "{} year ago"
+    "recent_years_one": "{} year ago",
+    "rest_mode": "Rest mode",
+    "not_nearby": "Not nearby",
+    "not_registered": "Not registered",
+    "missing_locally": "Not found on your home network",
+    "edit_console": "Edit console",
+    "delete_console": "Delete console",
+    "edit_title": "Edit console",
+    "edit_connections": "Connections",
+    "edit_local_address": "Local address",
+    "edit_play_over": "Play over",
+    "edit_launch": "Launch",
+    "edit_delete": "Delete console",
+    "edit_save": "Save changes",
+    "edit_saved": "Changes saved"
   },
   "cloud": {
     "title": "Cloud Library",
@@ -442,7 +457,26 @@
     "error_no_ip": "Please enter an IP address",
     "error_invalid_ip": "Invalid IP address or hostname",
     "error_duplicate_name": "A console with this name already exists",
-    "success": "Console added successfully!"
+    "success": "Console added successfully!",
+    "find_title": "Find your console",
+    "mode_automatic": "Auto-discovery",
+    "mode_manual": "Manual entry",
+    "mode_playstation": "PlayStation",
+    "all_paired": "All discovered consoles are already paired with this profile.",
+    "scan_paused": "Discovery paused",
+    "scan_no_network": "Waiting for a network…",
+    "scan_scanning": "Scanning for consoles",
+    "scan_still_looking": "No console has answered yet, still looking…",
+    "scan_looking": "Looking for consoles…",
+    "broadcast": "Broadcast",
+    "unicast": "Unicast",
+    "address_prompt": "IP address or hostname",
+    "continue": "Continue",
+    "account_loading": "Finding your PlayStation consoles…",
+    "account_failed": "Couldn't load consoles from PlayStation. Try again or use a local PIN.",
+    "account_none": "No unpaired consoles available for this account.",
+    "account_register": "Register through PlayStation",
+    "account_enable_rp": "Enable Remote Play on this console"
   },
   "host_settings": {
     "title": "Host Settings",
@@ -599,7 +633,11 @@
     "stat_net": "Net",
     "stat_visual": "Visual",
     "stat_jitter": "Jitter",
-    "stat_source": "Source"
+    "stat_source": "Source",
+    "panel_session": "Session",
+    "panel_stream": "Stream",
+    "panel_statistics": "Statistics",
+    "apply_reconnect": "Apply and reconnect"
   },
   "pin": {
     "registration_error": "Registration failed. Please try again with a new PIN.",
@@ -1120,7 +1158,10 @@
     "discovery_off": "Discovery off",
     "discovery_local": "Discovery running · local network",
     "discovery_running_for": "Discovery running for",
-    "quitting": "Closing…"
+    "quitting": "Closing…",
+    "exit": "Exit",
+    "exit_title": "Exit akira?",
+    "exit_confirm": "Exit"
   },
   "pair": {
     "title": "Pair with Companion",
@@ -1166,7 +1207,13 @@
     "qr_tile": "QR code",
     "companion_tile": "Companion",
     "legacy_tile": "Base64 PSN ID",
-    "back_to_profiles": "Back to profiles"
+    "back_to_profiles": "Back to profiles",
+    "heading": "Set up a profile.",
+    "heading_detail": "Choose how akira gets your PlayStation account.",
+    "qr_hint": "Recommended. Scan a code with your phone and approve the sign-in. Cloud, internet play and trophies work. No computer needed.",
+    "companion_hint": "Full functionality. Gets your account from the akira companion app on your computer. Only needed once.",
+    "legacy_hint": "Local play only. Enter a base64 account ID yourself; akira never contacts Sony with this profile.",
+    "back_hint": "Return to the accounts you already added."
   },
   "qr_sign_in": {
     "title": "Sign in with a QR code",

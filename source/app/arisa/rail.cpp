@@ -34,6 +34,9 @@ auto Rail::body(composition::Context& context) const -> composition::Element
     trailing.push_back(structure::DockBar::Action{ .title = strings->text("akira/tabs/settings"),
         .system_image = "settings",
         .perform = [held] { held->showSettings(true); } });
+    trailing.push_back(structure::DockBar::Action{ .title = strings->text("akira/app/exit"),
+        .system_image = "power_settings_new",
+        .perform = [held] { held->askExit(); } });
     const auto current = std::ranges::find(shown, view.page);
     const std::size_t index = current == shown.end() ? 0 : static_cast<std::size_t>(std::distance(shown.begin(), current));
     composition::Binding<std::size_t> selection([index] { return index; },

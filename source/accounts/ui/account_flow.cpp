@@ -14,6 +14,7 @@
 #include "accounts/ui/legacy_profile.hpp"
 #include "accounts/ui/qr_sign_in.hpp"
 #include "accounts/ui/welcome.hpp"
+#include "app/arisa/ambient_background.hpp"
 
 namespace akira::accounts::ui {
 
@@ -38,8 +39,8 @@ auto AccountFlow::backdrop() -> composition::Element
     return composition::Element(components::Group())
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
         .background(graphics::ShapeStyle(graphics::EllipticalGradient{ .gradient = glow,
-            .center = motion::UnitPoint{ 0.5F, 0.15F },
-            .end_radius_fraction = 0.8F }))
+            .center = motion::UnitPoint{ 0.5F, 0.35F },
+            .end_radius_fraction = 0.7F }))
         .background(theme::ColourRole::window_background);
 }
 
@@ -65,7 +66,10 @@ auto AccountFlow::body(composition::Context& context) const -> composition::Elem
         case AccountModel::Flow::Welcome: break;
     }
     AccountModel* held = model;
-    return components::ZStack(backdrop(), std::move(shown))
+    return components::ZStack(backdrop(),
+        composition::Element(app::arisa::AmbientBackground(app::arisa::AmbientBackground::Presence::Quiet))
+            .frame({ .max_width = composition::infinity, .max_height = composition::infinity }),
+        std::move(shown))
         .task([held] { return ticking(held); })
         .id(composition::ElementKey{ "account-flow" });
 }

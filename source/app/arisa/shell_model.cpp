@@ -73,4 +73,25 @@ void ShellModel::offer(bool cloud, bool trophies)
     });
 }
 
+void ShellModel::askExit()
+{
+    state.update([](View& view) {
+        if (view.phase == Phase::Home && !view.ending)
+            view.exiting = true;
+    });
+}
+
+void ShellModel::dismissExit()
+{
+    state.write(&View::exiting, false);
+}
+
+void ShellModel::confirmExit()
+{
+    state.update([](View& view) {
+        view.exiting = false;
+        view.exitConfirmed = true;
+    });
+}
+
 }

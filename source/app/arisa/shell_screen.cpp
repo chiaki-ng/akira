@@ -78,9 +78,9 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
             .background(theme::ColourRole::window_background);
     const bool connecting = view.phase == ShellModel::Phase::Connecting;
     const bool settings = view.settings && view.phase == ShellModel::Phase::Home;
-    composition::Element shell =
-        ending(announced(home(view.page), view.phase == ShellModel::Phase::Streaming), view,
-            context.namespace_id(endingFocus));
+    composition::Element shell = exitCard(
+        ending(announced(home(view.page), view.phase == ShellModel::Phase::Streaming), view, context.namespace_id(endingFocus)),
+        view);
     composition::Element panel = components::Group();
     if (settings)
         panel = settingsPanel(context.environment(components::Environment::theme).glass().panel);
@@ -104,11 +104,13 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
 
 auto ShellScreen::home(ShellModel::Page shown) const -> composition::Element
 {
+    ShellModel* held = model;
     return components::ZStack(components::ZStackOptions{ .alignment = composition::Alignment::top_leading },
         backdrop(), page(shown), composition::Element(Rail(*model, *strings))
             .padding(theme::Space{ Rail::inset })
             .frame({ .max_height = composition::infinity, .alignment = composition::Alignment::top_leading }),
-        hints());
+        hints())
+        .on_exit_command(strings->text("akira/app/exit"), [held] { held->askExit(); });
 }
 
 auto ShellScreen::backdrop() -> composition::Element
@@ -129,7 +131,7 @@ auto ShellScreen::page(ShellModel::Page shown) const -> composition::Element
 {
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ pageSpacing } },
-        Header(pageTitle(shown)),
+        Header(pageTitle(shown), parts->settings.accounts, *strings),
         pageContent(shown).frame({ .max_width = composition::infinity, .max_height = composition::infinity,
             .alignment = composition::Alignment::top_leading }))
         .padding(theme::Insets{ .top = theme::Space{ pageTop },
@@ -236,6 +238,24 @@ auto ShellScreen::ending(composition::Element content, const ShellModel::View& v
     if (!view.ending)
         return content;
     return std::move(content).overlay(true, composition::OverlayLayer::dialog, endingCard(*view.ending, focus));
+}
+
+auto ShellScreen::exitCard(composition::Element content, const ShellModel::View& view) const -> composition::Element
+{
+    if (!view.exiting)
+        return content;
+    ShellModel* held = model;
+    std::vector<Confirmation::Choice> choices;
+    choices.push_back(Confirmation::Choice{ .label = strings->text("akira/common/cancel"),
+        .chosen = [held] { held->dismissExit(); },
+        .key = "exit.cancel" });
+    choices.push_back(Confirmation::Choice{ .label = strings->text("akira/app/exit_confirm"),
+        .chosen = [held] { held->confirmExit(); },
+        .emphasis = Confirmation::Emphasis::Destructive,
+        .key = "exit.confirm" });
+    return std::move(content).overlay(true, composition::OverlayLayer::dialog,
+        Confirmation(strings->text("akira/app/exit_title"), std::string(), std::move(choices), [held] { held->dismissExit(); })
+            .dimmed("exit"));
 }
 
 auto ShellScreen::endingCard(const ShellModel::Ending& shown, composition::Namespace::ID focus) const -> composition::Element

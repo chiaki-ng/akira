@@ -21,6 +21,8 @@
 #include <arisa/composition/binding.hpp>
 #include <arisa/controls/picker.hpp>
 #include <arisa/controls/picker_style.hpp>
+#include <arisa/controls/slider.hpp>
+#include <arisa/graphics/shape_style.hpp>
 #include <arisa/controls/toggle.hpp>
 #include <arisa/controls/toggle_style.hpp>
 #include <arisa/structure/dock_bar.hpp>
@@ -32,6 +34,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <format>
 #include <utility>
 #include <vector>
@@ -45,6 +48,7 @@ namespace async = ::arisa::async;
 namespace components = ::arisa::components;
 namespace composition = ::arisa::composition;
 namespace controls = ::arisa::controls;
+namespace graphics = ::arisa::graphics;
 namespace structure = ::arisa::structure;
 namespace theme = ::arisa::theme;
 
@@ -53,49 +57,73 @@ const composition::StateKey<DiagnosticsAppearance> StreamDock::overlay{ "stream-
 
 StreamDock::StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions,
     Mapping& mapping, Couch* couch, const app::Strings& strings)
+    : StreamDock(std::move(session), commands, controlOptions, nullptr, mapping, couch, strings)
+{
+}
+
+StreamDock::StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions,
+    settings::ui::PictureOptions* picture, Mapping& mapping, Couch* couch, const app::Strings& strings)
     : session(std::move(session))
     , commands(&commands)
     , controlOptions(&controlOptions)
+    , picture(picture)
     , mapping(&mapping)
     , couch(couch)
     , strings(&strings)
 {
 }
 
-auto StreamDock::panels() const -> std::vector<StreamControls::Control>
+auto StreamDock::panels() const -> std::vector<Panel>
 {
-    std::vector<StreamControls::Control> shown;
+    std::vector<Panel> shown;
+    if (picture && session.profile && *session.profile != StreamProfile::Cloud)
+        shown.push_back(Panel::Stream);
     if (std::ranges::contains(session.controls, StreamControls::Control::Stats))
-        shown.push_back(StreamControls::Control::Stats);
+        shown.push_back(Panel::Statistics);
     if (std::ranges::contains(session.controls, StreamControls::Control::Pad)
         || std::ranges::contains(session.controls, StreamControls::Control::Motion))
-        shown.push_back(StreamControls::Control::Pad);
+        shown.push_back(Panel::Controls);
     if (couch && session.players && std::ranges::contains(session.controls, StreamControls::Control::Players))
-        shown.push_back(StreamControls::Control::Players);
+        shown.push_back(Panel::Players);
     if (std::ranges::contains(session.controls, StreamControls::Control::Power))
-        shown.push_back(StreamControls::Control::Power);
+        shown.push_back(Panel::Session);
     return shown;
 }
 
-auto StreamDock::opening(const std::vector<StreamControls::Control>& shown) const -> int
+auto StreamDock::panelFor(StreamControls::Control control) -> Panel
 {
-    if (!session.opening)
-        return 0;
-    const auto found = std::ranges::find(shown, *session.opening);
+    switch (control)
+    {
+        case StreamControls::Control::Stats: return Panel::Statistics;
+        case StreamControls::Control::Pad:
+        case StreamControls::Control::Motion: return Panel::Controls;
+        case StreamControls::Control::Players: return Panel::Players;
+        case StreamControls::Control::Power: break;
+    }
+    return Panel::Session;
+}
+
+auto StreamDock::opening(const std::vector<Panel>& shown) const -> int
+{
+    const Panel wanted = session.opening ? panelFor(*session.opening) : Panel::Statistics;
+    const auto found = std::ranges::find(shown, wanted);
     return found == shown.end() ? 0 : static_cast<int>(found - shown.begin());
 }
 
 auto StreamDock::body(composition::Context& context) const -> composition::Element
 {
-    const std::vector<StreamControls::Control> shown = panels();
+    const std::vector<Panel> shown = panels();
     const auto chosen = context.state(selected, opening(shown));
     const auto stats = context.state(sampled, commands->diagnostics());
     const auto mode = context.state(overlay, session.diagnostics);
     const auto chosenTopic = context.state(topic);
     const auto board = context.state(mappingShown);
     const settings::ui::ControlOptions::Values& pad = context.read(controlOptions->view());
-    const StreamControls::Control current = shown.empty()
-        ? StreamControls::Control::Power
+    std::optional<settings::ui::PictureOptions::Values> look;
+    if (picture)
+        look = context.read(picture->view());
+    const Panel current = shown.empty()
+        ? Panel::Session
         : shown[static_cast<std::size_t>(std::clamp(chosen.get(), 0, static_cast<int>(shown.size()) - 1))];
     auto resume = [commands = commands, board] {
         if (board.get())
@@ -109,7 +137,7 @@ auto StreamDock::body(composition::Context& context) const -> composition::Eleme
             .on_exit_command(strings->text("akira/common/back"), resume)
             .id(composition::ElementKey{ "stream-dock" });
     return components::VStack(components::VStackOptions{ .spacing = theme::Space{ dockGap } },
-        panel(current, stats.get(), mode, chosenTopic, pad, board), dock(chosen, shown))
+        panel(current, stats.get(), mode, chosenTopic, pad, board, look), dock(chosen, shown))
         .padding(theme::Edge::bottom, theme::Space{ dockBottom })
         .on_exit_command(strings->text("akira/stream_menu/hint_resume"), resume)
         .task([stats, commands = commands] { return refresh(stats, commands); })
@@ -125,12 +153,11 @@ auto StreamDock::refresh(composition::StateHandle<DiagnosticsReport> stats, Stre
     }
 }
 
-auto StreamDock::dock(composition::StateHandle<int> chosen, const std::vector<StreamControls::Control>& shown) const
-    -> composition::Element
+auto StreamDock::dock(composition::StateHandle<int> chosen, const std::vector<Panel>& shown) const -> composition::Element
 {
     std::vector<structure::DockBar::Item> items;
-    for (const StreamControls::Control control : shown)
-        items.push_back(structure::DockBar::Item{ .title = title(control), .system_image = symbol(control) });
+    for (const Panel each : shown)
+        items.push_back(structure::DockBar::Item{ .title = title(each), .system_image = symbol(each) });
     std::vector<structure::DockBar::Action> trailing;
     trailing.push_back(structure::DockBar::Action{ .title = strings->text("akira/common/close"),
         .system_image = "close",
@@ -158,17 +185,20 @@ auto StreamDock::mappingPanel(composition::StateHandle<bool> board) const -> com
         .id(composition::ElementKey{ "stream-dock.mapping" });
 }
 
-auto StreamDock::panel(StreamControls::Control shown, const DiagnosticsReport& report,
-    composition::StateHandle<DiagnosticsAppearance> look, composition::StateHandle<int> chosenTopic,
-    const settings::ui::ControlOptions::Values& pad, composition::StateHandle<bool> board) const -> composition::Element
+auto StreamDock::panel(Panel shown, const DiagnosticsReport& report, composition::StateHandle<DiagnosticsAppearance> look,
+    composition::StateHandle<int> chosenTopic, const settings::ui::ControlOptions::Values& pad,
+    composition::StateHandle<bool> board, const std::optional<settings::ui::PictureOptions::Values>& values) const
+    -> composition::Element
 {
     composition::Element content = powerPanel();
-    if (shown == StreamControls::Control::Stats)
+    if (shown == Panel::Statistics)
         content = statsPanel(report, look, chosenTopic);
-    else if (shown == StreamControls::Control::Pad)
+    else if (shown == Panel::Controls)
         content = controlsPanel(pad, board);
-    else if (shown == StreamControls::Control::Players && couch)
+    else if (shown == Panel::Players && couch)
         content = PlayersPanel(*couch, *strings);
+    else if (shown == Panel::Stream && values)
+        content = streamPanel(*values);
     return std::move(content)
         .padding(theme::Space{ panelPadding })
         .frame({ .width = panelWidth, .alignment = composition::Alignment::leading })
@@ -179,28 +209,112 @@ auto StreamDock::panel(StreamControls::Control shown, const DiagnosticsReport& r
 auto StreamDock::powerPanel() const -> composition::Element
 {
     std::vector<composition::Element> rows;
-    rows.push_back(components::Text(strings->text("akira/stream_menu/panel_power_title"))
+    rows.push_back(components::Text(strings->text("akira/stream_menu/panel_session"))
                        .font(theme::Font::title2)
                        .font_weight(theme::Font::Weight::semibold));
-    rows.push_back(components::Button(strings->text("akira/stream_menu/opt_disconnect"),
-        [commands = commands] { commands->leave(false); })
-                       .font(theme::Font::headline)
-                       .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
-                       .control_size(components::ControlSize::large)
-                       .button_sizing(components::ButtonSizing::flexible)
-                       .id(composition::ElementKey{ "stream-dock.disconnect" }));
     if (session.sleepOffered)
         rows.push_back(components::Button(strings->text("akira/stream_menu/opt_disconnect_sleep"),
-            components::Image::SystemName{ "power_settings_new" }, components::ButtonRole::destructive,
-            [commands = commands] { commands->leave(true); })
+            components::Image::SystemName{ "power_settings_new" }, [commands = commands] { commands->leave(true); })
                            .font(theme::Font::headline)
                            .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
                            .control_size(components::ControlSize::large)
                            .button_sizing(components::ButtonSizing::flexible)
                            .id(composition::ElementKey{ "stream-dock.sleep" }));
+    rows.push_back(components::Button(strings->text("akira/stream_menu/opt_disconnect"), components::Image::SystemName{ "stop" },
+        components::ButtonRole::destructive, [commands = commands] { commands->leave(false); })
+                       .font(theme::Font::headline)
+                       .button_style(components::ButtonStyle::glass_prominent())
+                       .tint(graphics::ShapeStyle(theme::ColourRole::red))
+                       .control_size(components::ControlSize::large)
+                       .button_sizing(components::ButtonSizing::flexible)
+                       .id(composition::ElementKey{ "stream-dock.disconnect" }));
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ panelSpacing } },
         std::move(rows));
+}
+
+auto StreamDock::bitrateRow(StreamProfile profile, const PictureProfile& shown) const -> composition::Element
+{
+    settings::ui::PictureOptions* edit = picture;
+    return components::VStack(
+        components::VStackOptions{ .alignment = components::HorizontalAlignment::leading, .spacing = theme::space::xs },
+        components::HStack(components::Text(strings->text("akira/settings/bitrate_short")), components::Spacer(),
+            components::Text(strings->format("akira/settings/kbps", shown.bitrate()))
+                .font(theme::Font::body.monospaced_digit())
+                .foreground_style(theme::ColourRole::secondary_label)),
+        controls::Slider(composition::Binding<double>([edit, profile] { return static_cast<double>(edit->profile(profile).bitrate()); },
+                             [edit, profile](double value) { edit->chooseBitrate(profile, static_cast<int>(std::lround(value))); }),
+            controls::ClosedRange<double>{ .lower_bound = static_cast<double>(shown.minBitrate()),
+                .upper_bound = static_cast<double>(shown.maxBitrate()) },
+            static_cast<double>(PictureProfile::bitrateStep), components::Text(strings->text("akira/settings/bitrate_short")))
+            .labels_hidden())
+        .id(composition::ElementKey{ "stream-dock.bitrate" });
+}
+
+auto StreamDock::streamPanel(const settings::ui::PictureOptions::Values& values) const -> composition::Element
+{
+    const StreamProfile which = session.profile.value_or(StreamProfile::Local);
+    settings::ui::PictureOptions* edit = picture;
+    const PictureProfile& shown = picture->profile(which);
+    std::vector<composition::Element> rows;
+    rows.push_back(components::Text(strings->text("akira/stream_menu/panel_stream"))
+                       .font(theme::Font::title2)
+                       .font_weight(theme::Font::Weight::semibold));
+    if (!shown.upscaling())
+    {
+        std::vector<std::pair<VideoResolution, std::string>> choices;
+        for (const VideoResolution resolution : PictureProfile::resolutions())
+            choices.emplace_back(resolution, strings->text("akira/settings/res_" + toString(resolution)));
+        rows.push_back(controls::Picker(strings->text("akira/settings/resolution"),
+            composition::Binding<VideoResolution>([edit, which] { return edit->profile(which).resolution(); },
+                [edit, which](VideoResolution value) { edit->chooseResolution(which, value); }),
+            [choices] {
+                std::vector<composition::Element> items;
+                for (const auto& [resolution, label] : choices)
+                    items.push_back(components::Text(label).tag(resolution));
+                return composition::Element(components::Group(std::move(items)));
+            })
+                           .id(composition::ElementKey{ "stream-dock.resolution" }));
+    }
+    const std::string fps30 = strings->text("akira/settings/fps_30");
+    const std::string fps60 = strings->text("akira/settings/fps_60");
+    rows.push_back(controls::Picker(strings->text("akira/settings/frame_rate"),
+        composition::Binding<VideoFps>([edit, which] { return edit->profile(which).fps(); },
+            [edit, which](VideoFps value) { edit->chooseFps(which, value); }),
+        [fps30, fps60] {
+            return composition::Element(components::Group(components::Text(fps30).tag(VideoFps::Fps30),
+                components::Text(fps60).tag(VideoFps::Fps60)));
+        })
+                       .picker_style(controls::PickerStyle::segmented())
+                       .id(composition::ElementKey{ "stream-dock.fps" }));
+    rows.push_back(bitrateRow(which, shown));
+    std::vector<std::pair<int, std::string>> targets{ { 0, strings->text("akira/settings/upscale_off") } };
+    for (const int target : shown.upscaleTargets())
+        targets.emplace_back(target, std::format("{}p", target));
+    rows.push_back(controls::Picker(strings->text("akira/settings/upscale_to"),
+        composition::Binding<int>([edit, which] { return edit->profile(which).upscaleTarget(); },
+            [edit, which](int value) { edit->chooseUpscale(which, value); }),
+        [targets] {
+            std::vector<composition::Element> items;
+            for (const auto& [target, label] : targets)
+                items.push_back(components::Text(label).tag(target));
+            return composition::Element(components::Group(std::move(items)));
+        })
+                       .id(composition::ElementKey{ "stream-dock.upscale" }));
+    rows.push_back(controls::Toggle(strings->text("akira/settings/rcas"),
+        composition::Binding<bool>([rcas = values.rcas] { return rcas; }, [edit](bool value) { edit->setRcas(value); }))
+                       .id(composition::ElementKey{ "stream-dock.rcas" }));
+    rows.push_back(components::Button(strings->text("akira/stream_menu/apply_reconnect"),
+        components::Image::SystemName{ "restart_alt" }, [commands = commands] { commands->restart(); })
+                       .font(theme::Font::headline)
+                       .button_style(components::ButtonStyle::glass_prominent())
+                       .control_size(components::ControlSize::large)
+                       .button_sizing(components::ButtonSizing::flexible)
+                       .id(composition::ElementKey{ "stream-dock.restart" }));
+    return components::ScrollView(components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                                                         .spacing = theme::Space{ panelSpacing } },
+                                      std::move(rows)))
+        .frame({ .max_height = diagnosticsHeight });
 }
 
 auto StreamDock::swipe(settings::ui::ControlOptions::Swipe direction, const char* key, bool enabled) const
@@ -411,6 +525,32 @@ auto StreamDock::title(StreamControls::Control control) const -> std::string
         case StreamControls::Control::Motion: return strings->text("akira/stream_menu/card_motion");
     }
     return {};
+}
+
+auto StreamDock::title(Panel shown) const -> std::string
+{
+    switch (shown)
+    {
+        case Panel::Stream: return strings->text("akira/stream_menu/panel_stream");
+        case Panel::Statistics: return strings->text("akira/stream_menu/panel_statistics");
+        case Panel::Controls: return title(StreamControls::Control::Pad);
+        case Panel::Players: return title(StreamControls::Control::Players);
+        case Panel::Session: break;
+    }
+    return strings->text("akira/stream_menu/panel_session");
+}
+
+auto StreamDock::symbol(Panel shown) -> std::string
+{
+    switch (shown)
+    {
+        case Panel::Stream: return "tune";
+        case Panel::Statistics: return symbol(StreamControls::Control::Stats);
+        case Panel::Controls: return symbol(StreamControls::Control::Pad);
+        case Panel::Players: return symbol(StreamControls::Control::Players);
+        case Panel::Session: break;
+    }
+    return symbol(StreamControls::Control::Power);
 }
 
 auto StreamDock::symbol(StreamControls::Control control) -> std::string

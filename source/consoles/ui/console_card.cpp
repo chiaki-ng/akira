@@ -15,14 +15,14 @@
 #include <arisa/components/spacer.hpp>
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
-#include <arisa/controls/menu.hpp>
-#include <arisa/controls/menu_style.hpp>
 #include <arisa/theme/colour_value.hpp>
 #include <arisa/theme/glass.hpp>
 #include <arisa/theme/shape.hpp>
 #include <arisa/theme/space.hpp>
 #include <arisa/theme/typography.hpp>
 
+#include <algorithm>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -30,7 +30,6 @@ namespace akira::consoles::ui {
 
 namespace components = ::arisa::components;
 namespace composition = ::arisa::composition;
-namespace controls = ::arisa::controls;
 namespace theme = ::arisa::theme;
 
 ConsoleCard::ConsoleCard(ConsoleShelf::Card card, bool compact, ConsoleCommands& commands, const app::Strings& strings)
@@ -103,7 +102,7 @@ auto ConsoleCard::badge() const -> composition::Element
 auto ConsoleCard::tag() const -> composition::Element
 {
     const char* key = "akira/hosts/route_local";
-    const char* symbol = "home";
+    const char* symbol = "wifi";
     switch (card.badge)
     {
         case ConsoleEntry::Badge::Remote: key = "akira/hosts/route_remote"; symbol = "public"; break;
@@ -112,13 +111,29 @@ auto ConsoleCard::tag() const -> composition::Element
         case ConsoleEntry::Badge::Local: break;
     }
     return components::HStack(components::HStackOptions{ .spacing = theme::space::sm },
-        components::Image(components::Image::SystemName{ symbol }).font(theme::Font::system(15.0F)),
-        components::Text(strings->text(key)).font(theme::Font::callout))
-        .padding(theme::Insets::symmetric(theme::Space{ 12.0F }, theme::Space{ 5.0F }))
+        components::Image(components::Image::SystemName{ symbol }).font(theme::Font::system(14.0F, theme::Font::Weight::medium)),
+        components::Text(strings->text(key)).font(theme::Font::system(14.0F)))
+        .foreground_style(theme::ColourRole::secondary_label)
+        .padding(theme::Insets::symmetric(theme::Space{ 12.0F }, theme::Space{ 7.0F }))
         .background(theme::ColourValue(theme::ColourRole::label).opacity(0.06F), theme::Shape::rounded(tagRadius))
-        .overlay(components::ShapeView(theme::Shape::rounded(tagRadius))
-                     .stroke_border(theme::ColourValue(theme::ColourRole::label).opacity(0.22F), 1.0F))
         .id(composition::ElementKey{ card.catalogName + ".route" });
+}
+
+auto ConsoleCard::iconButton(const char* symbol, const char* label, std::string key, bool destructive,
+    std::function<void()> pressed) const -> composition::Element
+{
+    std::optional<components::ButtonRole> role;
+    if (destructive)
+        role = components::ButtonRole::destructive;
+    return components::Button(role, std::move(pressed),
+        components::Image(components::Image::SystemName{ symbol })
+            .font(theme::Font::system(15.0F, theme::Font::Weight::semibold))
+            .frame({ .width = 20.0F, .height = 20.0F }))
+        .frame({ .width = iconSide, .height = iconSide })
+        .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
+        .button_border_shape(components::ButtonBorderShape::circle())
+        .accessibility_label(strings->text(label))
+        .id(composition::ElementKey{ std::move(key) });
 }
 
 auto ConsoleCard::actions() const -> composition::Element
@@ -133,51 +148,31 @@ auto ConsoleCard::actions() const -> composition::Element
             ? composition::Element(components::Button(actionText(), components::Image::SystemName{ "play_arrow" }, pressed))
             : composition::Element(components::Button(actionText(), pressed));
         primary = std::move(primary)
-                      .font(theme::Font::headline)
+                      .font(theme::Font::system(17.0F, theme::Font::Weight::semibold))
                       .control_size(components::ControlSize::large)
                       .id(composition::ElementKey{ card.catalogName + ".primary" });
         primary = prominent ? std::move(primary).button_style(components::ButtonStyle::glass_prominent())
                             : std::move(primary).button_style(components::ButtonStyle::glass(theme::Glass::clear()));
         row.push_back(std::move(primary));
     }
-    row.push_back(optionsMenu());
+    if (!card.options.empty())
+        row.push_back(iconButton("edit", "akira/hosts/edit_console", card.catalogName + ".edit", false,
+            [commands = commands, name = card.catalogName] { commands->edit(name); }));
+    if (std::ranges::contains(card.options, ConsoleEntry::Option::Delete))
+        row.push_back(iconButton("delete", "akira/hosts/delete_console", card.catalogName + ".delete", true,
+            [commands = commands, name = card.catalogName] { commands->askDelete(name); }));
+    if (missingLocally())
+        row.push_back(components::Text(strings->text("akira/hosts/missing_locally"))
+                          .font(theme::Font::callout)
+                          .foreground_style(theme::ColourRole::secondary_label)
+                          .line_limit(1)
+                          .padding(theme::Edge::leading, theme::Space{ 4.0F }));
     return components::HStack(components::HStackOptions{ .spacing = theme::space::md }, std::move(row));
 }
 
-auto ConsoleCard::optionsMenu() const -> composition::Element
+auto ConsoleCard::missingLocally() const -> bool
 {
-    std::vector<std::string> labels;
-    for (const ConsoleEntry::Option option : card.options)
-        labels.push_back(optionText(option));
-    return controls::Menu(
-        [options = card.options, labels = std::move(labels), wake = offersWake(), commands = commands,
-            wakeText = strings->text("akira/hosts/wake"), name = card.catalogName] {
-            std::vector<composition::Element> items;
-            if (wake)
-                items.push_back(components::Button(wakeText, [commands, name] { commands->wake(name); }));
-            for (std::size_t index = 0; index < options.size(); ++index)
-            {
-                const ConsoleEntry::Option option = options[index];
-                std::optional<components::ButtonRole> role;
-                if (option == ConsoleEntry::Option::Delete)
-                    role = components::ButtonRole::destructive;
-                items.push_back(components::Button(labels[index], role,
-                    [commands, name, option] { commands->option(name, option); }));
-            }
-            return composition::Element(components::Group(std::move(items)));
-        },
-        components::Image(components::Image::SystemName{ "more_horiz" }).frame({ .width = 24.0F, .height = 24.0F }))
-        .menu_style(controls::MenuStyle::button())
-        .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
-        .button_border_shape(components::ButtonBorderShape::circle())
-        .control_size(components::ControlSize::large)
-        .id(composition::ElementKey{ card.catalogName + ".options" });
-}
-
-auto ConsoleCard::offersWake() const -> bool
-{
-    return card.badge != ConsoleEntry::Badge::Remote
-        && (card.action == ConsoleEntry::Action::Wake || card.action == ConsoleEntry::Action::Connect);
+    return ConsoleShelf::presenceOf(card) == ConsoleShelf::Presence::NotNearby && card.badge != ConsoleEntry::Badge::Remote;
 }
 
 auto ConsoleCard::statusText() const -> std::string
@@ -185,10 +180,17 @@ auto ConsoleCard::statusText() const -> std::string
     switch (card.status)
     {
         case ConsoleEntry::Status::Link: return strings->text("akira/hosts/link");
-        case ConsoleEntry::Status::Ready: return strings->text("akira/hosts/ready");
-        case ConsoleEntry::Status::Register: return strings->text("akira/hosts/register");
-        case ConsoleEntry::Status::Standby: return strings->text("akira/hosts/standby");
+        case ConsoleEntry::Status::Register: return strings->text("akira/hosts/not_registered");
+        case ConsoleEntry::Status::Ready:
+        case ConsoleEntry::Status::Standby:
         case ConsoleEntry::Status::Presence: break;
+    }
+    switch (ConsoleShelf::presenceOf(card))
+    {
+        case ConsoleShelf::Presence::Ready: return strings->text("akira/hosts/ready");
+        case ConsoleShelf::Presence::RestMode: return strings->text("akira/hosts/rest_mode");
+        case ConsoleShelf::Presence::NotNearby: return strings->text("akira/hosts/not_nearby");
+        case ConsoleShelf::Presence::Unknown: break;
     }
     return card.presence;
 }
@@ -197,13 +199,20 @@ auto ConsoleCard::statusColour() const -> theme::ColourValue
 {
     switch (card.status)
     {
-        case ConsoleEntry::Status::Ready: return theme::ColourRole::green;
-        case ConsoleEntry::Status::Standby: return theme::ColourRole::orange;
-        case ConsoleEntry::Status::Link:
-        case ConsoleEntry::Status::Register: return theme::ColourRole::accent;
+        case ConsoleEntry::Status::Link: return theme::ColourRole::accent;
+        case ConsoleEntry::Status::Register: return theme::ColourRole::tertiary_label;
+        case ConsoleEntry::Status::Ready:
+        case ConsoleEntry::Status::Standby:
         case ConsoleEntry::Status::Presence: break;
     }
-    return theme::ColourRole::tertiary_label;
+    switch (ConsoleShelf::presenceOf(card))
+    {
+        case ConsoleShelf::Presence::Ready: return theme::Colour{ .red = 0.45F, .green = 0.92F, .blue = 0.18F, .alpha = 1.0F };
+        case ConsoleShelf::Presence::RestMode: return theme::Colour{ .red = 0.95F, .green = 0.72F, .blue = 0.29F, .alpha = 1.0F };
+        case ConsoleShelf::Presence::NotNearby:
+        case ConsoleShelf::Presence::Unknown: break;
+    }
+    return theme::ColourRole::secondary_label;
 }
 
 auto ConsoleCard::actionText() const -> std::string
@@ -216,19 +225,6 @@ auto ConsoleCard::actionText() const -> std::string
         case ConsoleEntry::Action::Wake: return strings->text("akira/hosts/wake_and_play");
         case ConsoleEntry::Action::Register: return strings->text("akira/hosts/register");
         case ConsoleEntry::Action::Link: return strings->text("akira/hosts/link");
-    }
-    return {};
-}
-
-auto ConsoleCard::optionText(ConsoleEntry::Option option) const -> std::string
-{
-    switch (option)
-    {
-        case ConsoleEntry::Option::ConsolePin: return strings->text("akira/host_settings/console_pin");
-        case ConsoleEntry::Option::AddAddress: return strings->text("akira/hosts/add_address");
-        case ConsoleEntry::Option::SetAddress: return strings->text("akira/hosts/set_address");
-        case ConsoleEntry::Option::TakionVersion: return strings->text("akira/hosts/takion_version");
-        case ConsoleEntry::Option::Delete: return strings->text("akira/hosts/delete");
     }
     return {};
 }

@@ -25,7 +25,6 @@ public:
 
     auto body(::arisa::composition::Context& context) const -> ::arisa::composition::Element override;
 
-    static auto initial(const std::string& name) -> std::string;
     static auto kindKey(AccountDesk::Kind kind) -> const char*;
 
 private:
@@ -39,8 +38,6 @@ private:
     auto credential(const AccountDesk::Credential& shown) const -> ::arisa::composition::Element;
     auto refreshLabel(const AccountDesk::Refresh& refresh) const -> std::string;
     auto described(::arisa::composition::Element row, std::string_view id) const -> ::arisa::composition::Element;
-    static auto avatar(const std::string& name, const std::string& url, float side) -> ::arisa::composition::Element;
-    static auto monogram(const std::string& name, float side) -> ::arisa::composition::Element;
     static auto section(std::string header, std::vector<::arisa::composition::Element> rows) -> ::arisa::composition::Element;
 
     AccountModel* model;

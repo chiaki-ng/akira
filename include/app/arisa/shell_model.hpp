@@ -30,6 +30,8 @@ public:
         Page page = Page::Consoles;
         bool cloudOffered = false;
         bool trophiesOffered = false;
+        bool exiting = false;
+        bool exitConfirmed = false;
 
         friend bool operator==(const View&, const View&) = default;
     };
@@ -46,6 +48,9 @@ public:
     void showSettings(bool shown);
     void show(Page page);
     void offer(bool cloud, bool trophies);
+    void askExit();
+    void dismissExit();
+    void confirmExit();
 
 private:
     ::arisa::composition::Observable<View> state;

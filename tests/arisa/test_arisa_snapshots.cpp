@@ -111,20 +111,19 @@ using akira::consoles::ui::ConsoleShelf;
 class QuietConsoles final : public akira::consoles::ui::ConsoleCommands {
 public:
     void primary(const std::string& name) override { primaries.push_back(name); }
-    void option(const std::string&, ConsoleEntry::Option) override {}
-    void wake(const std::string&) override {}
     void registerOverInternet(const std::string&) override {}
     void askPin(const std::string&) override {}
     void registerWithPin(const std::string&, const std::string&) override {}
     void cancelRegistration(const std::string&) override {}
     void link(const std::string&, const std::string&) override {}
-    void setConsolePin(const std::string&, const std::string&) override {}
-    void setAddress(const std::string&, const std::string&) override {}
-    void pinTakion(const std::string&, int) override {}
     void remove(const std::string&) override {}
-    void addManual(const std::string&, const std::string&, bool) override {}
+    void edit(const std::string&) override {}
+    void saveEdit(const std::string&, const akira::consoles::ui::ConsoleShelf::Edit&) override {}
+    void askDelete(const std::string&) override {}
+    void openAdd() override {}
+    void chooseAddMode(akira::consoles::ui::ConsoleShelf::AddMode) override {}
+    void addByAddress(const std::string&, bool) override {}
     void findRemote() override {}
-    auto findsRemote() const -> bool override { return true; }
     void setUpAccount() override {}
     void launchTitle(const std::string&, const std::string&) override {}
 
@@ -135,6 +134,7 @@ class QuietStream final : public akira::play::ui::StreamCommands {
 public:
     void cancel() override {}
     void reconnect() override {}
+    void restart() override {}
     void resume() override {}
     void leave(bool) override {}
     void resetMotion() override {}
@@ -500,6 +500,21 @@ public:
                 streamCommands, controls, mapping, nullptr, *strings));
     }
 
+    auto streamDock() -> composition::Element
+    {
+        using Control = akira::play::StreamControls::Control;
+        return components::ZStack(components::ZStackOptions{ .alignment = composition::Alignment::bottom }, video(),
+            akira::play::ui::StreamDock(
+                akira::play::ui::StreamDock::Session{
+                    .console = "Living room",
+                    .controls = { Control::Power, Control::Stats, Control::Pad, Control::Motion },
+                    .sleepOffered = true,
+                    .diagnostics = {},
+                    .profile = akira::play::StreamProfile::Local,
+                },
+                streamCommands, controls, &picture, mapping, nullptr, *strings));
+    }
+
     auto playersDock() -> composition::Element
     {
         using Control = akira::play::StreamControls::Control;
@@ -687,6 +702,8 @@ private:
         add("img/console/ps5.png", resources / "img" / "console" / "ps5.png");
         add("img/console/ps4.png", resources / "img" / "console" / "ps4.png");
         add("img/icon.jpg", resources / "img" / "icon.jpg");
+        for (const auto& entry : std::filesystem::directory_iterator(resources / "img" / "brand"))
+            add("img/brand/" + entry.path().filename().string(), entry.path());
         for (const auto& entry : std::filesystem::directory_iterator(resources / "platform" / "nx" / "img" / "pads"))
             if (entry.path().extension() == ".png")
                 add("img/pads/" + entry.path().filename().string(), entry.path());
@@ -826,10 +843,79 @@ TEST(arisa_shot_add_console)
 {
     Shots shots;
     shots.model.ready();
-    shots.showHouse();
+    ConsoleFacts attic = Shots::facts("Attic", true, false, true);
+    attic.address = "192.168.20.52";
+    ConsoleFacts cabin = Shots::facts("Cabin PS5", true, false, false);
+    cabin.type = HostType::Remote;
+    cabin.discovered = true;
+    cabin.canPairOverInternet = true;
+    ConsoleFacts office = Shots::facts("Office PS5", true, false, false);
+    office.type = HostType::Remote;
+    office.discovered = true;
+    office.canPairOverInternet = true;
+    office.remotePlayDisabled = true;
+    ConsoleFacts study = Shots::facts("Study", true, false, false);
+    study.address = "192.168.20.44";
+    shots.showConsoles({ Shots::facts("Living room", true, true, false), Shots::facts("Bedroom", false, true, true), study,
+        attic, cabin, office });
+    shots.shelf.offerAccount(true);
     shots.shelf.openAdd(true);
+    shots.shelf.scanned(ConsoleShelf::Scan{ .running = true, .searched = true, .broadcast = "192.168.20.0/24",
+        .unicast = { "192.168.30.0/24" } });
     REQUIRE(shots.start(shots.shell()));
+    CHECK(shots.shows("add-console.nearby.Study"));
+    CHECK(shots.shows("add-console.nearby.Attic"));
+    CHECK(!shots.shows("Study.primary"));
     CHECK(shots.write("add_console"));
+    shots.shelf.chooseMode(ConsoleShelf::AddMode::Manual);
+    REQUIRE(shots.settle());
+    CHECK(shots.shows("add-console.address"));
+    CHECK(shots.write("add_console_manual"));
+    shots.shelf.chooseMode(ConsoleShelf::AddMode::PlayStation);
+    shots.shelf.lookup(ConsoleShelf::Lookup::Ready);
+    REQUIRE(shots.settle());
+    CHECK(shots.shows("add-console.account.Cabin PS5"));
+    CHECK(shots.write("add_console_playstation"));
+    shots.shelf.lookup(ConsoleShelf::Lookup::Failed);
+    REQUIRE(shots.settle());
+    CHECK(shots.shows("add-console.account-retry"));
+    CHECK(shots.write("add_console_playstation_failed"));
+}
+
+TEST(arisa_shot_console_editor)
+{
+    Shots shots;
+    shots.model.ready();
+    shots.showHouse();
+    shots.shelf.edit(ConsoleShelf::Editing{ .catalogName = "Living room",
+        .name = "Living room",
+        .ps5 = true,
+        .values = ConsoleShelf::Edit{ .address = "192.168.20.40", .pin = "1234", .takion = 0 },
+        .address = true,
+        .pin = true,
+        .takion = { "Follow settings (v20)", "v12", "v20" },
+        .deletable = true });
+    REQUIRE(shots.start(shots.shell()));
+    CHECK(shots.shows("console-editor.save"));
+    CHECK(shots.write("console_editor"));
+}
+
+TEST(arisa_shot_exit_confirm)
+{
+    Shots shots;
+    shots.model.ready();
+    shots.showHouse();
+    REQUIRE(shots.start(shots.shell()));
+    REQUIRE(shots.pad(provider::Buttons{ provider::Button::b }));
+    CHECK(shots.model.view().get().exiting);
+    CHECK(shots.shows("exit.confirm"));
+    CHECK(shots.write("exit_confirm"));
+    REQUIRE(shots.press("exit.cancel"));
+    CHECK(!shots.model.view().get().exiting);
+    shots.model.askExit();
+    REQUIRE(shots.settle());
+    REQUIRE(shots.press("exit.confirm"));
+    CHECK(shots.model.view().get().exitConfirmed);
 }
 
 TEST(arisa_shot_pin)
@@ -999,6 +1085,17 @@ TEST(arisa_settings_capture_assigns_the_combo)
     CHECK(!board.view().get().capturing.has_value());
     board.reset(cross);
     CHECK(board.board().isDefault(cross));
+}
+
+TEST(arisa_shot_stream_dock_stream_panel)
+{
+    Shots shots;
+    REQUIRE(shots.start(shots.streamDock()));
+    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 0)));
+    CHECK(shots.shows("stream-dock.restart"));
+    CHECK(shots.write("stream_dock_stream"));
+    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 3)));
+    CHECK(shots.shows("stream-dock.disconnect"));
 }
 
 TEST(arisa_shot_stream_dock)

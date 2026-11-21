@@ -135,7 +135,7 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/consoles/ui/console_grid.cpp \
                       $(CURDIR)/source/consoles/ui/console_card.cpp \
                       $(CURDIR)/source/consoles/ui/pin_pad.cpp \
-                      $(CURDIR)/source/consoles/ui/console_field_sheet.cpp \
+                      $(CURDIR)/source/consoles/ui/console_editor.cpp \
                       $(CURDIR)/source/consoles/ui/add_console_sheet.cpp \
                       $(CURDIR)/source/consoles/ui/registration_progress.cpp \
                       $(CURDIR)/source/play/ui/connecting_screen.cpp \
@@ -166,6 +166,8 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/app/arisa/confirmation.cpp \
                       $(CURDIR)/source/app/arisa/rail.cpp \
                       $(CURDIR)/source/app/arisa/header.cpp \
+                      $(CURDIR)/source/app/arisa/brand_lockup.cpp \
+                      $(CURDIR)/source/app/arisa/ambient_background.cpp \
                       $(CURDIR)/source/app/arisa/theme_packs.cpp \
                       $(CURDIR)/source/app/arisa/qr_code.cpp \
                       $(CURDIR)/source/app/arisa/about_page.cpp \

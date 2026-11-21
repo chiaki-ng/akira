@@ -29,6 +29,7 @@
 #include "play/ui/stats_board.hpp"
 #include "play/ui/stream_commands.hpp"
 #include "settings/ui/control_options.hpp"
+#include "settings/ui/picture_options.hpp"
 
 namespace akira::consoles {
 class Host;
@@ -54,8 +55,8 @@ public:
     };
 
     StreamDriver(Services& services, ::arisa::runtime::Application& application, Window& window, ShellModel& model,
-        Notifier& notifier, settings::ui::ControlOptions& controlOptions, play::ui::Mapping& mapping, Couch couch,
-        std::function<void()> ended);
+        Notifier& notifier, settings::ui::ControlOptions& controlOptions, settings::ui::PictureOptions& picture,
+        play::ui::Mapping& mapping, Couch couch, std::function<void()> ended);
     ~StreamDriver() override;
 
     StreamDriver(const StreamDriver&) = delete;
@@ -70,6 +71,7 @@ public:
 
     void cancel() override;
     void reconnect() override;
+    void restart() override;
     void resume() override;
     void leave(bool rest) override;
     void resetMotion() override;
@@ -133,6 +135,7 @@ private:
     Window& window;
     ShellModel& model;
     settings::ui::ControlOptions& controlOptions;
+    settings::ui::PictureOptions& picture;
     play::ui::Mapping& mapping;
     Couch couch;
     Notifier& notifier;

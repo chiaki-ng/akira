@@ -12,7 +12,12 @@ namespace akira::accounts::ui {
 class Welcome final : public ::arisa::composition::Component {
 public:
     static constexpr float tileSide = 132.0F;
-    static constexpr float hintWidth = 600.0F;
+    static constexpr float tileRadius = 18.0F;
+    static constexpr float logoHeight = 84.0F;
+    static constexpr float mascotSide = 88.0F;
+    static constexpr float titleSize = 28.0F;
+    static constexpr float titleTracking = -0.7F;
+    static constexpr float detailSize = 15.0F;
 
     Welcome(AccountModel& model, const app::Strings& strings);
 
@@ -21,6 +26,8 @@ public:
     auto body(::arisa::composition::Context& context) const -> ::arisa::composition::Element override;
 
 private:
+    static auto recommended() -> ::arisa::composition::Element;
+
     AccountModel* model;
     const app::Strings* strings;
 };

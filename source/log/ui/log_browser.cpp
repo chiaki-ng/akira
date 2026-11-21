@@ -8,6 +8,7 @@
 #include <arisa/components/hstack.hpp>
 #include <arisa/components/image.hpp>
 #include <arisa/components/scroll_view.hpp>
+#include <arisa/composition/scroll_anchor_role.hpp>
 #include <arisa/components/spacer.hpp>
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
@@ -120,7 +121,9 @@ auto LogBrowser::file(const LogShelf::View& view) const -> composition::Element
                                       .padding(theme::Space{ 14.0F })
                                       .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::leading })
                                       .background(theme::ColourValue(theme::ColourRole::label).opacity(0.05F), theme::Shape::rounded(12.0F)))
-        .default_scroll_anchor(motion::UnitPoint::bottom)
+        .default_scroll_anchor(motion::UnitPoint::bottom, composition::ScrollAnchorRole::initial_offset)
+            .default_scroll_anchor(motion::UnitPoint::bottom, composition::ScrollAnchorRole::size_changes)
+            .default_scroll_anchor(motion::UnitPoint::top, composition::ScrollAnchorRole::alignment)
         .id(composition::ElementKey{ "logs.file" });
 }
 

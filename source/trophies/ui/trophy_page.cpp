@@ -58,9 +58,9 @@ auto TrophyPage::body(composition::Context& context) const -> composition::Eleme
     std::vector<composition::Element> shown;
     shown.push_back(heading(*view.page));
     if (!view.page->groups.empty())
-        shown.push_back(groupChips(view));
-    shown.push_back(choiceChips(view));
-    shown.push_back(list(view, glass));
+        shown.push_back(groupChips(view).fixed_size(false, true));
+    shown.push_back(choiceChips(view).fixed_size(false, true));
+    shown.push_back(list(view, glass).layout_priority(1.0));
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ spacing } },
         std::move(shown))

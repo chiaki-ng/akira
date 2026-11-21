@@ -27,7 +27,7 @@
 
 #include "consoles/ui/add_console_sheet.hpp"
 #include "consoles/ui/console_card.hpp"
-#include "consoles/ui/console_field_sheet.hpp"
+#include "consoles/ui/console_editor.hpp"
 #include "consoles/ui/pin_pad.hpp"
 #include "consoles/ui/recent_rail.hpp"
 #include "consoles/ui/registration_progress.hpp"
@@ -77,7 +77,7 @@ auto ConsoleGrid::body(composition::Context& context) const -> composition::Elem
                 [width](const float& measured) { width.set(measured); });
     if (view.hasProfile)
         screen = std::move(screen).on_command(provider::Button::plus, strings->text("akira/hosts/add_console"),
-            [shelf = shelf] { shelf->openAdd(true); });
+            [commands = commands] { commands->openAdd(); });
     return prompted(std::move(screen), view);
 }
 
@@ -139,7 +139,7 @@ auto ConsoleGrid::grid(const std::vector<ConsoleShelf::Card>& cards, float width
 auto ConsoleGrid::addButton() const -> composition::Element
 {
     return components::Button(strings->text("akira/hosts/add_console"), components::Image::SystemName{ "add" },
-        [shelf = shelf] { shelf->openAdd(true); })
+        [commands = commands] { commands->openAdd(); })
         .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
         .control_size(components::ControlSize::large)
         .id(composition::ElementKey{ "consoles.add" });
@@ -165,8 +165,20 @@ auto ConsoleGrid::asked(ConsoleShelf::Ask kind) const -> composition::Binding<bo
 
 auto ConsoleGrid::adding() const -> composition::Binding<bool>
 {
-    return composition::Binding<bool>([shelf = shelf] { return shelf->view().get().adding; },
-        [shelf = shelf](bool shown) { shelf->openAdd(shown); });
+    return composition::Binding<bool>([shelf = shelf] { return shelf->view().get().adding.has_value(); },
+        [shelf = shelf](bool shown) {
+            if (!shown)
+                shelf->openAdd(false);
+        });
+}
+
+auto ConsoleGrid::editing() const -> composition::Binding<bool>
+{
+    return composition::Binding<bool>([shelf = shelf] { return shelf->view().get().editing.has_value(); },
+        [shelf = shelf](bool shown) {
+            if (!shown)
+                shelf->edit(std::nullopt);
+        });
 }
 
 auto ConsoleGrid::prompted(composition::Element screen, const ConsoleShelf::View& view) const -> composition::Element
@@ -189,12 +201,8 @@ auto ConsoleGrid::choices(const std::optional<ConsoleShelf::Prompt>& prompt, Con
         {
             const std::string label = prompt->choices[index];
             const int choice = static_cast<int>(index);
-            if (prompt->ask == ConsoleShelf::Ask::Link)
-                buttons.push_back(components::Button(label,
-                    [commands, name = prompt->catalogName, label] { commands->link(name, label); }));
-            else
-                buttons.push_back(components::Button(choice == prompt->selected ? label + "  \xe2\x9c\x93" : label,
-                    [commands, name = prompt->catalogName, choice] { commands->pinTakion(name, choice); }));
+            buttons.push_back(components::Button(label,
+                [commands, name = prompt->catalogName, label] { commands->link(name, label); }));
         }
     }
     buttons.push_back(components::Button(strings->text("akira/common/cancel"), components::ButtonRole::cancel,
@@ -235,11 +243,6 @@ auto ConsoleGrid::dialogs(composition::Element screen, const ConsoleShelf::View&
                         [shelf] { shelf->dismiss(); }));
             },
             [message] { return components::Text(message); })
-        .confirmation_dialog(strings->text("akira/hosts/takion_version"), asked(ConsoleShelf::Ask::TakionVersion),
-            composition::Visibility::visible,
-            [prompt = view.prompt, shelf = shelf, commands = commands, strings = strings] {
-                return choices(prompt, shelf, commands, strings);
-            })
         .confirmation_dialog(strings->text("akira/hosts/select_host_to_link"), asked(ConsoleShelf::Ask::Link),
             composition::Visibility::visible,
             [prompt = view.prompt, shelf = shelf, commands = commands, strings = strings] {
@@ -259,18 +262,11 @@ auto ConsoleGrid::sheets(composition::Element screen, const ConsoleShelf::View& 
                     target ? target->name : std::string(), target && target->ps5, *commands, *strings))
                     .presentation_sizing(composition::PresentationSizing::fitted);
             })
-        .sheet(asked(ConsoleShelf::Ask::ConsolePin),
-            [shelf = shelf, commands = commands, strings = strings, prompt] {
-                return composition::Element(ConsoleFieldSheet(ConsoleFieldSheet::Field::ConsolePin,
-                    prompt ? prompt->catalogName : std::string(), prompt ? prompt->text : std::string(), *shelf,
-                    *commands, *strings))
-                    .presentation_sizing(composition::PresentationSizing::fitted);
-            })
-        .sheet(asked(ConsoleShelf::Ask::Address),
-            [shelf = shelf, commands = commands, strings = strings, prompt] {
-                return composition::Element(ConsoleFieldSheet(ConsoleFieldSheet::Field::Address,
-                    prompt ? prompt->catalogName : std::string(), prompt ? prompt->text : std::string(), *shelf,
-                    *commands, *strings))
+        .sheet(editing(),
+            [shelf = shelf, commands = commands, strings = strings, edited = view.editing] {
+                if (!edited)
+                    return composition::Element(components::Group());
+                return composition::Element(ConsoleEditor(*edited, *shelf, *commands, *strings))
                     .presentation_sizing(composition::PresentationSizing::fitted);
             })
         .sheet(adding(), [shelf = shelf, commands = commands, strings = strings] {

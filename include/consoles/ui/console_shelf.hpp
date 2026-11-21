@@ -13,6 +13,8 @@ namespace akira::consoles::ui {
 
 class ConsoleShelf {
 public:
+    enum class Presence { Unknown, Ready, RestMode, NotNearby };
+
     struct Card {
         std::string catalogName;
         std::string name;
@@ -27,7 +29,69 @@ public:
         friend bool operator==(const Card&, const Card&) = default;
     };
 
-    enum class Ask { RegisterHow, Pin, Delete, TakionVersion, ConsolePin, Address, Link, Notice };
+    struct Nearby {
+        std::string catalogName;
+        std::string name;
+        bool ps5 = false;
+        bool standby = false;
+        std::string address;
+
+        friend bool operator==(const Nearby&, const Nearby&) = default;
+    };
+
+    struct AccountConsole {
+        std::string catalogName;
+        std::string name;
+        bool ps5 = false;
+        bool remotePlay = true;
+
+        friend bool operator==(const AccountConsole&, const AccountConsole&) = default;
+    };
+
+    enum class AddMode { Automatic, Manual, PlayStation };
+    enum class Lookup { Idle, Loading, Ready, Failed };
+
+    struct Adding {
+        AddMode mode = AddMode::Automatic;
+        Lookup lookup = Lookup::Idle;
+        bool accountPs5 = true;
+        std::optional<std::string> failure;
+
+        friend bool operator==(const Adding&, const Adding&) = default;
+    };
+
+    struct Scan {
+        bool running = false;
+        bool searched = false;
+        std::string broadcast;
+        std::vector<std::string> unicast;
+
+        friend bool operator==(const Scan&, const Scan&) = default;
+    };
+
+    struct Edit {
+        std::string address;
+        std::string pin;
+        int takion = 0;
+
+        friend bool operator==(const Edit&, const Edit&) = default;
+    };
+
+    struct Editing {
+        std::string catalogName;
+        std::string name;
+        bool ps5 = false;
+        Edit values;
+        bool remote = false;
+        bool address = false;
+        bool pin = false;
+        std::vector<std::string> takion;
+        bool deletable = false;
+
+        friend bool operator==(const Editing&, const Editing&) = default;
+    };
+
+    enum class Ask { RegisterHow, Pin, Delete, Link, Notice };
 
     struct Prompt {
         Ask ask = Ask::Notice;
@@ -48,9 +112,14 @@ public:
 
     struct View {
         std::vector<Card> cards;
+        std::vector<Nearby> nearby;
+        std::vector<AccountConsole> account;
         std::vector<std::string> linkTargets;
         bool hasProfile = false;
-        bool adding = false;
+        bool accountOffered = false;
+        std::optional<Adding> adding;
+        Scan scan;
+        std::optional<Editing> editing;
         std::optional<Prompt> prompt;
         std::optional<Registering> registering;
 
@@ -60,15 +129,28 @@ public:
     auto view() const -> const ::arisa::composition::Observable<View>& { return state; }
     auto view() -> ::arisa::composition::Observable<View>& { return state; }
     auto card(const std::string& catalogName) const -> std::optional<Card>;
+    auto modes() const -> std::vector<AddMode>;
 
     void show(const ConsoleList& list);
+    void offerAccount(bool offered);
     void ask(Prompt prompt);
     void dismiss();
     void openAdd(bool open);
+    void chooseMode(AddMode mode);
+    void chooseAccountGeneration(bool ps5);
+    void lookup(Lookup phase);
+    void addFailed(std::optional<std::string> failure);
+    void scanned(Scan scan);
+    void edit(std::optional<Editing> editing);
     void registering(std::optional<Registering> progress);
 
+    static auto presenceOf(const Card& card) -> Presence;
+
 private:
-    static Card cardFor(const ConsoleEntry& entry);
+    static auto cardFor(const ConsoleEntry& entry) -> Card;
+    static auto onGrid(const ConsoleEntry& entry) -> bool;
+    static auto nearbyFor(const ConsoleEntry& entry) -> std::optional<Nearby>;
+    static auto accountFor(const ConsoleEntry& entry) -> std::optional<AccountConsole>;
 
     ::arisa::composition::Observable<View> state;
 };

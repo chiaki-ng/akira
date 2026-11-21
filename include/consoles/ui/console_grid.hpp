@@ -47,6 +47,7 @@ private:
         -> ::arisa::composition::Element;
     auto asked(ConsoleShelf::Ask kind) const -> ::arisa::composition::Binding<bool>;
     auto adding() const -> ::arisa::composition::Binding<bool>;
+    auto editing() const -> ::arisa::composition::Binding<bool>;
     static auto choices(const std::optional<ConsoleShelf::Prompt>& prompt, ConsoleShelf* shelf,
         ConsoleCommands* commands, const app::Strings* strings) -> ::arisa::composition::Element;
 

@@ -41,20 +41,19 @@ using akira::play::ui::ConnectingScreen;
 class RecordingConsoles final : public ConsoleCommands {
 public:
     void primary(const std::string& catalogName) override { played.push_back(catalogName); }
-    void option(const std::string&, ConsoleEntry::Option) override {}
-    void wake(const std::string&) override {}
     void registerOverInternet(const std::string&) override {}
     void askPin(const std::string&) override {}
     void registerWithPin(const std::string&, const std::string&) override {}
     void cancelRegistration(const std::string&) override {}
     void link(const std::string&, const std::string&) override {}
-    void setConsolePin(const std::string&, const std::string&) override {}
-    void setAddress(const std::string&, const std::string&) override {}
-    void pinTakion(const std::string&, int) override {}
     void remove(const std::string&) override {}
-    void addManual(const std::string&, const std::string&, bool) override {}
+    void edit(const std::string&) override {}
+    void saveEdit(const std::string&, const akira::consoles::ui::ConsoleShelf::Edit&) override {}
+    void askDelete(const std::string&) override {}
+    void openAdd() override {}
+    void chooseAddMode(akira::consoles::ui::ConsoleShelf::AddMode) override {}
+    void addByAddress(const std::string&, bool) override {}
     void findRemote() override {}
-    auto findsRemote() const -> bool override { return false; }
     void setUpAccount() override { ++setUps; }
     void launchTitle(const std::string&, const std::string&) override {}
 
@@ -66,6 +65,7 @@ class RecordingStream final : public akira::play::ui::StreamCommands {
 public:
     void cancel() override { ++cancelled; }
     void reconnect() override {}
+    void restart() override {}
     void resume() override {}
     void leave(bool) override {}
     void resetMotion() override {}
@@ -168,9 +168,11 @@ TEST(arisa_console_grid_shows_the_console_list_and_follows_discovery)
 
     const composition::Node& root = application->root().tree().root();
     CHECK(shows(root, "Living room"));
-    CHECK(shows(root, "Study"));
+    CHECK(!shows(root, "Study"));
     CHECK(has(*application, "Living room.primary"));
-    CHECK(has(*application, "Study.primary"));
+    CHECK(!has(*application, "Study.primary"));
+    REQUIRE(shelf.view().get().nearby.size() == 1);
+    CHECK(shelf.view().get().nearby.front().catalogName == "Study");
     CHECK(has(*application, "Living room.route"));
     CHECK(!has(*application, "consoles.add"));
 
@@ -227,14 +229,13 @@ TEST(arisa_connecting_screen_steps_through_the_connect_flow)
     struct Expected {
         ConnectStep step;
         const char* status;
-        const char* counter;
-        int segment;
+        int active;
     };
     const std::vector<Expected> stages{
-        { ConnectStep::finding_console, "Finding your console", "Step 2 of 6", 0 },
-        { ConnectStep::requesting_session, "Authenticating", "Step 4 of 6", 2 },
-        { ConnectStep::measuring_connection, "Tuning the connection", "Step 5 of 6", 2 },
-        { ConnectStep::starting_stream, "Starting the stream", "Step 6 of 6", 3 },
+        { ConnectStep::finding_console, "Finding your console", 1 },
+        { ConnectStep::requesting_session, "Authenticating", 3 },
+        { ConnectStep::measuring_connection, "Tuning the connection", 4 },
+        { ConnectStep::starting_stream, "Starting the stream", 5 },
     };
     for (const Expected& expected : stages)
     {
@@ -243,8 +244,9 @@ TEST(arisa_connecting_screen_steps_through_the_connect_flow)
         progress.set(shown);
         REQUIRE(application->frame().has_value());
         CHECK(shows(application->root().tree().root(), expected.status));
-        CHECK(shows(application->root().tree().root(), expected.counter));
-        CHECK(ConnectingScreen::activeSegment(shown.step, shown.steps) == expected.segment);
+        CHECK(ConnectingScreen::capsule(expected.active, shown.step) == ConnectingScreen::Capsule::Active);
+        CHECK(ConnectingScreen::capsule(expected.active - 1, shown.step) == ConnectingScreen::Capsule::Done);
+        CHECK(has(*application, "connecting.step." + std::to_string(shown.steps - 1)));
     }
 
     CHECK(application->root().activate(composition::ElementKey{ "connecting.cancel" }));

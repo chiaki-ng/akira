@@ -67,6 +67,8 @@ ConsoleFacts Host::facts() const
         .canPairOverInternet = canPairOverInternet(),
         .hasAddress = !getHostAddr().empty(),
         .presence = getStateString(),
+        .address = getHostAddr(),
+        .remotePlayDisabled = psnRemotePlayDisabled,
     };
 }
 

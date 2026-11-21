@@ -11,6 +11,7 @@ public:
 
     virtual void cancel() = 0;
     virtual void reconnect() = 0;
+    virtual void restart() = 0;
     virtual void resume() = 0;
     virtual void leave(bool rest) = 0;
     virtual void resetMotion() = 0;

@@ -12,7 +12,7 @@ namespace akira::accounts::ui {
 
 class AccountFlow final : public ::arisa::composition::Component {
 public:
-    static constexpr float glowOpacity = 0.14F;
+    static constexpr float glowOpacity = 0.10F;
 
     AccountFlow(AccountModel& model, const app::Strings& strings);
 

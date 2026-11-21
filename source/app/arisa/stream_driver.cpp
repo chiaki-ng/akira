@@ -50,13 +50,14 @@ namespace provider = ::arisa::provider;
 namespace runtime = ::arisa::runtime;
 
 StreamDriver::StreamDriver(Services& services, runtime::Application& application, Window& window, ShellModel& model,
-    Notifier& notifier, settings::ui::ControlOptions& controlOptions, play::ui::Mapping& mapping, Couch couch,
-    std::function<void()> ended)
+    Notifier& notifier, settings::ui::ControlOptions& controlOptions, settings::ui::PictureOptions& picture,
+    play::ui::Mapping& mapping, Couch couch, std::function<void()> ended)
     : services(services)
     , application(application)
     , window(window)
     , model(model)
     , controlOptions(controlOptions)
+    , picture(picture)
     , mapping(mapping)
     , couch(couch)
     , notifier(notifier)
@@ -435,8 +436,9 @@ void StreamDriver::openDock(std::optional<play::StreamControls::Control> opening
                 .players = players,
                 .bandwidth = cloudBandwidth(),
                 .opening = opening,
+                .profile = host && host->isCloud() ? std::nullopt : std::optional(services.streamState.profile()),
             },
-            *this, controlOptions, mapping, couch.model, services.strings),
+            *this, controlOptions, &picture, mapping, couch.model, services.strings),
         runtime::OverlayBehaviour{
             .input = composition::OverlayInput::modal,
             .alignment = composition::Alignment::bottom,
@@ -547,6 +549,17 @@ void StreamDriver::reconnect()
         return;
     notifier.notify(services.strings.text("akira/stream/reconnecting"));
     open(*found->second, libchiaking::play::ConsoleHandover::just_left);
+}
+
+void StreamDriver::restart()
+{
+    if (!connection || !host || host->isCloud())
+        return;
+    log::info("[ARISA] restarting the stream with new settings");
+    intentionalDisconnect = true;
+    connection->leave(false);
+    stop();
+    reconnect();
 }
 
 void StreamDriver::resetMotion()
