@@ -56,7 +56,6 @@ public:
     static constexpr float settingsBottom = 50.0F;
     static constexpr float settingsScrim = 0.16F;
     static constexpr float glowOpacity = 0.10F;
-    static constexpr float noticeOpacity = 0.85F;
     static constexpr ::arisa::composition::Namespace endingFocus{ "shell-ending" };
 
     ShellScreen(ShellModel& model, Notices& notices, const Parts& parts, const app::Strings& strings);

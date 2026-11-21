@@ -125,7 +125,7 @@ void ServiceGraph::startServices()
     discovery.emplace(*hosts, store, networkSettings, developer_, accountSettings, *wireGuard, seams.dispatcher,
         seams.window, *core);
     preferences.emplace(stream, cloudSettings, networkSettings, developer_, *factory, *wireGuard);
-    session.emplace(*factory, streamState, controllers, developer_, seams.window, core->threading());
+    session.emplace(*factory, streamState, controllers, developer_, seams.window, core->threading(), seams.audio);
     services_.emplace(Services{
         .dispatcher = seams.dispatcher,
         .window = seams.window,
@@ -158,10 +158,10 @@ void ServiceGraph::startServices()
     });
 }
 
-bool ServiceGraph::startSdl()
+bool ServiceGraph::startSdl(bool audio)
 {
     CrashReport::stage("sdl init");
-    if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_JOYSTICK) < 0)
+    if (SDL_Init((audio ? SDL_INIT_AUDIO : 0u) | SDL_INIT_JOYSTICK) < 0)
     {
         log::error("SDL_Init failed: {}", SDL_GetError());
         return false;

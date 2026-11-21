@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -19,6 +20,7 @@ public:
     virtual auto extent() const -> VkExtent2D = 0;
     virtual auto beginRendering() -> bool = 0;
     virtual void endRendering() = 0;
+    virtual void copied(std::size_t bytes) { static_cast<void>(bytes); }
 };
 
 class FramePass {
@@ -33,6 +35,7 @@ public:
     virtual ~Presentation() = default;
 
     virtual void frameReady() = 0;
+    virtual void paused(bool paused) { static_cast<void>(paused); }
 };
 
 class GpuHost {

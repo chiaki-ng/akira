@@ -10,6 +10,8 @@
 #include <arisa/runtime/frame_observer.hpp>
 
 #include "app/app_settings.hpp"
+#include "app/arisa/stream_capture.hpp"
+#include "app/screenshot.hpp"
 #include "app/notifier.hpp"
 #include "app/strings.hpp"
 #include "app/ui_dispatcher.hpp"
@@ -21,7 +23,7 @@ class Screenshots final : public ::arisa::runtime::FrameObserver {
 public:
     static constexpr std::string_view folder = "sdmc:/switch/akira/screenshots";
 
-    Screenshots(::arisa::provider::GpuProvider& gpu, Notifier& notifier, const AppSettings& settings,
+    Screenshots(::arisa::provider::GpuProvider& gpu, StreamCapture& stream, Notifier& notifier, const AppSettings& settings,
         const app::Strings& strings, UiDispatcher& dispatcher);
     ~Screenshots() override;
 
@@ -38,8 +40,10 @@ private:
     static auto held(const ::arisa::provider::InputFrame& input) -> std::uint64_t;
     static auto stamp() -> std::string;
     void take();
+    void save(std::expected<Screenshot, std::string> shot);
 
     ::arisa::provider::GpuProvider& gpu;
+    StreamCapture& stream;
     Notifier& notifier;
     const AppSettings& settings;
     const app::Strings& strings;

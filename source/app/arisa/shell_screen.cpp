@@ -35,6 +35,7 @@
 #include "accounts/ui/account_flow.hpp"
 #include "app/arisa/confirmation.hpp"
 #include "app/arisa/header.hpp"
+#include "app/arisa/notice_toast.hpp"
 #include "app/arisa/rail.hpp"
 #include "app/version.hpp"
 #include "consoles/ui/console_grid.hpp"
@@ -219,17 +220,9 @@ auto ShellScreen::settingsPanel(theme::Glass glass) const -> composition::Elemen
 
 auto ShellScreen::announced(composition::Element content, bool streaming) const -> composition::Element
 {
-    Notices* held = notices;
-    composition::Binding<std::optional<Notices::Notice>> shown([held] { return held->view().get(); },
-        [held](std::optional<Notices::Notice> value) {
-            if (!value)
-                held->clear();
-        });
-    composition::ToastOptions placement{ .alignment = composition::Alignment::top };
     if (streaming)
-        placement.tint = theme::ColourValue(theme::ColourRole::orange).opacity(noticeOpacity);
-    return std::move(content).toast(std::move(shown), std::chrono::seconds{ 3 }, placement,
-        [](const Notices::Notice& notice) { return components::Text(notice.text).font(theme::Font::subheadline); });
+        return content;
+    return NoticeToast::attach(std::move(content), *notices, false);
 }
 
 auto ShellScreen::ending(composition::Element content, const ShellModel::View& view, composition::Namespace::ID focus) const

@@ -9,8 +9,8 @@ namespace akira::app::arisa {
 
 namespace provider = ::arisa::provider;
 
-PadCapture::PadCapture(::arisa::runtime::Application& application)
-    : application(application)
+PadCapture::PadCapture(StreamStage& stage)
+    : stage(stage)
 {
 }
 
@@ -18,7 +18,7 @@ void PadCapture::begin()
 {
     if (capture)
         return;
-    capture.emplace(application.capture_buttons());
+    capture.emplace(stage.captureButtons());
 }
 
 auto PadCapture::held() -> std::uint64_t

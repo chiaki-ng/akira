@@ -641,6 +641,13 @@ void Deko3dRenderer::cleanupFsr()
     m_fsr_enabled = false;
 }
 
+void Deko3dRenderer::setPaused(bool paused)
+{
+    m_paused.store(paused, std::memory_order_relaxed);
+    if (m_presentation)
+        m_presentation->paused(paused);
+}
+
 void Deko3dRenderer::draw(const VideoFrame& frame)
 {
     if (!m_initialized)

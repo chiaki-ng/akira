@@ -7,17 +7,21 @@
 #include <memory>
 #include <mutex>
 
-#include <arisa/provider/gpu/frame_hook.hpp>
 #include <arisa/provider/surface/provider.hpp>
 #include <arisa/provider/vulkan/vulkan_gpu.hpp>
 
+#include "app/arisa/overlay_handoff.hpp"
+#include "app/arisa/stream_capture.hpp"
 #include "platform/video/vulkan/gpu_host.hpp"
 
 namespace akira::app::arisa {
 
+class VulkanPresenter;
+
 class VulkanHost final : public platform::vulkan::GpuHost {
 public:
-    VulkanHost(::arisa::provider::vulkan::VulkanGpu& gpu, const ::arisa::provider::SurfaceProvider& surface);
+    VulkanHost(::arisa::provider::vulkan::VulkanGpu& gpu, const ::arisa::provider::SurfaceProvider& surface,
+        OverlayHandoff& handoff);
     ~VulkanHost() override;
 
     VulkanHost(const VulkanHost&) = delete;
@@ -38,43 +42,19 @@ public:
     auto waitIdle() -> VkResult override;
     auto present(platform::vulkan::FramePass& pass) -> std::unique_ptr<platform::vulkan::Presentation> override;
 
+    auto arisa() -> ::arisa::provider::vulkan::VulkanGpu& { return gpu; }
+    auto handoff() -> OverlayHandoff& { return overlayHandoff; }
+    void recording(std::uint64_t serial, VkFormat target);
+    void finished(std::uint64_t serial);
+    void attach(VulkanPresenter* presenter);
+    void detach(VulkanPresenter* presenter);
+    [[nodiscard]] auto captureStream(StreamCapture::Delivery& delivery) -> bool;
+
 private:
-    using FrameTarget = ::arisa::provider::vulkan::VulkanGpu::FrameTarget;
-
-    class Recorder final : public platform::vulkan::FrameRecorder {
-    public:
-        Recorder(VkCommandBuffer commands, const FrameTarget& frame);
-        ~Recorder() override;
-
-        Recorder(const Recorder&) = delete;
-        Recorder& operator=(const Recorder&) = delete;
-
-        auto commands() -> VkCommandBuffer override;
-        auto uploads() -> VkCommandBuffer override;
-        auto extent() const -> VkExtent2D override;
-        auto beginRendering() -> bool override;
-        void endRendering() override;
-
-    private:
-        VkCommandBuffer buffer;
-        const FrameTarget& frame;
-        bool rendering = false;
-    };
-
-    class Frames final : public platform::vulkan::Presentation {
-    public:
-        Frames(VulkanHost& host, platform::vulkan::FramePass& pass);
-
-        void frameReady() override;
-
-    private:
-        ::arisa::provider::FrameHook hook;
-    };
-
     class Retirements {
     public:
         void add(std::uint64_t serial, std::function<void()> release);
-        void releaseCompleted(const ::arisa::provider::vulkan::VulkanGpu& gpu);
+        void releaseThrough(std::uint64_t serial);
         void releaseAll();
 
     private:
@@ -87,15 +67,15 @@ private:
         std::deque<Pending> pending;
     };
 
-    void record(platform::vulkan::FramePass& pass, VkCommandBuffer commands, const FrameTarget& frame,
-        const ::arisa::provider::FrameInfo& info);
-
     ::arisa::provider::vulkan::VulkanGpu& gpu;
     const ::arisa::provider::SurfaceProvider& surface;
+    OverlayHandoff& overlayHandoff;
     VkPhysicalDeviceMemoryProperties memory{};
     std::atomic<VkFormat> format{VK_FORMAT_B8G8R8A8_UNORM};
     std::atomic<std::uint64_t> currentSerial{0};
     Retirements retirements;
+    std::mutex presenting;
+    VulkanPresenter* active = nullptr;
 };
 
 }

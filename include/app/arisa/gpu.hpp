@@ -3,6 +3,8 @@
 #include <arisa/provider/horizon/gpu_options.hpp>
 #include <arisa/provider/surface/provider.hpp>
 
+#include "app/arisa/overlay_handoff.hpp"
+#include "app/arisa/stream_capture.hpp"
 #if AKIRA_VULKAN
 #include "app/arisa/vulkan_host.hpp"
 #else
@@ -12,7 +14,7 @@
 
 namespace akira::app::arisa {
 
-class Gpu final : public platform::video::GpuAccess {
+class Gpu final : public platform::video::GpuAccess, public StreamCapture {
 public:
 #if AKIRA_VULKAN
     using Host = VulkanHost;
@@ -29,11 +31,16 @@ public:
 
     Gpu(Stock& gpu, const ::arisa::provider::SurfaceProvider& surface);
 
+    static auto options() -> ::arisa::provider::horizon::GpuOptions;
+
     void prefer(play::RendererKind kind) override;
     auto deko3d() -> std::optional<std::reference_wrapper<platform::deko3d::GpuHost>> override;
     auto vulkan() -> std::optional<std::reference_wrapper<platform::vulkan::GpuHost>> override;
+    [[nodiscard]] auto captureStream(Delivery& delivery) -> bool override;
+    auto handoff() -> OverlayHandoff& { return overlays; }
 
 private:
+    OverlayHandoff overlays;
     Host host;
 };
 

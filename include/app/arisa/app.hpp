@@ -5,7 +5,6 @@
 #include <string>
 #include <string_view>
 
-#include <arisa/provider/audio/absent.hpp>
 #include <arisa/provider/diagnostics/crash_reporter.hpp>
 #include <arisa/provider/horizon/horizon_factory.hpp>
 #include <arisa/support/scoped_callback.hpp>
@@ -31,8 +30,11 @@
 #include "app/arisa/wireguard_tunnel.hpp"
 #include "app/arisa/overlay_palette.hpp"
 #include "app/arisa/shell_model.hpp"
+#include "app/arisa/rumble.hpp"
 #include "app/arisa/shell_screen.hpp"
 #include "app/arisa/stream_driver.hpp"
+#include "app/arisa/stream_stage.hpp"
+#include "app/arisa/stream_voice.hpp"
 #include "app/arisa/string_catalog.hpp"
 #include "app/arisa/theme_packs.hpp"
 #include "app/arisa/window.hpp"
@@ -47,7 +49,6 @@
 #include "network/ui/tunnel_control.hpp"
 #include "play/ui/couch.hpp"
 #include "play/ui/mapping.hpp"
-#include "platform/rumble/npad_rumble.hpp"
 #include "settings/help_catalog.hpp"
 #include "settings/ui/control_options.hpp"
 #include "settings/ui/picture_options.hpp"
@@ -89,12 +90,12 @@ private:
 
     std::optional<::arisa::provider::CrashReporter> crashes;
     ::arisa::provider::horizon::HorizonThreadingProvider threading;
-    ::arisa::provider::AbsentAudioProvider silence;
     std::optional<::arisa::provider::horizon::HorizonProviderFactory> providers;
     std::optional<Window> window;
     std::optional<StringCatalog> strings;
     std::optional<Gpu> gpu;
-    platform::NpadRumble rumble;
+    std::optional<Rumble> rumble;
+    std::optional<StreamVoice> voice;
     OverlayPalette overlayPalette;
     ThemePacks themes{ themeFolder };
     ::arisa::provider::standard::DirectoryStorage appearanceStore{ appearanceFolder };
@@ -106,6 +107,7 @@ private:
     std::optional<GameArt> art;
     std::optional<ArtSession> artSession;
     std::optional<::arisa::runtime::Application> application;
+    std::optional<StreamStage> stage;
     std::optional<Dispatcher> dispatcher;
     std::optional<ServiceGraph> graph;
     std::optional<settings::HelpCatalog> help;

@@ -1,18 +1,17 @@
 #include "app/arisa/deko3d_host.hpp"
 
-#include <switch.h>
-
-#include <chrono>
-
+#include "app/arisa/deko3d_presenter.hpp"
 #include "log/log.hpp"
 
 namespace akira::app::arisa {
 
 namespace provider = ::arisa::provider;
 
-Deko3dHost::Deko3dHost(provider::horizon::Deko3dGpu& gpu, const provider::SurfaceProvider& surface)
+Deko3dHost::Deko3dHost(provider::horizon::Deko3dGpu& gpu, const provider::SurfaceProvider& surface,
+    OverlayHandoff& handoff)
     : gpu(gpu)
     , surface(surface)
+    , overlayHandoff(handoff)
     , privateQueue(dk::QueueMaker{gpu.device()}.setFlags(DkQueueFlags_Graphics).create())
     , imagePool(gpu.device(), DkMemBlockFlags_GpuCached | DkMemBlockFlags_Image, 16 * 1024 * 1024)
     , dataPool(gpu.device(), DkMemBlockFlags_CpuUncached | DkMemBlockFlags_GpuCached, 256 * 1024)
@@ -24,7 +23,7 @@ Deko3dHost::Deko3dHost(provider::horizon::Deko3dGpu& gpu, const provider::Surfac
 
 Deko3dHost::~Deko3dHost()
 {
-    waitIdle();
+    privateQueue.waitIdle();
     imageDescriptors.destroy();
     samplerDescriptors.destroy();
 }
@@ -105,75 +104,50 @@ void Deko3dHost::invalidateImageSlots(dk::CmdBuf commands)
     commands.barrier(DkBarrier_None, DkInvalidateFlags_Descriptors);
 }
 
+void Deko3dHost::bindDescriptors(dk::CmdBuf commands) const
+{
+    commands.bindImageDescriptorSet(imageDescriptors.getGpuAddr(), imageSlots);
+    commands.bindSamplerDescriptorSet(samplerDescriptors.getGpuAddr(), 1);
+    commands.barrier(DkBarrier_None, DkInvalidateFlags_Descriptors);
+}
+
 void Deko3dHost::waitIdle()
 {
-    using namespace std::chrono_literals;
     privateQueue.waitIdle();
-    if (!recorded.load(std::memory_order_acquire))
-        return;
-    const auto deadline = std::chrono::steady_clock::now() + 1s;
-    const provider::GpuSerial serial{lastSerial.load(std::memory_order_acquire)};
-    while (!gpu.completed(serial) && std::chrono::steady_clock::now() < deadline)
-        svcSleepThread(1'000'000);
+    Deko3dPresenter* presenter = nullptr;
+    {
+        const std::scoped_lock lock(presenting);
+        presenter = active;
+    }
+    if (presenter)
+        presenter->waitIdle();
 }
 
 auto Deko3dHost::present(platform::deko3d::FramePass& pass) -> std::unique_ptr<platform::deko3d::Presentation>
 {
-    return std::make_unique<Frames>(*this, pass);
+    return std::make_unique<Deko3dPresenter>(*this, pass);
 }
 
-void Deko3dHost::record(platform::deko3d::FramePass& pass, dk::CmdBuf& commands, const FrameTarget& frame,
-    const provider::FrameInfo& info)
+void Deko3dHost::attach(Deko3dPresenter* presenter)
 {
-    Recorder recorder(*this, commands, frame);
-    pass.record(recorder);
-    lastSerial.store(info.serial.value(), std::memory_order_release);
-    recorded.store(true, std::memory_order_release);
+    const std::scoped_lock lock(presenting);
+    active = presenter;
 }
 
-Deko3dHost::Recorder::Recorder(Deko3dHost& host, dk::CmdBuf& commands, const FrameTarget& frame)
-    : commands(commands)
-    , frame(frame)
+void Deko3dHost::detach(Deko3dPresenter* presenter)
 {
-    commands.bindRenderTargets(&frame.view);
-    commands.setViewports(0, { { 0.0f, 0.0f, static_cast<float>(frame.width), static_cast<float>(frame.height), 0.0f,
-        1.0f } });
-    commands.setScissors(0, { { 0, 0, frame.width, frame.height } });
-    commands.bindImageDescriptorSet(host.imageDescriptors.getGpuAddr(), imageSlots);
-    commands.bindSamplerDescriptorSet(host.samplerDescriptors.getGpuAddr(), 1);
-    commands.barrier(DkBarrier_None, DkInvalidateFlags_Descriptors);
+    const std::scoped_lock lock(presenting);
+    if (active == presenter)
+        active = nullptr;
 }
 
-void Deko3dHost::Recorder::run(DkCmdList list)
+auto Deko3dHost::captureStream(StreamCapture::Delivery& delivery) -> bool
 {
-    commands.callList(list);
-}
-
-void Deko3dHost::Recorder::settle()
-{
-    commands.barrier(DkBarrier_Fragments, DkInvalidateFlags_Image);
-}
-
-void Deko3dHost::Recorder::flush()
-{
-}
-
-auto Deko3dHost::Recorder::target() -> dk::Image&
-{
-    return frame.image;
-}
-
-Deko3dHost::Frames::Frames(Deko3dHost& host, platform::deko3d::FramePass& pass)
-    : hook(host.gpu.add_frame_hook(provider::FrameStage::before_ui,
-          [&host, &pass](dk::CmdBuf& commands, const FrameTarget& frame, const provider::FrameInfo& info) {
-              host.record(pass, commands, frame, info);
-          }))
-{
-}
-
-void Deko3dHost::Frames::frameReady()
-{
-    hook.request_frame();
+    const std::scoped_lock lock(presenting);
+    if (!active || !active->takenOver())
+        return false;
+    active->capture(std::move(delivery));
+    return true;
 }
 
 }

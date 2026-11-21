@@ -72,7 +72,7 @@ public:
 #endif
     float getRenderFPS() const override { return m_render_fps.load(std::memory_order_relaxed); }
     auto upscaling() const -> play::UpscalingSummary override;
-    void setPaused(bool paused) override { m_paused.store(paused, std::memory_order_relaxed); }
+    void setPaused(bool paused) override;
 #if AKIRA_STATS_OVERLAY
     void setConnectionContext(const std::string& context) override;
     void triggerBorderFlash() override
@@ -215,7 +215,7 @@ private:
         VkDescriptorSet descriptorSet() const { return m_set; }
         const std::array<std::uint32_t, 4>& bases() const { return m_bases; }
         void appendAcquireBarriers(std::vector<VkImageMemoryBarrier2>& barriers);
-        bool copyFrom(const void* backing);
+        std::size_t copyFrom(const void* backing);
 
     private:
         PlaneLayout m_layout;
@@ -529,6 +529,7 @@ private:
     bool m_render_fps_init = false;
 
     std::uint64_t m_copied_frames = 0;
+    std::uint64_t m_copied_bytes = 0;
     std::uint64_t m_imported_frames = 0;
 
     std::atomic<int> m_border_flash_frames{0};

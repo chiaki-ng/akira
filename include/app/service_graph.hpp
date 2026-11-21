@@ -40,6 +40,10 @@ namespace akira::platform {
 class PadRumble;
 }
 
+namespace akira::play {
+class AudioOutput;
+}
+
 namespace akira::platform::video {
 class GpuAccess;
 class OverlayPalette;
@@ -53,6 +57,7 @@ struct UiSeams {
     const Strings& strings;
     platform::video::GpuAccess& gpu;
     platform::PadRumble& rumble;
+    play::AudioOutput& audio;
     const platform::video::OverlayPalette& overlayPalette;
 };
 
@@ -71,7 +76,7 @@ public:
     [[nodiscard]] bool startCurl();
     void startCore();
     void startServices();
-    [[nodiscard]] bool startSdl();
+    [[nodiscard]] bool startSdl(bool audio);
     void followFocus();
     void startAsyncLogging();
     void shutDown();

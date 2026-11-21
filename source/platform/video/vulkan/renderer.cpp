@@ -47,14 +47,14 @@ VulkanRenderer::PlaneImport::PlaneImport(PlaneLayout layout, std::variant<ImageP
         m_bases = {};
 }
 
-bool VulkanRenderer::PlaneImport::copyFrom(const void* backing)
+std::size_t VulkanRenderer::PlaneImport::copyFrom(const void* backing)
 {
     auto* texels = std::get_if<TexelPlanes>(&m_planes);
     if (!texels || !texels->mapped || !backing)
-        return false;
+        return 0;
     armDCacheFlush(const_cast<void*>(backing), texels->size);
     std::memcpy(texels->mapped, backing, texels->size);
-    return true;
+    return texels->size;
 }
 
 void VulkanRenderer::PlaneImport::appendAcquireBarriers(std::vector<VkImageMemoryBarrier2>& barriers)
@@ -1197,8 +1197,11 @@ VulkanRenderer::PlaneImport* VulkanRenderer::acquireImport(const Frame& frame)
 
     if (PlaneImport* existing = m_cache->find(slot))
     {
-        if (existing->copyFrom(layout.backing))
+        if (const std::size_t copied = existing->copyFrom(layout.backing))
+        {
             ++m_copied_frames;
+            m_copied_bytes += copied;
+        }
         return existing;
     }
     if (m_cache->failed(slot))
@@ -1235,8 +1238,11 @@ VulkanRenderer::PlaneImport* VulkanRenderer::acquireImport(const Frame& frame)
     }
     PlaneImport& stored = m_cache->store(slot, std::move(created));
     ++m_imported_frames;
-    if (stored.copyFrom(layout.backing))
+    if (const std::size_t copied = stored.copyFrom(layout.backing))
+    {
         ++m_copied_frames;
+        m_copied_bytes += copied;
+    }
     return &stored;
 }
 
@@ -1483,6 +1489,13 @@ void VulkanRenderer::setStatsOverlayMode(play::StatsOverlayMode mode)
 }
 #endif
 
+void VulkanRenderer::setPaused(bool paused)
+{
+    m_paused.store(paused, std::memory_order_relaxed);
+    if (m_presentation)
+        m_presentation->paused(paused);
+}
+
 void VulkanRenderer::draw(Frame frame)
 {
     if (!m_initialized.load(std::memory_order_acquire) || !frame)
@@ -1594,7 +1607,10 @@ void VulkanRenderer::renderVideo(FrameRecorder& frameRecorder)
         m_drawn_timestamp = timestamp;
         m_drawn_slot = frame->slot();
     }
+    const std::uint64_t copiedBefore = m_copied_bytes;
     PlaneImport* import = arriving ? acquireImport(frame) : (m_cache ? m_cache->find(frame->slot()) : nullptr);
+    if (m_copied_bytes != copiedBefore)
+        frameRecorder.copied(static_cast<std::size_t>(m_copied_bytes - copiedBefore));
     if (!import)
         return;
     if (arriving)

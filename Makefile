@@ -78,6 +78,8 @@ ARISA_HOST_PREFIX   = $(ARISA_HOST_UNPACK)/$(ARISA_HOST_NAME)
 ARISA_HOST_CXX     ?= /opt/homebrew/bin/g++-16
 ARISA_TEST_DIR      = $(CURDIR)/build/tests/arisa
 ARISA_TEST_MODELS   = $(CURDIR)/source/log/log.cpp \
+                      $(CURDIR)/source/play/present_timing.cpp \
+                      $(CURDIR)/source/play/present_loop.cpp \
                       $(CURDIR)/source/app/strings.cpp \
                       $(CURDIR)/source/consoles/console_entry.cpp \
                       $(CURDIR)/source/consoles/console_list.cpp \
@@ -162,6 +164,10 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/app/arisa/shell_screen.cpp \
                       $(CURDIR)/source/app/arisa/shell_model.cpp \
                       $(CURDIR)/source/app/arisa/notices.cpp \
+                      $(CURDIR)/source/app/arisa/notice_toast.cpp \
+                      $(CURDIR)/source/app/arisa/stage_screen.cpp \
+                      $(CURDIR)/source/app/arisa/overlay_handoff.cpp \
+                      $(CURDIR)/source/app/arisa/stream_stage.cpp \
                       $(CURDIR)/source/app/arisa/overlay_palette.cpp \
                       $(CURDIR)/source/app/arisa/confirmation.cpp \
                       $(CURDIR)/source/app/arisa/rail.cpp \
@@ -255,6 +261,9 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/play/diagnostics_history.cpp \
                 $(CURDIR)/source/play/diagnostics_report.cpp \
                 $(CURDIR)/source/play/screenshot_chord.cpp \
+                $(CURDIR)/source/play/present_timing.cpp \
+                $(CURDIR)/source/play/present_loop.cpp \
+                $(CURDIR)/source/play/audio_gain.cpp \
                 $(CURDIR)/source/app/screenshot.cpp \
                 $(CURDIR)/source/play/stats_hud_placement.cpp \
                 $(CURDIR)/source/play/stream_controls.cpp \

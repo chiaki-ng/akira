@@ -1,91 +1,55 @@
 #include "play/audio_manager.hpp"
-#include <cstring>
+
 #include "log/log.hpp"
+#include "play/audio_gain.hpp"
 
 namespace akira::play {
 
-AudioManager::AudioManager()
-{
-}
-
 AudioManager::~AudioManager()
 {
-    cleanup();
+    close();
 }
 
-void AudioManager::init(unsigned int channels, unsigned int rate)
+auto AudioManager::open(unsigned channels, unsigned rate) -> std::expected<void, std::string>
 {
     SDL_AudioSpec want;
     SDL_memset(&want, 0, sizeof(want));
-
-    want.freq = rate;
+    want.freq = static_cast<int>(rate);
     want.format = AUDIO_S16SYS;
-    want.channels = channels;
-    m_channels = channels;
+    want.channels = static_cast<Uint8>(channels);
     want.samples = 1024;
-    want.callback = NULL;
+    want.callback = nullptr;
 
-    if (m_device_id <= 0)
-    {
-        m_device_id = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
-    }
-
-    if (m_device_id <= 0)
-    {
-        log::error("SDL_OpenAudioDevice failed: {}", SDL_GetError());
-    }
-    else
-    {
-        SDL_PauseAudioDevice(m_device_id, 0);
-    }
+    if (m_device_id == 0)
+        m_device_id = SDL_OpenAudioDevice(nullptr, 0, &want, nullptr, 0);
+    if (m_device_id == 0)
+        return std::unexpected(std::string("SDL_OpenAudioDevice failed: ") + SDL_GetError());
+    SDL_PauseAudioDevice(m_device_id, 0);
+    return {};
 }
 
-void AudioManager::play(std::span<const int16_t> samples)
+void AudioManager::play(std::span<const std::int16_t> samples)
 {
-    m_boosted.assign(samples.begin(), samples.end());
-    int16_t* buf = m_boosted.data();
-    for (size_t x = 0; x < m_boosted.size(); x++)
-    {
-        // Boost audio volume
-        int sample = buf[x] * 1.80;
-        // Hard clipping (audio compression)
-        if (sample > INT16_MAX)
-        {
-            buf[x] = INT16_MAX;
-            log::debug("Audio Hard clipping INT16_MAX < {}", sample);
-        }
-        else if (sample < INT16_MIN)
-        {
-            buf[x] = INT16_MIN;
-            log::debug("Audio Hard clipping INT16_MIN > {}", sample);
-        }
-        else
-        {
-            buf[x] = (int16_t)sample;
-        }
-    }
+    m_boosted.resize(samples.size());
+    AudioGain::apply(samples, m_boosted);
 
-    int audio_queued_size = SDL_GetQueuedAudioSize(m_device_id);
-    if (audio_queued_size > 16000)
+    const Uint32 queued = SDL_GetQueuedAudioSize(m_device_id);
+    if (queued > queueLimit)
     {
-        log::warning("Triggering SDL_ClearQueuedAudio with queue size = {}", audio_queued_size);
+        log::warning("Triggering SDL_ClearQueuedAudio with queue size = {}", queued);
         SDL_ClearQueuedAudio(m_device_id);
     }
 
-    int success = SDL_QueueAudio(m_device_id, buf, sizeof(int16_t) * m_boosted.size());
-    if (success != 0)
-    {
+    if (SDL_QueueAudio(m_device_id, m_boosted.data(), static_cast<Uint32>(sizeof(std::int16_t) * m_boosted.size())) != 0)
         log::error("SDL_QueueAudio failed: {}", SDL_GetError());
-    }
 }
 
-void AudioManager::cleanup()
+void AudioManager::close()
 {
-    if (m_device_id > 0)
-    {
-        SDL_CloseAudioDevice(m_device_id);
-        m_device_id = 0;
-    }
+    if (m_device_id == 0)
+        return;
+    SDL_CloseAudioDevice(m_device_id);
+    m_device_id = 0;
 }
 
 }

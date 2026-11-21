@@ -1,16 +1,21 @@
 #include "app/arisa/vulkan_host.hpp"
 
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
+
+#include "app/arisa/vulkan_presenter.hpp"
 
 namespace akira::app::arisa {
 
 namespace provider = ::arisa::provider;
 
-VulkanHost::VulkanHost(provider::vulkan::VulkanGpu& gpu, const provider::SurfaceProvider& surface)
+VulkanHost::VulkanHost(provider::vulkan::VulkanGpu& gpu, const provider::SurfaceProvider& surface,
+    OverlayHandoff& handoff)
     : gpu(gpu)
     , surface(surface)
+    , overlayHandoff(handoff)
 {
     vkGetPhysicalDeviceMemoryProperties(gpu.device().physical(), &memory);
 }
@@ -53,7 +58,7 @@ auto VulkanHost::findMemoryType(std::uint32_t typeBits, VkMemoryPropertyFlags re
 
 auto VulkanHost::hasDeviceExtension(std::string_view name) const -> bool
 {
-    return name == VK_KHR_SWAPCHAIN_EXTENSION_NAME;
+    return gpu.device().has_extension(name);
 }
 
 auto VulkanHost::colorFormat() const -> VkFormat
@@ -74,7 +79,26 @@ auto VulkanHost::displaySize() const -> DisplaySize
 
 void VulkanHost::retireAfterFrame(std::function<void()> release)
 {
-    retirements.add(currentSerial.load(std::memory_order_acquire), std::move(release));
+    {
+        const std::scoped_lock lock(presenting);
+        if (active)
+        {
+            retirements.add(currentSerial.load(std::memory_order_acquire), std::move(release));
+            return;
+        }
+    }
+    release();
+}
+
+void VulkanHost::recording(std::uint64_t serial, VkFormat target)
+{
+    currentSerial.store(serial, std::memory_order_release);
+    format.store(target, std::memory_order_release);
+}
+
+void VulkanHost::finished(std::uint64_t serial)
+{
+    retirements.releaseThrough(serial);
 }
 
 auto VulkanHost::submit(const VkSubmitInfo2& submit, VkFence fence) -> VkResult
@@ -91,102 +115,44 @@ auto VulkanHost::waitIdle() -> VkResult
 
 auto VulkanHost::present(platform::vulkan::FramePass& pass) -> std::unique_ptr<platform::vulkan::Presentation>
 {
-    return std::make_unique<Frames>(*this, pass);
+    return std::make_unique<VulkanPresenter>(*this, pass);
 }
 
-void VulkanHost::record(platform::vulkan::FramePass& pass, VkCommandBuffer commands, const FrameTarget& frame,
-    const provider::FrameInfo& info)
+void VulkanHost::attach(VulkanPresenter* presenter)
 {
-    retirements.releaseCompleted(gpu);
-    format.store(frame.format, std::memory_order_release);
-    currentSerial.store(info.serial.value(), std::memory_order_release);
-    Recorder recorder(commands, frame);
-    pass.record(recorder);
+    const std::scoped_lock lock(presenting);
+    active = presenter;
 }
 
-VulkanHost::Recorder::Recorder(VkCommandBuffer commands, const FrameTarget& frame)
-    : buffer(commands)
-    , frame(frame)
+void VulkanHost::detach(VulkanPresenter* presenter)
 {
+    const std::scoped_lock lock(presenting);
+    if (active == presenter)
+        active = nullptr;
 }
 
-VulkanHost::Recorder::~Recorder()
+auto VulkanHost::captureStream(StreamCapture::Delivery& delivery) -> bool
 {
-    endRendering();
-}
-
-auto VulkanHost::Recorder::commands() -> VkCommandBuffer
-{
-    return buffer;
-}
-
-auto VulkanHost::Recorder::uploads() -> VkCommandBuffer
-{
-    endRendering();
-    return buffer;
-}
-
-auto VulkanHost::Recorder::extent() const -> VkExtent2D
-{
-    return frame.extent;
-}
-
-auto VulkanHost::Recorder::beginRendering() -> bool
-{
-    if (rendering)
-        return true;
-    const VkRenderingAttachmentInfo color{
-        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-        .imageView = frame.view,
-        .imageLayout = provider::vulkan::VulkanGpu::hook_layout,
-        .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-    };
-    const VkRenderingInfo info{
-        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-        .renderArea = { .offset = { 0, 0 }, .extent = frame.extent },
-        .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &color,
-    };
-    vkCmdBeginRendering(buffer, &info);
-    rendering = true;
+    const std::scoped_lock lock(presenting);
+    if (!active || !active->takenOver())
+        return false;
+    std::exchange(delivery, nullptr)(std::unexpected(std::string(
+        "the Vulkan renderer cannot read the stream back: arisa does not say whether its lent images allow copies")));
     return true;
-}
-
-void VulkanHost::Recorder::endRendering()
-{
-    if (!rendering)
-        return;
-    vkCmdEndRendering(buffer);
-    rendering = false;
-}
-
-VulkanHost::Frames::Frames(VulkanHost& host, platform::vulkan::FramePass& pass)
-    : hook(host.gpu.add_frame_hook(provider::FrameStage::before_ui,
-          [&host, &pass](VkCommandBuffer commands, const FrameTarget& frame, const provider::FrameInfo& info) {
-              host.record(pass, commands, frame, info);
-          }))
-{
-}
-
-void VulkanHost::Frames::frameReady()
-{
-    hook.request_frame();
 }
 
 void VulkanHost::Retirements::add(std::uint64_t serial, std::function<void()> release)
 {
-    std::lock_guard lock(mutex);
+    const std::scoped_lock lock(mutex);
     pending.push_back(Pending{ .serial = serial, .release = std::move(release) });
 }
 
-void VulkanHost::Retirements::releaseCompleted(const provider::vulkan::VulkanGpu& gpu)
+void VulkanHost::Retirements::releaseThrough(std::uint64_t serial)
 {
     std::vector<std::function<void()>> done;
     {
-        std::lock_guard lock(mutex);
-        while (!pending.empty() && gpu.completed(provider::GpuSerial{pending.front().serial}))
+        const std::scoped_lock lock(mutex);
+        while (!pending.empty() && pending.front().serial <= serial)
         {
             done.push_back(std::move(pending.front().release));
             pending.pop_front();
@@ -200,7 +166,7 @@ void VulkanHost::Retirements::releaseAll()
 {
     std::deque<Pending> all;
     {
-        std::lock_guard lock(mutex);
+        const std::scoped_lock lock(mutex);
         all.swap(pending);
     }
     for (auto& entry : all)

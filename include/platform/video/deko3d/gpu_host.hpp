@@ -35,6 +35,7 @@ public:
     virtual ~Presentation() = default;
 
     virtual void frameReady() = 0;
+    virtual void paused(bool paused) { static_cast<void>(paused); }
 };
 
 class GpuHost {

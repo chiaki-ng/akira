@@ -7,6 +7,7 @@
 #include <ctime>
 #include <expected>
 #include <filesystem>
+#include <format>
 #include <optional>
 #include <span>
 #include <string>
@@ -21,9 +22,10 @@ namespace akira::app::arisa {
 
 namespace provider = ::arisa::provider;
 
-Screenshots::Screenshots(provider::GpuProvider& gpu, Notifier& notifier, const AppSettings& settings,
-    const app::Strings& strings, UiDispatcher& dispatcher)
+Screenshots::Screenshots(provider::GpuProvider& gpu, StreamCapture& stream, Notifier& notifier,
+    const AppSettings& settings, const app::Strings& strings, UiDispatcher& dispatcher)
     : gpu(gpu)
+    , stream(stream)
     , notifier(notifier)
     , settings(settings)
     , strings(strings)
@@ -85,30 +87,55 @@ auto Screenshots::stamp() -> std::string
 
 void Screenshots::take()
 {
-    if (shared->writing.load())
+    if (shared->writing.exchange(true))
     {
         notifier.notify(strings.text("akira/screenshot/busy"));
+        return;
+    }
+    StreamCapture::Delivery delivery = [state = shared, &dispatcher = dispatcher, this](
+                                           std::expected<Screenshot, std::string> shot) mutable {
+        dispatcher.post([state, this, shot = std::move(shot)]() mutable {
+            if (state->alive.load())
+                save(std::move(shot));
+        });
+    };
+    if (stream.captureStream(delivery))
+    {
+        log::info("[SCREENSHOT] reading the stream frame back from akira's own swapchain image");
         return;
     }
     std::expected<provider::Image, provider::ProviderError> captured = gpu.capture();
     if (!captured)
     {
-        log::warning("[SCREENSHOT] capture refused: {}", captured.error().explanation());
-        notifier.notify(strings.format("akira/screenshot/failed", captured.error().explanation()));
+        save(std::unexpected(std::format("capture refused: {}", captured.error().explanation())));
+        return;
+    }
+    const std::span<const std::byte> pixels = captured->pixels();
+    std::optional<Screenshot> shot =
+        Screenshot::create(captured->width(), captured->height(), std::vector<std::byte>(pixels.begin(), pixels.end()));
+    if (!shot)
+    {
+        save(std::unexpected(std::string("bad frame")));
+        return;
+    }
+    save(std::move(*shot));
+}
+
+void Screenshots::save(std::expected<Screenshot, std::string> shot)
+{
+    if (!shot)
+    {
+        shared->writing.store(false);
+        log::warning("[SCREENSHOT] {}", shot.error());
+        notifier.notify(strings.format("akira/screenshot/failed", shot.error()));
         return;
     }
     const std::string name = stamp();
-    auto image = std::make_shared<provider::Image>(std::move(*captured));
-    shared->writing.store(true);
-    log::info("[SCREENSHOT] captured {}x{}, writing {}", image->width(), image->height(), name);
-    dispatcher.runOnWorker([image, name, state = shared, &notifier = notifier, &strings = strings, &dispatcher = dispatcher] {
-        const std::span<const std::byte> pixels = image->pixels();
-        std::optional<Screenshot> shot =
-            Screenshot::create(image->width(), image->height(), std::vector<std::byte>(pixels.begin(), pixels.end()));
+    log::info("[SCREENSHOT] captured {}x{}, writing {}", shot->width(), shot->height(), name);
+    dispatcher.runOnWorker([shot = std::make_shared<Screenshot>(std::move(*shot)), name, state = shared,
+                               &notifier = notifier, &strings = strings, &dispatcher = dispatcher] {
         std::optional<std::string> failure;
-        if (!shot)
-            failure = "bad frame";
-        else if (const auto saved = shot->save(std::filesystem::path(folder), name); !saved)
+        if (const auto saved = shot->save(std::filesystem::path(folder), name); !saved)
             failure = saved.error().message();
         if (failure)
             log::error("[SCREENSHOT] writing {} failed: {}", name, *failure);

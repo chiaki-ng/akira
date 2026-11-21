@@ -8,12 +8,12 @@
 #include <string>
 
 #include <arisa/composition/element.hpp>
-#include <arisa/composition/exclusive_frame.hpp>
 #include <arisa/runtime/application.hpp>
 #include <arisa/runtime/input_block.hpp>
 #include <arisa/runtime/input_passthrough.hpp>
 #include <arisa/runtime/overlay_handle.hpp>
 
+#include "app/arisa/stream_stage.hpp"
 #include "app/services.hpp"
 #include "app/ui_window.hpp"
 #include "play/connect_flow.hpp"
@@ -54,8 +54,7 @@ public:
         play::ui::Couch* model = nullptr;
     };
 
-    StreamDriver(Services& services, ::arisa::runtime::Application& application, Window& window, ShellModel& model,
-        Notifier& notifier, settings::ui::ControlOptions& controlOptions, settings::ui::PictureOptions& picture,
+    StreamDriver(Services& services, StreamStage& stage, Window& window, ShellModel& model, Notifier& notifier, settings::ui::ControlOptions& controlOptions, settings::ui::PictureOptions& picture,
         play::ui::Mapping& mapping, Couch couch, std::function<void()> ended);
     ~StreamDriver() override;
 
@@ -108,6 +107,7 @@ private:
     auto couchVisible() const -> bool;
     auto modal(::arisa::composition::Element content) -> ::arisa::runtime::OverlayHandle;
     void enterVideo();
+    void followStage();
     void followMenu();
     void openDock(std::optional<play::StreamControls::Control> opening = std::nullopt);
     void closeDock();
@@ -131,7 +131,7 @@ private:
     void fail(const std::string& text, bool reconnect);
 
     Services& services;
-    ::arisa::runtime::Application& application;
+    StreamStage& stage;
     Window& window;
     ShellModel& model;
     settings::ui::ControlOptions& controlOptions;
@@ -155,6 +155,7 @@ private:
     std::shared_ptr<consoles::Host> owned;
     std::string lastConsole;
     bool videoActive = false;
+    bool videoStarting = false;
     bool sessionStarted = false;
     bool intentionalDisconnect = false;
     bool controllerReady = false;
@@ -166,7 +167,6 @@ private:
     bool pausedForPasscode = false;
     std::unique_ptr<UiWindow::FocusWatch> focusWatch;
     std::optional<::arisa::runtime::InputBlock> padsOwned;
-    std::optional<::arisa::composition::ExclusiveFrame> videoOwnsScreen;
     std::optional<::arisa::runtime::OverlayHandle> dock;
     std::optional<::arisa::runtime::InputPassthrough> dockInput;
     std::optional<::arisa::runtime::InputPassthrough> pickerInput;

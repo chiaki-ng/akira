@@ -34,7 +34,7 @@ class DeveloperSettings;
 
 namespace akira::play {
 
-class AudioManager;
+class AudioOutput;
 class ControllerSettings;
 class HapticManager;
 class InputManager;
@@ -49,7 +49,8 @@ private:
     libchiaking::platform::ThreadingProvider& m_threading;
     std::atomic<bool> quit = false;
 
-    std::unique_ptr<AudioManager> m_audio_manager;
+    AudioOutput& m_audio;
+    std::atomic<bool> m_audio_open{false};
     std::unique_ptr<HapticManager> m_haptic_manager;
     std::unique_ptr<InputManager> m_input_manager;
     std::unique_ptr<akira::platform::FeedbackProvider> m_pad_feedback;
@@ -98,7 +99,7 @@ private:
 public:
     Session(akira::platform::PlatformFactory& platform, StreamState& streamState, const ControllerSettings& controllers,
             const settings::DeveloperSettings& developer, app::UiWindow& window,
-            libchiaking::platform::ThreadingProvider& threading);
+            libchiaking::platform::ThreadingProvider& threading, AudioOutput& audio);
     Session(const Session&) = delete;
     void operator=(const Session&) = delete;
 

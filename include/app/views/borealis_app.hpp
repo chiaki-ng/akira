@@ -12,6 +12,7 @@
 #include "app/views/borealis_rumble.hpp"
 #include "app/views/borealis_strings.hpp"
 #include "app/views/borealis_window.hpp"
+#include "play/audio_manager.hpp"
 
 namespace akira::app::views {
 
@@ -44,6 +45,7 @@ private:
     BorealisGpu gpu;
     BorealisRumble rumble;
     BorealisOverlayPalette overlayPalette;
+    play::AudioManager audio;
     ServiceGraph graph;
     std::optional<ViewServices> viewServices;
 };

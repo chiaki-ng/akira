@@ -61,8 +61,8 @@ void App::installCrashReporter()
 bool App::openProviders()
 {
     CrashReport::stage("arisa providers");
-    auto created = provider::horizon::HorizonProviderFactory::create(
-        provider::Providers{ .threading = threading, .audio = silence }, {}, provider::horizon::GpuOptions{ .api = Gpu::Api });
+    auto created = provider::horizon::HorizonProviderFactory::create(provider::Providers{ .threading = threading }, {},
+        Gpu::options());
     if (!created)
     {
         log::error("[ARISA] the providers could not start: {}", created.error().explanation());
@@ -80,6 +80,8 @@ bool App::openProviders()
     if (!strings->loaded())
         log::warning("[ARISA] no string catalog under romfs:/{}", StringCatalog::directory);
     gpu.emplace(stock->get(), providers->surface());
+    rumble.emplace(providers->haptics());
+    voice.emplace(providers->audio());
     return true;
 }
 
@@ -96,6 +98,7 @@ bool App::openApplication()
         return false;
     }
     application.emplace(std::move(*created));
+    stage.emplace(*application, *providers, gpu->handoff(), notices);
     dispatcher.emplace(application->root().dispatcher(), application->root().scheduler(),
         application->executors().background.get());
     graph.emplace(UiSeams{
@@ -103,7 +106,8 @@ bool App::openApplication()
         .window = *window,
         .strings = *strings,
         .gpu = *gpu,
-        .rumble = rumble,
+        .rumble = *rumble,
+        .audio = *voice,
         .overlayPalette = overlayPalette,
     });
     return true;
@@ -123,7 +127,7 @@ void App::startServices()
     CrashReport::stage("arisa display");
     graph->platform().display().prepare();
     CrashReport::stage("arisa sdl");
-    static_cast<void>(graph->startSdl());
+    static_cast<void>(graph->startSdl(false));
     CrashReport::stage("arisa focus");
     graph->followFocus();
     CrashReport::stage("arisa async log");
@@ -149,10 +153,10 @@ void App::buildScreens()
                 consoleOperations->refresh();
         },
         [this] { quitting = true; });
-    padBench.emplace(services, rumble);
+    padBench.emplace(services, *rumble);
     tunnel.emplace(services);
     tunnelControl.emplace(services.dispatcher, *tunnel);
-    capture.emplace(*application);
+    capture.emplace(*stage);
     settingsModel.emplace(settings::ui::SettingsModel::Parts{
         .store = services.store,
         .developer = services.developer,
@@ -180,7 +184,7 @@ void App::buildScreens()
     CrashReport::stage("arisa couch");
     buildCouch();
     CrashReport::stage("arisa stream driver");
-    driver = std::make_shared<StreamDriver>(services, *application, *window, model, notices, *controls, *picture, *mapping,
+    driver = std::make_shared<StreamDriver>(services, *stage, *window, model, notices, *controls, *picture, *mapping,
         StreamDriver::Couch{ .table = couchBridge ? &*couchBridge : nullptr, .model = couch ? &*couch : nullptr }, [this] {
             if (consoleOperations)
                 consoleOperations->streamEnded();
@@ -351,7 +355,7 @@ int App::run()
     if (!graph->startCurl())
         return EXIT_FAILURE;
     startServices();
-    screenshots.emplace(providers->gpu(), notices, graph->services().appSettings, *strings, *dispatcher);
+    screenshots.emplace(providers->gpu(), *gpu, notices, graph->services().appSettings, *strings, *dispatcher);
     screenshotWatch.emplace(application->observe(*screenshots));
 
     CrashReport::stage("arisa main loop");

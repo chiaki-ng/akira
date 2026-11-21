@@ -39,6 +39,7 @@ BorealisApp::BorealisApp(int argc, char* argv[])
           .strings = strings,
           .gpu = gpu,
           .rumble = rumble,
+          .audio = audio,
           .overlayPalette = overlayPalette,
       })
 {
@@ -102,7 +103,7 @@ bool BorealisApp::startFrameworks()
     brls::getStyle().addMetric("brls/tab_frame/sidebar_width", 369.0f);
     brls::getStyle().addMetric("brls/sidebar/item_font_size", 24.0f);
 
-    if (!graph.startSdl())
+    if (!graph.startSdl(true))
         return false;
 
     graph.followFocus();

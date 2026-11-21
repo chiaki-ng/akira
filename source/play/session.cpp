@@ -2,7 +2,7 @@
 #include "play/stream_state.hpp"
 #include "log/log.hpp"
 
-#include "play/audio_manager.hpp"
+#include "play/audio_output.hpp"
 #include "play/haptic_manager.hpp"
 #include "play/input_manager.hpp"
 #include "platform/video/renderer.hpp"
@@ -71,10 +71,9 @@ void Session::setHapticIntensity(HapticIntensity intensity)
 
 Session::Session(akira::platform::PlatformFactory& platform, StreamState& streamState,
                  const ControllerSettings& controllers, const settings::DeveloperSettings& developer,
-                 app::UiWindow& window, libchiaking::platform::ThreadingProvider& threading)
-    : m_platform(platform), m_stream_state(streamState), m_window(window), m_threading(threading)
+                 app::UiWindow& window, libchiaking::platform::ThreadingProvider& threading, AudioOutput& audio)
+    : m_platform(platform), m_stream_state(streamState), m_window(window), m_threading(threading), m_audio(audio)
 {
-    m_audio_manager = std::make_unique<AudioManager>();
     m_input_manager = std::make_unique<InputManager>(*this, platform.pads(), controllers, window);
     m_haptic_manager = std::make_unique<HapticManager>(platform.createHaptics(), developer);
     m_haptic_manager->setInputManager(m_input_manager.get());
@@ -112,12 +111,13 @@ bool Session::configureAudio(const libchiaking::media::AudioFormat& format, bool
         return false;
     }
     m_audio_decoder.emplace(std::move(created).value());
-    if (m_audio_manager)
-    {
-        m_audio_manager->cleanup();
-        m_audio_manager->init(static_cast<unsigned int>(m_audio_decoder->output_channels()),
-                              m_audio_decoder->sample_rate());
-    }
+    m_audio.close();
+    const auto opened = m_audio.open(static_cast<unsigned int>(m_audio_decoder->output_channels()),
+                                     m_audio_decoder->sample_rate());
+    m_audio_open.store(opened.has_value(), std::memory_order_release);
+    if (!opened)
+        log::error("Stream audio output refused {} channels at {} Hz: {}", m_audio_decoder->output_channels(),
+                   m_audio_decoder->sample_rate(), opened.error());
     return true;
 }
 
@@ -196,9 +196,9 @@ libchiaking::media::AudioResult Session::submitAudio(const libchiaking::media::A
         return {AudioVerdict::failed, 0};
     }
 
-    if (m_audio_manager)
+    if (m_audio_open.load(std::memory_order_acquire))
     {
-        m_audio_manager->play(*pcm);
+        m_audio.play(*pcm);
         m_audio_counts.samples_queued.fetch_add(pcm->size(), std::memory_order_relaxed);
     }
 
@@ -282,8 +282,8 @@ bool Session::FreeVideo()
         m_video->release();
     }
     m_audio_decoder.reset();
-    if (m_audio_manager)
-        m_audio_manager->cleanup();
+    m_audio_open.store(false, std::memory_order_release);
+    m_audio.close();
 
     resetStreamStats();
 

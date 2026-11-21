@@ -6,27 +6,27 @@
 #include <span>
 #include <vector>
 
+#include "play/audio_output.hpp"
+
 namespace akira::play {
 
-class AudioManager
+class AudioManager final : public AudioOutput
 {
 public:
-    AudioManager();
-    ~AudioManager();
+    AudioManager() = default;
+    ~AudioManager() override;
 
     AudioManager(const AudioManager&) = delete;
     AudioManager& operator=(const AudioManager&) = delete;
 
-
-    void init(unsigned int channels, unsigned int rate);
-    void play(std::span<const int16_t> samples);
-    void cleanup();
-
-    bool isInitialized() const { return m_device_id > 0; }
+    auto open(unsigned channels, unsigned rate) -> std::expected<void, std::string> override;
+    void play(std::span<const std::int16_t> samples) override;
+    void close() override;
 
 private:
-    unsigned int m_channels = 0;
-    std::vector<int16_t> m_boosted;
+    static constexpr int queueLimit = 16000;
+
+    std::vector<std::int16_t> m_boosted;
     SDL_AudioDeviceID m_device_id = 0;
 };
 

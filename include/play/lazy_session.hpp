@@ -20,6 +20,7 @@ class UiWindow;
 
 namespace akira::play {
 
+class AudioOutput;
 class ControllerSettings;
 class Session;
 class StreamState;
@@ -28,7 +29,7 @@ class LazySession {
 public:
     LazySession(platform::PlatformFactory& platform, StreamState& streamState, const ControllerSettings& controllers,
                 const settings::DeveloperSettings& developer, app::UiWindow& window,
-                libchiaking::platform::ThreadingProvider& threading);
+                libchiaking::platform::ThreadingProvider& threading, AudioOutput& audio);
     ~LazySession();
 
     LazySession(const LazySession&) = delete;
@@ -44,6 +45,7 @@ private:
     const settings::DeveloperSettings& developer;
     app::UiWindow& window;
     libchiaking::platform::ThreadingProvider& threading;
+    AudioOutput& audio;
     std::unique_ptr<Session> session;
 };
 

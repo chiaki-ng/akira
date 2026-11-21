@@ -49,11 +49,11 @@ namespace composition = ::arisa::composition;
 namespace provider = ::arisa::provider;
 namespace runtime = ::arisa::runtime;
 
-StreamDriver::StreamDriver(Services& services, runtime::Application& application, Window& window, ShellModel& model,
-    Notifier& notifier, settings::ui::ControlOptions& controlOptions, settings::ui::PictureOptions& picture,
+StreamDriver::StreamDriver(Services& services, StreamStage& stage, Window& window, ShellModel& model, Notifier& notifier,
+    settings::ui::ControlOptions& controlOptions, settings::ui::PictureOptions& picture,
     play::ui::Mapping& mapping, Couch couch, std::function<void()> ended)
     : services(services)
-    , application(application)
+    , stage(stage)
     , window(window)
     , model(model)
     , controlOptions(controlOptions)
@@ -79,6 +79,8 @@ StreamDriver::~StreamDriver()
     closePicker();
     dock.reset();
     dockInput.reset();
+    padsOwned.reset();
+    stage.close();
     if (couch.table)
         couch.table->detach();
     connection.reset();
@@ -86,7 +88,7 @@ StreamDriver::~StreamDriver()
 
 auto StreamDriver::modal(composition::Element content) -> runtime::OverlayHandle
 {
-    return application.root().overlays().show(composition::OverlayLayer::dialog, std::move(content),
+    return stage.overlays().show(composition::OverlayLayer::dialog, std::move(content),
         runtime::OverlayBehaviour{
             .input = composition::OverlayInput::modal,
             .alignment = composition::Alignment::center,
@@ -149,8 +151,8 @@ void StreamDriver::waitForPads()
 void StreamDriver::showPicker(play::ui::Couch::Picked picked)
 {
     couch.model->askPad(couch.table->pads(), Clock::now(), std::move(picked));
-    couch.table->watch(application.capture_buttons());
-    pickerInput.emplace(application.pass_input(play::ui::PadPicker::passedButtons, play::ui::PadPicker::passedInput));
+    couch.table->watch(stage.captureButtons());
+    pickerInput.emplace(stage.passInput(play::ui::PadPicker::passedButtons, play::ui::PadPicker::passedInput));
     picker.emplace(modal(composition::Element(play::ui::PadPicker(*couch.model, services.strings))));
 }
 
@@ -288,7 +290,7 @@ void StreamDriver::resumeAfterUi()
     services.session.get().setVideoPaused(false);
     connection->setInputSuppressed(false);
     if (videoActive && !dock)
-        padsOwned.emplace(application.block_input());
+        padsOwned.emplace(stage.blockInput());
 }
 
 auto StreamDriver::couchVisible() const -> bool
@@ -360,8 +362,9 @@ void StreamDriver::tick()
     if (!connection)
         return;
 
-    if (window.takeVideoStart())
-        enterVideo();
+    followStage();
+    if (!connection)
+        return;
 
     if (!videoActive)
     {
@@ -385,15 +388,32 @@ void StreamDriver::tick()
     }
 }
 
+void StreamDriver::followStage()
+{
+    stage.follow();
+    if (window.takeVideoStart())
+        videoStarting = true;
+    if (const std::optional<std::string> refused = stage.takeRefusal())
+    {
+        log::error("[ARISA] the stream could not take over the display: {}", *refused);
+        connection->leave(false);
+        stop();
+        fail(services.strings.format("akira/stream/session_ended", *refused), false);
+        return;
+    }
+    if (videoStarting && stage.embedded())
+    {
+        videoStarting = false;
+        enterVideo();
+    }
+}
+
 void StreamDriver::enterVideo()
 {
     if (videoActive)
         return;
     videoActive = true;
-    padsOwned.emplace(application.block_input());
-    videoOwnsScreen.emplace(application.exclusive_frame(composition::ExclusiveFrame::Options{
-        .keep = { composition::OverlayLayer::dialog, composition::OverlayLayer::toast, composition::OverlayLayer::hud },
-    }));
+    padsOwned.emplace(stage.blockInput());
     services.platform.display().streaming(true);
     model.streaming();
     hudPlacement.restore(savedHudPosition());
@@ -401,7 +421,7 @@ void StreamDriver::enterVideo()
     if (play::InputManager* input = services.session.get().getInputManager())
         input->setScreenshotChord(services.appSettings.screenshotChord());
     showHud();
-    log::info("[ARISA] video owns the screen; the main tree is exclusive");
+    log::info("[ARISA] video owns the screen; akira presents and the overlay is embedded");
 }
 
 void StreamDriver::followMenu()
@@ -419,14 +439,14 @@ void StreamDriver::openDock(std::optional<play::StreamControls::Control> opening
     session.setVideoPaused(true);
     session.CleanUpHaptic();
     if (!padsOwned)
-        padsOwned.emplace(application.block_input());
-    dockInput.emplace(application.pass_input(play::ui::StreamDock::passedButtons, play::ui::StreamDock::passedInput));
+        padsOwned.emplace(stage.blockInput());
+    dockInput.emplace(stage.passInput(play::ui::StreamDock::passedButtons, play::ui::StreamDock::passedInput));
     hideHud();
     keepHudPosition();
     if (couch.model)
         couch.model->refresh();
     const bool players = couch.model && host && !host->isCloud();
-    dock.emplace(application.root().overlays().show(composition::OverlayLayer::dialog,
+    dock.emplace(stage.overlays().show(composition::OverlayLayer::dialog,
         play::ui::StreamDock(
             play::ui::StreamDock::Session{
                 .console = host ? host->getHostName() : lastConsole,
@@ -644,7 +664,7 @@ void StreamDriver::showHud()
     statsBoard.refresh(diagnostics());
     statsBoard.place(hudPlacement.origin());
     nextStatsSample = Clock::now() + statsInterval;
-    hud.emplace(application.root().overlays().show(composition::OverlayLayer::hud,
+    hud.emplace(stage.overlays().show(composition::OverlayLayer::hud,
         play::ui::DiagnosticsOverlay(statsBoard, hudPlacement, services.strings),
         runtime::OverlayBehaviour{
             .input = composition::OverlayInput::passthrough,
@@ -741,8 +761,9 @@ void StreamDriver::stop()
     keepHudPosition();
     if (videoActive)
         services.session.get().claimTouches(nullptr);
-    videoOwnsScreen.reset();
     padsOwned.reset();
+    stage.close();
+    videoStarting = false;
     if (videoActive)
         services.platform.display().streaming(false);
     videoActive = false;
