@@ -10,6 +10,7 @@
 #include <arisa/components/zstack.hpp>
 #include <arisa/composition/geometry_proxy.hpp>
 #include <arisa/composition/point.hpp>
+#include <arisa/motion/unit_point.hpp>
 #include <arisa/theme/color_scheme.hpp>
 #include <arisa/theme/colour.hpp>
 #include <arisa/theme/glass.hpp>
@@ -27,6 +28,7 @@ namespace akira::play::ui {
 namespace components = ::arisa::components;
 namespace composition = ::arisa::composition;
 namespace graphics = ::arisa::graphics;
+namespace motion = ::arisa::motion;
 namespace theme = ::arisa::theme;
 
 DiagnosticsOverlay::Sparkline::Sparkline(std::vector<double> values)
@@ -203,7 +205,7 @@ auto DiagnosticsOverlay::body(composition::Context& context) const -> compositio
     else
         panel = surface(detailed(view), view.appearance.glass, view.report.overallTone(), theme::Shape::rounded(sheetRadius));
     return components::ZStack(components::ZStackOptions{ .alignment = composition::Alignment::top_leading },
-        measured(std::move(panel)).offset(view.origin.x, view.origin.y))
+        measured(std::move(panel)).scale_effect(placement->scale(), motion::UnitPoint::top_leading).offset(view.origin.x, view.origin.y))
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
             .alignment = composition::Alignment::top_leading })
         .environment(components::Environment::colour_scheme, std::optional<theme::ColorScheme>(theme::ColorScheme::dark))

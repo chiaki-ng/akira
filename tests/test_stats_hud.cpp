@@ -173,3 +173,22 @@ TEST(stats_hud_placement_settles_inside_the_margin)
     CHECK(near(settled->x * 1280.0f, 24.0f));
     CHECK(near(settled->y * 720.0f, 24.0f));
 }
+
+TEST(stats_hud_placement_scales_a_large_panel_to_half_the_screen)
+{
+    StatsHudPlacement placement;
+    placement.measureScreen({ .width = 1280.0f, .height = 720.0f });
+    placement.measurePanel({ .width = 896.0f, .height = 560.0f });
+    CHECK(near(placement.scale(), 640.0f / 896.0f));
+    placement.restore(TouchClaim::Fraction{ .x = 0.99f, .y = 0.99f });
+    CHECK(near(placement.origin().x, 1280.0f - 640.0f - 24.0f));
+    CHECK(near(placement.origin().y, 720.0f - 400.0f - 24.0f));
+}
+
+TEST(stats_hud_placement_keeps_a_small_panel_at_full_size)
+{
+    StatsHudPlacement placement;
+    placement.measureScreen({ .width = 1280.0f, .height = 720.0f });
+    placement.measurePanel({ .width = 400.0f, .height = 40.0f });
+    CHECK(near(placement.scale(), 1.0f));
+}

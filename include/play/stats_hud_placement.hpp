@@ -26,6 +26,8 @@ public:
 
     static constexpr float margin = 24.0f;
     static constexpr float slop = 12.0f;
+    static constexpr float widthShare = 0.5f;
+    static constexpr float heightShare = 0.7f;
 
     explicit StatsHudPlacement(std::optional<Fraction> saved = std::nullopt);
 
@@ -34,6 +36,7 @@ public:
     void measureScreen(Size measured);
     void measurePanel(Size measured);
     auto origin() const -> Point;
+    auto scale() const -> float;
     auto revision() const -> std::uint64_t;
     auto takeSettled() -> std::optional<Fraction>;
 
@@ -43,6 +46,8 @@ public:
 
 private:
     auto placed() const -> Point;
+    auto fitted() const -> float;
+    auto drawn() const -> Size;
     auto touched(Fraction at) const -> Point;
     void changed();
 

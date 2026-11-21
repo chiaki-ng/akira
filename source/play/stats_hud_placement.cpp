@@ -53,12 +53,32 @@ void StatsHudPlacement::measurePanel(Size measured)
     changed();
 }
 
+auto StatsHudPlacement::fitted() const -> float
+{
+    if (panel.width <= 0.0f || panel.height <= 0.0f || screen.width <= 0.0f || screen.height <= 0.0f)
+        return 1.0f;
+    return std::min({ 1.0f, screen.width * widthShare / panel.width, screen.height * heightShare / panel.height });
+}
+
+auto StatsHudPlacement::drawn() const -> Size
+{
+    const float factor = fitted();
+    return Size{ .width = panel.width * factor, .height = panel.height * factor };
+}
+
+auto StatsHudPlacement::scale() const -> float
+{
+    std::lock_guard guard(lock);
+    return fitted();
+}
+
 auto StatsHudPlacement::placed() const -> Point
 {
+    const Size shown = drawn();
     const float x = saved ? saved->x * screen.width : margin;
     const float y = saved ? saved->y * screen.height : margin;
-    return Point{ .x = std::clamp(x, margin, std::max(margin, screen.width - panel.width - margin)),
-        .y = std::clamp(y, margin, std::max(margin, screen.height - panel.height - margin)) };
+    return Point{ .x = std::clamp(x, margin, std::max(margin, screen.width - shown.width - margin)),
+        .y = std::clamp(y, margin, std::max(margin, screen.height - shown.height - margin)) };
 }
 
 auto StatsHudPlacement::touched(Fraction at) const -> Point
@@ -91,8 +111,9 @@ auto StatsHudPlacement::grab(Fraction at) -> bool
         return false;
     const Point corner = placed();
     const Point finger = touched(at);
-    if (finger.x < corner.x - slop || finger.x > corner.x + panel.width + slop || finger.y < corner.y - slop
-        || finger.y > corner.y + panel.height + slop)
+    const Size shown = drawn();
+    if (finger.x < corner.x - slop || finger.x > corner.x + shown.width + slop || finger.y < corner.y - slop
+        || finger.y > corner.y + shown.height + slop)
         return false;
     grabOffset = Point{ .x = finger.x - corner.x, .y = finger.y - corner.y };
     dragging = true;
