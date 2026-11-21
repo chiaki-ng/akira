@@ -2,6 +2,7 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
@@ -11,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include <arisa/provider/gpu/frame_source.hpp>
 #include <arisa/provider/gpu/swap_interval.hpp>
 #include <arisa/provider/horizon/deko3d_gpu.hpp>
 
@@ -102,7 +104,9 @@ private:
     auto present(play::PresentTiming::Kind kind, play::PresentTiming& timing)
         -> std::expected<play::PresentLoop::Presented, play::PresentTiming::Miss> override;
     void swapInterval(std::uint32_t interval) override;
+    auto awaitScene(std::chrono::milliseconds limit) -> play::PresentLoop::Scene override;
     [[nodiscard]] auto seize() -> bool;
+    void follow(const Gpu::FrameTarget& frame);
     void collectReadback();
     void startReadback(dk::CmdBuf commands, const Gpu::FrameTarget& frame);
 
@@ -113,6 +117,9 @@ private:
     std::optional<Gpu::Takeover> takeover;
     std::optional<Gpu::Overlay> overlay;
     std::optional<::arisa::provider::SwapInterval> interval;
+    std::atomic<std::shared_ptr<const ::arisa::provider::FrameSource>> scenes;
+    std::uint64_t seenScene = 0;
+    std::uint64_t lentGeneration = 0;
     bool refused = false;
     std::uint64_t overlayFailures = 0;
     std::atomic<bool> seized{ false };

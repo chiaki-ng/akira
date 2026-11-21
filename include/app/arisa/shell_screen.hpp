@@ -5,7 +5,6 @@
 #include <arisa/composition/component.hpp>
 #include <arisa/composition/context.hpp>
 #include <arisa/composition/element.hpp>
-#include <arisa/theme/glass.hpp>
 #include <arisa/composition/namespace.hpp>
 
 #include "app/arisa/art_session.hpp"
@@ -69,7 +68,7 @@ private:
     auto page(ShellModel::Page shown) const -> ::arisa::composition::Element;
     auto pageTitle(ShellModel::Page shown) const -> std::string;
     auto pageContent(ShellModel::Page shown) const -> ::arisa::composition::Element;
-    auto settingsPanel(::arisa::theme::Glass glass) const -> ::arisa::composition::Element;
+    auto settingsPanel() const -> ::arisa::composition::Element;
     auto announced(::arisa::composition::Element content, bool streaming) const -> ::arisa::composition::Element;
     auto ending(::arisa::composition::Element content, const ShellModel::View& view,
         ::arisa::composition::Namespace::ID focus) const -> ::arisa::composition::Element;

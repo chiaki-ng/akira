@@ -82,6 +82,7 @@ public:
     bool captureLastFrame(std::vector<uint8_t>& rgba, int& width, int& height) override;
 
     void setDithering(bool enabled);
+    void setColour(const play::ColourAdjustments& colour) override;
 
 private:
     GpuHost& m_gpu;
@@ -320,6 +321,13 @@ private:
     void writeDitherUniform();
     void bindDitherUniform(dk::CmdBuf cmdbuf);
     static constexpr uint32_t DitherUniformBinding = 1;
+    static constexpr uint32_t ColourUniformBinding = 2;
+    void writeColourUniform();
+    void bindColourUniform(dk::CmdBuf cmdbuf);
+    CMemPool::Handle m_colour_uniform;
+    std::mutex m_colour_mutex;
+    play::ColourAdjustments m_colour;
+    std::atomic<bool> m_colour_dirty{true};
     CMemPool::Handle m_dither_uniform;
     bool m_dithering_enabled = false;
     std::atomic<bool> m_dithering_wanted{false};

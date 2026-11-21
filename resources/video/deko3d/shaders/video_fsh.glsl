@@ -136,6 +136,19 @@ float AMax3F1(float x, float y, float z) { return max(x, max(y, z)); }
 #endif
 
 #if !defined(FSR_RCAS) && !defined(FSR_PASS)
+layout (binding = 2, std140) uniform ColourConstants {
+    vec4 Colour;
+};
+
+vec3 applyColour(vec3 rgb)
+{
+    rgb = (rgb - 0.5) * Colour.y + 0.5 + Colour.x;
+    float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+    rgb = mix(vec3(luma), rgb, Colour.z);
+    rgb = pow(clamp(rgb, 0.0, 1.0), vec3(1.0 / Colour.w));
+    return rgb;
+}
+
 vec3 decodeYuv(float y_raw, vec2 uv_raw)
 {
     float y = (y_raw - 16.0/255.0) / ((235.0 - 16.0) / 255.0);
@@ -274,7 +287,7 @@ void main()
     vec2 chromaUV = (fp + pp + 0.5) * rcpSize;
     vec2 uv_raw = texture(plane1, chromaUV).rg;
 
-    vec3 rgb = decodeYuv(finalY, uv_raw);
+    vec3 rgb = applyColour(decodeYuv(finalY, uv_raw));
 #ifdef DITHER_NOISE
     rgb = applyDither(rgb);
 #endif
@@ -282,7 +295,7 @@ void main()
 #else
     float y_raw = texture(plane0, vTexCoord).r;
     vec2 uv_raw = texture(plane1, vTexCoord).rg;
-    vec3 rgb = decodeYuv(y_raw, uv_raw);
+    vec3 rgb = applyColour(decodeYuv(y_raw, uv_raw));
 #ifdef DITHER_NOISE
     rgb = applyDither(rgb);
 #endif

@@ -9,6 +9,7 @@ layout(push_constant) uniform VideoParams
     uvec4 easuCon3;
     uvec4 planeBase;
     uvec4 planeSize;
+    vec4 colour;
 };
 
 #ifdef TEXEL_BUFFER
@@ -83,6 +84,14 @@ vec3 decodeYuv(float y_raw, vec2 uv_raw)
     float b = y + 1.85563 * u;
 
     return clamp(vec3(r, g, b), 0.0, 1.0);
+}
+
+vec3 applyColour(vec3 rgb)
+{
+    rgb = (rgb - 0.5) * colour.y + 0.5 + colour.x;
+    float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+    rgb = mix(vec3(luma), rgb, colour.z);
+    return pow(clamp(rgb, 0.0, 1.0), vec3(1.0 / colour.w));
 }
 
 float interleavedGradientNoise(vec2 uv)

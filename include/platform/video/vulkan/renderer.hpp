@@ -85,6 +85,7 @@ public:
     std::shared_ptr<akira::platform::viddec::OutputMemory> decoderOutputMemory() const;
 
     void setDithering(bool enabled);
+    void setColour(const play::ColourAdjustments& colour) override;
 
 private:
 
@@ -136,6 +137,7 @@ private:
         std::array<std::uint32_t, 16> easu{};
         std::array<std::uint32_t, 4> planes{};
         std::array<std::uint32_t, 4> size{};
+        std::array<float, 4> colour{};
     };
 
     struct QuadPush
@@ -497,6 +499,8 @@ private:
     std::atomic<bool> m_initialized{false};
     std::atomic<bool> m_paused{false};
     std::atomic<bool> m_dithering_enabled{false};
+    mutable std::mutex m_colour_mutex;
+    play::ColourAdjustments m_colour;
 
     VkDevice m_device = VK_NULL_HANDLE;
     PFN_vkGetMemoryHostPointerPropertiesEXT m_get_host_pointer_properties = nullptr;

@@ -17,7 +17,9 @@
 #include <arisa/runtime/passed_input.hpp>
 
 #include "app/strings.hpp"
+#include "play/colour_adjustments.hpp"
 #include "play/stream_controls.hpp"
+#include "play/volume.hpp"
 #include "play/diagnostics_appearance.hpp"
 #include "play/diagnostics_report.hpp"
 #include "play/ui/couch.hpp"
@@ -27,16 +29,19 @@
 #include "play/stream_profile.hpp"
 #include "settings/ui/control_options.hpp"
 #include "settings/ui/picture_options.hpp"
+#include "settings/ui/sound_options.hpp"
 
 namespace akira::play::ui {
 
 class StreamDock final : public ::arisa::composition::Component {
 public:
-    enum class Panel { Stream, Statistics, Controls, Players, Session };
+    enum class Panel { Stream, Colour, Sound, Statistics, Controls, Players, Session };
 
     static constexpr float panelWidth = 700.0F;
     static constexpr float panelPadding = 24.0F;
     static constexpr float panelSpacing = 18.0F;
+    static constexpr float colourSpacing = 14.0F;
+    static constexpr float sliderSpacing = 6.0F;
     static constexpr float dockGap = 14.0F;
     static constexpr float dockBottom = 22.0F;
     static constexpr float tileRadius = 12.0F;
@@ -50,6 +55,7 @@ public:
         std::string console;
         std::vector<StreamControls::Control> controls;
         bool sleepOffered = false;
+        bool homeOffered = false;
         DiagnosticsAppearance diagnostics;
         bool players = false;
         std::optional<std::string> datacenter;
@@ -74,7 +80,8 @@ public:
     StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions, Mapping& mapping,
         Couch* couch, const app::Strings& strings);
     StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions,
-        settings::ui::PictureOptions* picture, Mapping& mapping, Couch* couch, const app::Strings& strings);
+        settings::ui::PictureOptions* picture, settings::ui::SoundOptions* sound, Mapping& mapping, Couch* couch,
+        const app::Strings& strings);
 
     bool operator==(const StreamDock& other) const = default;
 
@@ -97,8 +104,15 @@ private:
     auto panel(Panel shown, const DiagnosticsReport& report,
         ::arisa::composition::StateHandle<DiagnosticsAppearance> look, ::arisa::composition::StateHandle<int> chosenTopic,
         const settings::ui::ControlOptions::Values& pad, ::arisa::composition::StateHandle<bool> board,
-        const std::optional<settings::ui::PictureOptions::Values>& values) const -> ::arisa::composition::Element;
+        const std::optional<settings::ui::PictureOptions::Values>& values,
+        const std::optional<settings::ui::SoundOptions::Values>& heard) const -> ::arisa::composition::Element;
     auto powerPanel() const -> ::arisa::composition::Element;
+    auto colourPanel(const play::ColourAdjustments& colour) const -> ::arisa::composition::Element;
+    auto colourRow(const play::ColourAdjustments& colour, play::ColourAdjustments::Channel channel) const
+        -> ::arisa::composition::Element;
+    auto soundPanel(play::Volume volume) const -> ::arisa::composition::Element;
+    static auto channelKey(play::ColourAdjustments::Channel channel) -> const char*;
+    static auto describe(play::ColourAdjustments::Channel channel, double value) -> std::string;
     auto statsPanel(const DiagnosticsReport& report, ::arisa::composition::StateHandle<DiagnosticsAppearance> look,
         ::arisa::composition::StateHandle<int> chosenTopic) const -> ::arisa::composition::Element;
     template <typename Value, std::size_t Count>
@@ -120,6 +134,7 @@ private:
     StreamCommands* commands;
     settings::ui::ControlOptions* controlOptions;
     settings::ui::PictureOptions* picture = nullptr;
+    settings::ui::SoundOptions* sound = nullptr;
     Mapping* mapping;
     Couch* couch;
     const app::Strings* strings;

@@ -6,7 +6,6 @@
 #include <arisa/composition/component.hpp>
 #include <arisa/composition/context.hpp>
 #include <arisa/composition/element.hpp>
-#include <arisa/theme/glass.hpp>
 
 #include "app/strings.hpp"
 #include "trophies/ui/trophy_model.hpp"
@@ -34,7 +33,7 @@ public:
 private:
     auto toolbar(const TrophyModel::View& view) const -> ::arisa::composition::Element;
     auto summary(const TrophyModel::View& view) const -> ::arisa::composition::Element;
-    auto rows(const TrophyModel::View& view, ::arisa::theme::Glass glass) const -> ::arisa::composition::Element;
+    auto rows(const TrophyModel::View& view) const -> ::arisa::composition::Element;
     auto sortMenu(const TrophyModel::View& view) const -> ::arisa::composition::Element;
     auto filterMenu(const TrophyModel::View& view) const -> ::arisa::composition::Element;
     auto refreshButton(const TrophyModel::View& view) const -> ::arisa::composition::Element;

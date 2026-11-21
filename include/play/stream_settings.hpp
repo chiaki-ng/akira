@@ -4,10 +4,12 @@
 #include <cstddef>
 #include <string_view>
 
+#include "play/colour_adjustments.hpp"
 #include "play/diagnostics_appearance.hpp"
 #include "play/renderer_kind.hpp"
 #include "play/stream_profile.hpp"
 #include "play/video_mode.hpp"
+#include "play/volume.hpp"
 #include "settings/section.hpp"
 
 namespace akira::settings {
@@ -74,6 +76,11 @@ public:
     int rcasStrength() const;
     void setRcasStrength(int percent);
 
+    auto colour() const -> ColourAdjustments { return adjustments; }
+    void setColour(ColourAdjustments chosen) { adjustments = chosen; }
+    auto volume() const -> Volume { return streamVolume; }
+    void setVolume(Volume chosen) { streamVolume = chosen; }
+
     bool ditheringEnabled() const { return dithering; }
     void setDitheringEnabled(bool enabled) { dithering = enabled; }
     float ditheringStrength() const { return ditherStrength; }
@@ -134,6 +141,8 @@ private:
     bool bitrateUnlocked = false;
     bool rcas = false;
     float sharpness = 0.2f;
+    ColourAdjustments adjustments;
+    Volume streamVolume;
     bool dithering = false;
     float ditherStrength = 3.0f;
     float overlayX = -1.0f;

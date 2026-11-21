@@ -50,7 +50,7 @@ namespace provider = ::arisa::provider;
 namespace runtime = ::arisa::runtime;
 
 StreamDriver::StreamDriver(Services& services, StreamStage& stage, Window& window, ShellModel& model, Notifier& notifier,
-    settings::ui::ControlOptions& controlOptions, settings::ui::PictureOptions& picture,
+    settings::ui::ControlOptions& controlOptions, settings::ui::PictureOptions& picture, settings::ui::SoundOptions& sound,
     play::ui::Mapping& mapping, Couch couch, std::function<void()> ended)
     : services(services)
     , stage(stage)
@@ -58,6 +58,7 @@ StreamDriver::StreamDriver(Services& services, StreamStage& stage, Window& windo
     , model(model)
     , controlOptions(controlOptions)
     , picture(picture)
+    , sound(sound)
     , mapping(mapping)
     , couch(couch)
     , notifier(notifier)
@@ -306,6 +307,7 @@ void StreamDriver::open(consoles::Host& target, libchiaking::play::ConsoleHandov
     play::Session& session = services.session.get();
     const play::StreamRoute route(std::nullopt, target.isRemote(), services.wireGuard.isConnected(), target.isPS5());
     services.streamState.setProfile(route.profile());
+    session.setVolume(services.stream.volume());
 
     log::info("[ARISA] starting stream to {}", target.getHostName());
     if (!prepareController())
@@ -452,13 +454,14 @@ void StreamDriver::openDock(std::optional<play::StreamControls::Control> opening
                 .console = host ? host->getHostName() : lastConsole,
                 .controls = controls.controls(),
                 .sleepOffered = controls.offersSleep(),
+                .homeOffered = host && !host->isCloud(),
                 .diagnostics = services.stream.diagnostics(),
                 .players = players,
                 .bandwidth = cloudBandwidth(),
                 .opening = opening,
                 .profile = host && host->isCloud() ? std::nullopt : std::optional(services.streamState.profile()),
             },
-            *this, controlOptions, &picture, mapping, couch.model, services.strings),
+            *this, controlOptions, &picture, &sound, mapping, couch.model, services.strings),
         runtime::OverlayBehaviour{
             .input = composition::OverlayInput::modal,
             .alignment = composition::Alignment::bottom,
@@ -580,6 +583,28 @@ void StreamDriver::restart()
     connection->leave(false);
     stop();
     reconnect();
+}
+
+void StreamDriver::goHome()
+{
+    if (!connection)
+        return;
+    if (!services.session.get().goHome())
+    {
+        notifier.notify(services.strings.text("akira/stream_menu/go_home_refused"));
+        return;
+    }
+    log::info("[ARISA] asked the console to go to its Home screen");
+}
+
+void StreamDriver::tuneColour(play::ColourAdjustments colour)
+{
+    services.session.get().setColour(colour);
+}
+
+void StreamDriver::tuneVolume(play::Volume volume)
+{
+    services.session.get().setVolume(volume);
 }
 
 void StreamDriver::resetMotion()

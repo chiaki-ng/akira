@@ -21,10 +21,15 @@ public:
         std::string reason;
     };
 
-    using Event = std::variant<Offer, Refusal>;
+    struct Resize {
+        ::arisa::provider::SurfaceSize extent;
+    };
+
+    using Event = std::variant<Offer, Refusal, Resize>;
 
     void offer(::arisa::provider::FrameSource frames, ::arisa::provider::SurfaceSize extent);
     void refuse(std::string reason);
+    void resize(::arisa::provider::SurfaceSize extent);
     void withdraw();
     [[nodiscard]] auto take() -> std::optional<Event>;
 

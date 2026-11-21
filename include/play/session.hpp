@@ -16,12 +16,14 @@
 
 #include "app/exception.hpp"
 #include "app/ui_window.hpp"
+#include "play/colour_adjustments.hpp"
 #include "play/rumble_profile.hpp"
 #include "platform/feedback/provider.hpp"
 #include "play/stream_stats.hpp"
 #include "play/touch_claim.hpp"
 #include "play/upscaling_summary.hpp"
 #include "play/video_worker.hpp"
+#include "play/volume.hpp"
 #include "platform/video/provider.hpp"
 
 namespace akira::platform {
@@ -95,6 +97,7 @@ private:
     void checkForStall(akira::platform::VideoDecoder& decoder);
     bool configureAudio(const libchiaking::media::AudioFormat& format, bool raw_pcm);
     std::shared_ptr<libchiaking::play::Session> attached() const;
+    static const char* refusalName(libchiaking::play::InputRefusal refusal);
 
 public:
     Session(akira::platform::PlatformFactory& platform, StreamState& streamState, const ControllerSettings& controllers,
@@ -137,6 +140,9 @@ public:
     StatsOverlayMode getStatsOverlayMode() const { return m_stats_overlay_mode; }
     void setStatsOverlayMode(StatsOverlayMode mode) { m_stats_overlay_mode = mode; }
     void setVideoPaused(bool paused);
+    void setColour(ColourAdjustments colour);
+    void setVolume(Volume volume);
+    [[nodiscard]] bool goHome();
     void setConnectionContext(const std::string& context);
     const std::string& connectionContext() const { return m_connection_context; }
     UpscalingSummary upscaling();

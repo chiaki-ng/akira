@@ -28,6 +28,7 @@
 #include <functional>
 #include <cstdio>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -85,6 +86,7 @@
 #include "settings/settings_store.hpp"
 #include "settings/ui/control_options.hpp"
 #include "settings/ui/picture_options.hpp"
+#include "settings/ui/sound_options.hpp"
 
 namespace {
 
@@ -137,7 +139,10 @@ public:
     void restart() override {}
     void resume() override {}
     void leave(bool) override {}
+    void goHome() override { ++homes; }
     void resetMotion() override {}
+    void tuneColour(akira::play::ColourAdjustments chosen) override { colour = chosen; }
+    void tuneVolume(akira::play::Volume chosen) override { volume = chosen; }
     void showDiagnostics(akira::play::DiagnosticsAppearance chosen) override { appearance = chosen; }
     auto diagnostics() -> akira::play::DiagnosticsReport override { return report(false); }
 
@@ -203,6 +208,9 @@ public:
     }
 
     akira::play::DiagnosticsAppearance appearance;
+    akira::play::ColourAdjustments colour;
+    akira::play::Volume volume;
+    int homes = 0;
 };
 
 class QuietMaintenance final : public akira::settings::Maintenance {
@@ -308,6 +316,7 @@ public:
         , appSettings(store)
         , cloudSettings(store)
         , picture(stream, store, false)
+        , sound(stream, store)
         , controls(controllers, store)
         , help(std::filesystem::path(AKIRA_RESOURCES_DIR) / "help", std::string())
         , packs(AKIRA_RESOURCES_DIR)
@@ -509,10 +518,11 @@ public:
                     .console = "Living room",
                     .controls = { Control::Power, Control::Stats, Control::Pad, Control::Motion },
                     .sleepOffered = true,
+                    .homeOffered = true,
                     .diagnostics = {},
                     .profile = akira::play::StreamProfile::Local,
                 },
-                streamCommands, controls, &picture, mapping, nullptr, *strings));
+                streamCommands, controls, &picture, &sound, mapping, nullptr, *strings));
     }
 
     auto playersDock() -> composition::Element
@@ -678,6 +688,10 @@ public:
 
     auto settingsModel() -> akira::settings::ui::SettingsModel& { return settings; }
     auto consoleCommands() -> QuietConsoles& { return consoles; }
+    auto streamControls() -> QuietStream& { return streamCommands; }
+    auto pictureOptions() -> akira::settings::ui::PictureOptions& { return picture; }
+    auto soundOptions() -> akira::settings::ui::SoundOptions& { return sound; }
+    auto streamSettings() -> akira::play::StreamSettings& { return stream; }
     auto board() -> akira::play::ui::Mapping& { return mapping; }
     auto couchModel() -> akira::play::ui::Couch& { return *couch; }
     auto accountModel() -> akira::accounts::ui::AccountModel& { return *accounts; }
@@ -768,6 +782,7 @@ private:
     akira::app::AppSettings appSettings;
     akira::cloud::CloudSettings cloudSettings;
     akira::settings::ui::PictureOptions picture;
+    akira::settings::ui::SoundOptions sound;
     akira::settings::ui::ControlOptions controls;
     akira::settings::HelpCatalog help;
     ThemePacks packs;
@@ -1094,8 +1109,35 @@ TEST(arisa_shot_stream_dock_stream_panel)
     REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 0)));
     CHECK(shots.shows("stream-dock.restart"));
     CHECK(shots.write("stream_dock_stream"));
-    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 3)));
+    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 1)));
+    CHECK(shots.shows("stream-dock.akira/stream_menu/colour_gamma"));
+    CHECK(shots.write("stream_dock_colour"));
+    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 2)));
+    CHECK(shots.shows("stream-dock.volume"));
+    CHECK(shots.write("stream_dock_sound"));
+    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 5)));
     CHECK(shots.shows("stream-dock.disconnect"));
+    CHECK(shots.shows("stream-dock.home"));
+    CHECK(shots.write("stream_dock_session_home"));
+    REQUIRE(shots.press("stream-dock.home"));
+    CHECK_EQ(shots.streamControls().homes, 1);
+}
+
+TEST(arisa_stream_dock_colour_and_volume_apply_live_and_persist)
+{
+    Shots shots;
+    REQUIRE(shots.start(shots.streamDock()));
+    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 1)));
+    CHECK(shots.shows("stream-dock.colour-reset"));
+    shots.pictureOptions().setColour(akira::play::ColourAdjustments(0.1, 1.2, 0.8, 1.4));
+    REQUIRE(shots.settle());
+    CHECK(shots.write("stream_dock_colour_adjusted"));
+    REQUIRE(shots.press("stream-dock.colour-reset"));
+    CHECK(shots.streamControls().colour.isNeutral());
+    CHECK(shots.pictureOptions().view().get().colour.isNeutral());
+    CHECK(shots.streamSettings().colour().isNeutral());
+    shots.soundOptions().setVolume(akira::play::Volume(0.4));
+    CHECK(std::abs(shots.streamSettings().volume().level() - 0.4) < 1e-9);
 }
 
 TEST(arisa_shot_stream_dock)

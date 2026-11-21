@@ -52,6 +52,7 @@
 #include "settings/help_catalog.hpp"
 #include "settings/ui/control_options.hpp"
 #include "settings/ui/picture_options.hpp"
+#include "settings/ui/sound_options.hpp"
 #include "settings/ui/settings_model.hpp"
 #include "trophies/ui/trophy_model.hpp"
 
@@ -112,6 +113,7 @@ private:
     std::optional<ServiceGraph> graph;
     std::optional<settings::HelpCatalog> help;
     std::optional<settings::ui::PictureOptions> picture;
+    std::optional<settings::ui::SoundOptions> sound;
     std::optional<settings::ui::ControlOptions> controls;
     std::optional<network::ui::NatCheck> nat;
     std::optional<Upkeep> upkeep;

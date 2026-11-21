@@ -1,7 +1,6 @@
 #include "settings/ui/setting_rows.hpp"
 
 #include <arisa/components/button.hpp>
-#include <arisa/components/button_sizing.hpp>
 #include <arisa/components/button_style.hpp>
 #include <arisa/components/environment.hpp>
 #include <arisa/components/hstack.hpp>
@@ -92,16 +91,7 @@ auto SettingRows::link(std::string label, std::string detail, std::string_view i
     -> composition::Element
 {
     const std::string key = rowKey(label, id);
-    if (!explained(id))
-        return structure::DisclosureRow(std::move(label), std::move(detail), [open = std::move(open)] { open(); })
-            .id(composition::ElementKey{ key });
-    return described(components::Button([open = std::move(open)] { open(); },
-                         components::HStack(components::HStackOptions{ .spacing = theme::space::sm },
-                             components::Text(std::move(label)), components::Spacer(),
-                             components::Text(std::move(detail)).foreground_style(theme::ColourRole::secondary_label),
-                             components::Image(components::Image::SystemName{ "chevron_right" })
-                                 .foreground_style(theme::ColourRole::tertiary_label)))
-                         .button_sizing(components::ButtonSizing::flexible),
+    return described(structure::DisclosureRow(std::move(label), std::move(detail), [open = std::move(open)] { open(); }),
         id, key);
 }
 

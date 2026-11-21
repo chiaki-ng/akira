@@ -2,6 +2,7 @@
 
 #include <arisa/composition/observable.hpp>
 
+#include "play/colour_adjustments.hpp"
 #include "play/picture_profile.hpp"
 
 namespace akira::play {
@@ -22,6 +23,7 @@ public:
         play::PictureProfile vpn;
         bool rcas = false;
         int rcasStrength = 0;
+        play::ColourAdjustments colour;
 
         friend bool operator==(const Values&, const Values&) = default;
     };
@@ -37,6 +39,7 @@ public:
     void chooseBitrate(play::StreamProfile profile, int bitrate);
     void setRcas(bool enabled);
     void setRcasStrength(int percent);
+    void setColour(play::ColourAdjustments colour);
 
 private:
     template <class Change>

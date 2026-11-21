@@ -6,6 +6,7 @@
 #include <arisa/composition/overlay_layer.hpp>
 #include <arisa/provider/gpu/colour.hpp>
 #include <arisa/provider/headless/headless_factory.hpp>
+#include <arisa/provider/gpu/frame_source.hpp>
 #include <arisa/provider/headless/null_gpu.hpp>
 #include <arisa/provider/surface/surface_scale.hpp>
 #include <arisa/provider/surface/surface_size.hpp>
@@ -13,10 +14,13 @@
 #include <arisa/runtime/overlay_behaviour.hpp>
 
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
+#include <thread>
 #include <vector>
 
 #include "app/arisa/notices.hpp"
@@ -66,13 +70,23 @@ public:
         const auto index = takeover->acquire();
         if (!index)
             return std::unexpected(PresentTiming::Miss::unavailable);
+        if (const std::uint64_t now = takeover->generation(); now != generation)
+        {
+            generation = now;
+            handoff.resize(size);
+        }
         NullGpu::FrameCanvas canvas = takeover->target(*index);
         bound.push_back(surface.storage());
         if (canvas)
             canvas->get().fill(surface.colour());
         if (overlay)
-            if (const auto recorded = overlay->record(canvas); recorded && *recorded)
+        {
+            const auto recorded = overlay->record(canvas);
+            if (recorded && *recorded)
                 ++overlayRecords;
+            else if (!recorded)
+                ++overlayRefusals;
+        }
         const auto submitted = PresentLoop::Clock::now();
         static_cast<void>(takeover->present(*index));
         return PresentLoop::Presented{ .submitted = submitted, .presented = PresentLoop::Clock::now() };
@@ -80,10 +94,25 @@ public:
 
     void swapInterval(std::uint32_t interval) override { intervals.push_back(interval); }
 
+    auto awaitScene(std::chrono::milliseconds limit) -> PresentLoop::Scene override
+    {
+        const std::shared_ptr<const provider::FrameSource> source = scenes.load();
+        if (!source || source->closed())
+            return PresentLoop::Scene::Absent;
+        const std::uint64_t published = source->await_scene(seenScene, limit);
+        if (published == seenScene)
+            return PresentLoop::Scene::Quiet;
+        seenScene = published;
+        return PresentLoop::Scene::Fresh;
+    }
+
+    void follow(provider::SurfaceSize resized) { size = resized; }
+
     auto freshScenes() const -> std::uint64_t { return overlay ? overlay->statistics().fresh : 0; }
 
     void handBack()
     {
+        scenes.store(nullptr);
         overlay.reset();
         takeover.reset();
     }
@@ -91,6 +120,7 @@ public:
     std::vector<const std::byte*> bound;
     std::vector<std::uint32_t> intervals;
     int overlayRecords = 0;
+    int overlayRefusals = 0;
 
 private:
     auto seize() -> bool
@@ -106,7 +136,9 @@ private:
         if (!opened)
             return false;
         overlay.emplace(std::move(*opened));
-        handoff.offer(overlay->frames(), extent);
+        scenes.store(std::make_shared<const provider::FrameSource>(overlay->frames()));
+        generation = takeover->generation();
+        handoff.offer(overlay->frames(), size);
         return true;
     }
 
@@ -115,6 +147,10 @@ private:
     const DecodedSurface& surface;
     std::optional<NullGpu::Takeover> takeover;
     std::optional<NullGpu::Overlay> overlay;
+    std::atomic<std::shared_ptr<const provider::FrameSource>> scenes;
+    std::uint64_t seenScene = 0;
+    std::uint64_t generation = 0;
+    provider::SurfaceSize size = extent;
 };
 
 class StageRig {
@@ -248,4 +284,100 @@ TEST(stream_present_detaches_when_the_overlay_closes_underneath)
     rig.frames(2);
     CHECK(!rig.stage->embedded());
     CHECK(&rig.stage->overlays() == &rig.application->root().overlays());
+}
+
+TEST(stream_present_repaints_the_paused_dock_only_when_a_scene_is_published)
+{
+    StageRig rig;
+    REQUIRE(rig.stage.has_value());
+    NullPresenter presenter(rig.providers.gpu(), rig.handoff, rig.decoded);
+    PresentLoop loop(presenter, PresentLoop::Pacing{ .sceneWait = 5ms, .stallRepaint = 10s });
+    loop.frameReady();
+    rig.frames(2);
+    REQUIRE(rig.stage->embedded());
+    loop.paused(true);
+    std::this_thread::sleep_for(40ms);
+    const std::uint64_t idle = loop.totals().repaints;
+    std::this_thread::sleep_for(40ms);
+    CHECK_EQ(loop.totals().repaints, idle);
+    std::optional<runtime::OverlayHandle> dock = rig.stage->overlays().show(arisa::composition::OverlayLayer::dialog,
+        arisa::components::VStack()
+            .frame({ .width = 40.0F, .height = 30.0F })
+            .background(arisa::theme::Colour::hex(0x00C000)));
+    const int recordsBefore = presenter.overlayRecords;
+    for (int step = 0; step < 20 && presenter.overlayRecords == recordsBefore; ++step)
+    {
+        rig.frames(1);
+        std::this_thread::sleep_for(10ms);
+    }
+    CHECK(loop.totals().repaints > idle);
+    CHECK(presenter.overlayRecords > recordsBefore);
+    dock.reset();
+    loop.stop();
+    presenter.handBack();
+}
+
+TEST(stream_present_keeps_animating_an_overlay_that_starts_transparent)
+{
+    StageRig rig;
+    REQUIRE(rig.stage.has_value());
+    NullPresenter presenter(rig.providers.gpu(), rig.handoff, rig.decoded);
+    PresentLoop loop(presenter, PresentLoop::Pacing{ .stallRepaint = 10s });
+    loop.frameReady();
+    rig.frames(2);
+    REQUIRE(rig.stage->embedded());
+    std::optional<runtime::OverlayHandle> toast = rig.stage->overlays().show(arisa::composition::OverlayLayer::toast,
+        arisa::components::VStack()
+            .frame({ .width = 40.0F, .height = 30.0F })
+            .background(arisa::theme::Colour::hex(0xC000C0)),
+        runtime::OverlayBehaviour{});
+    const std::uint64_t before = presenter.freshScenes();
+    for (int frame = 0; frame < 30; ++frame)
+    {
+        rig.frames(1);
+        loop.frameReady();
+    }
+    CHECK(presenter.freshScenes() >= before + 5);
+    toast.reset();
+    loop.stop();
+    presenter.handBack();
+}
+
+TEST(stream_present_reembeds_the_overlay_when_the_lent_swapchain_resizes)
+{
+    static constexpr provider::SurfaceSize docked{ .width = provider::SurfaceWidth{ 320 },
+        .height = provider::SurfaceHeight{ 180 } };
+    StageRig rig;
+    REQUIRE(rig.stage.has_value());
+    NullPresenter presenter(rig.providers.gpu(), rig.handoff, rig.decoded);
+    PresentLoop loop(presenter, PresentLoop::Pacing{ .stallRepaint = 10s });
+    loop.frameReady();
+    rig.frames(2);
+    REQUIRE(rig.stage->embedded());
+    std::optional<runtime::OverlayHandle> hud = rig.stage->overlays().show(arisa::composition::OverlayLayer::hud,
+        arisa::components::VStack()
+            .frame({ .width = 40.0F, .height = 30.0F })
+            .background(arisa::theme::Colour::hex(0xC00000)));
+    rig.frames(2);
+    loop.frameReady();
+    rig.providers.surface().resize(docked);
+    rig.providers.gpu().rasterize(docked);
+    presenter.follow(docked);
+    loop.frameReady();
+    const int refusals = presenter.overlayRefusals;
+    rig.frames(3);
+    const int recordsBefore = presenter.overlayRecords;
+    for (int frame = 0; frame < 4; ++frame)
+    {
+        loop.frameReady();
+        rig.frames(1);
+    }
+    CHECK(presenter.overlayRecords > recordsBefore);
+    CHECK_EQ(presenter.overlayRefusals, refusals);
+    const auto shown = rig.providers.gpu().capture();
+    REQUIRE(shown.has_value());
+    CHECK_EQ(shown->width(), 320u);
+    hud.reset();
+    loop.stop();
+    presenter.handBack();
 }

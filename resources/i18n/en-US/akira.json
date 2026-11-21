@@ -637,7 +637,17 @@
     "panel_session": "Session",
     "panel_stream": "Stream",
     "panel_statistics": "Statistics",
-    "apply_reconnect": "Apply and reconnect"
+    "apply_reconnect": "Apply and reconnect",
+    "panel_colour": "Colour",
+    "panel_sound": "Sound",
+    "colour_brightness": "Brightness",
+    "colour_contrast": "Contrast",
+    "colour_saturation": "Saturation",
+    "colour_gamma": "Gamma",
+    "colour_reset": "Reset",
+    "sound_volume": "Volume",
+    "go_home": "Go to Home screen",
+    "go_home_refused": "The console did not take the Home screen request"
   },
   "pin": {
     "registration_error": "Registration failed. Please try again with a new PIN.",

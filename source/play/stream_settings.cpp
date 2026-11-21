@@ -53,6 +53,9 @@ void StreamSettings::read(const toml::table& config)
         rcas = *val;
     if (auto val = picture["rcas_sharpness"].value<double>())
         sharpness = static_cast<float>(*val);
+    adjustments = ColourAdjustments(picture["colour_brightness"].value_or(0.0), picture["colour_contrast"].value_or(1.0),
+        picture["colour_saturation"].value_or(1.0), picture["colour_gamma"].value_or(1.0));
+    streamVolume = Volume(config["audio"]["volume"].value_or(Volume::highest));
 
     if (auto val = config["overlay"]["stats_x"].value<double>())
         overlayX = static_cast<float>(*val);
@@ -98,7 +101,15 @@ void StreamSettings::write(toml::table& config) const
     picture.insert("dithering_strength", static_cast<double>(ditherStrength));
     picture.insert("rcas_enabled", rcas);
     picture.insert("rcas_sharpness", static_cast<double>(sharpness));
+    if (!adjustments.isNeutral()) {
+        picture.insert("colour_brightness", adjustments.value(ColourAdjustments::Channel::Brightness));
+        picture.insert("colour_contrast", adjustments.value(ColourAdjustments::Channel::Contrast));
+        picture.insert("colour_saturation", adjustments.value(ColourAdjustments::Channel::Saturation));
+        picture.insert("colour_gamma", adjustments.value(ColourAdjustments::Channel::Gamma));
+    }
     config.insert("picture", std::move(picture));
+    if (streamVolume != Volume())
+        settings::SettingsStore::table(config, "audio").insert("volume", streamVolume.level());
 
     toml::table overlay;
     if (overlayX >= 0.0f && overlayY >= 0.0f) {

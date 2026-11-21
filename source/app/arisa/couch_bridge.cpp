@@ -178,8 +178,9 @@ auto CouchBridge::picking(play::PadId pad) -> bool
     const std::optional<std::size_t> slot = slotOf(pad);
     if (!capture || !slot || !capture->connected(*slot))
         return false;
-    const ::arisa::provider::Buttons held = capture->held(*slot);
-    return (held.contains(Button::l) && held.contains(Button::r)) || (held.contains(Button::zl) && held.contains(Button::zr));
+    const ::arisa::provider::Buttons held = capture->pad(*slot).buttons;
+    return (held.contains(Button::l) && held.contains(Button::r)) || (held.contains(Button::zl) && held.contains(Button::zr))
+        || (held.contains(Button::sl) && held.contains(Button::sr));
 }
 
 auto CouchBridge::degradedOnce() -> bool

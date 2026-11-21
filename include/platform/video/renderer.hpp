@@ -6,6 +6,7 @@
 #include <vector>
 #include <atomic>
 #include <cstdint>
+#include "play/colour_adjustments.hpp"
 #include "play/stream_stats.hpp"
 #include "play/upscaling_summary.hpp"
 
@@ -54,6 +55,7 @@ public:
     virtual float getRenderFPS() const { return 0.0f; }
     virtual auto upscaling() const -> play::UpscalingSummary { return {}; }
     virtual void setPaused(bool paused) { (void)paused; }
+    virtual void setColour(const play::ColourAdjustments& colour) { (void)colour; }
     virtual void setConnectionContext(const std::string& context) { (void)context; }
     virtual void updateResolution(int width, int height) { (void)width; (void)height; }
     virtual void triggerBorderFlash() {}

@@ -68,7 +68,10 @@ public:
     void restart() override {}
     void resume() override {}
     void leave(bool) override {}
+    void goHome() override {}
     void resetMotion() override {}
+    void tuneColour(akira::play::ColourAdjustments) override {}
+    void tuneVolume(akira::play::Volume) override {}
     void showDiagnostics(akira::play::DiagnosticsAppearance) override {}
     auto diagnostics() -> akira::play::DiagnosticsReport override { return {}; }
 };

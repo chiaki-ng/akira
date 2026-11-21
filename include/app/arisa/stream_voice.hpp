@@ -7,6 +7,7 @@
 #include <arisa/provider/audio/app_voice.hpp>
 #include <arisa/provider/audio/provider.hpp>
 
+#include "play/audio_gain.hpp"
 #include "play/audio_output.hpp"
 
 namespace akira::app::arisa {
@@ -25,11 +26,13 @@ public:
     auto open(unsigned channels, unsigned rate) -> std::expected<void, std::string> override;
     void play(std::span<const std::int16_t> samples) override;
     void close() override;
+    void setVolume(play::Volume volume) override;
 
 private:
     ::arisa::provider::AudioProvider& audio;
     std::mutex mutex;
     std::optional<::arisa::provider::AppVoice> voice;
+    play::AudioGain gain;
     std::uint64_t droppedFrames = 0;
 };
 

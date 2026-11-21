@@ -5,6 +5,7 @@
 
 #include <arisa/provider/factory.hpp>
 #include <arisa/provider/input/buttons.hpp>
+#include <arisa/provider/surface/surface_size.hpp>
 #include <arisa/runtime/application.hpp>
 #include <arisa/runtime/button_capture.hpp>
 #include <arisa/runtime/embedded_root.hpp>
@@ -41,6 +42,7 @@ public:
 
 private:
     void embed(OverlayHandoff::Offer offer);
+    void resize(::arisa::provider::SurfaceSize extent);
     auto target() -> ::arisa::runtime::Root&;
 
     ::arisa::runtime::Application& application;

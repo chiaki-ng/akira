@@ -16,6 +16,19 @@ void OverlayHandoff::refuse(std::string reason)
     pending.emplace(Refusal{ .reason = std::move(reason) });
 }
 
+void OverlayHandoff::resize(::arisa::provider::SurfaceSize extent)
+{
+    const std::scoped_lock lock(mutex);
+    if (pending && std::holds_alternative<Offer>(*pending))
+    {
+        std::get<Offer>(*pending).extent = extent;
+        return;
+    }
+    if (pending && std::holds_alternative<Refusal>(*pending))
+        return;
+    pending.emplace(Resize{ .extent = extent });
+}
+
 void OverlayHandoff::withdraw()
 {
     const std::scoped_lock lock(mutex);

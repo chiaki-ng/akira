@@ -149,6 +149,7 @@ VulkanRenderer::VulkanRenderer(GpuHost& gpu, play::StreamSettings& stream, const
     , m_stream_state(streamState)
     , m_wire_guard(wireGuard)
     , m_palette(palette)
+    , m_colour(stream.colour())
 {
 }
 
@@ -1469,6 +1470,12 @@ void VulkanRenderer::setConnectionContext(const std::string& context)
 }
 #endif
 
+void VulkanRenderer::setColour(const play::ColourAdjustments& colour)
+{
+    const std::scoped_lock lock(m_colour_mutex);
+    m_colour = colour;
+}
+
 void VulkanRenderer::setDithering(bool enabled)
 {
     if (m_dithering_enabled.exchange(enabled, std::memory_order_relaxed) != enabled)
@@ -1618,9 +1625,15 @@ void VulkanRenderer::renderVideo(FrameRecorder& frameRecorder)
 
     Retired retired{ .frame = frame, .cache = m_cache, .fsr = m_fsr };
     const PlaneLayout& layout = import->layout();
+    play::ColourAdjustments colour;
+    {
+        const std::scoped_lock lock(m_colour_mutex);
+        colour = m_colour;
+    }
     const VideoPush push{
         .planes = import->bases(),
         .size = { layout.width, layout.height, layout.chromaWidth(), layout.chromaHeight() },
+        .colour = colour.shaderConstants(),
     };
 
     VkCommandBuffer cmd = frameRecorder.commands();

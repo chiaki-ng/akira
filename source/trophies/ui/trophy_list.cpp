@@ -7,6 +7,7 @@
 #include <arisa/components/environment.hpp>
 #include <arisa/components/for_each.hpp>
 #include <arisa/components/glass_panel.hpp>
+#include <arisa/theme/glass.hpp>
 #include <arisa/components/group.hpp>
 #include <arisa/components/hstack.hpp>
 #include <arisa/components/image.hpp>
@@ -57,10 +58,9 @@ auto TrophyList::dated(const std::optional<libchiaking::trophies::Time>& at) -> 
 auto TrophyList::body(composition::Context& context) const -> composition::Element
 {
     const TrophyModel::View& view = context.read(model->view());
-    const theme::Glass glass = context.environment(components::Environment::theme).glass().panel;
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ spacing } },
-        toolbar(view), summary(view), rows(view, glass))
+        toolbar(view), summary(view), rows(view))
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
             .alignment = composition::Alignment::top_leading });
 }
@@ -158,7 +158,7 @@ auto TrophyList::summary(const TrophyModel::View& view) const -> composition::El
         .id(composition::ElementKey{ "trophies.summary" });
 }
 
-auto TrophyList::rows(const TrophyModel::View& view, theme::Glass glass) const -> composition::Element
+auto TrophyList::rows(const TrophyModel::View& view) const -> composition::Element
 {
     if (view.rows.empty())
         return composition::Element(components::ContentUnavailableView(
@@ -177,7 +177,7 @@ auto TrophyList::rows(const TrophyModel::View& view, theme::Glass glass) const -
                 [model = model](const TrophyModel::Row& shown) { return row(shown, model); }))
             .padding(theme::Space{ listPadding }))
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
-        .glass_effect(glass, components::GlassPanel::shape(components::PanelRadius::large))
+        .glass_panel(components::PanelRadius::large)
         .focus_section()
         .id(composition::ElementKey{ "trophies.rows" });
 }

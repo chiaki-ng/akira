@@ -54,11 +54,6 @@ auto PresentLoop::totals() const -> PresentTiming::Totals
     return timing.totals();
 }
 
-auto PresentLoop::quiet() const -> std::chrono::milliseconds
-{
-    return held.load(std::memory_order_acquire) ? pacing.pausedRepaint : pacing.stallRepaint;
-}
-
 void PresentLoop::present(PresentTiming::Kind kind, std::unique_lock<std::mutex>&)
 {
     const Clock::time_point ready = Clock::now();
@@ -88,15 +83,29 @@ void PresentLoop::repaint(std::stop_token stop)
     std::unique_lock lock(mutex);
     while (!stop.stop_requested())
     {
+        if (held.load(std::memory_order_acquire) && lastPresent && followScenes(stop, lock))
+            continue;
         const std::uint64_t seen = nudges.load(std::memory_order_acquire);
-        static_cast<void>(wake.wait_for(lock, stop, quiet(),
+        static_cast<void>(wake.wait_for(lock, stop, pacing.stallRepaint,
             [this, seen] { return nudges.load(std::memory_order_acquire) != seen; }));
         if (stop.stop_requested())
             return;
-        if (!lastPresent || Clock::now() - *lastPresent < quiet())
+        if (!lastPresent || Clock::now() - *lastPresent < pacing.stallRepaint)
             continue;
         present(PresentTiming::Kind::repaint, lock);
     }
+}
+
+auto PresentLoop::followScenes(std::stop_token stop, std::unique_lock<std::mutex>& lock) -> bool
+{
+    lock.unlock();
+    const Scene scene = target.awaitScene(pacing.sceneWait);
+    lock.lock();
+    if (scene == Scene::Absent)
+        return false;
+    if (scene == Scene::Fresh && !stop.stop_requested() && held.load(std::memory_order_acquire))
+        present(PresentTiming::Kind::repaint, lock);
+    return true;
 }
 
 }

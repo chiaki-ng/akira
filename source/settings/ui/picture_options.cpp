@@ -16,6 +16,7 @@ PictureOptions::PictureOptions(play::StreamSettings& stream, SettingsStore& stor
           .vpn = play::PictureProfile(stream, play::StreamProfile::Vpn, fsr4k),
           .rcas = stream.rcasEnabled(),
           .rcasStrength = stream.rcasStrength(),
+          .colour = stream.colour(),
       })
 {
 }
@@ -84,6 +85,15 @@ void PictureOptions::setRcasStrength(int percent)
     if (stored == state.get().rcasStrength)
         return;
     state.write(&Values::rcasStrength, stored);
+    save();
+}
+
+void PictureOptions::setColour(play::ColourAdjustments colour)
+{
+    if (colour == state.get().colour)
+        return;
+    stream.setColour(colour);
+    state.write(&Values::colour, colour);
     save();
 }
 

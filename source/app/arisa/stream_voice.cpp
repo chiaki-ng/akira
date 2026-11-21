@@ -4,7 +4,6 @@
 #include <utility>
 
 #include "log/log.hpp"
-#include "play/audio_gain.hpp"
 
 namespace akira::app::arisa {
 
@@ -52,7 +51,7 @@ void StreamVoice::play(std::span<const std::int16_t> samples)
             droppedFrames += samples.size() / provider::AppVoice::channels;
             return;
         }
-        const std::size_t written = play::AudioGain::apply(samples, buffer->samples());
+        const std::size_t written = gain.apply(samples, buffer->samples());
         const auto frames = static_cast<std::uint32_t>(written / provider::AppVoice::channels);
         if (const auto submitted = buffer->submit(frames); !submitted)
         {
@@ -61,6 +60,11 @@ void StreamVoice::play(std::span<const std::int16_t> samples)
         }
         samples = samples.subspan(written);
     }
+}
+
+void StreamVoice::setVolume(play::Volume volume)
+{
+    gain.setVolume(volume);
 }
 
 void StreamVoice::close()

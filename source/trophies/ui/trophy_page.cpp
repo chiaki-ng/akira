@@ -8,6 +8,7 @@
 #include <arisa/components/environment.hpp>
 #include <arisa/components/for_each.hpp>
 #include <arisa/components/glass_panel.hpp>
+#include <arisa/theme/glass.hpp>
 #include <arisa/components/group.hpp>
 #include <arisa/components/hstack.hpp>
 #include <arisa/components/image.hpp>
@@ -54,13 +55,12 @@ auto TrophyPage::body(composition::Context& context) const -> composition::Eleme
     const TrophyModel::View& view = context.read(model->view());
     if (!view.page)
         return components::Group();
-    const theme::Glass glass = context.environment(components::Environment::theme).glass().panel;
     std::vector<composition::Element> shown;
     shown.push_back(heading(*view.page));
     if (!view.page->groups.empty())
         shown.push_back(groupChips(view).fixed_size(false, true));
     shown.push_back(choiceChips(view).fixed_size(false, true));
-    shown.push_back(list(view, glass).layout_priority(1.0));
+    shown.push_back(list(view).layout_priority(1.0));
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ spacing } },
         std::move(shown))
@@ -152,13 +152,13 @@ auto TrophyPage::choiceChips(const TrophyModel::View& view) const -> composition
         .id(composition::ElementKey{ "trophies.choices" });
 }
 
-auto TrophyPage::list(const TrophyModel::View& view, theme::Glass glass) const -> composition::Element
+auto TrophyPage::list(const TrophyModel::View& view) const -> composition::Element
 {
     const TrophyModel::Page& page = *view.page;
     if (page.loading && page.trophies.empty())
         return composition::Element(controls::ProgressView())
             .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
-            .glass_effect(glass, components::GlassPanel::shape(components::PanelRadius::large));
+            .glass_panel(components::PanelRadius::large);
     if (page.trophies.empty())
         return components::Text(strings->text(page.groups.empty() || !view.trophyListing.group()
                                         ? "akira/trophies/empty_filter"
@@ -166,7 +166,7 @@ auto TrophyPage::list(const TrophyModel::View& view, theme::Glass glass) const -
             .font(theme::Font::title3)
             .foreground_style(theme::ColourRole::secondary_label)
             .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
-            .glass_effect(glass, components::GlassPanel::shape(components::PanelRadius::large))
+            .glass_panel(components::PanelRadius::large)
             .id(composition::ElementKey{ "trophies.page.empty" });
     std::vector<std::pair<TrophyModel::Trophy, bool>> rows;
     for (const TrophyModel::Trophy& trophy : page.trophies)
@@ -185,7 +185,7 @@ auto TrophyPage::list(const TrophyModel::View& view, theme::Glass glass) const -
                 }))
             .padding(theme::Space{ 6.0F }))
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
-        .glass_effect(glass, components::GlassPanel::shape(components::PanelRadius::large))
+        .glass_panel(components::PanelRadius::large)
         .focus_section()
         .id(composition::ElementKey{ "trophies.page.rows" });
 }

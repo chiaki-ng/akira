@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <memory>
 #include <span>
 #include <utility>
 
+#include <arisa/provider/gpu/frame_source.hpp>
 #include <arisa/provider/gpu/swap_interval.hpp>
 #include <arisa/provider/surface/surface_size.hpp>
 
@@ -232,6 +234,8 @@ auto Deko3dPresenter::seize() -> bool
         return false;
     }
     overlay.emplace(std::move(*opened));
+    scenes.store(std::make_shared<const provider::FrameSource>(overlay->frames()));
+    lentGeneration = first->generation;
     if (interval)
         takeover->set_swap_interval(*interval);
     const provider::SurfaceSize extent{ .width = provider::SurfaceWidth{ first->width },
@@ -248,6 +252,28 @@ void Deko3dPresenter::swapInterval(std::uint32_t value)
     interval = provider::SwapInterval::create(value);
     if (takeover && interval)
         takeover->set_swap_interval(*interval);
+}
+
+auto Deko3dPresenter::awaitScene(std::chrono::milliseconds limit) -> play::PresentLoop::Scene
+{
+    const std::shared_ptr<const provider::FrameSource> source = scenes.load();
+    if (!source || source->closed())
+        return play::PresentLoop::Scene::Absent;
+    const std::uint64_t published = source->await_scene(seenScene, limit);
+    if (published == seenScene)
+        return source->closed() ? play::PresentLoop::Scene::Absent : play::PresentLoop::Scene::Quiet;
+    seenScene = published;
+    return play::PresentLoop::Scene::Fresh;
+}
+
+void Deko3dPresenter::follow(const Gpu::FrameTarget& frame)
+{
+    if (frame.generation == lentGeneration)
+        return;
+    lentGeneration = frame.generation;
+    log::info("[PRESENT] the lent swapchain is now {}x{}; re-embedding the overlay", frame.width, frame.height);
+    host.handoff().resize(provider::SurfaceSize{ .width = provider::SurfaceWidth{ frame.width },
+        .height = provider::SurfaceHeight{ frame.height } });
 }
 
 void Deko3dPresenter::collectReadback()
@@ -298,6 +324,7 @@ auto Deko3dPresenter::present(play::PresentTiming::Kind, play::PresentTiming&)
         static_cast<void>(takeover->present(*index));
         return std::unexpected(play::PresentTiming::Miss::unavailable);
     }
+    follow(*frame);
     dk::CmdBuf commands = slot.begin();
     {
         Recorder recorder(host, commands, *frame);

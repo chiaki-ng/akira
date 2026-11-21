@@ -109,6 +109,7 @@ Deko3dRenderer::Deko3dRenderer(GpuHost& gpu, std::unique_ptr<ShaderSource> shade
     , m_stream(stream)
     , m_stream_state(streamState)
     , m_wire_guard(wireGuard)
+    , m_colour(stream.colour())
 {
 }
 
@@ -168,6 +169,10 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
         m_dither_uniform = m_pool_data->allocate(DK_UNIFORM_BUF_ALIGNMENT, DK_UNIFORM_BUF_ALIGNMENT);
         writeDitherUniform();
     }
+
+    m_colour_uniform = m_pool_data->allocate(DK_UNIFORM_BUF_ALIGNMENT, DK_UNIFORM_BUF_ALIGNMENT);
+    m_colour_dirty.store(true, std::memory_order_release);
+    writeColourUniform();
 
     bool dithering = m_stream.ditheringEnabled();
     m_dithering_wanted.store(dithering, std::memory_order_relaxed);
@@ -295,6 +300,7 @@ void Deko3dRenderer::recordStaticVideoCommands()
     m_cmdbuf.bindTextures(DkStage_Fragment, 0, dkMakeTextureHandle(m_luma_texture_id, 0));
     m_cmdbuf.bindTextures(DkStage_Fragment, 1, dkMakeTextureHandle(m_chroma_texture_id, 0));
     bindDitherUniform(m_cmdbuf);
+    bindColourUniform(m_cmdbuf);
 
     m_cmdbuf.bindVtxBuffer(0, m_vertex_buffer.getGpuAddr(), m_vertex_buffer.getSize());
     m_cmdbuf.bindVtxAttribState(VertexAttribState);
@@ -363,6 +369,32 @@ void Deko3dRenderer::bindDitherUniform(dk::CmdBuf cmdbuf)
     if (m_dither_uniform)
         cmdbuf.bindUniformBuffer(DkStage_Fragment, DitherUniformBinding,
             m_dither_uniform.getGpuAddr(), m_dither_uniform.getSize());
+}
+
+void Deko3dRenderer::setColour(const play::ColourAdjustments& colour)
+{
+    const std::scoped_lock lock(m_colour_mutex);
+    m_colour = colour;
+    m_colour_dirty.store(true, std::memory_order_release);
+}
+
+void Deko3dRenderer::writeColourUniform()
+{
+    if (!m_colour_uniform || !m_colour_dirty.exchange(false, std::memory_order_acq_rel))
+        return;
+    std::array<float, 4> constants{};
+    {
+        const std::scoped_lock lock(m_colour_mutex);
+        constants = m_colour.shaderConstants();
+    }
+    memcpy(m_colour_uniform.getCpuAddr(), constants.data(), sizeof(constants));
+}
+
+void Deko3dRenderer::bindColourUniform(dk::CmdBuf cmdbuf)
+{
+    if (m_colour_uniform)
+        cmdbuf.bindUniformBuffer(DkStage_Fragment, ColourUniformBinding, m_colour_uniform.getGpuAddr(),
+            m_colour_uniform.getSize());
 }
 
 bool Deko3dRenderer::compileVideoShaders(bool dithering)
@@ -588,6 +620,7 @@ void Deko3dRenderer::recordFsrCommands()
         m_fsr_static_cmdbuf.bindUniformBuffer(DkStage_Fragment, 0,
             m_fsr_uniform_buffer.getGpuAddr(), 64);
         bindDitherUniform(m_fsr_static_cmdbuf);
+        bindColourUniform(m_fsr_static_cmdbuf);
     }
     else
     {
@@ -595,6 +628,7 @@ void Deko3dRenderer::recordFsrCommands()
         m_fsr_static_cmdbuf.bindTextures(DkStage_Fragment, 0, dkMakeTextureHandle(m_luma_texture_id, 0));
         m_fsr_static_cmdbuf.bindTextures(DkStage_Fragment, 1, dkMakeTextureHandle(m_chroma_texture_id, 0));
         bindDitherUniform(m_fsr_static_cmdbuf);
+        bindColourUniform(m_fsr_static_cmdbuf);
     }
     m_fsr_static_cmdbuf.bindVtxBuffer(0, m_vertex_buffer.getGpuAddr(), m_vertex_buffer.getSize());
     m_fsr_static_cmdbuf.bindVtxAttribState(VertexAttribState);
@@ -735,6 +769,8 @@ void Deko3dRenderer::renderVideo(FrameRecorder& frame)
         if (compileVideoShaders(dithering))
             recordStaticVideoCommands();
     }
+
+    writeColourUniform();
 
     if (m_fsr_pending)
     {
@@ -933,6 +969,7 @@ void Deko3dRenderer::cleanup()
 
     m_vertex_buffer.destroy();
     m_dither_uniform.destroy();
+    m_colour_uniform.destroy();
 
     if (m_luma_texture_id) {
         m_gpu.freeImageSlot(m_luma_texture_id);

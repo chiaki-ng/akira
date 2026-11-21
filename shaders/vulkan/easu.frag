@@ -158,6 +158,6 @@ void main()
         finalY = min(maxCenterY, max(minCenterY, aC / aW));
     }
     vec2 chromaUV = (fp + pp + 0.5) * rcpSize;
-    vec3 rgb = decodeYuv(finalY, sampleChroma(chromaUV));
+    vec3 rgb = applyColour(decodeYuv(finalY, sampleChroma(chromaUV)));
     outColor = vec4(applyDither(rgb), 1.0);
 }

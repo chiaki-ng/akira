@@ -17,11 +17,6 @@ public:
     auto body(::arisa::composition::Context& context) const -> ::arisa::composition::Element override;
 
 private:
-    static constexpr float keepAliveSize = 1.0F;
-    static constexpr float keepAliveAlpha = 1.0F / 255.0F;
-
-    static auto keepAlive() -> ::arisa::composition::Element;
-
     Notices* notices;
 };
 

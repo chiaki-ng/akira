@@ -84,7 +84,7 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
         view);
     composition::Element panel = components::Group();
     if (settings)
-        panel = settingsPanel(context.environment(components::Environment::theme).glass().panel);
+        panel = settingsPanel();
     composition::Element loading = components::Group();
     if (connecting)
         loading = play::ui::ConnectingScreen(view.progress, *parts->stream, *strings);
@@ -175,11 +175,10 @@ auto ShellScreen::hints() -> composition::Element
         .padding(theme::Insets{ .bottom = theme::Space{ hintsBottom }, .trailing = theme::Space{ hintsTrailing } })
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
             .alignment = composition::Alignment::bottom_trailing })
-        .allows_hit_testing(false)
         .id(composition::ElementKey{ "shell.hints" });
 }
 
-auto ShellScreen::settingsPanel(theme::Glass glass) const -> composition::Element
+auto ShellScreen::settingsPanel() const -> composition::Element
 {
     ShellModel* held = model;
     settings::ui::SettingsModel* settingsModel = parts->settings.model;
@@ -206,7 +205,7 @@ auto ShellScreen::settingsPanel(theme::Glass glass) const -> composition::Elemen
             composition::Element(settings::ui::SettingsScreen(parts->settings, *strings))
                 .frame({ .max_width = composition::infinity, .max_height = composition::infinity }))
             .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
-            .glass_effect(glass, components::GlassPanel::shape(components::PanelRadius::large));
+            .glass_panel(components::PanelRadius::large);
     return components::VStack(components::VStackOptions{ .spacing = theme::space::none }, std::move(panel))
         .padding(theme::Insets{ .top = theme::Space{ settingsTop },
             .leading = theme::Space{ settingsSide },

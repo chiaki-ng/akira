@@ -1,12 +1,9 @@
 #include "accounts/ui/welcome.hpp"
 
-#include <arisa/components/group.hpp>
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
 #include <arisa/composition/text_attributes.hpp>
-#include <arisa/graphics/blend_mode.hpp>
 #include <arisa/structure/tile_row.hpp>
-#include <arisa/theme/shape.hpp>
 #include <arisa/theme/space.hpp>
 #include <arisa/theme/typography.hpp>
 
@@ -19,7 +16,6 @@ namespace akira::accounts::ui {
 
 namespace components = ::arisa::components;
 namespace composition = ::arisa::composition;
-namespace graphics = ::arisa::graphics;
 namespace structure = ::arisa::structure;
 namespace theme = ::arisa::theme;
 
@@ -27,16 +23,6 @@ Welcome::Welcome(AccountModel& model, const app::Strings& strings)
     : model(&model)
     , strings(&strings)
 {
-}
-
-auto Welcome::recommended() -> composition::Element
-{
-    return composition::Element(components::Group())
-        .frame({ .width = tileSide, .height = tileSide })
-        .background(theme::ColourRole::accent, theme::Shape::rounded(tileRadius))
-        .blend_mode(graphics::BlendMode::screen)
-        .allows_hit_testing(false)
-        .id(composition::ElementKey{ "welcome.recommended" });
 }
 
 auto Welcome::body(composition::Context& context) const -> composition::Element
@@ -47,7 +33,8 @@ auto Welcome::body(composition::Context& context) const -> composition::Element
     tiles.push_back(structure::TileRow::Tile{ .title = strings->text("akira/profile_setup/qr_tile"),
         .system_image = "smartphone",
         .hint = strings->text("akira/profile_setup/qr_hint"),
-        .action = [held] { held->startQr(); } });
+        .action = [held] { held->startQr(); },
+        .prominent = true });
     tiles.push_back(structure::TileRow::Tile{ .title = strings->text("akira/profile_setup/companion_tile"),
         .system_image = "computer",
         .hint = strings->text("akira/profile_setup/companion_hint"),
@@ -78,9 +65,12 @@ auto Welcome::body(composition::Context& context) const -> composition::Element
             .padding(theme::Insets{ .top = theme::Space{ 10.0F }, .bottom = theme::Space{ 26.0F } })
             .id(composition::ElementKey{ "welcome.detail" }),
         structure::TileRow(std::move(tiles),
-            structure::TileRow::Options{ .tile_width = tileSide, .tile_height = tileSide, .default_focus = 0 })
-            .frame({ .width = rowWidth })
-            .overlay(composition::Alignment::top_leading, recommended()))
+            structure::TileRow::Options{ .tile_width = tileSide,
+                .tile_height = tileSide,
+                .default_focus = 0,
+                .label_font = theme::Font::system(labelSize, theme::Font::Weight::semibold),
+                .label_lines = labelLines })
+            .frame({ .width = rowWidth }))
                                       .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
                                       .id(composition::ElementKey{ "welcome" });
     if (view.entries.empty())

@@ -57,16 +57,18 @@ const composition::StateKey<DiagnosticsAppearance> StreamDock::overlay{ "stream-
 
 StreamDock::StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions,
     Mapping& mapping, Couch* couch, const app::Strings& strings)
-    : StreamDock(std::move(session), commands, controlOptions, nullptr, mapping, couch, strings)
+    : StreamDock(std::move(session), commands, controlOptions, nullptr, nullptr, mapping, couch, strings)
 {
 }
 
 StreamDock::StreamDock(Session session, StreamCommands& commands, settings::ui::ControlOptions& controlOptions,
-    settings::ui::PictureOptions* picture, Mapping& mapping, Couch* couch, const app::Strings& strings)
+    settings::ui::PictureOptions* picture, settings::ui::SoundOptions* sound, Mapping& mapping, Couch* couch,
+    const app::Strings& strings)
     : session(std::move(session))
     , commands(&commands)
     , controlOptions(&controlOptions)
     , picture(picture)
+    , sound(sound)
     , mapping(&mapping)
     , couch(couch)
     , strings(&strings)
@@ -78,6 +80,10 @@ auto StreamDock::panels() const -> std::vector<Panel>
     std::vector<Panel> shown;
     if (picture && session.profile && *session.profile != StreamProfile::Cloud)
         shown.push_back(Panel::Stream);
+    if (picture)
+        shown.push_back(Panel::Colour);
+    if (sound)
+        shown.push_back(Panel::Sound);
     if (std::ranges::contains(session.controls, StreamControls::Control::Stats))
         shown.push_back(Panel::Statistics);
     if (std::ranges::contains(session.controls, StreamControls::Control::Pad)
@@ -122,6 +128,9 @@ auto StreamDock::body(composition::Context& context) const -> composition::Eleme
     std::optional<settings::ui::PictureOptions::Values> look;
     if (picture)
         look = context.read(picture->view());
+    std::optional<settings::ui::SoundOptions::Values> heard;
+    if (sound)
+        heard = context.read(sound->view());
     const Panel current = shown.empty()
         ? Panel::Session
         : shown[static_cast<std::size_t>(std::clamp(chosen.get(), 0, static_cast<int>(shown.size()) - 1))];
@@ -137,7 +146,7 @@ auto StreamDock::body(composition::Context& context) const -> composition::Eleme
             .on_exit_command(strings->text("akira/common/back"), resume)
             .id(composition::ElementKey{ "stream-dock" });
     return components::VStack(components::VStackOptions{ .spacing = theme::Space{ dockGap } },
-        panel(current, stats.get(), mode, chosenTopic, pad, board, look), dock(chosen, shown))
+        panel(current, stats.get(), mode, chosenTopic, pad, board, look, heard), dock(chosen, shown))
         .padding(theme::Edge::bottom, theme::Space{ dockBottom })
         .on_exit_command(strings->text("akira/stream_menu/hint_resume"), resume)
         .task([stats, commands = commands] { return refresh(stats, commands); })
@@ -187,8 +196,8 @@ auto StreamDock::mappingPanel(composition::StateHandle<bool> board) const -> com
 
 auto StreamDock::panel(Panel shown, const DiagnosticsReport& report, composition::StateHandle<DiagnosticsAppearance> look,
     composition::StateHandle<int> chosenTopic, const settings::ui::ControlOptions::Values& pad,
-    composition::StateHandle<bool> board, const std::optional<settings::ui::PictureOptions::Values>& values) const
-    -> composition::Element
+    composition::StateHandle<bool> board, const std::optional<settings::ui::PictureOptions::Values>& values,
+    const std::optional<settings::ui::SoundOptions::Values>& heard) const -> composition::Element
 {
     composition::Element content = powerPanel();
     if (shown == Panel::Statistics)
@@ -199,6 +208,10 @@ auto StreamDock::panel(Panel shown, const DiagnosticsReport& report, composition
         content = PlayersPanel(*couch, *strings);
     else if (shown == Panel::Stream && values)
         content = streamPanel(*values);
+    else if (shown == Panel::Colour && values)
+        content = colourPanel(values->colour);
+    else if (shown == Panel::Sound && heard)
+        content = soundPanel(heard->volume);
     return std::move(content)
         .padding(theme::Space{ panelPadding })
         .frame({ .width = panelWidth, .alignment = composition::Alignment::leading })
@@ -212,6 +225,17 @@ auto StreamDock::powerPanel() const -> composition::Element
     rows.push_back(components::Text(strings->text("akira/stream_menu/panel_session"))
                        .font(theme::Font::title2)
                        .font_weight(theme::Font::Weight::semibold));
+    if (session.homeOffered)
+        rows.push_back(components::Button(strings->text("akira/stream_menu/go_home"), components::Image::SystemName{ "home" },
+            [commands = commands] {
+                commands->goHome();
+                commands->resume();
+            })
+                           .font(theme::Font::headline)
+                           .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
+                           .control_size(components::ControlSize::large)
+                           .button_sizing(components::ButtonSizing::flexible)
+                           .id(composition::ElementKey{ "stream-dock.home" }));
     if (session.sleepOffered)
         rows.push_back(components::Button(strings->text("akira/stream_menu/opt_disconnect_sleep"),
             components::Image::SystemName{ "power_settings_new" }, [commands = commands] { commands->leave(true); })
@@ -231,6 +255,104 @@ auto StreamDock::powerPanel() const -> composition::Element
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ panelSpacing } },
         std::move(rows));
+}
+
+auto StreamDock::channelKey(ColourAdjustments::Channel channel) -> const char*
+{
+    switch (channel)
+    {
+        case ColourAdjustments::Channel::Brightness: return "akira/stream_menu/colour_brightness";
+        case ColourAdjustments::Channel::Contrast: return "akira/stream_menu/colour_contrast";
+        case ColourAdjustments::Channel::Saturation: return "akira/stream_menu/colour_saturation";
+        case ColourAdjustments::Channel::Gamma: break;
+    }
+    return "akira/stream_menu/colour_gamma";
+}
+
+auto StreamDock::describe(ColourAdjustments::Channel channel, double value) -> std::string
+{
+    const auto points = static_cast<int>(std::lround(value * 100.0));
+    switch (channel)
+    {
+        case ColourAdjustments::Channel::Brightness: return points > 0 ? std::format("+{}", points) : std::format("{}", points);
+        case ColourAdjustments::Channel::Contrast:
+        case ColourAdjustments::Channel::Saturation: return std::format("{}%", points);
+        case ColourAdjustments::Channel::Gamma: break;
+    }
+    return std::format("{:.2f}", value);
+}
+
+auto StreamDock::colourRow(const ColourAdjustments& colour, ColourAdjustments::Channel channel) const -> composition::Element
+{
+    settings::ui::PictureOptions* edit = picture;
+    StreamCommands* sink = commands;
+    const ColourAdjustments::Range limits = ColourAdjustments::range(channel);
+    const std::string title = strings->text(channelKey(channel));
+    return components::VStack(
+        components::VStackOptions{ .alignment = components::HorizontalAlignment::leading, .spacing = theme::Space{ sliderSpacing } },
+        components::HStack(components::Text(title), components::Spacer(),
+            components::Text(describe(channel, colour.value(channel))).font(theme::Font::body.monospaced_digit())),
+        controls::Slider(composition::Binding<double>([edit, channel] { return edit->view().get().colour.value(channel); },
+                             [edit, sink, channel](double value) {
+                                 const ColourAdjustments changed = edit->view().get().colour.with(channel, value);
+                                 edit->setColour(changed);
+                                 sink->tuneColour(changed);
+                             }),
+            controls::ClosedRange<double>{ .lower_bound = limits.lower, .upper_bound = limits.upper }, ColourAdjustments::step,
+            components::Text(title))
+            .labels_hidden())
+        .id(composition::ElementKey{ std::string("stream-dock.") + channelKey(channel) });
+}
+
+auto StreamDock::colourPanel(const ColourAdjustments& colour) const -> composition::Element
+{
+    settings::ui::PictureOptions* edit = picture;
+    StreamCommands* sink = commands;
+    std::vector<composition::Element> rows;
+    rows.push_back(components::Text(strings->text("akira/stream_menu/panel_colour"))
+                       .font(theme::Font::title2)
+                       .font_weight(theme::Font::Weight::semibold));
+    for (const ColourAdjustments::Channel channel : ColourAdjustments::channels)
+        rows.push_back(colourRow(colour, channel));
+    rows.push_back(components::Button(strings->text("akira/stream_menu/colour_reset"),
+        components::Image::SystemName{ "restart_alt" },
+        [edit, sink] {
+            edit->setColour(ColourAdjustments());
+            sink->tuneColour(ColourAdjustments());
+        })
+                       .font(theme::Font::headline)
+                       .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
+                       .control_size(components::ControlSize::large)
+                       .button_sizing(components::ButtonSizing::flexible)
+                       .disabled(colour.isNeutral())
+                       .id(composition::ElementKey{ "stream-dock.colour-reset" }));
+    return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                                  .spacing = theme::Space{ colourSpacing } },
+        std::move(rows));
+}
+
+auto StreamDock::soundPanel(Volume volume) const -> composition::Element
+{
+    settings::ui::SoundOptions* edit = sound;
+    StreamCommands* sink = commands;
+    const std::string title = strings->text("akira/stream_menu/sound_volume");
+    return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                                  .spacing = theme::Space{ panelSpacing } },
+        components::Text(strings->text("akira/stream_menu/panel_sound"))
+            .font(theme::Font::title2)
+            .font_weight(theme::Font::Weight::semibold),
+        components::HStack(components::Text(title), components::Spacer(),
+            components::Text(std::format("{}%", std::lround(volume.level() * 100.0))).font(theme::Font::body.monospaced_digit())),
+        controls::Slider(composition::Binding<double>([edit] { return edit->view().get().volume.level(); },
+                             [edit, sink](double value) {
+                                 const Volume chosen(value);
+                                 edit->setVolume(chosen);
+                                 sink->tuneVolume(chosen);
+                             }),
+            controls::ClosedRange<double>{ .lower_bound = Volume::lowest, .upper_bound = Volume::highest }, Volume::step,
+            components::Text(title))
+            .labels_hidden()
+            .id(composition::ElementKey{ "stream-dock.volume" }));
 }
 
 auto StreamDock::bitrateRow(StreamProfile profile, const PictureProfile& shown) const -> composition::Element
@@ -532,6 +654,8 @@ auto StreamDock::title(Panel shown) const -> std::string
     switch (shown)
     {
         case Panel::Stream: return strings->text("akira/stream_menu/panel_stream");
+        case Panel::Colour: return strings->text("akira/stream_menu/panel_colour");
+        case Panel::Sound: return strings->text("akira/stream_menu/panel_sound");
         case Panel::Statistics: return strings->text("akira/stream_menu/panel_statistics");
         case Panel::Controls: return title(StreamControls::Control::Pad);
         case Panel::Players: return title(StreamControls::Control::Players);
@@ -545,6 +669,8 @@ auto StreamDock::symbol(Panel shown) -> std::string
     switch (shown)
     {
         case Panel::Stream: return "tune";
+        case Panel::Colour: return "palette";
+        case Panel::Sound: return "volume_up";
         case Panel::Statistics: return symbol(StreamControls::Control::Stats);
         case Panel::Controls: return symbol(StreamControls::Control::Pad);
         case Panel::Players: return symbol(StreamControls::Control::Players);

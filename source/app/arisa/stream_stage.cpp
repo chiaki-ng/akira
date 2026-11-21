@@ -41,6 +41,8 @@ void StreamStage::follow()
             using Arrived = std::decay_t<decltype(arrived)>;
             if constexpr (std::is_same_v<Arrived, OverlayHandoff::Offer>)
                 embed(std::move(arrived));
+            else if constexpr (std::is_same_v<Arrived, OverlayHandoff::Resize>)
+                resize(arrived.extent);
             else
                 refusal = std::move(arrived.reason);
         },
@@ -61,6 +63,19 @@ void StreamStage::embed(OverlayHandoff::Offer offer)
     }
     embedding.emplace(std::move(*embedded));
     log::info("[STAGE] stream overlay embedded at {}x{}", offer.extent.width.value(), offer.extent.height.value());
+}
+
+void StreamStage::resize(provider::SurfaceSize extent)
+{
+    if (!embedding || !embedding->attached())
+        return;
+    if (!embedding->resize(extent))
+    {
+        log::warning("[STAGE] the overlay could not follow the swapchain to {}x{}", extent.width.value(),
+            extent.height.value());
+        return;
+    }
+    log::info("[STAGE] stream overlay re-embedded at {}x{}", extent.width.value(), extent.height.value());
 }
 
 void StreamStage::close()

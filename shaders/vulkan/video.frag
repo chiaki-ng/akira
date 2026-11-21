@@ -8,6 +8,6 @@ layout(location = 0) out vec4 outColor;
 
 void main()
 {
-    vec3 rgb = decodeYuv(sampleLuma(vTexCoord), sampleChroma(vTexCoord));
+    vec3 rgb = applyColour(decodeYuv(sampleLuma(vTexCoord), sampleChroma(vTexCoord)));
     outColor = vec4(applyDither(rgb), 1.0);
 }

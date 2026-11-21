@@ -2,13 +2,18 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
+#include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include <arisa/provider/gpu/frame_source.hpp>
 #include <arisa/provider/surface/surface_size.hpp>
 
 #include "app/arisa/vulkan_host.hpp"
+#include "app/screenshot.hpp"
 #include "log/log.hpp"
 
 namespace akira::app::arisa {
@@ -147,6 +152,169 @@ void VulkanPresenter::Recorder::copied(std::size_t bytes)
     timing.copied(bytes);
 }
 
+VulkanPresenter::Readback::Readback(const VulkanHost& host, VkExtent2D extent, VkFormat format,
+    StreamCapture::Delivery delivery)
+    : device(host.device())
+    , extent(extent)
+    , format(format)
+    , delivery(std::move(delivery))
+{
+    const VkBufferCreateInfo info{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = VkDeviceSize{ extent.width } * extent.height * Screenshot::channels,
+        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+    if (vkCreateBuffer(device, &info, nullptr, &buffer) != VK_SUCCESS)
+    {
+        buffer = VK_NULL_HANDLE;
+        return;
+    }
+    VkMemoryRequirements needs{};
+    vkGetBufferMemoryRequirements(device, buffer, &needs);
+    const std::optional<std::uint32_t> type = host.findMemoryType(needs.memoryTypeBits,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    if (!type)
+        return;
+    const VkMemoryAllocateInfo allocate{
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = needs.size,
+        .memoryTypeIndex = *type,
+    };
+    if (vkAllocateMemory(device, &allocate, nullptr, &memory) != VK_SUCCESS)
+    {
+        memory = VK_NULL_HANDLE;
+        return;
+    }
+    if (vkBindBufferMemory(device, buffer, memory, 0) != VK_SUCCESS
+        || vkMapMemory(device, memory, 0, VK_WHOLE_SIZE, 0, &mapped) != VK_SUCCESS)
+        mapped = nullptr;
+}
+
+VulkanPresenter::Readback::~Readback()
+{
+    refuse("the stream frame was not read back");
+    if (mapped)
+        vkUnmapMemory(device, memory);
+    if (buffer != VK_NULL_HANDLE)
+        vkDestroyBuffer(device, buffer, nullptr);
+    if (memory != VK_NULL_HANDLE)
+        vkFreeMemory(device, memory, nullptr);
+}
+
+auto VulkanPresenter::Readback::valid() const -> bool
+{
+    return mapped != nullptr;
+}
+
+void VulkanPresenter::Readback::record(VkCommandBuffer commands, const Gpu::FrameTarget& frame,
+    VkImageLayout presentLayout)
+{
+    const VkImageSubresourceRange colour{ .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .baseMipLevel = 0, .levelCount = 1,
+        .baseArrayLayer = 0, .layerCount = 1 };
+    const VkImageMemoryBarrier2 toCopy{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_2_COPY_BIT,
+        .dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT,
+        .oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = frame.image,
+        .subresourceRange = colour,
+    };
+    const VkDependencyInfo before{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &toCopy,
+    };
+    vkCmdPipelineBarrier2(commands, &before);
+    const VkBufferImageCopy region{
+        .bufferOffset = 0,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource = { .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1 },
+        .imageOffset = { 0, 0, 0 },
+        .imageExtent = { extent.width, extent.height, 1 },
+    };
+    vkCmdCopyImageToBuffer(commands, frame.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, 1, &region);
+    const VkImageMemoryBarrier2 toPresent{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT,
+        .srcAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+        .dstAccessMask = VK_ACCESS_2_NONE,
+        .oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        .newLayout = presentLayout,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = frame.image,
+        .subresourceRange = colour,
+    };
+    const VkBufferMemoryBarrier2 toHost{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT,
+        .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_2_HOST_BIT,
+        .dstAccessMask = VK_ACCESS_2_HOST_READ_BIT,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .buffer = buffer,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE,
+    };
+    const VkDependencyInfo after{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &toHost,
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &toPresent,
+    };
+    vkCmdPipelineBarrier2(commands, &after);
+}
+
+void VulkanPresenter::Readback::armed(VkFence submitted)
+{
+    fence = submitted;
+}
+
+auto VulkanPresenter::Readback::ready() const -> bool
+{
+    return fence != VK_NULL_HANDLE && vkGetFenceStatus(device, fence) == VK_SUCCESS;
+}
+
+auto VulkanPresenter::Readback::swapsRedAndBlue(VkFormat format) -> bool
+{
+    return format == VK_FORMAT_B8G8R8A8_UNORM || format == VK_FORMAT_B8G8R8A8_SRGB;
+}
+
+void VulkanPresenter::Readback::deliver()
+{
+    fence = VK_NULL_HANDLE;
+    const std::size_t bytes = std::size_t{ extent.width } * extent.height * Screenshot::channels;
+    const auto* source = static_cast<const std::byte*>(mapped);
+    std::vector<std::byte> pixels(source, source + bytes);
+    if (swapsRedAndBlue(format))
+        for (std::size_t pixel = 0; pixel < bytes; pixel += Screenshot::channels)
+            std::swap(pixels[pixel], pixels[pixel + 2]);
+    std::optional<Screenshot> shot = Screenshot::create(extent.width, extent.height, std::move(pixels));
+    if (!shot)
+    {
+        refuse("the stream frame could not be read back");
+        return;
+    }
+    if (delivery)
+        std::exchange(delivery, nullptr)(std::move(*shot));
+}
+
+void VulkanPresenter::Readback::refuse(std::string reason)
+{
+    if (delivery)
+        std::exchange(delivery, nullptr)(std::unexpected(std::move(reason)));
+}
+
 VulkanPresenter::VulkanPresenter(VulkanHost& host, platform::vulkan::FramePass& pass)
     : host(host)
     , pass(pass)
@@ -163,6 +331,14 @@ VulkanPresenter::~VulkanPresenter()
     host.handoff().withdraw();
     loop.stop();
     host.waitIdle();
+    {
+        const std::scoped_lock lock(captureMutex);
+        if (wanted)
+            std::exchange(wanted, std::nullopt).value()(std::unexpected(std::string("the stream ended")));
+        if (reading && reading->ready())
+            reading->deliver();
+        reading.reset();
+    }
     overlay.reset();
     log::info("[PRESENT] handing the GPU back to arisa after {} presents", takeover ? takeover->presents() : 0);
     takeover.reset();
@@ -176,6 +352,94 @@ void VulkanPresenter::frameReady()
 void VulkanPresenter::paused(bool paused)
 {
     loop.paused(paused);
+}
+
+void VulkanPresenter::capture(StreamCapture::Delivery delivery)
+{
+    const std::scoped_lock lock(captureMutex);
+    if (wanted || reading)
+    {
+        delivery(std::unexpected(std::string("a screenshot is already being taken")));
+        return;
+    }
+    wanted.emplace(std::move(delivery));
+}
+
+auto VulkanPresenter::awaitScene(std::chrono::milliseconds limit) -> play::PresentLoop::Scene
+{
+    const std::shared_ptr<const provider::FrameSource> source = scenes.load();
+    if (!source || source->closed())
+        return play::PresentLoop::Scene::Absent;
+    const std::uint64_t published = source->await_scene(seenScene, limit);
+    if (published == seenScene)
+        return source->closed() ? play::PresentLoop::Scene::Absent : play::PresentLoop::Scene::Quiet;
+    seenScene = published;
+    return play::PresentLoop::Scene::Fresh;
+}
+
+void VulkanPresenter::follow(const Gpu::FrameTarget& frame)
+{
+    const provider::SurfaceSize extent{ .width = provider::SurfaceWidth{ frame.extent.width },
+        .height = provider::SurfaceHeight{ frame.extent.height } };
+    if (!offered && overlay)
+    {
+        host.handoff().offer(overlay->frames(), extent);
+        offered = true;
+        lentGeneration = frame.generation;
+        return;
+    }
+    if (!offered || frame.generation == lentGeneration)
+        return;
+    lentGeneration = frame.generation;
+    log::info("[PRESENT] the lent swapchain is now {}x{}; re-embedding the overlay", frame.extent.width,
+        frame.extent.height);
+    host.handoff().resize(extent);
+}
+
+void VulkanPresenter::collectReadback()
+{
+    const std::scoped_lock lock(captureMutex);
+    if (!reading || !reading->ready())
+        return;
+    reading->deliver();
+    reading.reset();
+}
+
+auto VulkanPresenter::startReadback(VkCommandBuffer commands, const Gpu::FrameTarget& frame, const Gpu::LentImage& lent)
+    -> bool
+{
+    const std::scoped_lock lock(captureMutex);
+    if (!wanted || reading)
+        return false;
+    StreamCapture::Delivery delivery = std::exchange(wanted, std::nullopt).value();
+    if ((lent.usage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) == 0)
+    {
+        delivery(std::unexpected(std::string("this surface's swapchain images cannot be copied")));
+        return false;
+    }
+    reading.emplace(host, frame.extent, frame.format, std::move(delivery));
+    if (!reading->valid())
+    {
+        reading->refuse("no host-visible memory for the stream frame");
+        reading.reset();
+        return false;
+    }
+    reading->record(commands, frame, lent.present_layout);
+    return true;
+}
+
+void VulkanPresenter::armReadback(VkFence fence, bool submitted)
+{
+    const std::scoped_lock lock(captureMutex);
+    if (!reading)
+        return;
+    if (submitted)
+    {
+        reading->armed(fence);
+        return;
+    }
+    reading->refuse("the stream frame was not submitted");
+    reading.reset();
 }
 
 auto VulkanPresenter::seize() -> bool
@@ -204,6 +468,7 @@ auto VulkanPresenter::seize() -> bool
         return false;
     }
     overlay.emplace(std::move(*opened));
+    scenes.store(std::make_shared<const provider::FrameSource>(overlay->frames()));
     if (interval)
         takeover->set_swap_interval(*interval);
     seized.store(true, std::memory_order_release);
@@ -312,6 +577,7 @@ auto VulkanPresenter::present(play::PresentTiming::Kind, play::PresentTiming& ti
             return std::unexpected(play::PresentTiming::Miss::unavailable);
         }
     }
+    collectReadback();
     FrameSlot& slot = *slots[next];
     if (!slot.idle())
         return std::unexpected(play::PresentTiming::Miss::busy);
@@ -323,12 +589,7 @@ auto VulkanPresenter::present(play::PresentTiming::Kind, play::PresentTiming& ti
         return std::unexpected(play::PresentTiming::Miss::unavailable);
     }
     Gpu::FrameTarget frame = lent->target;
-    if (!offered && overlay)
-    {
-        host.handoff().offer(overlay->frames(), provider::SurfaceSize{ .width = provider::SurfaceWidth{ frame.extent.width },
-            .height = provider::SurfaceHeight{ frame.extent.height } });
-        offered = true;
-    }
+    follow(frame);
     host.recording(++serial, frame.format);
     VkCommandBuffer commands = slot.begin(serial);
     transition(commands, frame.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -347,12 +608,15 @@ auto VulkanPresenter::present(play::PresentTiming::Kind, play::PresentTiming& ti
         else if (overlayFailures++ % 120 == 0)
             log::warning("[PRESENT] the overlay was not recorded: {}", recorded.error().explanation());
     }
-    transition(commands, frame.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, lent->present_layout);
+    if (!startReadback(commands, frame, *lent))
+        transition(commands, frame.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, lent->present_layout);
     vkEndCommandBuffer(commands);
-    if (const VkResult result = submit(commands, slot, *lent, fence); result != VK_SUCCESS)
+    const VkResult result = submit(commands, slot, *lent, fence);
+    if (result != VK_SUCCESS)
         log::error("[PRESENT] vkQueueSubmit2 failed: {}", static_cast<int>(result));
     else
         slot.submitted();
+    armReadback(slot.fence(), result == VK_SUCCESS);
     const Clock::time_point submitted = Clock::now();
     if (const std::expected<void, provider::ProviderError> shown = takeover->present(frame.index); !shown)
         log::warning("[PRESENT] present refused: {}", shown.error().explanation());

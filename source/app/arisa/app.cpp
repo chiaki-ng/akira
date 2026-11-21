@@ -144,6 +144,7 @@ void App::buildScreens()
     help.emplace(helpDirectory, std::string());
     log::info("[ARISA] {} help entries", help->size());
     picture.emplace(services.stream, services.store, services.platform.supplies(platform::PlatformCapability::fsr_4k));
+    sound.emplace(services.stream, services.store);
     controls.emplace(services.controllers, services.store);
     nat.emplace(services.dispatcher, [&core = services.core] { return network::NatReport(network::NatProbe(core).check()); },
         services.strings);
@@ -184,7 +185,7 @@ void App::buildScreens()
     CrashReport::stage("arisa couch");
     buildCouch();
     CrashReport::stage("arisa stream driver");
-    driver = std::make_shared<StreamDriver>(services, *stage, *window, model, notices, *controls, *picture, *mapping,
+    driver = std::make_shared<StreamDriver>(services, *stage, *window, model, notices, *controls, *picture, *sound, *mapping,
         StreamDriver::Couch{ .table = couchBridge ? &*couchBridge : nullptr, .model = couch ? &*couch : nullptr }, [this] {
             if (consoleOperations)
                 consoleOperations->streamEnded();

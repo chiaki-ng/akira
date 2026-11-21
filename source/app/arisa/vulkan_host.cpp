@@ -136,8 +136,7 @@ auto VulkanHost::captureStream(StreamCapture::Delivery& delivery) -> bool
     const std::scoped_lock lock(presenting);
     if (!active || !active->takenOver())
         return false;
-    std::exchange(delivery, nullptr)(std::unexpected(std::string(
-        "the Vulkan renderer cannot read the stream back: arisa does not say whether its lent images allow copies")));
+    active->capture(std::move(delivery));
     return true;
 }
 

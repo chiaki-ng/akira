@@ -1,7 +1,9 @@
 #pragma once
 
+#include "play/colour_adjustments.hpp"
 #include "play/diagnostics_appearance.hpp"
 #include "play/diagnostics_report.hpp"
+#include "play/volume.hpp"
 
 namespace akira::play::ui {
 
@@ -14,7 +16,10 @@ public:
     virtual void restart() = 0;
     virtual void resume() = 0;
     virtual void leave(bool rest) = 0;
+    virtual void goHome() = 0;
     virtual void resetMotion() = 0;
+    virtual void tuneColour(ColourAdjustments colour) = 0;
+    virtual void tuneVolume(Volume volume) = 0;
     virtual void showDiagnostics(DiagnosticsAppearance appearance) = 0;
     virtual auto diagnostics() -> DiagnosticsReport = 0;
 };

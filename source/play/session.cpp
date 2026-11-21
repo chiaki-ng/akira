@@ -519,6 +519,48 @@ void Session::setVideoPaused(bool paused)
         renderer->setPaused(paused);
 }
 
+void Session::setColour(ColourAdjustments colour)
+{
+    if (akira::platform::VideoRenderer* renderer = m_video->renderer())
+        renderer->setColour(colour);
+}
+
+void Session::setVolume(Volume volume)
+{
+    m_audio.setVolume(volume);
+}
+
+bool Session::goHome()
+{
+    const std::shared_ptr<libchiaking::play::Session> play = attached();
+    if (!play)
+    {
+        log::warning("[SESSION] go home refused: no session is attached");
+        return false;
+    }
+    const auto sent = play->go_home();
+    if (!sent)
+    {
+        log::warning("[SESSION] go home refused by the session: {}", refusalName(sent.error()));
+        return false;
+    }
+    return true;
+}
+
+const char* Session::refusalName(libchiaking::play::InputRefusal refusal)
+{
+    switch (refusal)
+    {
+        case libchiaking::play::InputRefusal::invalid: return "invalid";
+        case libchiaking::play::InputRefusal::not_running: return "not running";
+        case libchiaking::play::InputRefusal::wrong_route: return "a cloud session cannot go home";
+        case libchiaking::play::InputRefusal::busy: return "busy";
+        case libchiaking::play::InputRefusal::not_owner: return "not the owner";
+        case libchiaking::play::InputRefusal::not_ready: return "a rest request is under way";
+    }
+    return "unknown";
+}
+
 void Session::setConnectionContext(const std::string& context)
 {
     m_connection_context = context;

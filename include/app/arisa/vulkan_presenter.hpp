@@ -2,15 +2,20 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <string>
 
+#include <arisa/provider/gpu/frame_source.hpp>
 #include <arisa/provider/gpu/swap_interval.hpp>
 #include <arisa/provider/vulkan/vulkan_gpu.hpp>
 
+#include "app/arisa/stream_capture.hpp"
 #include "platform/video/vulkan/gpu_host.hpp"
 #include "play/present_loop.hpp"
 
@@ -30,6 +35,7 @@ public:
     void paused(bool paused) override;
 
     auto takenOver() const -> bool { return seized.load(std::memory_order_acquire); }
+    void capture(StreamCapture::Delivery delivery);
 
 private:
     using Gpu = ::arisa::provider::vulkan::VulkanGpu;
@@ -84,10 +90,44 @@ private:
         bool rendering = false;
     };
 
+    class Readback {
+    public:
+        Readback(const VulkanHost& host, VkExtent2D extent, VkFormat format, StreamCapture::Delivery delivery);
+        ~Readback();
+
+        Readback(const Readback&) = delete;
+        Readback& operator=(const Readback&) = delete;
+
+        auto valid() const -> bool;
+        void record(VkCommandBuffer commands, const Gpu::FrameTarget& frame, VkImageLayout presentLayout);
+        void armed(VkFence fence);
+        auto ready() const -> bool;
+        void deliver();
+        void refuse(std::string reason);
+
+    private:
+        static auto swapsRedAndBlue(VkFormat format) -> bool;
+
+        VkDevice device;
+        VkExtent2D extent;
+        VkFormat format;
+        VkBuffer buffer = VK_NULL_HANDLE;
+        VkDeviceMemory memory = VK_NULL_HANDLE;
+        void* mapped = nullptr;
+        VkFence fence = VK_NULL_HANDLE;
+        StreamCapture::Delivery delivery;
+    };
+
     auto present(play::PresentTiming::Kind kind, play::PresentTiming& timing)
         -> std::expected<play::PresentLoop::Presented, play::PresentTiming::Miss> override;
     void swapInterval(std::uint32_t interval) override;
+    auto awaitScene(std::chrono::milliseconds limit) -> play::PresentLoop::Scene override;
     [[nodiscard]] auto seize() -> bool;
+    void follow(const Gpu::FrameTarget& frame);
+    void collectReadback();
+    [[nodiscard]] auto startReadback(VkCommandBuffer commands, const Gpu::FrameTarget& frame, const Gpu::LentImage& lent)
+        -> bool;
+    void armReadback(VkFence fence, bool submitted);
     static void transition(VkCommandBuffer commands, VkImage image, VkImageLayout from, VkImageLayout to);
     static void clear(VkCommandBuffer commands, const Gpu::FrameTarget& frame);
     auto submit(VkCommandBuffer commands, const FrameSlot& slot, const Gpu::LentImage& lent,
@@ -101,10 +141,16 @@ private:
     std::optional<Gpu::Takeover> takeover;
     std::optional<Gpu::Overlay> overlay;
     std::optional<::arisa::provider::SwapInterval> interval;
+    std::atomic<std::shared_ptr<const ::arisa::provider::FrameSource>> scenes;
+    std::uint64_t seenScene = 0;
+    std::uint64_t lentGeneration = 0;
     bool refused = false;
     bool offered = false;
     std::uint64_t overlayFailures = 0;
     std::atomic<bool> seized{ false };
+    std::mutex captureMutex;
+    std::optional<StreamCapture::Delivery> wanted;
+    std::optional<Readback> reading;
     play::PresentLoop loop;
 };
 

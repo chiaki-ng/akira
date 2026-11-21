@@ -3,7 +3,6 @@
 #include <vector>
 
 #include <arisa/composition/component.hpp>
-#include <arisa/composition/namespace.hpp>
 #include <arisa/composition/context.hpp>
 #include <arisa/composition/element.hpp>
 #include <arisa/composition/state_key.hpp>
@@ -41,7 +40,6 @@ public:
     static constexpr float boardWidth = 800.0F;
 
     static constexpr ::arisa::composition::StateKey<Page> page{ "settings-page", Page::General };
-    static constexpr ::arisa::composition::Namespace tabsFocus{ "settings-tabs" };
 
     SettingsScreen(Parts parts, const app::Strings& strings);
 

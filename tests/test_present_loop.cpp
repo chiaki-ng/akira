@@ -3,12 +3,15 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <thread>
 #include <vector>
 
 #include "play/audio_gain.hpp"
+#include "play/colour_adjustments.hpp"
+#include "play/volume.hpp"
 #include "play/present_loop.hpp"
 #include "play/present_timing.hpp"
 
@@ -36,7 +39,29 @@ public:
 
     void swapInterval(std::uint32_t interval) override { intervals.push_back(interval); }
 
+    auto awaitScene(std::chrono::milliseconds limit) -> PresentLoop::Scene override
+    {
+        if (!overlay.load())
+            return PresentLoop::Scene::Absent;
+        const auto until = PresentLoop::Clock::now() + limit;
+        while (PresentLoop::Clock::now() < until)
+        {
+            if (const int published = scenes.load(); published != seenScenes)
+            {
+                seenScenes = published;
+                return PresentLoop::Scene::Fresh;
+            }
+            std::this_thread::sleep_for(1ms);
+        }
+        return PresentLoop::Scene::Quiet;
+    }
+
+    void publish() { scenes.fetch_add(1); }
+
     std::atomic<int> frames{ 0 };
+    std::atomic<bool> overlay{ true };
+    std::atomic<int> scenes{ 0 };
+    int seenScenes = 0;
     std::atomic<int> repaints{ 0 };
     std::atomic<bool> busy{ false };
     std::size_t copyEach = 0;
@@ -108,13 +133,17 @@ TEST(present_loop_presents_each_ready_frame_at_the_live_interval)
     CHECK_EQ(target.intervals.front(), 0u);
 }
 
-TEST(present_loop_repaints_while_paused_and_switches_the_interval)
+TEST(present_loop_repaints_each_overlay_scene_while_paused_and_switches_the_interval)
 {
     CountingTarget target;
-    PresentLoop loop(target, PresentLoop::Pacing{ .pausedRepaint = 5ms, .stallRepaint = 10s });
+    PresentLoop loop(target, PresentLoop::Pacing{ .sceneWait = 5ms, .stallRepaint = 10s });
     loop.frameReady();
     loop.paused(true);
-    CHECK(waitFor([&] { return target.repaints.load() >= 3; }));
+    for (int scene = 1; scene <= 3; ++scene)
+    {
+        target.publish();
+        CHECK(waitFor([&] { return target.repaints.load() >= scene; }));
+    }
     loop.paused(false);
     loop.frameReady();
     loop.stop();
@@ -127,11 +156,37 @@ TEST(present_loop_repaints_while_paused_and_switches_the_interval)
 TEST(present_loop_does_not_repaint_before_the_first_frame)
 {
     CountingTarget target;
-    PresentLoop loop(target, PresentLoop::Pacing{ .pausedRepaint = 2ms, .stallRepaint = 2ms });
+    PresentLoop loop(target, PresentLoop::Pacing{ .sceneWait = 2ms, .stallRepaint = 2ms });
     loop.paused(true);
+    target.publish();
     std::this_thread::sleep_for(30ms);
     loop.stop();
     CHECK_EQ(target.repaints.load(), 0);
+}
+
+TEST(present_loop_stays_idle_while_paused_without_new_scenes)
+{
+    CountingTarget target;
+    PresentLoop loop(target, PresentLoop::Pacing{ .sceneWait = 2ms, .stallRepaint = 10s });
+    loop.frameReady();
+    loop.paused(true);
+    target.publish();
+    CHECK(waitFor([&] { return target.repaints.load() >= 1; }));
+    const int settled = target.repaints.load();
+    std::this_thread::sleep_for(40ms);
+    loop.stop();
+    CHECK_EQ(target.repaints.load(), settled);
+}
+
+TEST(present_loop_falls_back_to_the_stall_cadence_without_an_overlay)
+{
+    CountingTarget target;
+    target.overlay.store(false);
+    PresentLoop loop(target, PresentLoop::Pacing{ .sceneWait = 2ms, .stallRepaint = 5ms });
+    loop.frameReady();
+    loop.paused(true);
+    CHECK(waitFor([&] { return target.repaints.load() >= 2; }));
+    loop.stop();
 }
 
 TEST(present_loop_counts_a_busy_slot_as_a_skip_without_waiting)
@@ -172,7 +227,8 @@ TEST(audio_gain_boosts_and_clips_like_the_sdl_path)
 {
     const std::array<std::int16_t, 5> samples{ 0, 1000, -1000, 30000, -30000 };
     std::array<std::int16_t, 5> boosted{};
-    CHECK_EQ(akira::play::AudioGain::apply(samples, boosted), 5u);
+    const akira::play::AudioGain gain;
+    CHECK_EQ(gain.apply(samples, boosted), 5u);
     CHECK_EQ(boosted[0], 0);
     CHECK_EQ(boosted[1], 1800);
     CHECK_EQ(boosted[2], -1800);
@@ -184,6 +240,42 @@ TEST(audio_gain_writes_no_further_than_the_target)
 {
     const std::array<std::int16_t, 4> samples{ 1, 2, 3, 4 };
     std::array<std::int16_t, 2> into{};
-    CHECK_EQ(akira::play::AudioGain::apply(samples, into), 2u);
+    const akira::play::AudioGain gain;
+    CHECK_EQ(gain.apply(samples, into), 2u);
     CHECK_EQ(into[1], 3);
+}
+
+TEST(audio_gain_scales_the_boost_by_the_chosen_volume)
+{
+    const std::array<std::int16_t, 3> samples{ 1000, -1000, 30000 };
+    std::array<std::int16_t, 3> scaled{};
+    akira::play::AudioGain gain;
+    gain.setVolume(akira::play::Volume(0.5));
+    CHECK_EQ(gain.apply(samples, scaled), 3u);
+    CHECK_EQ(scaled[0], 900);
+    CHECK_EQ(scaled[1], -900);
+    CHECK_EQ(scaled[2], 27000);
+    gain.setVolume(akira::play::Volume(0.0));
+    CHECK_EQ(gain.apply(samples, scaled), 3u);
+    CHECK_EQ(scaled[2], 0);
+}
+
+TEST(volume_and_colour_adjustments_clamp_and_round_to_their_step)
+{
+    CHECK_EQ(akira::play::Volume(1.7).level(), 1.0);
+    CHECK_EQ(akira::play::Volume(-0.2).level(), 0.0);
+    CHECK(std::abs(akira::play::Volume(0.52).level() - 0.5) < 1e-9);
+    using Colour = akira::play::ColourAdjustments;
+    const Colour neutral;
+    CHECK(neutral.isNeutral());
+    const Colour bright = neutral.with(Colour::Channel::Brightness, 0.9);
+    CHECK_EQ(bright.value(Colour::Channel::Brightness), 0.25);
+    CHECK(!bright.isNeutral());
+    const Colour flat(0.0, 0.1, 3.0, 0.43);
+    CHECK_EQ(flat.value(Colour::Channel::Contrast), 0.5);
+    CHECK_EQ(flat.value(Colour::Channel::Saturation), 2.0);
+    CHECK_EQ(flat.value(Colour::Channel::Gamma), 0.5);
+    const std::array<float, 4> constants = Colour(0.1, 1.2, 0.8, 1.5).shaderConstants();
+    CHECK(std::abs(constants[0] - 0.1F) < 1e-6F);
+    CHECK(std::abs(constants[3] - 1.5F) < 1e-6F);
 }

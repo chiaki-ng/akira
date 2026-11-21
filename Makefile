@@ -51,14 +51,14 @@ TEST_PLATFORM_SRC := $(CURDIR)/source/platform/pads/extended/rumble_keys.cpp \
 endif
 DOCKER_IMAGE ?= akira-builder:$(IMAGE_HASH)
 ARISA_VERSION      := 0.0.1
-ARISA_TAG          := ab01deb
+ARISA_TAG          := c5b2041
 ARISA_GPU          ?= drako3d
 ARISA_FLAVOUR_nx_drako3d    := switch
 ARISA_FLAVOUR_nx_vulkan     := switch
 ARISA_FLAVOUR_ounce_drako3d := switch2
 ARISA_FLAVOUR_ounce_vulkan  := switch2
-ARISA_SHA256_switch         := cf8781d3004918d7ec2827bc60f9022876faf1add6c15aa484e258731fa99933
-ARISA_SHA256_switch2        := 036e85839335509411fafb57899cefd536e1ef123e84466eb9e73677ba9b9c52
+ARISA_SHA256_switch         := 6eaf1b070d167480052225ee25a830be2d97b3708155f3d776dc530b6bc750bd
+ARISA_SHA256_switch2        := e8a938d7b551eaa8bbd665d8a0c10780e83dc81cfb205b86fc972b4f04c395e6
 ARISA_RECIPE_switch         := make package TARGET=switch
 ARISA_RECIPE_switch2        := make package-switch2
 ARISA_PACKAGE_DIR  ?= $(abspath $(CURDIR)/../arisa/build/package)
@@ -71,7 +71,7 @@ ARISA_PREFIX        = $(ARISA_UNPACK)/$(ARISA_NAME)
 ARISA_BUILD_NAME    = arisa-$(PLATFORM)$(if $(filter ounce_vulkan,$(PLATFORM)_$(ARISA_GPU)),-vulkan)
 ARISA_NRO_FILE      = $(CURDIR)/build/$(ARISA_BUILD_NAME)/akira-arisa.nro
 ARISA_HOST_NAME    := arisa-$(ARISA_VERSION)-macos-arm64
-ARISA_HOST_SHA256  := fd4e96b96c377fe1d1e85855450c4a349064cea7cd1a848e86ebfebe3c617b6a
+ARISA_HOST_SHA256  := fda1e3dcc773ecba9a3c1bf3610fee2230130094630c828e781a6ea778c2986a
 ARISA_HOST_ARCHIVE  = $(ARISA_PACKAGE_DIR)/$(ARISA_HOST_NAME).tar.gz
 ARISA_HOST_UNPACK   = $(CURDIR)/build/arisa-package/$(ARISA_HOST_SHA256)
 ARISA_HOST_PREFIX   = $(ARISA_HOST_UNPACK)/$(ARISA_HOST_NAME)
@@ -91,6 +91,8 @@ ARISA_TEST_MODELS   = $(CURDIR)/source/log/log.cpp \
                       $(CURDIR)/source/play/diagnostics_report.cpp \
                       $(CURDIR)/source/play/stats_hud_placement.cpp \
                       $(CURDIR)/source/play/stream_settings.cpp \
+                      $(CURDIR)/source/play/colour_adjustments.cpp \
+                      $(CURDIR)/source/play/volume.cpp \
                       $(CURDIR)/source/play/controller_settings.cpp \
                       $(CURDIR)/source/play/picture_profile.cpp \
                       $(CURDIR)/source/settings/settings_store.cpp \
@@ -177,7 +179,8 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/app/arisa/theme_packs.cpp \
                       $(CURDIR)/source/app/arisa/qr_code.cpp \
                       $(CURDIR)/source/app/arisa/about_page.cpp \
-                      $(CURDIR)/source/app/arisa/build_info_page.cpp
+                      $(CURDIR)/source/app/arisa/build_info_page.cpp \
+                      $(CURDIR)/source/app/arisa/pad_capture.cpp
 ARISA_TEST_STB      = $(CURDIR)/library/borealis/library/lib/extern/glfw/deps
 NRO_FILE     := $(CURDIR)/build/$(PLATFORM)/akira.nro
 ELF_FILE     := build/$(PLATFORM)/akira.elf
@@ -264,6 +267,8 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/play/present_timing.cpp \
                 $(CURDIR)/source/play/present_loop.cpp \
                 $(CURDIR)/source/play/audio_gain.cpp \
+                $(CURDIR)/source/play/volume.cpp \
+                $(CURDIR)/source/play/colour_adjustments.cpp \
                 $(CURDIR)/source/app/screenshot.cpp \
                 $(CURDIR)/source/play/stats_hud_placement.cpp \
                 $(CURDIR)/source/play/stream_controls.cpp \

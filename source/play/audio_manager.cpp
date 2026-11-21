@@ -1,7 +1,6 @@
 #include "play/audio_manager.hpp"
 
 #include "log/log.hpp"
-#include "play/audio_gain.hpp"
 
 namespace akira::play {
 
@@ -31,7 +30,7 @@ auto AudioManager::open(unsigned channels, unsigned rate) -> std::expected<void,
 void AudioManager::play(std::span<const std::int16_t> samples)
 {
     m_boosted.resize(samples.size());
-    AudioGain::apply(samples, m_boosted);
+    m_gain.apply(samples, m_boosted);
 
     const Uint32 queued = SDL_GetQueuedAudioSize(m_device_id);
     if (queued > queueLimit)
@@ -42,6 +41,11 @@ void AudioManager::play(std::span<const std::int16_t> samples)
 
     if (SDL_QueueAudio(m_device_id, m_boosted.data(), static_cast<Uint32>(sizeof(std::int16_t) * m_boosted.size())) != 0)
         log::error("SDL_QueueAudio failed: {}", SDL_GetError());
+}
+
+void AudioManager::setVolume(Volume volume)
+{
+    m_gain.setVolume(volume);
 }
 
 void AudioManager::close()

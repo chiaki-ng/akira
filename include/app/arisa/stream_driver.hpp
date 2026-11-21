@@ -30,6 +30,7 @@
 #include "play/ui/stream_commands.hpp"
 #include "settings/ui/control_options.hpp"
 #include "settings/ui/picture_options.hpp"
+#include "settings/ui/sound_options.hpp"
 
 namespace akira::consoles {
 class Host;
@@ -55,7 +56,7 @@ public:
     };
 
     StreamDriver(Services& services, StreamStage& stage, Window& window, ShellModel& model, Notifier& notifier, settings::ui::ControlOptions& controlOptions, settings::ui::PictureOptions& picture,
-        play::ui::Mapping& mapping, Couch couch, std::function<void()> ended);
+        settings::ui::SoundOptions& sound, play::ui::Mapping& mapping, Couch couch, std::function<void()> ended);
     ~StreamDriver() override;
 
     StreamDriver(const StreamDriver&) = delete;
@@ -73,7 +74,10 @@ public:
     void restart() override;
     void resume() override;
     void leave(bool rest) override;
+    void goHome() override;
     void resetMotion() override;
+    void tuneColour(play::ColourAdjustments colour) override;
+    void tuneVolume(play::Volume volume) override;
     void showDiagnostics(play::DiagnosticsAppearance appearance) override;
     auto diagnostics() -> play::DiagnosticsReport override;
 
@@ -136,6 +140,7 @@ private:
     ShellModel& model;
     settings::ui::ControlOptions& controlOptions;
     settings::ui::PictureOptions& picture;
+    settings::ui::SoundOptions& sound;
     play::ui::Mapping& mapping;
     Couch couch;
     Notifier& notifier;

@@ -22,9 +22,11 @@ public:
     struct Pacing {
         std::uint32_t liveInterval = 0;
         std::uint32_t pausedInterval = 1;
-        std::chrono::milliseconds pausedRepaint{ 16 };
+        std::chrono::milliseconds sceneWait{ 100 };
         std::chrono::milliseconds stallRepaint{ 250 };
     };
+
+    enum class Scene { Fresh, Quiet, Absent };
 
     struct Presented {
         Clock::time_point submitted;
@@ -38,6 +40,7 @@ public:
         [[nodiscard]] virtual auto present(PresentTiming::Kind kind, PresentTiming& timing)
             -> std::expected<Presented, PresentTiming::Miss> = 0;
         virtual void swapInterval(std::uint32_t interval) = 0;
+        virtual auto awaitScene(std::chrono::milliseconds limit) -> Scene = 0;
     };
 
     PresentLoop(Target& target, Pacing pacing);
@@ -55,7 +58,7 @@ public:
 private:
     void present(PresentTiming::Kind kind, std::unique_lock<std::mutex>& held);
     void repaint(std::stop_token stop);
-    auto quiet() const -> std::chrono::milliseconds;
+    [[nodiscard]] auto followScenes(std::stop_token stop, std::unique_lock<std::mutex>& lock) -> bool;
 
     Target& target;
     Pacing pacing;

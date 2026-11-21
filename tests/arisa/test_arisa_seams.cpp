@@ -12,7 +12,9 @@
 #include <thread>
 
 #include "app/arisa/dispatcher.hpp"
+#include "app/arisa/pad_capture.hpp"
 #include "app/arisa/string_catalog.hpp"
+#include "play/switch_button.hpp"
 
 namespace {
 
@@ -78,4 +80,20 @@ TEST(arisa_strings_pick_the_plural_form_for_the_count)
     CHECK(english.counted("akira/connection/step_of", 3, 6) == "Step 3 of 6");
     const StringCatalog chinese(assets, "zh-Hans");
     CHECK(chinese.counted("akira/cloud/count_all", std::size_t{ 1 }) == "1 款游戏");
+}
+
+TEST(arisa_pad_capture_offers_side_buttons_and_stick_directions)
+{
+    using akira::play::SwitchButton;
+    using akira::play::bits;
+    arisa::provider::PadState pad{ .connected = true,
+        .buttons = arisa::provider::Buttons{ arisa::provider::Button::sl, arisa::provider::Button::a },
+        .left = arisa::provider::Stick{ .x = -0.9F, .y = 0.1F },
+        .right = arisa::provider::Stick{ .x = 0.0F, .y = 0.8F } };
+    const std::uint64_t held = akira::app::arisa::PadCapture::bitsOf(pad);
+    CHECK(held == (bits(SwitchButton::LeftSL) | bits(SwitchButton::A) | bits(SwitchButton::StickLLeft) | bits(SwitchButton::StickRUp)));
+    pad.left = arisa::provider::Stick{ .x = 0.3F, .y = -0.7F };
+    pad.right = {};
+    pad.buttons = arisa::provider::Buttons{ arisa::provider::Button::sr };
+    CHECK(akira::app::arisa::PadCapture::bitsOf(pad) == (bits(SwitchButton::LeftSR) | bits(SwitchButton::StickLDown)));
 }
