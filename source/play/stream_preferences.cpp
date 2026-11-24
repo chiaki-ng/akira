@@ -51,9 +51,12 @@ auto StreamPreferences::forConsole(consoles::Host& host) const -> std::optional<
     const auto target = host.isPS5() ? settings::TakionTarget::PS5 : settings::TakionTarget::PS4;
     const auto takionVersion = host.getPinnedTakionVersion().value_or(
         static_cast<uint32_t>(std::max(developerSettings.takionVersion(target), 0)));
+    const bool negotiate = host.isPS5() && takionVersion == 0;
     if (host.getPinnedTakionVersion())
         log::info("{} is pinned to Takion v{}", host.getHostName(), takionVersion);
-    auto preferences = tuned(*picture, takionVersion);
+    else if (negotiate)
+        log::info("{} negotiates its Takion version", host.getHostName());
+    auto preferences = tuned(*picture, takionVersion, negotiate);
     if (preferences && vpn)
     {
         if (auto network = host.homeNetwork(wireGuard); network.network())
@@ -82,15 +85,17 @@ auto StreamPreferences::forCloud(const cloud::CloudLaunch& launch) const -> std:
         return std::nullopt;
     }
     return tuned(*picture,
-        static_cast<uint32_t>(std::max(developerSettings.takionVersion(ps5Cloud ? settings::TakionTarget::PS5Cloud : settings::TakionTarget::PSNow), 0)));
+        static_cast<uint32_t>(std::max(developerSettings.takionVersion(ps5Cloud ? settings::TakionTarget::PS5Cloud : settings::TakionTarget::PSNow), 0)),
+        false);
 }
 
-auto StreamPreferences::tuned(play::PictureRequest picture, std::uint32_t takionVersion) const
+auto StreamPreferences::tuned(play::PictureRequest picture, std::uint32_t takionVersion, bool negotiate) const
     -> std::optional<play::Preferences>
 {
     play::DeveloperTuning::Facts facts;
     if (takionVersion > 0)
         facts.protocol_version = takionVersion;
+    facts.negotiate_protocol_version = negotiate;
     facts.packet_loss_max = streamSettings.packetLossMax();
     facts.keyframe_on_lost_frame = streamSettings.requestIdrOnFecFailure();
     facts.nat_probe_sockets = static_cast<std::size_t>(std::clamp(networkSettings.portGuessingSocks(), 0,

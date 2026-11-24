@@ -17,6 +17,7 @@
 #include "app/services.hpp"
 #include "app/ui_window.hpp"
 #include "cloud/cloud_launch.hpp"
+#include "consoles/ui/console_starter.hpp"
 #include "cloud/launch_report.hpp"
 #include "log/log.hpp"
 #include "log/log_tail.hpp"
@@ -55,6 +56,7 @@ class Window;
 
 class StreamDriver final : public play::ConnectionListener,
                            public play::ui::StreamCommands,
+                           public consoles::ui::ConsoleStarter,
                            public std::enable_shared_from_this<StreamDriver> {
 public:
     struct Couch {
@@ -73,7 +75,9 @@ public:
     StreamDriver& operator=(const StreamDriver&) = delete;
 
     void watchFocus();
-    void start(consoles::Host& host);
+    void start(consoles::Host& host) override;
+    void prepare(const consoles::Host& target, std::string activity) override;
+    bool prepared(const consoles::Host& target) const override;
     void startCloud(std::shared_ptr<consoles::Host> host);
     void tick();
     void padArrived(play::PadId pad);
@@ -185,6 +189,7 @@ private:
     consoles::Host* host = nullptr;
     std::shared_ptr<consoles::Host> owned;
     std::string lastConsole;
+    std::optional<std::string> preparing;
     bool videoActive = false;
     bool videoStarting = false;
     bool sessionStarted = false;

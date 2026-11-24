@@ -122,8 +122,24 @@ void StreamDriver::watchFocus()
     });
 }
 
+void StreamDriver::prepare(const consoles::Host& target, std::string activity)
+{
+    if (connection || waitingForPads || picker || fileLogQuestion)
+        return;
+    preparing = target.getHostName();
+    model.connecting(target.getHostName());
+    model.stage(play::ui::ConnectingScreen::Progress{
+        .console = target.getHostName(), .status = activity, .step = 1, .activity = std::move(activity) });
+}
+
+bool StreamDriver::prepared(const consoles::Host& target) const
+{
+    return preparing == target.getHostName();
+}
+
 void StreamDriver::start(consoles::Host& target)
 {
+    preparing.reset();
     if (connection || waitingForPads || picker || fileLogQuestion)
         return;
     if (services.developer.fileLogging())
@@ -620,6 +636,14 @@ void StreamDriver::finishLeave(bool rest)
 
 void StreamDriver::cancel()
 {
+    if (!connection && preparing)
+    {
+        log::info("[ARISA] title start cancelled before connecting");
+        preparing.reset();
+        model.home();
+        notifier.notify(services.strings.text("akira/connection/cancelled"));
+        return;
+    }
     if (!connection)
         return;
     log::info("[ARISA] connection cancelled");

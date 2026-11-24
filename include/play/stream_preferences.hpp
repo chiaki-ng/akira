@@ -41,7 +41,7 @@ public:
     auto forCloud(const cloud::CloudLaunch& launch) const -> std::optional<libchiaking::play::Preferences>;
 
 private:
-    auto tuned(libchiaking::play::PictureRequest picture, std::uint32_t takionVersion) const
+    auto tuned(libchiaking::play::PictureRequest picture, std::uint32_t takionVersion, bool negotiate) const
         -> std::optional<libchiaking::play::Preferences>;
 
     const StreamSettings& streamSettings;

@@ -7,6 +7,7 @@
 #include <arisa/components/button_style.hpp>
 #include <arisa/components/control_size.hpp>
 #include <arisa/components/environment.hpp>
+#include <arisa/components/glass_panel.hpp>
 #include <arisa/components/group.hpp>
 #include <arisa/components/hstack.hpp>
 #include <arisa/components/image.hpp>
@@ -174,6 +175,7 @@ auto StreamDock::dock(composition::StateHandle<int> chosen, const std::vector<Pa
     composition::Binding<std::size_t> selection([chosen] { return static_cast<std::size_t>(std::max(chosen.get(), 0)); },
         [chosen](std::size_t index) { chosen.set(static_cast<int>(index)); });
     return composition::Element(structure::DockBar(std::move(selection), std::move(items), std::move(trailing)))
+        .background(theme::ColourValue(theme::ColourRole::window_background).opacity(scrimOpacity), theme::Shape::capsule())
         .id(composition::ElementKey{ "stream-dock.tabs" });
 }
 
@@ -190,6 +192,8 @@ auto StreamDock::mappingPanel(composition::StateHandle<bool> board) const -> com
         components::ScrollView(ButtonBoardView(*mapping, *strings, false)).frame({ .max_height = mappingHeight }))
         .padding(theme::Space{ panelPadding })
         .frame({ .width = panelWidth, .alignment = composition::Alignment::leading })
+        .background(theme::ColourValue(theme::ColourRole::window_background).opacity(scrimOpacity),
+            components::GlassPanel::shape(components::PanelRadius::large))
         .glass_panel(components::PanelRadius::large)
         .id(composition::ElementKey{ "stream-dock.mapping" });
 }
@@ -215,6 +219,8 @@ auto StreamDock::panel(Panel shown, const DiagnosticsReport& report, composition
     return std::move(content)
         .padding(theme::Space{ panelPadding })
         .frame({ .width = panelWidth, .alignment = composition::Alignment::leading })
+        .background(theme::ColourValue(theme::ColourRole::window_background).opacity(scrimOpacity),
+            components::GlassPanel::shape(components::PanelRadius::large))
         .glass_panel(components::PanelRadius::large)
         .id(composition::ElementKey{ "stream-dock.panel" });
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include <arisa/composition/component.hpp>
@@ -9,11 +10,13 @@
 
 #include "app/arisa/art_session.hpp"
 #include "app/arisa/notices.hpp"
+#include "app/arisa/rail.hpp"
 #include "app/arisa/shell_model.hpp"
 #include "app/rail_edge.hpp"
 #include "app/strings.hpp"
 #include "consoles/ui/console_commands.hpp"
 #include "consoles/ui/console_shelf.hpp"
+#include "play/ui/connecting_screen.hpp"
 #include "play/ui/stream_commands.hpp"
 #include "settings/ui/settings_screen.hpp"
 
@@ -47,8 +50,8 @@ public:
     static constexpr float pageLeading = 112.0F;
     static constexpr float pageTrailing = 24.0F;
     static constexpr float pageTop = 24.0F;
-    static constexpr float pageTopUnderBar = 4.0F;
-    static constexpr float pageBottomOverBar = 4.0F;
+    static constexpr float pageTopUnderBar = Rail::barHeight + (Rail::inset * 2.0F) + 4.0F;
+    static constexpr float pageBottomOverBar = Rail::barHeight + (Rail::inset * 2.0F) + 4.0F;
     static constexpr float pageBottom = 58.0F;
     static constexpr float pageSpacing = 14.0F;
     static constexpr float hintsTrailing = 24.0F;
@@ -72,6 +75,8 @@ public:
 
 private:
     auto home(ShellModel::Page shown, RailEdge edge) const -> ::arisa::composition::Element;
+    auto loadingArt(::arisa::composition::Context& context, const std::string& console) const
+        -> std::vector<play::ui::ConnectingScreen::Art>;
     auto railEdge(::arisa::composition::Context& context) const -> RailEdge;
     auto page(ShellModel::Page shown, RailEdge edge) const -> ::arisa::composition::Element;
     auto pageTitle(ShellModel::Page shown) const -> std::string;

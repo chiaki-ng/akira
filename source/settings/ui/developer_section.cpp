@@ -60,6 +60,8 @@ auto DeveloperSection::body(composition::Context& context) const -> composition:
             developer.setFakeHosts(value);
             maintenance.consolesChanged();
         }));
+    testing.push_back(rows.toggle(rows.text("akira/settings/dev_loading_preview"), "settings/devLoadingPreview",
+        [&developer] { return developer.loadingPreview(); }, [&developer](bool value) { developer.setLoadingPreview(value); }));
     if (features.selfUpdate)
         testing.push_back(rows.action(rows.text("akira/settings/simulate_update"), "update", "settings/simulateUpdate",
             [edit] { edit->ask(SettingsModel::Entry::UpdateServer); }));

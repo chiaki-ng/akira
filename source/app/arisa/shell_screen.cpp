@@ -29,6 +29,7 @@
 #include <arisa/theme/space.hpp>
 #include <arisa/theme/typography.hpp>
 
+#include <algorithm>
 #include <chrono>
 #include <format>
 #include <functional>
@@ -36,6 +37,7 @@
 #include <vector>
 
 #include "accounts/ui/account_flow.hpp"
+#include "consoles/ui/recent_shelf.hpp"
 #include "app/arisa/ambient_background.hpp"
 #include "app/arisa/brand_lockup.hpp"
 #include "app/arisa/confirmation.hpp"
@@ -96,7 +98,7 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
         panel = settingsPanel();
     composition::Element loading = components::Group();
     if (connecting)
-        loading = play::ui::ConnectingScreen(view.progress, *parts->stream, *strings);
+        loading = play::ui::ConnectingScreen(view.progress, *parts->stream, *strings, loadingArt(context, view.progress.console));
     accounts::ui::AccountModel* profiles = parts->settings.accounts;
     const bool onboarding = profiles && view.phase == ShellModel::Phase::Home
         && context.read(profiles->view()).flow != accounts::ui::AccountModel::Flow::None;
@@ -112,6 +114,24 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
     return shown;
 }
 
+auto ShellScreen::loadingArt(composition::Context& context, const std::string& console) const
+    -> std::vector<play::ui::ConnectingScreen::Art>
+{
+    std::vector<play::ui::ConnectingScreen::Art> arts;
+    if (!parts->recent)
+        return arts;
+    const consoles::ui::RecentShelf::View& shown = context.read(parts->recent->view());
+    for (const consoles::ui::RecentShelf::Banner& banner : parts->recent->loadingArt(console))
+    {
+        const auto title = std::ranges::find(shown.titles, banner.titleId, &consoles::RecentPlay::Title::titleId);
+        arts.push_back(play::ui::ConnectingScreen::Art{ .title = title == shown.titles.end() ? std::string{} : title->name,
+            .background = banner.background,
+            .hero = banner.hero,
+            .logo = banner.logo });
+    }
+    return arts;
+}
+
 auto ShellScreen::railEdge(composition::Context& context) const -> RailEdge
 {
     if (!parts->settings.model)
@@ -124,19 +144,11 @@ auto ShellScreen::home(ShellModel::Page shown, RailEdge edge) const -> compositi
 {
     ShellModel* held = model;
     composition::Element rail = Rail(*model, *strings, parts->settings.accounts, edge);
-    composition::Element content = page(shown, edge);
-    if (!Rail::vertical(edge))
-        content = edge == RailEdge::Top
-            ? composition::Element(components::VStack(components::VStackOptions{ .spacing = theme::space::none },
-                  std::move(rail), std::move(content)))
-            : composition::Element(components::VStack(components::VStackOptions{ .spacing = theme::space::none },
-                  std::move(content), std::move(rail)));
     std::vector<composition::Element> layers;
     layers.push_back(backdrop());
-    layers.push_back(std::move(content));
+    layers.push_back(page(shown, edge));
     layers.push_back(hints());
-    if (Rail::vertical(edge))
-        layers.push_back(std::move(rail));
+    layers.push_back(std::move(rail));
     return components::ZStack(components::ZStackOptions{ .alignment = composition::Alignment::top_leading }, std::move(layers))
         .on_command(provider::Button::y, strings->text("akira/rail/menu"), [held] { held->callRail(); })
         .on_exit_command(strings->text("akira/app/exit"), [held] { held->askExit(); });
@@ -158,15 +170,18 @@ auto ShellScreen::backdrop() -> composition::Element
 
 auto ShellScreen::page(ShellModel::Page shown, RailEdge edge) const -> composition::Element
 {
+    const float railSide = edge == RailEdge::Right ? pageLeading - pageTrailing : 0.0F;
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ pageSpacing } },
         Header(pageTitle(shown), *strings),
-        pageContent(shown).frame({ .max_width = composition::infinity, .max_height = composition::infinity,
-            .alignment = composition::Alignment::top_leading }))
+        pageContent(shown)
+            .padding(theme::Edge::trailing, theme::Space{ railSide })
+            .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
+                .alignment = composition::Alignment::top_leading }))
         .padding(theme::Insets{ .top = theme::Space{ edge == RailEdge::Top ? pageTopUnderBar : pageTop },
             .leading = theme::Space{ edge == RailEdge::Left ? pageLeading : pageTrailing },
             .bottom = theme::Space{ edge == RailEdge::Bottom ? pageBottomOverBar : pageBottom },
-            .trailing = theme::Space{ edge == RailEdge::Right ? pageLeading : pageTrailing } })
+            .trailing = theme::Space{ pageTrailing } })
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
             .alignment = composition::Alignment::top_leading })
         .id(composition::ElementKey{ "shell.page" });

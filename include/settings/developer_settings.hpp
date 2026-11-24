@@ -36,6 +36,8 @@ public:
     void setIpcStatsEnabled(bool enabled) { ipcStats = enabled; }
     bool fakeHosts() const { return devFakeHosts; }
     void setFakeHosts(bool enabled) { devFakeHosts = enabled; }
+    bool loadingPreview() const { return devLoadingPreview; }
+    void setLoadingPreview(bool enabled) { devLoadingPreview = enabled; }
     const std::string& updateServer() const { return devUpdateServer; }
     void setUpdateServer(const std::string& server) { devUpdateServer = server; }
 
@@ -82,6 +84,7 @@ private:
     bool powerUserUnlocked = false;
     bool ipcStats = false;
     bool devFakeHosts = false;
+    bool devLoadingPreview = false;
     std::string devUpdateServer;
     bool enableFileLogging = false;
     bool silenced = false;

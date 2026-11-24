@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <optional>
 
 namespace akira::play {
 
@@ -84,6 +85,7 @@ struct StreamStats
     uint64_t reorder_dropped = 0;
     uint64_t internal_drops = 0;
     uint64_t session_errors = 0;
+    std::optional<uint32_t> takion_version;
 
     bool analog_triggers_active = false;
     uint8_t analog_l2 = 0;

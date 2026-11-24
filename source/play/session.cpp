@@ -487,6 +487,7 @@ StreamStats Session::getStreamStats()
         stats.reorder_dropped = link.reorder_dropped;
         stats.internal_drops = link.dropped_posts + link.send_dropped;
         stats.session_errors = observed.loop_errors;
+        stats.takion_version = observed.protocol_version;
     }
 
     stats.visual_ms = stats.decode_ms + stats.present_ms;

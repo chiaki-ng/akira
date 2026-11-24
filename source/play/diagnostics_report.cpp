@@ -60,6 +60,8 @@ auto DiagnosticsReport::headerChips() const -> std::vector<Chip>
     std::vector<Chip> chips;
     if (!sample.context.empty())
         chips.push_back(Chip{ .segments = { sample.context } });
+    if (stats.takion_version)
+        chips.push_back(Chip{ .segments = { std::format("Takion v{}", *stats.takion_version) } });
     std::string codec = stats.requested_hevc ? "HEVC" : "H.264";
     if (stats.video_width > 0)
         codec += " 8-bit";

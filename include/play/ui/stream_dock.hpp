@@ -38,6 +38,9 @@ public:
     enum class Panel { Stream, Colour, Sound, Statistics, Controls, Players, Session };
 
     static constexpr float panelWidth = 700.0F;
+
+
+    static constexpr float scrimOpacity = 0.82F;
     static constexpr float panelPadding = 24.0F;
     static constexpr float panelSpacing = 18.0F;
     static constexpr float colourSpacing = 14.0F;

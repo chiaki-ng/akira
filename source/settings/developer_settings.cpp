@@ -46,6 +46,8 @@ void DeveloperSettings::read(const toml::table& config)
         ipcStats = *val;
     if (auto val = debug["fake_hosts"].value<bool>())
         devFakeHosts = *val;
+    if (auto val = debug["loading_preview"].value<bool>())
+        devLoadingPreview = *val;
     if (auto val = debug["power_user_menu_unlocked"].value<bool>())
         powerUserUnlocked = *val;
     if (auto val = debug["update_server"].value<std::string>())
@@ -74,6 +76,7 @@ void DeveloperSettings::write(toml::table& config) const
     if (debugFfmpegLog) debug().insert("ffmpeg_log", true);
     if (ipcStats) debug().insert("ipc_stats", true);
     if (devFakeHosts) debug().insert("fake_hosts", true);
+    if (devLoadingPreview) debug().insert("loading_preview", true);
     if (powerUserUnlocked) debug().insert("power_user_menu_unlocked", true);
     if (!devUpdateServer.empty()) debug().insert("update_server", devUpdateServer);
 }

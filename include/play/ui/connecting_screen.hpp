@@ -1,11 +1,17 @@
 #pragma once
 
+#include <chrono>
+#include <optional>
+
 #include <string>
 #include <vector>
 
+#include <arisa/async/task.hpp>
 #include <arisa/composition/component.hpp>
 #include <arisa/composition/context.hpp>
 #include <arisa/composition/element.hpp>
+#include <arisa/composition/state_handle.hpp>
+#include <arisa/composition/state_key.hpp>
 
 #include "app/strings.hpp"
 #include "play/connect_flow.hpp"
@@ -32,6 +38,28 @@ public:
     static constexpr std::size_t logRows = 9;
     static constexpr float logWidth = 640.0F;
     static constexpr float logHeight = 168.0F;
+    static constexpr float artEdge = 56.0F;
+    static constexpr float artLogoBottom = 138.0F;
+    static constexpr float artLogoWidth = 300.0F;
+    static constexpr float artLogoHeight = 180.0F;
+    static constexpr float artReferenceWidth = 1280.0F;
+    static constexpr float artTitleSize = 32.0F;
+    static constexpr float cancelSize = 15.0F;
+    static constexpr float stripBottom = 34.0F;
+    static constexpr float stripHeight = 56.0F;
+    static constexpr float stripDetailWidth = 340.0F;
+    static constexpr std::chrono::seconds artDwell{ 5 };
+    static constexpr double artFade = 1.2;
+    static constexpr ::arisa::composition::StateKey<int> artShown{ "connecting-art-shown", 0 };
+
+    struct Art {
+        std::string title;
+        std::string background;
+        std::string hero;
+        std::string logo;
+
+        friend bool operator==(const Art&, const Art&) = default;
+    };
 
     struct Progress {
         std::string console;
@@ -46,7 +74,7 @@ public:
         friend bool operator==(const Progress&, const Progress&) = default;
     };
 
-    ConnectingScreen(Progress progress, StreamCommands& commands, const app::Strings& strings);
+    ConnectingScreen(Progress progress, StreamCommands& commands, const app::Strings& strings, std::vector<Art> arts = {});
 
     bool operator==(const ConnectingScreen& other) const = default;
 
@@ -61,10 +89,18 @@ private:
     auto stagesShown() const -> ::arisa::composition::Element;
     auto logShown() const -> ::arisa::composition::Element;
     static auto pill(Capsule state) -> ::arisa::composition::Element;
+    auto layered(::arisa::composition::Context& context) const -> ::arisa::composition::Element;
+    static auto backdrop(const Art& shown) -> ::arisa::composition::Element;
+    static auto heading(const Art& shown, float scale) -> ::arisa::composition::Element;
+    static auto rotate(::arisa::composition::StateHandle<int> shown) -> ::arisa::async::Task<void>;
+    auto strip(float scale) const -> ::arisa::composition::Element;
+    auto chrome(int current, float scale) const -> ::arisa::composition::Element;
+    auto cancelButton(float scale) const -> ::arisa::composition::Element;
 
     Progress progress;
     StreamCommands* commands;
     const app::Strings* strings;
+    std::vector<Art> arts;
 };
 
 }
