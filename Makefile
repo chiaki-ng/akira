@@ -51,7 +51,7 @@ TEST_PLATFORM_SRC := $(CURDIR)/source/platform/pads/extended/rumble_keys.cpp \
 endif
 DOCKER_IMAGE ?= akira-builder:$(IMAGE_HASH)
 ARISA_VERSION      := 0.0.1
-ARISA_TAG          := 2feb103
+ARISA_TAG          := 8ba8b1e
 ARISA_GPU          ?= drako3d
 ARISA_FLAVOUR_nx_drako3d    := switch
 ARISA_FLAVOUR_nx_vulkan     := switch
