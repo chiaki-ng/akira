@@ -48,19 +48,13 @@ auto Rail::body(composition::Context& context) const -> composition::Element
 {
     const ShellModel::View& view = context.read(model->view());
     const auto focus = context.state(stopFocus);
-    const auto open = context.state(pinned);
     const bool upright = vertical(edge);
-    const Look look{ .expanded = !upright || open.get() || focus.get().has_value(), .vertical = upright, .focus = focus };
+    const Look look{ .expanded = !upright || focus.get().has_value(), .vertical = upright, .focus = focus };
     ShellModel* held = model;
     std::vector<composition::Element> stops;
     std::vector<std::optional<ShellModel::Page>> shownPages;
     std::size_t index = 0;
     std::size_t current = 0;
-    if (upright)
-    {
-        stops.push_back(stop(strings->text("akira/rail/menu"), "menu", false, [open] { open.set(!open.get()); }, index++, look));
-        shownPages.emplace_back(std::nullopt);
-    }
     for (const ShellModel::Page page : pages(view))
     {
         if (page == view.page)
@@ -84,9 +78,9 @@ auto Rail::body(composition::Context& context) const -> composition::Element
         : composition::Element(components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::center,
                                                       .spacing = theme::Space{ stopSpacing } },
               std::move(stops)));
-    stack = upright ? std::move(stack).frame({ .width = (look.expanded ? expandedWidth : collapsedWidth) - padding * 2.0F,
+    stack = upright ? std::move(stack).frame({ .width = look.expanded ? expandedWidth : collapsedWidth,
                           .alignment = composition::Alignment::leading })
-                    : std::move(stack).frame({ .height = barHeight - padding * 2.0F });
+                    : std::move(stack).frame({ .height = barHeight });
     composition::Element panel = std::move(stack)
                                      .padding(theme::Space{ padding })
                                      .glass_panel(components::PanelRadius::large)
@@ -106,7 +100,8 @@ auto Rail::placed(composition::Element panel, bool expanded) const -> compositio
     if (!vertical(edge))
         return std::move(panel)
             .padding(theme::Space{ inset })
-            .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::center });
+            .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
+                .alignment = edge == RailEdge::Top ? composition::Alignment::top : composition::Alignment::bottom });
     const composition::Alignment side = edge == RailEdge::Left ? composition::Alignment::leading : composition::Alignment::trailing;
     return components::ZStack(components::ZStackOptions{ .alignment = side },
         composition::Element(components::Group())

@@ -33,6 +33,8 @@ private:
     auto identity(const AccountModel::View& view) const -> ::arisa::composition::Element;
     auto companion(const AccountModel::View& view) const -> ::arisa::composition::Element;
     auto tokens(const AccountModel::View& view) const -> ::arisa::composition::Element;
+    auto tokenActions(const AccountModel::View& view, std::string_view suffix) const
+        -> std::vector<::arisa::composition::Element>;
     auto confirmations(::arisa::composition::Element screen, const AccountModel::View& view) const
         -> ::arisa::composition::Element;
     auto credential(const AccountDesk::Credential& shown) const -> ::arisa::composition::Element;

@@ -20,7 +20,6 @@
 #include "app/app_settings.hpp"
 #include "app/notifier.hpp"
 #include "app/version.hpp"
-#include "network/custom_dns.hpp"
 #include "network/network_settings.hpp"
 #include "play/stream_settings.hpp"
 
@@ -56,7 +55,6 @@ auto GeneralSection::body(composition::Context& context) const -> composition::E
     }
     sections.push_back(language(rows));
     sections.push_back(performance(rows));
-    sections.push_back(networks(rows));
     sections.push_back(about(rows));
     return structure::Form(std::move(sections));
 }
@@ -218,27 +216,6 @@ auto GeneralSection::performance(const SettingRows& rows) const -> composition::
         [&stream](double value) { stream.setPacketLossMax(static_cast<float>(value)); },
         strings->format("akira/settings/percent_format", static_cast<int>(stream.packetLossMax() * 100.0F))));
     return rows.section(rows.text("akira/settings/performance"), std::move(shown));
-}
-
-auto GeneralSection::networks(const SettingRows& rows) const -> composition::Element
-{
-    SettingsModel* edit = model;
-    std::vector<composition::Element> shown;
-    const std::string local = model->parts().maintenance.localSubnet();
-    if (!local.empty())
-        shown.push_back(rows.value(local, rows.text("akira/settings/this_network")));
-    for (const std::string& subnet : model->subnets())
-        shown.push_back(components::Button([edit, subnet] { edit->removeSubnet(subnet); },
-            components::HStack(components::Text(subnet), components::Spacer(),
-                components::Text(rows.text("akira/settings/remove")).foreground_style(theme::ColourRole::red)))
-                            .id(composition::ElementKey{ "general.subnet." + subnet }));
-    shown.push_back(rows.action(rows.text("akira/settings/add_subnet_label"), "add", "",
-        [edit] { edit->ask(SettingsModel::Entry::Subnet); }));
-    const auto& servers = model->parts().network.customDnsServers();
-    shown.push_back(rows.link(rows.text("akira/settings/custom_dns"),
-        servers.empty() ? rows.text("akira/settings/custom_dns_system") : network::CustomDns::formatServers(servers), "",
-        [edit] { edit->ask(SettingsModel::Entry::Dns); }));
-    return rows.section(rows.text("akira/settings/network"), std::move(shown));
 }
 
 auto GeneralSection::about(const SettingRows& rows) const -> composition::Element

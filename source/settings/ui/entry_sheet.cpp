@@ -78,7 +78,7 @@ auto EntrySheet::body(composition::Context& context) const -> composition::Eleme
                 .button_style(components::ButtonStyle::glass_prominent())
                 .id(composition::ElementKey{ "settings-entry.save" })))
         .padding(theme::Space{ 24.0F })
-        .frame({ .width = 520.0F });
+        .frame({ .max_width = 520.0F });
 }
 
 }

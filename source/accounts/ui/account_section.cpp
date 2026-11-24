@@ -12,7 +12,9 @@
 #include <arisa/components/labeled_content.hpp>
 #include <arisa/components/spacer.hpp>
 #include <arisa/components/text.hpp>
+#include <arisa/components/view_that_fits.hpp>
 #include <arisa/components/vstack.hpp>
+#include <arisa/composition/axes.hpp>
 #include <arisa/composition/binding.hpp>
 #include <arisa/controls/text_field.hpp>
 #include <arisa/controls/toggle.hpp>
@@ -29,6 +31,8 @@
 #include <algorithm>
 #include <format>
 #include <optional>
+#include <string>
+#include <string_view>
 #include <utility>
 
 #include "accounts/ui/account_avatar.hpp"
@@ -220,30 +224,41 @@ auto AccountSection::refreshLabel(const AccountDesk::Refresh& refresh) const -> 
 
 auto AccountSection::tokens(const AccountModel::View& view) const -> composition::Element
 {
-    AccountModel* held = model;
     std::vector<composition::Element> rows;
     for (const AccountDesk::Credential& shown : view.credentials)
         rows.push_back(credential(shown));
+    rows.push_back(components::ViewThatFits(composition::Axes::horizontal,
+        components::HStack(components::HStackOptions{ .spacing = theme::space::sm }, tokenActions(view, "")),
+        components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                               .spacing = theme::space::sm },
+            tokenActions(view, ".stacked"))));
+    return section(strings->text("akira/settings/psn_tokens_heading"), std::move(rows));
+}
+
+auto AccountSection::tokenActions(const AccountModel::View& view, std::string_view suffix) const
+    -> std::vector<composition::Element>
+{
+    AccountModel* held = model;
     const bool refreshable = view.refresh.state == AccountDesk::RefreshState::Ready
         || view.refresh.state == AccountDesk::RefreshState::NotLinked;
-    rows.push_back(components::HStack(components::HStackOptions{ .spacing = theme::space::sm },
-        components::Button(strings->text(view.revealed ? "akira/settings/hide_secrets" : "akira/settings/reveal_secrets"),
+    std::vector<composition::Element> actions;
+    actions.push_back(components::Button(strings->text(view.revealed ? "akira/settings/hide_secrets" : "akira/settings/reveal_secrets"),
             components::Image::SystemName{ view.revealed ? "visibility_off" : "visibility" },
             [held, revealed = view.revealed] { held->reveal(!revealed); })
             .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
             .help(help->title("settings/revealCredentials"), help->body("settings/revealCredentials"))
-            .id(composition::ElementKey{ "account.reveal" }),
-        components::Button(refreshLabel(view.refresh), components::Image::SystemName{ "refresh" }, [held] { held->refreshToken(); })
+            .id(composition::ElementKey{ std::string("account.reveal").append(suffix) }));
+    actions.push_back(components::Button(refreshLabel(view.refresh), components::Image::SystemName{ "refresh" }, [held] { held->refreshToken(); })
             .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
             .disabled(!refreshable)
             .help(help->title("settings/refreshTokenBtn"), help->body("settings/refreshTokenBtn"))
-            .id(composition::ElementKey{ "account.refresh" }),
-        components::Button(strings->text("akira/settings/clear_psn_data"), components::Image::SystemName{ "delete" },
+            .id(composition::ElementKey{ std::string("account.refresh").append(suffix) }));
+    actions.push_back(components::Button(strings->text("akira/settings/clear_psn_data"), components::Image::SystemName{ "delete" },
             components::ButtonRole::destructive, [held] { held->askClear(); })
             .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
             .help(help->title("settings/clearPsnBtn"), help->body("settings/clearPsnBtn"))
-            .id(composition::ElementKey{ "account.clear" })));
-    return section(strings->text("akira/settings/psn_tokens_heading"), std::move(rows));
+            .id(composition::ElementKey{ std::string("account.clear").append(suffix) }));
+    return actions;
 }
 
 auto AccountSection::confirmations(composition::Element screen, const AccountModel::View& view) const -> composition::Element

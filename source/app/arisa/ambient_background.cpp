@@ -100,7 +100,7 @@ auto AmbientBackground::motif(const Motif& shown, double seconds, composition::S
     const double reach = std::max(std::abs((x / size.width) - 0.5) * 2.0, std::abs((y / size.height) - 0.5) * 2.0);
     const double visible = presence == Presence::Quiet ? std::clamp((reach - 0.70) / 0.22, 0.0, 1.0) * 0.35 : 1.0;
     const double fade = std::min(1.0, progress / 0.12) * std::min(1.0, (1.0 - progress) / 0.18);
-    const double alpha = ((dark ? 0.075 : 0.14) + (shown.depth * (dark ? 0.13 : 0.2))) * fade * visible;
+    const double alpha = ((dark ? 0.075 : 0.1) + (shown.depth * (dark ? 0.13 : 0.17))) * fade * visible;
     const Sprite& sprite = sprites[static_cast<std::size_t>(shown.kind)];
     const float height = side / sprite.aspect;
     return components::Image(sprite.image)

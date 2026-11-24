@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <utility>
 
+#include "app/arisa/about_page.hpp"
 #include "app/arisa/thread_plan.hpp"
 #include "app/build_info.hpp"
 #include "app/crash_report.hpp"
@@ -79,6 +80,7 @@ bool App::openProviders()
     }
     window.emplace(providers->surface(), providers->lifecycle());
     strings.emplace(providers->assets(), StringCatalog::fallbackLocale);
+    contributors = AboutPage::contributors(providers->assets());
     if (!strings->loaded())
         log::warning("[ARISA] no string catalog under romfs:/{}", StringCatalog::directory);
     gpu.emplace(stock->get(), providers->surface());
@@ -207,7 +209,7 @@ void App::buildScreens()
             },
         });
     CrashReport::stage("arisa discovery");
-    consoleOperations.emplace(services, shelf, recent, notices, [this](consoles::Host& host) { driver->start(host); },
+    consoleOperations.emplace(services, shelf, recent, notices, *driver,
         [this] {
             if (accountModel)
                 accountModel->welcome(false, accountModel->view().get().entries.empty());
@@ -227,6 +229,7 @@ void App::buildScreens()
             .help = &*help,
             .accounts = &*accountModel,
             .logs = &*logs,
+            .contributors = &contributors,
         },
         .art = &*artSession,
         .recent = &recent,
@@ -301,7 +304,10 @@ void App::chooseLanguage()
 void App::profileChanged()
 {
     if (consoleOperations)
+    {
         consoleOperations->refresh();
+        consoleOperations->lookUpAccount();
+    }
     if (trophyModel)
         trophyModel->reset();
     offerPages();

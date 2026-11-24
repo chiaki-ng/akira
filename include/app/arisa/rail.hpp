@@ -38,7 +38,6 @@ public:
     static constexpr float selectedOpacity = 0.22F;
     static constexpr float dimOpacity = 0.32F;
     static constexpr ::arisa::composition::FocusState<std::size_t> stopFocus{ "rail.focus" };
-    static constexpr ::arisa::composition::StateKey<bool> pinned{ "rail.pinned", false };
 
     Rail(ShellModel& model, const app::Strings& strings, accounts::ui::AccountModel* accounts, RailEdge edge);
 

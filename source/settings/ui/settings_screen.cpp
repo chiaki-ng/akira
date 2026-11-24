@@ -14,6 +14,7 @@
 #include <arisa/components/spacer.hpp>
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
+#include <arisa/composition/geometry_proxy.hpp>
 #include <arisa/composition/binding.hpp>
 #include <arisa/composition/namespace.hpp>
 #include <arisa/composition/visibility.hpp>
@@ -29,6 +30,7 @@
 #include <arisa/theme/typography.hpp>
 
 #include <algorithm>
+#include <type_traits>
 #include <cstddef>
 #include <utility>
 
@@ -38,6 +40,7 @@
 #include "app/version.hpp"
 #include "log/ui/log_browser.hpp"
 #include "network/ui/nat_section.hpp"
+#include "network/ui/network_section.hpp"
 #include "network/ui/tunnel_section.hpp"
 #include "play/ui/button_board_view.hpp"
 #include "settings/developer_settings.hpp"
@@ -149,13 +152,18 @@ auto SettingsScreen::content(Page shown) const -> composition::Element
                 return accounts::ui::AccountSection(*parts.accounts, help, *strings);
             break;
         case Page::BuildInfo: return app::arisa::BuildInfoPage(model.features().buildInfoFile, *strings);
-        case Page::About: return app::arisa::AboutPage(*strings);
+        case Page::About:
+        {
+            static const std::vector<std::string> none;
+            return app::arisa::AboutPage(*strings, parts.contributors ? *parts.contributors : none);
+        }
         case Page::General: return GeneralSection(model, help, *strings);
         case Page::Picture: break;
         case Page::Controls: return ControlsSection(model, help, *strings);
         case Page::Updates: return UpdatesSection(model, help, *strings);
         case Page::Network:
-            return structure::Form(network::ui::NatSection(*parts.nat, help, *strings),
+            return structure::Form(network::ui::NetworkSection(model, help, *strings),
+                network::ui::NatSection(*parts.nat, help, *strings),
                 network::ui::TunnelSection(*parts.tunnel, *strings))
                 .on_appear([tunnel = parts.tunnel] { tunnel->refresh(); });
         case Page::Debug: return DebugSection(model, help, *strings);
@@ -166,7 +174,12 @@ auto SettingsScreen::content(Page shown) const -> composition::Element
     return PictureSection(*parts.picture, model, help, *strings);
 }
 
-auto SettingsScreen::detail(const SettingsModel::Status& status) const -> composition::Element
+auto SettingsScreen::fitted(float wanted, float limit) -> float
+{
+    return limit > 0.0F ? std::min(wanted, limit - (sideMargin * 2.0F)) : wanted;
+}
+
+auto SettingsScreen::detail(const SettingsModel::Status& status, float limit) const -> composition::Element
 {
     SettingsModel* model = parts.model;
     std::string heading;
@@ -211,7 +224,7 @@ auto SettingsScreen::detail(const SettingsModel::Status& status) const -> compos
         std::move(shown)
             .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
                 .alignment = composition::Alignment::top_leading }))
-        .frame({ .width = width, .max_height = composition::infinity })
+        .frame({ .width = fitted(width, limit), .max_height = composition::infinity })
         .on_exit_command(strings->text("akira/common/back"), [model] { model->close(); })
         .id(composition::ElementKey{ "settings.detail" });
 }
@@ -287,6 +300,7 @@ auto SettingsScreen::body(composition::Context& context) const -> composition::E
     const std::vector<Page> shown = pages(*parts.model);
     const auto chosen = context.state(page);
     const Page current = std::ranges::contains(shown, chosen.get()) ? chosen.get() : Page::About;
+    const auto measured = context.state(available);
     composition::Binding<std::size_t> selection(
         [chosen, shown] {
             const auto found = std::ranges::find(shown, chosen.get());
@@ -302,13 +316,13 @@ auto SettingsScreen::body(composition::Context& context) const -> composition::E
     std::vector<structure::DockBar::Item> tabs;
     for (const Page tab : shown)
         tabs.push_back({ title(tab), symbol(tab) });
-    composition::Element body = status.detail == SettingsModel::Detail::None ? content(current).frame({ .width = contentWidth, .max_height = composition::infinity })
-                                                                               : detail(status);
+    composition::Element body = status.detail == SettingsModel::Detail::None ? content(current).frame({ .width = fitted(contentWidth, measured.get()), .max_height = composition::infinity })
+                                                                               : detail(status, measured.get());
     SettingsModel* model = parts.model;
     composition::Element screen =
         components::VStack(components::VStackOptions{ .spacing = theme::space::none },
             composition::Element(structure::DockBar(std::move(selection), std::move(tabs), {},
-                                     structure::DockBar::Options{ .follows_focus = true }))
+                                     structure::DockBar::Options{ .follows_focus = true, .scrolls = true }))
                 .control_size(components::ControlSize::small)
                 .labels_hidden()
                 .padding(theme::Edge::top, theme::Space{ 8.0F })
@@ -324,6 +338,9 @@ auto SettingsScreen::body(composition::Context& context) const -> composition::E
                     .alignment = composition::Alignment::top }))
             .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
                 .alignment = composition::Alignment::top })
+            .on_geometry_change(
+                std::type_identity<float>{}, [](const composition::GeometryProxy& proxy) { return proxy.size().width; },
+                [measured](const float& width) { measured.set(width); })
             .on_command(provider::Button::l, strings->text("akira/settings/previous_page"),
                 [chosen, shown, current, model] {
                     model->close();

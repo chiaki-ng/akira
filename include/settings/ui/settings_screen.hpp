@@ -32,12 +32,15 @@ public:
         const HelpCatalog* help = nullptr;
         accounts::ui::AccountModel* accounts = nullptr;
         log::ui::LogShelf* logs = nullptr;
+        const std::vector<std::string>* contributors = nullptr;
 
         friend bool operator==(const Parts&, const Parts&) = default;
     };
 
     static constexpr float contentWidth = 760.0F;
     static constexpr float boardWidth = 800.0F;
+    static constexpr float sideMargin = 16.0F;
+    static constexpr ::arisa::composition::StateKey<float> available{ "settings-width", 0.0F };
 
     static constexpr ::arisa::composition::StateKey<Page> page{ "settings-page", Page::About };
 
@@ -52,7 +55,8 @@ public:
 
 private:
     auto content(Page shown) const -> ::arisa::composition::Element;
-    auto detail(const SettingsModel::Status& status) const -> ::arisa::composition::Element;
+    auto detail(const SettingsModel::Status& status, float limit) const -> ::arisa::composition::Element;
+    static auto fitted(float wanted, float limit) -> float;
     auto presented(::arisa::composition::Element screen, const SettingsModel::Status& status) const
         -> ::arisa::composition::Element;
     auto title(Page shown) const -> std::string;

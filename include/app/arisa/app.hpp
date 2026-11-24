@@ -3,6 +3,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 #include <string_view>
 
 #include <arisa/provider/diagnostics/crash_reporter.hpp>
@@ -98,6 +99,7 @@ private:
     std::optional<::arisa::provider::horizon::HorizonProviderFactory> providers;
     std::optional<Window> window;
     std::optional<StringCatalog> strings;
+    std::vector<std::string> contributors;
     std::optional<Gpu> gpu;
     std::optional<Rumble> rumble;
     std::optional<StreamVoice> voice;

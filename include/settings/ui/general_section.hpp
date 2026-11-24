@@ -30,7 +30,6 @@ private:
         -> ::arisa::composition::Element;
     auto language(const SettingRows& rows) const -> ::arisa::composition::Element;
     auto performance(const SettingRows& rows) const -> ::arisa::composition::Element;
-    auto networks(const SettingRows& rows) const -> ::arisa::composition::Element;
     auto about(const SettingRows& rows) const -> ::arisa::composition::Element;
     auto themeLabel(const std::string& pack) const -> std::string;
 
