@@ -43,6 +43,7 @@ using akira::play::ui::ConnectingScreen;
 class RecordingConsoles final : public ConsoleCommands {
 public:
     void primary(const std::string& catalogName) override { played.push_back(catalogName); }
+    void chooseRoute(const std::string&, akira::consoles::ConsoleEntry::Route) override {}
     void registerOverInternet(const std::string&) override {}
     void askPin(const std::string&) override {}
     void registerWithPin(const std::string&, const std::string&) override {}

@@ -21,6 +21,7 @@
 #include <arisa/structure/digit_keypad.hpp>
 #include <arisa/structure/dock_bar.hpp>
 #include <arisa/theme/colour.hpp>
+#include <arisa/theme/dynamic_type_size.hpp>
 
 #include <algorithm>
 #include <array>
@@ -30,6 +31,7 @@
 #include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <iterator>
 #include <optional>
@@ -42,6 +44,7 @@
 #include "app/arisa/confirmation.hpp"
 #include "app/arisa/notices.hpp"
 #include "app/arisa/overlay_palette.hpp"
+#include "app/arisa/rail.hpp"
 #include "app/arisa/shell_model.hpp"
 #include "app/arisa/shell_screen.hpp"
 #include "app/arisa/string_catalog.hpp"
@@ -61,7 +64,9 @@
 #include "settings/ui/settings_model.hpp"
 #include "settings/ui/settings_screen.hpp"
 #include "consoles/console_list.hpp"
+#include "consoles/ui/console_card.hpp"
 #include "consoles/ui/console_commands.hpp"
+#include "consoles/ui/recent_shelf.hpp"
 #include "consoles/ui/console_shelf.hpp"
 #include "fake_account_desk.hpp"
 #include "fake_couch_table.hpp"
@@ -115,6 +120,7 @@ using akira::consoles::ui::ConsoleShelf;
 class QuietConsoles final : public akira::consoles::ui::ConsoleCommands {
 public:
     void primary(const std::string& name) override { primaries.push_back(name); }
+    void chooseRoute(const std::string&, akira::consoles::ConsoleEntry::Route) override {}
     void registerOverInternet(const std::string&) override {}
     void askPin(const std::string&) override {}
     void registerWithPin(const std::string&, const std::string&) override {}
@@ -388,7 +394,16 @@ public:
     Shots(const Shots&) = delete;
     Shots& operator=(const Shots&) = delete;
 
+    std::optional<float> uiScale;
+    std::optional<arisa::theme::DynamicTypeSize> typeSize;
+
     auto shell() -> composition::Element { return ShellScreen(model, notices, parts, *strings); }
+
+    auto consoleCard(const akira::consoles::ui::ConsoleShelf::Card& card,
+        std::optional<akira::consoles::ui::RecentShelf::Banner> banner) -> composition::Element
+    {
+        return akira::consoles::ui::ConsoleCard(card, false, consoles, *strings, std::nullopt, std::move(banner));
+    }
 
     auto start(composition::Element screen, std::string_view theme = ThemePacks::standard,
         appearance::ColorSchemePreference scheme = appearance::ColorSchemePreference::dark,
@@ -401,6 +416,10 @@ public:
         providers.gpu().rasterize(size);
         runtime::AppearanceOptions look = packs.options(theme);
         look.policy.defaults.color_scheme = scheme;
+        if (uiScale)
+            look.policy.defaults.ui_scale = look.policy.defaults.ui_scale.with(mode, *uiScale);
+        if (typeSize)
+            look.policy.defaults.dynamic_type_size = *typeSize;
         auto created = runtime::Application::create(providers, std::move(screen),
             runtime::ApplicationOptions{ .appearance = std::move(look) });
         if (!created)
@@ -689,6 +708,64 @@ public:
         return at && within(*at, key);
     }
 
+    auto spills(std::string_view scope) -> std::vector<std::string>
+    {
+        constexpr float slack = 0.5F;
+        const runtime::Introspection& look = application->introspection();
+        std::optional<runtime::Introspection::NodeRecord> box;
+        for (const runtime::Introspection::NodeRecord& record : look.nodes())
+            if (record.flags.glass && within(record.id, scope) && (!box || record.depth < box->depth))
+                box = record;
+        if (!box)
+            return { "no glass box inside " + std::string(scope) };
+        const float left = box->bounds.x - slack;
+        const float right = box->bounds.x + box->bounds.width + slack;
+        std::vector<std::string> found;
+        for (const runtime::Introspection::NodeRecord& record : look.nodes())
+        {
+            if (record.id == box->id || record.bounds.width <= 0.0F || !within(record.id, box->id)
+                || clipped(record.id, box->id))
+                continue;
+            if (record.bounds.x < left || record.bounds.x + record.bounds.width > right)
+                found.push_back(std::format("{} '{}' x {:.0f}..{:.0f} outside {:.0f}..{:.0f}", record.name, record.key,
+                    record.bounds.x, record.bounds.x + record.bounds.width, box->bounds.x,
+                    box->bounds.x + box->bounds.width));
+        }
+        return found;
+    }
+
+    auto clipped(composition::NodeId node, composition::NodeId box) -> bool
+    {
+        const runtime::Introspection& look = application->introspection();
+        std::optional<composition::NodeId> at = look.node(node) ? look.node(node)->parent : std::nullopt;
+        while (at && *at != box)
+        {
+            const std::optional<runtime::Introspection::NodeRecord> record = look.node(*at);
+            if (!record)
+                return false;
+            if (record->flags.clips)
+                return true;
+            at = record->parent;
+        }
+        return false;
+    }
+
+    auto within(composition::NodeId node, composition::NodeId ancestor) -> bool
+    {
+        std::optional<composition::NodeId> at = node;
+        const runtime::Introspection& look = application->introspection();
+        while (at)
+        {
+            if (*at == ancestor)
+                return true;
+            const std::optional<runtime::Introspection::NodeRecord> record = look.node(*at);
+            if (!record)
+                return false;
+            at = record->parent;
+        }
+        return false;
+    }
+
     auto within(composition::NodeId node, std::string_view key) -> bool
     {
         std::optional<composition::NodeId> at = node;
@@ -721,6 +798,8 @@ public:
     ShellModel model;
     Notices notices;
     ConsoleShelf shelf;
+
+    auto introspection() -> const runtime::Introspection& { return application->introspection(); }
 
 private:
     void loadAssets()
@@ -836,6 +915,73 @@ private:
 
 }
 
+TEST(arisa_collapsed_rail_stops_are_square)
+{
+    Shots shots;
+    shots.model.ready();
+    shots.showHouse();
+    REQUIRE(shots.start(shots.shell()));
+    std::optional<arisa::runtime::Introspection::NodeRecord> stop;
+    for (const arisa::runtime::Introspection::NodeRecord& record : shots.introspection().nodes())
+        if (record.key == "rail.stop.0")
+            stop = record;
+    REQUIRE(stop.has_value());
+    CHECK(std::abs(stop->bounds.width - akira::app::arisa::Rail::stopHeight) < 0.5F);
+    CHECK(std::abs(stop->bounds.height - akira::app::arisa::Rail::stopHeight) < 0.5F);
+}
+
+TEST(arisa_probe_rail_on_trophies)
+{
+    for (const std::string_view pack : ThemePacks::names)
+        for (const float scale : { 1.25F, 2.0F })
+        {
+            Shots shots;
+            shots.uiScale = scale;
+            shots.model.ready();
+            shots.showHouse();
+            shots.model.offer(false, true);
+            REQUIRE(shots.start(shots.shell(), pack, appearance::ColorSchemePreference::dark, Shots::switch2Handheld,
+                provider::DisplayMode::handheld));
+            shots.model.show(ShellModel::Page::Trophies);
+            REQUIRE(shots.settle());
+            for (const arisa::runtime::Introspection::NodeRecord& record : shots.introspection().nodes())
+                if (record.key == "rail" || record.key == "rail.stop.0" || record.key == "shell.page" || record.key == "trophies.screen")
+                    std::fprintf(stderr, "PROBE %.*s %.2f %s bounds %.1f,%.1f %.1fx%.1f\n", static_cast<int>(pack.size()),
+                        pack.data(), scale, record.key.c_str(), record.bounds.x, record.bounds.y, record.bounds.width,
+                        record.bounds.height);
+            std::fprintf(stderr, "PROBE %.*s %.2f viewport %.1f\n", static_cast<int>(pack.size()), pack.data(), scale,
+                shots.viewportWidth());
+            CHECK(shots.write(std::format("rail_trophies_{}_{}", pack, static_cast<int>(scale * 100.0F))));
+        }
+}
+
+TEST(arisa_layered_card_stage_fills_the_card)
+{
+    Shots shots;
+    shots.model.ready();
+    shots.showHouse();
+    const akira::consoles::ui::ConsoleShelf::Card card = shots.shelf.view().get().cards.front();
+    akira::consoles::ui::RecentShelf::Banner banner{ .catalogName = card.catalogName,
+        .titleId = "PPSA00000_00",
+        .background = "https://example.invalid/cover.jpg",
+        .logo = "https://example.invalid/logo.png" };
+    composition::Element shown = shots.consoleCard(card, banner)
+                                     .frame({ .width = 1100.0F })
+                                     .padding(theme::Space{ 40.0F })
+                                     .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
+                                         .alignment = composition::Alignment::top_leading });
+    REQUIRE(shots.start(std::move(shown)));
+    const std::optional<composition::Rect> stage = shots.areaOf("card.stage");
+    const std::optional<composition::Rect> whole = shots.areaOf(card.catalogName);
+    REQUIRE(stage.has_value());
+    REQUIRE(whole.has_value());
+    std::fprintf(stderr, "PROBE stage %.1f,%.1f %.1fx%.1f card %.1f,%.1f %.1fx%.1f\n", stage->x, stage->y, stage->width,
+        stage->height, whole->x, whole->y, whole->width, whole->height);
+    CHECK(shots.write("layered_card"));
+    CHECK(std::abs(stage->width - whole->width) < 1.0F);
+    CHECK(std::abs(stage->height - whole->height) < 1.0F);
+}
+
 TEST(arisa_shot_consoles)
 {
     Shots shots;
@@ -843,6 +989,24 @@ TEST(arisa_shot_consoles)
     shots.showHouse();
     REQUIRE(shots.start(shots.shell()));
     CHECK(shots.write("consoles"));
+}
+
+TEST(arisa_shot_card_focus_walk)
+{
+    const provider::SurfaceSize switch2{ .width = provider::SurfaceWidth{ 1920 }, .height = provider::SurfaceHeight{ 1080 } };
+    Shots shots;
+    shots.model.ready();
+    shots.showHouse();
+    REQUIRE(shots.start(shots.shell(), ThemePacks::standard, appearance::ColorSchemePreference::dark, switch2));
+    CHECK(shots.write("focus_card_0"));
+    const std::array<provider::Button, 5> moves{ provider::Button::dpad_right, provider::Button::dpad_right,
+        provider::Button::dpad_up, provider::Button::dpad_right, provider::Button::dpad_left };
+    int step = 1;
+    for (const provider::Button move : moves)
+    {
+        REQUIRE(shots.pad(provider::Buttons{ move }));
+        CHECK(shots.write("focus_card_" + std::to_string(step++)));
+    }
 }
 
 TEST(arisa_shot_consoles_single)
@@ -1082,6 +1246,40 @@ TEST(arisa_shot_settings_pages)
     REQUIRE(shots.settle());
     REQUIRE(shots.settingsTab(5));
     CHECK(shots.write("settings_network_checked"));
+}
+
+TEST(arisa_settings_stay_inside_their_box_at_every_scale)
+{
+    constexpr std::array scales{ 1.25F, 1.5F, 2.0F };
+    constexpr std::array sizes{ arisa::theme::DynamicTypeSize::large, arisa::theme::DynamicTypeSize::xxx_large };
+    constexpr std::size_t pageCount = 12;
+    std::size_t failures = 0;
+    for (const float scale : scales)
+        for (const arisa::theme::DynamicTypeSize size : sizes)
+        {
+            Shots shots;
+            shots.uiScale = scale;
+            shots.typeSize = size;
+            shots.model.ready();
+            shots.showHouse();
+            shots.model.showSettings(true);
+            REQUIRE(shots.start(shots.shell()));
+            for (std::size_t index = 0; index < pageCount; ++index)
+            {
+                REQUIRE(shots.settingsTab(index));
+                const std::vector<std::string> spilled = shots.spills("settings.panel");
+                for (const std::string& line : spilled)
+                    std::fprintf(stderr, "SPILL scale %.2f size %d page %zu: %s\n", scale, static_cast<int>(size), index,
+                        line.c_str());
+                std::fprintf(stderr, "CHECKED scale %.2f size %d page %zu: %zu spill(s)\n", scale, static_cast<int>(size),
+                    index, spilled.size());
+                failures += spilled.size();
+                if (!spilled.empty() || (scale == 2.0F && size == arisa::theme::DynamicTypeSize::xxx_large))
+                    CHECK(shots.write(std::format("settings_spill_{}_{}_{}", static_cast<int>(scale * 100.0F),
+                        static_cast<int>(size), index)));
+            }
+        }
+    CHECK(failures == 0);
 }
 
 TEST(arisa_shot_settings_details)

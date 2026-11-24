@@ -38,6 +38,7 @@ namespace tests {
 class QuietConsoleCommands final : public akira::consoles::ui::ConsoleCommands {
 public:
     void primary(const std::string& name) override { played.push_back(name); }
+    void chooseRoute(const std::string&, akira::consoles::ConsoleEntry::Route) override {}
     void registerOverInternet(const std::string&) override {}
     void askPin(const std::string&) override {}
     void registerWithPin(const std::string&, const std::string&) override {}
@@ -90,6 +91,7 @@ public:
     static constexpr int settleFrames = 90;
     static constexpr int artRounds = 400;
     static constexpr int quietRounds = 20;
+    static constexpr int largeArtRounds = 600;
     static constexpr std::chrono::milliseconds artPause{ 5 };
     static constexpr std::chrono::milliseconds frameStep{ 16 };
     static constexpr arisa::provider::SurfaceSize handheld{ .width = arisa::provider::SurfaceWidth{ 1280 },
@@ -128,11 +130,12 @@ public:
         return akira::app::arisa::ShellScreen(model, notices, held, *strings);
     }
 
-    auto start(arisa::composition::Element screen) -> bool
+    auto start(arisa::composition::Element screen, arisa::provider::SurfaceSize size = handheld,
+        arisa::provider::DisplayMode mode = arisa::provider::DisplayMode::handheld) -> bool
     {
-        providers.surface().set_display_mode(arisa::provider::DisplayMode::handheld);
-        providers.surface().resize(handheld);
-        providers.gpu().rasterize(handheld);
+        providers.surface().set_display_mode(mode);
+        providers.surface().resize(size);
+        providers.gpu().rasterize(size);
         arisa::runtime::AppearanceOptions look = packs.options(akira::app::arisa::ThemePacks::standard);
         look.policy.defaults.color_scheme = arisa::appearance::ColorSchemePreference::dark;
         auto created = arisa::runtime::Application::create(providers,
@@ -168,6 +171,17 @@ public:
             seen = asked;
         }
         return settle(12) && art.settled();
+    }
+
+    auto decodeLargeArt() -> bool
+    {
+        for (int round = 0; round < largeArtRounds; ++round)
+        {
+            if (!settle(4))
+                return false;
+            std::this_thread::sleep_for(artPause);
+        }
+        return settle(12);
     }
 
     auto press(std::string_view key) -> bool
