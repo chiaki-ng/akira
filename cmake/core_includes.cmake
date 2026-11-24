@@ -7,7 +7,7 @@ file(GLOB_RECURSE akira_core_include_sources CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
 
 set(akira_core_allowed_header
-    "^libchiaking/((chiaki_ng|(users|consoles|catalog|trophies|play|kakusan)(_types)?)\\.hpp|platform/(platform|defaults|stock_providers)\\.hpp)$")
+    "^libchiaking/((chiaki_ng|(users|consoles|catalog|trophies|play|kakusan)(_types)?|version)\\.hpp|platform/(platform|defaults|stock_providers)\\.hpp)$")
 
 set(akira_core_include_violations "")
 foreach(source IN LISTS akira_core_include_sources)

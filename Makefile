@@ -51,14 +51,14 @@ TEST_PLATFORM_SRC := $(CURDIR)/source/platform/pads/extended/rumble_keys.cpp \
 endif
 DOCKER_IMAGE ?= akira-builder:$(IMAGE_HASH)
 ARISA_VERSION      := 0.0.1
-ARISA_TAG          := d5092b8
+ARISA_TAG          := 2feb103
 ARISA_GPU          ?= drako3d
 ARISA_FLAVOUR_nx_drako3d    := switch
 ARISA_FLAVOUR_nx_vulkan     := switch
 ARISA_FLAVOUR_ounce_drako3d := switch2
 ARISA_FLAVOUR_ounce_vulkan  := switch2
-ARISA_SHA256_switch         := 6eaf1b070d167480052225ee25a830be2d97b3708155f3d776dc530b6bc750bd
-ARISA_SHA256_switch2        := 33df49cbde80298aef27f88faf28475f7ea88b2fd4f9bcc37c580de57706be19
+ARISA_SHA256_switch         := f4c0845de15252aa801d2d62cdf17ffaaf3cf0c6e3ca06ec2e20a63d05c54d12
+ARISA_SHA256_switch2        := ad0041e8daf45fdaa3152bb38ee54e478f1eda1afcbcef429358d7662285045f
 ARISA_RECIPE_switch         := make package TARGET=switch
 ARISA_RECIPE_switch2        := make package-switch2
 ARISA_PACKAGE_DIR  ?= $(abspath $(CURDIR)/../arisa/build/package)
@@ -71,7 +71,7 @@ ARISA_PREFIX        = $(ARISA_UNPACK)/$(ARISA_NAME)
 ARISA_BUILD_NAME    = arisa-$(PLATFORM)$(if $(filter ounce_vulkan,$(PLATFORM)_$(ARISA_GPU)),-vulkan)
 ARISA_NRO_FILE      = $(CURDIR)/build/$(ARISA_BUILD_NAME)/akira-arisa.nro
 ARISA_HOST_NAME    := arisa-$(ARISA_VERSION)-macos-arm64
-ARISA_HOST_SHA256  := 8723ec1ecb037ca3860e5ffb01da784f74ec5c0cf741e24e617635dd6ce1e79f
+ARISA_HOST_SHA256  := ed4fad397822ba213f98e310eafade0d3c1fa0faa32ca3fe6b678b5ec0f4ea70
 ARISA_HOST_ARCHIVE  = $(ARISA_PACKAGE_DIR)/$(ARISA_HOST_NAME).tar.gz
 ARISA_HOST_UNPACK   = $(CURDIR)/build/arisa-package/$(ARISA_HOST_SHA256)
 ARISA_HOST_PREFIX   = $(ARISA_HOST_UNPACK)/$(ARISA_HOST_NAME)
@@ -135,6 +135,7 @@ ARISA_TEST_MODELS   = $(CURDIR)/source/log/log.cpp \
                       $(CURDIR)/source/cloud/launch_report.cpp \
                       $(CORE_DIR)/src/core/trophies/model/ids.cpp \
                       $(CORE_DIR)/src/core/utils/text/ascii.cpp \
+                      $(CORE_DIR)/src/core/version.cpp \
                       $(CORE_DIR)/src/core/play/model/outcome.cpp \
                       $(CORE_DIR)/src/core/consoles/model/pairing/pairing.cpp \
                       $(CORE_DIR)/src/platform/memory/secure_zero_darwin.cpp
@@ -162,6 +163,7 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(wildcard $(CURDIR)/source/trophies/ui/*.cpp) \
                       $(wildcard $(CURDIR)/source/cloud/ui/*.cpp) \
                       $(CURDIR)/source/app/arisa/artwork.cpp \
+                      $(CURDIR)/source/app/arisa/hero_figure.cpp \
                       $(CURDIR)/source/app/arisa/art_session.cpp \
                       $(wildcard $(CURDIR)/source/accounts/ui/*.cpp) \
                       $(wildcard $(CURDIR)/source/log/ui/*.cpp) \
@@ -446,8 +448,11 @@ test-arisa:
 	@sed -e 's/@VERSION_MAJOR@/0/' -e 's/@VERSION_MINOR@/0/' -e 's/@VERSION_PATCH@/0/' -e 's/@APP_VERSION@/test/' \
 		-e 's/@APP_VERSION_NACP@/0.0.0/' -e 's/@BUILD_CHANNEL@/dev/' -e 's/@GIT_COMMIT@/test/' -e 's/@BUILD_DATE@/test/' \
 		"$(CURDIR)/cmake/akira_version.h.in" > "$(ARISA_TEST_DIR)/generated/akira_version.h"
+	@sed -e 's/@PROJECT_VERSION_MAJOR@/0/' -e 's/@PROJECT_VERSION_MINOR@/0/' -e 's/@PROJECT_VERSION_PATCH@/0/' \
+		-e 's/@LIBCHIAKING_VERSION_PRERELEASE@//' -e 's/@libchiaking_commit@/test/' \
+		"$(CORE_DIR)/cmake/version_config.hpp.in" > "$(ARISA_TEST_DIR)/generated/version_config.hpp"
 	@for source in $(ARISA_TEST_MODELS); do \
-		nice -n 10 $(ARISA_HOST_CXX) -std=c++23 -O0 -g -DAKIRA_CLOUD=1 -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 -I"$(CURDIR)/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(CURDIR)/library/qrcodegen" \
+		nice -n 10 $(ARISA_HOST_CXX) -std=c++23 -O0 -g -DAKIRA_CLOUD=1 -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 -I"$(CURDIR)/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(ARISA_TEST_DIR)/generated" -I"$(CURDIR)/library/qrcodegen" \
 			-I"$(CURDIR)/library/tomlplusplus/include" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" \
 			-c "$$source" -o "$(ARISA_TEST_DIR)/$$(basename "$$source" .cpp).o" || exit 1; \
 	done
