@@ -66,8 +66,9 @@ auto ConsoleGrid::body(composition::Context& context) const -> composition::Elem
 {
     const ConsoleShelf::View& view = context.read(shelf->view());
     const auto width = context.state(available);
+    const RecentShelf::View played = recent ? context.read(recent->view()) : RecentShelf::View{};
     composition::Element screen =
-        components::ScrollView(content(view, width.get())
+        components::ScrollView(content(view, width.get(), played)
                                    .padding(theme::Insets{ .top = theme::Space{ 4.0F }, .bottom = theme::Space{ 30.0F } })
                                    .frame({ .max_width = composition::infinity,
                                        .alignment = composition::Alignment::top_leading }))
@@ -81,7 +82,8 @@ auto ConsoleGrid::body(composition::Context& context) const -> composition::Elem
     return prompted(std::move(screen), view);
 }
 
-auto ConsoleGrid::content(const ConsoleShelf::View& view, float width) const -> composition::Element
+auto ConsoleGrid::content(const ConsoleShelf::View& view, float width, const RecentShelf::View& played) const
+    -> composition::Element
 {
     if (!view.hasProfile)
         return components::VStack(components::VStackOptions{ .spacing = theme::space::lg },
@@ -102,14 +104,24 @@ auto ConsoleGrid::content(const ConsoleShelf::View& view, float width) const -> 
             .frame({ .max_width = composition::infinity, .min_height = emptyHeight })
             .id(composition::ElementKey{ "consoles.empty" });
     if (!recent)
-        return grid(view.cards, width);
+        return grid(view.cards, width, played);
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ recentGap } },
-        grid(view.cards, width), RecentRail(*recent, *commands, *strings))
+        grid(view.cards, width, played), RecentRail(*recent, *commands, *strings, continues(view.cards, width, played)))
         .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::leading });
 }
 
-auto ConsoleGrid::grid(const std::vector<ConsoleShelf::Card>& cards, float width) const -> composition::Element
+auto ConsoleGrid::continues(const std::vector<ConsoleShelf::Card>& cards, float width, const RecentShelf::View& played)
+    -> bool
+{
+    const bool compact = columnsFor(width, cards.size()) > 1;
+    const bool owned = !played.titles.empty()
+        && std::ranges::any_of(cards, [&played](const ConsoleShelf::Card& card) { return card.catalogName == played.catalogName; });
+    return owned && (!compact || played.banner.has_value());
+}
+
+auto ConsoleGrid::grid(const std::vector<ConsoleShelf::Card>& cards, float width,
+    const RecentShelf::View& played) const -> composition::Element
 {
     const std::size_t perRow = static_cast<std::size_t>(columnsFor(width, cards.size()));
     const bool compact = perRow > 1;
@@ -120,7 +132,11 @@ auto ConsoleGrid::grid(const std::vector<ConsoleShelf::Card>& cards, float width
         std::vector<composition::Element> row;
         for (std::size_t index = start; index < std::min(start + perRow, cards.size()); ++index)
         {
-            composition::Element card = ConsoleCard(cards[index], compact, *commands, *strings);
+            const bool owned = !played.titles.empty() && played.catalogName == cards[index].catalogName;
+            const bool layered = owned && played.banner && played.banner->catalogName == cards[index].catalogName;
+            composition::Element card = ConsoleCard(cards[index], compact, *commands, *strings,
+                owned ? std::optional<RecentPlay::Title>(played.titles.front()) : std::nullopt,
+                layered ? played.banner : std::nullopt);
             row.push_back(compact ? std::move(card).frame({ .width = cardWidth })
                                   : std::move(card).frame({ .max_width = composition::infinity }));
         }

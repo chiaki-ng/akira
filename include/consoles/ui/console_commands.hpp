@@ -11,6 +11,7 @@ public:
     virtual ~ConsoleCommands() = default;
 
     virtual void primary(const std::string& catalogName) = 0;
+    virtual void chooseRoute(const std::string& catalogName, ConsoleEntry::Route route) = 0;
     virtual void registerOverInternet(const std::string& catalogName) = 0;
     virtual void askPin(const std::string& catalogName) = 0;
     virtual void registerWithPin(const std::string& catalogName, const std::string& pin) = 0;

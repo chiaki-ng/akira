@@ -1,6 +1,7 @@
 #include "consoles/console_list.hpp"
 
 #include <algorithm>
+#include <string>
 #include <utility>
 
 namespace akira::consoles {
@@ -25,8 +26,8 @@ std::vector<ConsoleEntry> ConsoleList::shown() const
         return entries;
     const bool targets = std::ranges::any_of(consoles, &ConsoleList::linkable);
     for (const ConsoleFacts& facts : consoles) {
-        if (lists(facts))
-            entries.emplace_back(facts, targets);
+        if (lists(facts) && !folded(facts))
+            entries.emplace_back(facts, targets, internetFor(facts));
     }
     return entries;
 }
@@ -56,6 +57,28 @@ bool ConsoleList::lists(const ConsoleFacts& facts) const
      * dead-end on click.
      */
     return !(facts.type == HostType::Remote && profile == Profile::Legacy);
+}
+
+std::optional<ConsoleFacts> ConsoleList::internetFor(const ConsoleFacts& home) const
+{
+    if (profile == Profile::Legacy || home.type == HostType::Remote || !home.paired)
+        return std::nullopt;
+    const auto found = std::ranges::find_if(consoles, [&home](const ConsoleFacts& facts) {
+        return facts.type == HostType::Remote && facts.paired && facts.catalogName == home.catalogName + std::string(ConsoleEntry::remoteSuffix);
+    });
+    if (found == consoles.end())
+        return std::nullopt;
+    return *found;
+}
+
+bool ConsoleList::folded(const ConsoleFacts& facts) const
+{
+    if (facts.type != HostType::Remote || !facts.catalogName.ends_with(ConsoleEntry::remoteSuffix))
+        return false;
+    const std::string home = facts.catalogName.substr(0, facts.catalogName.size() - ConsoleEntry::remoteSuffix.size());
+    return std::ranges::any_of(consoles, [this, &home](const ConsoleFacts& candidate) {
+        return candidate.catalogName == home && internetFor(candidate).has_value();
+    });
 }
 
 bool ConsoleList::linkable(const ConsoleFacts& facts)

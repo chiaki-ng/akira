@@ -3,10 +3,14 @@
 #include <algorithm>
 #include <iterator>
 #include <utility>
+#include <variant>
 #include <vector>
+
+#include <libchiaking/catalog.hpp>
 
 #include "accounts/account_settings.hpp"
 #include "accounts/accounts.hpp"
+#include "cloud/models.hpp"
 #include "app/crash_report.hpp"
 #include "app/notifier.hpp"
 #include "app/services.hpp"
@@ -27,12 +31,12 @@
 namespace akira::consoles::ui {
 
 ConsoleOperations::ConsoleOperations(app::Services& services, ConsoleShelf& shelf, RecentShelf& recent,
-    app::Notifier& notifier, Connect connect, SetUp setUp)
+    app::Notifier& notifier, ConsoleStarter& starter, SetUp setUp)
     : services(services)
     , shelf(shelf)
     , recent(recent)
     , notifier(notifier)
-    , connect(std::move(connect))
+    , starter(starter)
     , setUp(std::move(setUp))
 {
 }
@@ -70,6 +74,25 @@ void ConsoleOperations::follow()
         services.discovery.setServiceEnabled(true);
     app::CrashReport::stage("arisa shelf refresh");
     refresh();
+    lookUpAccount();
+}
+
+void ConsoleOperations::lookUpAccount()
+{
+    if (!findsRemote())
+        return;
+    accounts::Accounts* psn = services.core.accounts();
+    if (!RemoteLookup(psn ? std::optional(psn->state()) : std::nullopt).allowed())
+        return;
+    services.discovery.refreshRemoteDevices([this, guard = alive](const DiscoveryManager::RemoteRefreshResult& result) {
+        services.dispatcher.post([this, guard, result] {
+            if (!*guard)
+                return;
+            if (!result.success)
+                log::warning("[CONSOLES] background PlayStation console list failed: {}", result.message);
+            refresh();
+        });
+    });
 }
 
 void ConsoleOperations::refresh()
@@ -81,17 +104,18 @@ void ConsoleOperations::refresh()
     refreshRecent();
 }
 
-auto ConsoleOperations::recentHost() const -> Host*
+auto ConsoleOperations::recentHost() const -> std::optional<std::string>
 {
     for (const auto& [name, entry] : services.hosts.entries())
         if (entry && entry->isPS5() && entry->isRegistered() && entry->getConsole())
-            return entry.get();
-    return nullptr;
+            return name;
+    return std::nullopt;
 }
 
 void ConsoleOperations::refreshRecent()
 {
-    Host* target = recentHost();
+    const std::optional<std::string> chosen = recentHost();
+    Host* target = chosen ? host(*chosen) : nullptr;
     accounts::Accounts* accounts = services.core.accounts();
     accounts::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
     if (!target || !user || !user->has_psn_account())
@@ -102,7 +126,7 @@ void ConsoleOperations::refreshRecent()
         recent.clear();
         return;
     }
-    const std::string name = target->getHostName();
+    const std::string name = *chosen;
     if (name == recentFor && recentUntil && Clock::now() < *recentUntil)
         return;
     recentFor = name;
@@ -138,6 +162,7 @@ auto ConsoleOperations::played(const Installed& titles) -> std::vector<RecentPla
         made.push_back(RecentPlay::Title{ .titleId = title.title_id(),
             .name = title.name(),
             .coverUrl = title.cover_url(),
+            .conceptId = title.concept_id(),
             .ps5 = title.platform() == libchiaking::consoles::Generation::ps5,
             .lastUsed = used,
             .recentlyPlayed = title.recently_played() });
@@ -154,6 +179,77 @@ void ConsoleOperations::showRecent(const std::string& catalogName, Installed tit
         return;
     installed = std::move(titles);
     recent.show(catalogName, target->getHostName(), RecentPlay(played(installed)));
+    loadBanner(catalogName);
+}
+
+void ConsoleOperations::loadBanner(const std::string& catalogName)
+{
+    const std::vector<RecentPlay::Title>& titles = recent.view().get().titles;
+    if (titles.empty())
+    {
+        log::info("[CONSOLES] no recently played title on {}; the card keeps its plain look", catalogName);
+        return;
+    }
+    accounts::Accounts* accounts = services.core.accounts();
+    accounts::Accounts::User user = accounts ? accounts->activeUser() : nullptr;
+    if (!user)
+    {
+        log::warning("[CONSOLES] layered art of {} skipped: no active account", catalogName);
+        return;
+    }
+    const std::size_t shown = std::min(titles.size(), galleryLimit);
+    for (std::size_t index = 0; index < shown; ++index)
+        loadArt(catalogName, titles[index], user, index == 0);
+}
+
+void ConsoleOperations::loadArt(const std::string& catalogName, const RecentPlay::Title& chosen,
+    const accounts::Accounts::User& user, bool latest)
+{
+    const std::optional<libchiaking::catalog::ConceptId> conceptId = libchiaking::catalog::ConceptId::parse(chosen.conceptId);
+    if (!conceptId)
+    {
+        log::warning("[CONSOLES] layered art of {} skipped: concept id '{}' does not parse", chosen.name, chosen.conceptId);
+        return;
+    }
+    services.http.submit([this, guard = alive, catalogName, chosen, conceptId = *conceptId, user, latest,
+                             stop = recentStop.token()](HttpSession&) {
+        auto details = services.core.chiaki().catalog().details_of(*user, conceptId, stop);
+        if (stop.stop_requested())
+            return;
+        if (!details)
+        {
+            log::info("[CONSOLES] layered art of {} unanswered (reason {})", chosen.name,
+                static_cast<int>(details.error().reason()));
+            return;
+        }
+        RecentShelf::Banner banner{ .catalogName = catalogName, .titleId = chosen.titleId, .lastUsed = chosen.lastUsed };
+        const auto* art = details->key_art ? &details->key_art->choice() : nullptr;
+        if (const auto* layered = art ? std::get_if<libchiaking::catalog::LayeredArt>(art) : nullptr)
+        {
+            banner.background = cloud::Game::sizedArt(layered->background.url(), backgroundWidth);
+            banner.hero = cloud::Game::sizedArt(layered->hero.url(), heroWidth);
+            banner.logo = cloud::Game::sizedArt(layered->logo.url(), logoWidth);
+        }
+        else if (const auto* hub = art ? std::get_if<libchiaking::catalog::GameHubArt>(art) : nullptr)
+        {
+            banner.background = cloud::Game::sizedArt(hub->cover.url(), backgroundWidth);
+            if (hub->logo)
+                banner.logo = cloud::Game::sizedArt(hub->logo->url(), logoWidth);
+        }
+        else
+        {
+            log::info("[CONSOLES] {} has no key art; it stays out of the loading art", chosen.name);
+            return;
+        }
+        log::info("[CONSOLES] layered art ready for {}", chosen.name);
+        services.dispatcher.post([this, guard, latest, banner = std::move(banner)]() mutable {
+            if (!*guard)
+                return;
+            if (latest)
+                recent.showBanner(banner);
+            recent.exhibit(std::move(banner));
+        });
+    });
 }
 
 void ConsoleOperations::launchTitle(const std::string& catalogName, const std::string& titleId)
@@ -166,7 +262,10 @@ void ConsoleOperations::launchTitle(const std::string& catalogName, const std::s
     if (!target || title == installed.end() || !user || !target->getConsole())
         return;
     log::info("[CONSOLES] starting {} on {}", title->name(), catalogName);
-    notifier.notify(services.strings.format("akira/hosts/recent_starting", title->name()));
+    recent.launch(titleId);
+    starter.prepare(*target, services.strings.format("akira/hosts/recent_starting", title->name()));
+    if (services.developer.loadingPreview())
+        return;
     services.http.submit([this, guard = alive, catalogName, chosen = *title, console = target->getConsole(),
                              user = std::move(user), stop = recentStop.token()](HttpSession&) {
         auto started = console->start(chosen, *user, nullptr, stop);
@@ -181,18 +280,23 @@ void ConsoleOperations::titleStarted(const std::string& catalogName, const std::
     libchiaking::Expected<libchiaking::consoles::StartState, libchiaking::consoles::StartFailure> started)
 {
     if (!started || *started == libchiaking::consoles::StartState::failed)
-    {
-        log::warning("[CONSOLES] {} did not start on {}: reason {}", name, catalogName,
+        log::warning("[CONSOLES] {} did not start on {}: reason {}; connecting anyway", name, catalogName,
             started ? -1 : static_cast<int>(started.error().reason));
-        notifier.notify(services.strings.format("akira/hosts/recent_start_failed", name));
+    else
+        log::info("[CONSOLES] {} started on {}; connecting", name, catalogName);
+    Host* target = host(catalogName);
+    if (!target || !starter.prepared(*target))
+    {
+        log::info("[CONSOLES] {} start on {} was cancelled; not connecting", name, catalogName);
+        recent.landed();
         return;
     }
-    if (Host* target = host(catalogName))
-        play(*target);
+    play(*target);
 }
 
 void ConsoleOperations::streamEnded()
 {
+    recent.landed();
     services.discoveryGate.connectionEnded();
     refresh();
 }
@@ -254,15 +358,27 @@ void ConsoleOperations::primary(const std::string& catalogName)
     }
 }
 
+void ConsoleOperations::chooseRoute(const std::string& catalogName, ConsoleEntry::Route route)
+{
+    shelf.chooseRoute(catalogName, route);
+    refresh();
+}
+
 void ConsoleOperations::play(Host& target)
 {
     log::info("[CONSOLES] play on {}", target.getHostName());
+    recent.landed();
+    if (services.developer.loadingPreview())
+    {
+        starter.prepare(target, services.strings.text("akira/settings/dev_loading_preview_status"));
+        return;
+    }
     if (target.isPsnRemotePlayDisabled())
         notifier.notify(services.strings.text("akira/connection/fail_rp_disabled"));
     if (identityMissing(target, false))
         return;
     services.discoveryGate.connectionStarted();
-    connect(target);
+    starter.start(target);
 }
 
 void ConsoleOperations::beginRegistration(Host& target)

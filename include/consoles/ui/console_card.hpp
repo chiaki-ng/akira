@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <string>
 
 #include <arisa/composition/component.hpp>
@@ -11,6 +12,7 @@
 #include "app/strings.hpp"
 #include "consoles/ui/console_commands.hpp"
 #include "consoles/ui/console_shelf.hpp"
+#include "consoles/ui/recent_shelf.hpp"
 
 namespace akira::consoles::ui {
 
@@ -30,15 +32,40 @@ public:
     static constexpr float eyebrowSize = 13.0F;
     static constexpr float eyebrowTracking = 2.2F;
     static constexpr float tagRadius = 9.0F;
-    static constexpr float iconSide = 40.0F;
+    static constexpr float iconSide = 44.0F;
+    static constexpr float cardRadius = 26.0F;
+    static constexpr float bottomShade = 0.72F;
+    static constexpr float leadingShade = 0.5F;
+    static constexpr float leadingMidShade = 0.32F;
+    static constexpr float heroCentre = 0.64F;
+    static constexpr float heroFigureHeight = 0.9F;
+    static constexpr float heroFigureMiddle = 0.54F;
+    static constexpr float heroRoomyWidth = 900.0F;
+    static constexpr float heroSpareShift = 0.2F;
+    static constexpr float logoWidth = 230.0F;
+    static constexpr float logoHeight = 76.0F;
+    static constexpr float compactLogoWidth = 170.0F;
+    static constexpr float compactLogoHeight = 60.0F;
+    static constexpr float titleInset = 28.0F;
+    static constexpr float pillShadowOpacity = 0.55F;
+    static constexpr float continueCover = 92.0F;
+    static constexpr float continueCoverRadius = 12.0F;
+    static constexpr float continueRadius = 18.0F;
+    static constexpr float continueTextWidth = 220.0F;
 
-    ConsoleCard(ConsoleShelf::Card card, bool compact, ConsoleCommands& commands, const app::Strings& strings);
+    ConsoleCard(ConsoleShelf::Card card, bool compact, ConsoleCommands& commands, const app::Strings& strings,
+        std::optional<RecentPlay::Title> lastPlayed = std::nullopt, std::optional<RecentShelf::Banner> banner = std::nullopt);
 
     bool operator==(const ConsoleCard& other) const;
 
     auto body(::arisa::composition::Context& context) const -> ::arisa::composition::Element override;
 
 private:
+    auto layered(::arisa::composition::Element content, const RecentShelf::Banner& shown) const
+        -> ::arisa::composition::Element;
+    auto continuePill(const RecentShelf::Banner& shown) const -> ::arisa::composition::Element;
+    auto continueButton(const RecentPlay::Title& title) const -> ::arisa::composition::Element;
+    auto playedWhen(const RecentPlay::Title& title) const -> std::optional<std::string>;
     auto header() const -> ::arisa::composition::Element;
     auto badge() const -> ::arisa::composition::Element;
     auto tag() const -> ::arisa::composition::Element;
@@ -54,6 +81,8 @@ private:
     bool compact;
     ConsoleCommands* commands;
     const app::Strings* strings;
+    std::optional<RecentPlay::Title> lastPlayed;
+    std::optional<RecentShelf::Banner> banner;
 };
 
 }

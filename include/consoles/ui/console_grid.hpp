@@ -36,8 +36,12 @@ public:
     static auto columnsFor(float width, std::size_t cards) -> int;
 
 private:
-    auto content(const ConsoleShelf::View& view, float width) const -> ::arisa::composition::Element;
-    auto grid(const std::vector<ConsoleShelf::Card>& cards, float width) const -> ::arisa::composition::Element;
+    auto content(const ConsoleShelf::View& view, float width, const RecentShelf::View& played) const
+        -> ::arisa::composition::Element;
+    static auto continues(const std::vector<ConsoleShelf::Card>& cards, float width, const RecentShelf::View& played)
+        -> bool;
+    auto grid(const std::vector<ConsoleShelf::Card>& cards, float width, const RecentShelf::View& played) const
+        -> ::arisa::composition::Element;
     auto addButton() const -> ::arisa::composition::Element;
     auto prompted(::arisa::composition::Element screen, const ConsoleShelf::View& view) const
         -> ::arisa::composition::Element;

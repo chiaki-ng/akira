@@ -4,10 +4,32 @@
 
 namespace akira::consoles {
 
-ConsoleEntry::ConsoleEntry(ConsoleFacts facts, bool linkTargetsExist)
+ConsoleEntry::ConsoleEntry(ConsoleFacts facts, bool linkTargetsExist, std::optional<ConsoleFacts> internet)
     : known(std::move(facts))
     , linkTargetsExist(linkTargetsExist)
+    , internet(std::move(internet))
 {
+}
+
+std::vector<ConsoleEntry::Route> ConsoleEntry::routes() const
+{
+    if (!internet)
+        return { remote() ? Route::Internet : Route::Home };
+    return { Route::Home, Route::Internet };
+}
+
+ConsoleEntry::Route ConsoleEntry::preferredRoute() const
+{
+    if (!internet)
+        return routes().front();
+    return known.discovered ? Route::Home : Route::Internet;
+}
+
+ConsoleEntry ConsoleEntry::over(Route route) const
+{
+    if (route == Route::Internet && internet)
+        return ConsoleEntry(*internet, linkTargetsExist);
+    return ConsoleEntry(known, linkTargetsExist);
 }
 
 std::string ConsoleEntry::displayName() const

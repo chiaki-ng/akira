@@ -24,9 +24,11 @@ public:
     static constexpr float playSize = 34.0F;
     static constexpr float playInset = 8.0F;
     static constexpr float edgeInset = 8.0F;
+    static constexpr float focusBorder = 3.0F;
+    static constexpr float focusLift = 1.04F;
     static constexpr ::arisa::composition::FocusState<std::string> tileFocus{ "consoles.recent.focus" };
 
-    RecentRail(RecentShelf& shelf, ConsoleCommands& commands, const app::Strings& strings);
+    RecentRail(RecentShelf& shelf, ConsoleCommands& commands, const app::Strings& strings, bool continuing = false);
 
     bool operator==(const RecentRail& other) const = default;
 
@@ -40,6 +42,7 @@ private:
     RecentShelf* shelf;
     ConsoleCommands* commands;
     const app::Strings* strings;
+    bool continuing;
 };
 
 }

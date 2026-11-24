@@ -5,18 +5,25 @@
 
 namespace akira::consoles::ui {
 
-auto ConsoleShelf::cardFor(const ConsoleEntry& entry) -> Card
+auto ConsoleShelf::cardFor(const ConsoleEntry& entry, std::optional<ConsoleEntry::Route> chosen) -> Card
 {
+    const std::vector<ConsoleEntry::Route> routes = entry.routes();
+    const ConsoleEntry::Route route
+        = chosen && std::ranges::contains(routes, *chosen) ? *chosen : entry.preferredRoute();
+    const ConsoleEntry reached = entry.over(route);
     return Card{
         .catalogName = entry.facts().catalogName,
         .name = entry.displayName(),
         .ps5 = entry.facts().ps5,
-        .badge = entry.badge(),
-        .status = entry.status(),
-        .presence = entry.facts().presence,
-        .dimmed = entry.dimmed(),
-        .action = entry.primaryAction(),
+        .badge = reached.badge(),
+        .status = reached.status(),
+        .presence = reached.facts().presence,
+        .dimmed = reached.dimmed(),
+        .action = reached.primaryAction(),
         .options = entry.options(),
+        .target = reached.facts().catalogName,
+        .route = route,
+        .routes = routes,
     };
 }
 
@@ -86,10 +93,15 @@ void ConsoleShelf::show(const ConsoleList& list)
     std::vector<Card> cards;
     std::vector<Nearby> nearby;
     std::vector<AccountConsole> account;
+    const std::map<std::string, ConsoleEntry::Route>& chosen = state.get().chosen;
     for (const ConsoleEntry& entry : list.shown())
     {
         if (onGrid(entry))
-            cards.push_back(cardFor(entry));
+        {
+            const auto picked = chosen.find(entry.facts().catalogName);
+            cards.push_back(cardFor(entry,
+                picked == chosen.end() ? std::nullopt : std::optional<ConsoleEntry::Route>(picked->second)));
+        }
         else if (std::optional<Nearby> found = nearbyFor(entry))
             nearby.push_back(std::move(*found));
         else if (std::optional<AccountConsole> listed = accountFor(entry))
@@ -102,6 +114,11 @@ void ConsoleShelf::show(const ConsoleList& list)
         view.linkTargets = list.linkTargets();
         view.hasProfile = list.hasProfile();
     });
+}
+
+void ConsoleShelf::chooseRoute(const std::string& catalogName, ConsoleEntry::Route route)
+{
+    state.update([&catalogName, route](View& view) { view.chosen[catalogName] = route; });
 }
 
 void ConsoleShelf::offerAccount(bool offered)

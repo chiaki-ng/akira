@@ -61,7 +61,7 @@ TEST(console_list_hides_remote_consoles_on_a_legacy_profile)
 {
     std::vector<ConsoleFacts> consoles{paired("Home", HostType::Discovered), paired("Home (Remote)", HostType::Remote)};
     CHECK(names(ConsoleList(consoles, ConsoleList::Profile::Legacy).shown()) == std::vector<std::string>({"Home"}));
-    CHECK(ConsoleList(consoles, ConsoleList::Profile::Signed).shown().size() == 2u);
+    CHECK(ConsoleList(consoles, ConsoleList::Profile::Signed).shown().front().routes().size() == 2u);
 }
 
 TEST(console_list_links_only_to_paired_local_consoles)
@@ -174,4 +174,47 @@ TEST(console_entry_options_follow_pairing_and_route)
     ConsoleFacts cloud = paired("Cloud", HostType::Discovered);
     cloud.cloud = true;
     CHECK(ConsoleEntry(cloud, false).options() == std::vector<Option>({Option::ConsolePin, Option::Delete}));
+}
+
+TEST(console_list_folds_the_internet_half_into_its_home_console)
+{
+    ConsoleFacts home = paired("PS5", HostType::Discovered);
+    home.discovered = true;
+    ConsoleFacts internet = paired("PS5 (Remote)", HostType::Remote);
+    internet.discovered = true;
+    ConsoleList list({home, internet}, ConsoleList::Profile::Signed);
+    const auto shown = list.shown();
+    CHECK(names(shown) == std::vector<std::string>({"PS5"}));
+    CHECK(shown.front().routes()
+        == std::vector<ConsoleEntry::Route>({ConsoleEntry::Route::Home, ConsoleEntry::Route::Internet}));
+    CHECK(shown.front().preferredRoute() == ConsoleEntry::Route::Home);
+    CHECK(shown.front().over(ConsoleEntry::Route::Internet).facts().catalogName == "PS5 (Remote)");
+}
+
+TEST(console_list_prefers_the_internet_when_the_console_is_not_home)
+{
+    ConsoleList list({paired("PS5", HostType::Discovered), paired("PS5 (Remote)", HostType::Remote)},
+                     ConsoleList::Profile::Signed);
+    const auto shown = list.shown();
+    CHECK(names(shown) == std::vector<std::string>({"PS5"}));
+    CHECK(shown.front().preferredRoute() == ConsoleEntry::Route::Internet);
+}
+
+TEST(console_list_keeps_an_unpaired_internet_console_apart)
+{
+    ConsoleFacts internet = console("PS5 (Remote)", HostType::Remote);
+    internet.discovered = true;
+    internet.needsLink = true;
+    ConsoleList list({paired("Other", HostType::Discovered), internet}, ConsoleList::Profile::Signed);
+    CHECK(names(list.shown()) == std::vector<std::string>({"Other", "PS5 (Remote)"}));
+    CHECK(list.shown().front().routes() == std::vector<ConsoleEntry::Route>({ConsoleEntry::Route::Home}));
+}
+
+TEST(console_list_offers_only_home_on_a_legacy_profile)
+{
+    ConsoleList list({paired("PS5", HostType::Discovered), paired("PS5 (Remote)", HostType::Remote)},
+                     ConsoleList::Profile::Legacy);
+    const auto shown = list.shown();
+    CHECK(names(shown) == std::vector<std::string>({"PS5"}));
+    CHECK(shown.front().routes() == std::vector<ConsoleEntry::Route>({ConsoleEntry::Route::Home}));
 }

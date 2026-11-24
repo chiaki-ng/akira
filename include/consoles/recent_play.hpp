@@ -16,6 +16,7 @@ public:
         std::string titleId;
         std::string name;
         std::string coverUrl;
+        std::string conceptId;
         bool ps5 = true;
         std::optional<Clock::time_point> lastUsed;
         bool recentlyPlayed = false;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -23,6 +24,8 @@ public:
 
 private:
     bool lists(const ConsoleFacts& facts) const;
+    std::optional<ConsoleFacts> internetFor(const ConsoleFacts& home) const;
+    bool folded(const ConsoleFacts& facts) const;
     static bool linkable(const ConsoleFacts& facts);
 
     std::vector<ConsoleFacts> consoles;

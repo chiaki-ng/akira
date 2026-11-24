@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -25,6 +26,9 @@ public:
         bool dimmed = false;
         std::optional<ConsoleEntry::Action> action;
         std::vector<ConsoleEntry::Option> options;
+        std::string target;
+        ConsoleEntry::Route route = ConsoleEntry::Route::Home;
+        std::vector<ConsoleEntry::Route> routes;
 
         friend bool operator==(const Card&, const Card&) = default;
     };
@@ -123,6 +127,7 @@ public:
         std::optional<Editing> editing;
         std::optional<Prompt> prompt;
         std::optional<Registering> registering;
+        std::map<std::string, ConsoleEntry::Route> chosen;
 
         friend bool operator==(const View&, const View&) = default;
     };
@@ -138,6 +143,7 @@ public:
     void dismiss();
     void openAdd(bool open);
     void chooseMode(AddMode mode);
+    void chooseRoute(const std::string& catalogName, ConsoleEntry::Route route);
     void chooseAccountGeneration(bool ps5);
     void lookup(Lookup phase);
     void addFailed(std::optional<std::string> failure);
@@ -148,7 +154,7 @@ public:
     static auto presenceOf(const Card& card) -> Presence;
 
 private:
-    static auto cardFor(const ConsoleEntry& entry) -> Card;
+    static auto cardFor(const ConsoleEntry& entry, std::optional<ConsoleEntry::Route> chosen) -> Card;
     static auto onGrid(const ConsoleEntry& entry) -> bool;
     static auto nearbyFor(const ConsoleEntry& entry) -> std::optional<Nearby>;
     static auto accountFor(const ConsoleEntry& entry) -> std::optional<AccountConsole>;

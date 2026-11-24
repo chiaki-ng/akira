@@ -7,6 +7,8 @@
 #include "consoles/console_list.hpp"
 #include "consoles/recent_play.hpp"
 #include "consoles/ui/recent_shelf.hpp"
+#include "consoles/ui/console_card.hpp"
+#include "play/ui/connecting_screen.hpp"
 #include "screen_shots.hpp"
 
 namespace {
@@ -77,4 +79,79 @@ TEST(arisa_shot_consoles_recent)
     REQUIRE(shots.press("consoles.recent.PPSA01284_00"));
     REQUIRE(shots.consoles.launched.size() == 1);
     CHECK(shots.consoles.launched.front().second == "PPSA01284_00");
+}
+
+TEST(arisa_recent_shelf_gallery_follows_play_order_and_console)
+{
+    using Banner = akira::consoles::ui::RecentShelf::Banner;
+    akira::consoles::ui::RecentShelf shelf;
+    CHECK(shelf.loadingArt("Living room").empty());
+    shelf.show("living-room", "Living room", played());
+    shelf.exhibit(Banner{ .catalogName = "living-room", .titleId = "PPSA01521_00", .background = "ghost" });
+    shelf.exhibit(Banner{ .catalogName = "living-room", .titleId = "PPSA01325_00", .background = "astro" });
+    shelf.exhibit(Banner{ .catalogName = "living-room", .titleId = "PPSA01325_00", .background = "again" });
+    shelf.exhibit(Banner{ .catalogName = "bedroom", .titleId = "PPSA01284_00", .background = "elsewhere" });
+    const auto shown = shelf.loadingArt("Living room");
+    CHECK(shown.size() == 2);
+    CHECK(shown.front().background == "astro");
+    CHECK(shown.back().background == "ghost");
+    CHECK(shelf.loadingArt("Living room (Remote)").size() == 2);
+    CHECK(shelf.loadingArt("Bedroom").empty());
+    shelf.launch("PPSA01521_00");
+    CHECK(shelf.loadingArt("Living room").size() == 1);
+    CHECK(shelf.loadingArt("Living room").front().background == "ghost");
+    shelf.launch("PPSA01284_00");
+    CHECK(shelf.loadingArt("Living room").empty());
+    shelf.landed();
+    shelf.show("living-room", "Living room", played());
+    CHECK(shelf.loadingArt("Living room").size() == 2);
+}
+
+TEST(arisa_shot_connecting_layered_title)
+{
+    using akira::play::ui::ConnectingScreen;
+    const arisa::provider::SurfaceSize switch2{ .width = arisa::provider::SurfaceWidth{ 1920 },
+        .height = arisa::provider::SurfaceHeight{ 1080 } };
+    const ConnectingScreen::Progress progress{ .console = "Living room", .status = "Requesting the session", .step = 3, .steps = 6 };
+    const arisa::provider::SurfaceSize tv{ .width = arisa::provider::SurfaceWidth{ 3840 },
+        .height = arisa::provider::SurfaceHeight{ 2160 } };
+    const auto shoot = [&](ConnectingScreen::Art art, std::string_view name) {
+        {
+            tests::ScreenShots shots;
+            REQUIRE(shots.start(ConnectingScreen(progress, shots.stream, shots.text(), { art }), switch2));
+            REQUIRE(shots.decodeLargeArt());
+            CHECK(shots.write(name));
+        }
+        tests::ScreenShots docked;
+        REQUIRE(docked.start(ConnectingScreen(progress, docked.stream, docked.text(), { art }), tv,
+            arisa::provider::DisplayMode::docked));
+        REQUIRE(docked.decodeLargeArt());
+        CHECK(docked.write(std::string(name) + "_tv"));
+    };
+    shoot(ConnectingScreen::Art{ .title = "Marvel's Wolverine", .background = tests::FixtureArt::url("backdrop_wolverine"),
+              .hero = tests::FixtureArt::url("hero_wolverine"), .logo = tests::FixtureArt::url("logo_wolverine") },
+        "connecting_layered_hero");
+    shoot(ConnectingScreen::Art{ .title = "Marvel's Spider-Man 2", .background = tests::FixtureArt::url("backdrop_wolverine") },
+        "connecting_layered_text");
+}
+
+TEST(arisa_shot_card_hero)
+{
+    const arisa::provider::SurfaceSize switch2{ .width = arisa::provider::SurfaceWidth{ 1920 },
+        .height = arisa::provider::SurfaceHeight{ 1080 } };
+    tests::ScreenShots shots;
+    shots.shelf.show(ConsoleList({ console("PS5-054", true, false) }, ConsoleList::Profile::Signed));
+    const akira::consoles::ui::ConsoleShelf::Card card = shots.shelf.view().get().cards.front();
+    const akira::consoles::ui::RecentShelf::Banner banner{ .catalogName = card.catalogName, .titleId = "PPSA00000_00",
+        .background = tests::FixtureArt::url("backdrop_wolverine"), .hero = tests::FixtureArt::url("hero_wolverine"),
+        .logo = tests::FixtureArt::url("logo_wolverine") };
+    arisa::composition::Element shown
+        = arisa::composition::Element(akira::consoles::ui::ConsoleCard(card, false, shots.consoles, shots.text(), std::nullopt, banner))
+              .frame({ .width = 1716.0F })
+              .padding(arisa::theme::Space{ 100.0F })
+              .frame({ .max_width = arisa::composition::infinity, .max_height = arisa::composition::infinity,
+                  .alignment = arisa::composition::Alignment::top_leading });
+    REQUIRE(shots.start(std::move(shown), switch2));
+    REQUIRE(shots.decodeLargeArt());
+    CHECK(shots.write("card_hero"));
 }
