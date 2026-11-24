@@ -414,6 +414,7 @@ void StreamDriver::open(consoles::Host& target, libchiaking::play::ConsoleHandov
     }
 
     connection = std::move(*opened);
+    backgroundPause.emplace();
     host = &target;
     launchReport = cloud::LaunchReport();
     lastCloud = target.cloudLaunch() ? std::optional(*target.cloudLaunch()) : std::nullopt;
@@ -924,6 +925,7 @@ void StreamDriver::stop()
     sessionStarted = false;
     services.streamState.setActive(false);
     connection.reset();
+    backgroundPause.reset();
     play::Session& session = services.session.get();
     session.FreeController();
     controllerReady = false;

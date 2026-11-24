@@ -14,6 +14,7 @@
 #include <arisa/runtime/overlay_handle.hpp>
 
 #include "app/arisa/stream_stage.hpp"
+#include "app/background_work.hpp"
 #include "app/services.hpp"
 #include "app/ui_window.hpp"
 #include "cloud/cloud_launch.hpp"
@@ -186,6 +187,7 @@ private:
     play::MenuHold menuHold;
     play::ConnectFlow flow;
     std::shared_ptr<play::Connection> connection;
+    std::optional<BackgroundWork::Pause> backgroundPause;
     consoles::Host* host = nullptr;
     std::shared_ptr<consoles::Host> owned;
     std::string lastConsole;
