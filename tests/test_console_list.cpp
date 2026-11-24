@@ -168,6 +168,10 @@ TEST(console_entry_options_follow_pairing_and_route)
     CHECK(ConsoleEntry(console("New", HostType::Discovered), false).options()
           == std::vector<Option>({Option::AddAddress}));
 
+    ConsoleFacts typed = console("192.168.1.140", HostType::Manual);
+    typed.hasAddress = true;
+    CHECK(ConsoleEntry(typed, false).options() == std::vector<Option>({Option::SetAddress, Option::Delete}));
+
     CHECK(ConsoleEntry(paired("Far (Remote)", HostType::Remote), false).options()
           == std::vector<Option>({Option::AddAddress, Option::TakionVersion, Option::Delete}));
 

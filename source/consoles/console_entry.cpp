@@ -94,7 +94,7 @@ std::vector<ConsoleEntry::Option> ConsoleEntry::options() const
         offered.push_back(known.hasAddress ? Option::SetAddress : Option::AddAddress);
     if (known.paired && !known.cloud)
         offered.push_back(Option::TakionVersion);
-    if (known.paired)
+    if (known.paired || known.type == HostType::Manual)
         offered.push_back(Option::Delete);
     return offered;
 }
