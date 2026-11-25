@@ -51,14 +51,14 @@ TEST_PLATFORM_SRC := $(CURDIR)/source/platform/pads/extended/rumble_keys.cpp \
 endif
 DOCKER_IMAGE ?= akira-builder:$(IMAGE_HASH)
 ARISA_VERSION      := 0.0.1
-ARISA_TAG          := 8ba8b1e
+ARISA_TAG          := a6721fb
 ARISA_GPU          ?= drako3d
 ARISA_FLAVOUR_nx_drako3d    := switch
 ARISA_FLAVOUR_nx_vulkan     := switch
 ARISA_FLAVOUR_ounce_drako3d := switch2
 ARISA_FLAVOUR_ounce_vulkan  := switch2
 ARISA_SHA256_switch         := f4c0845de15252aa801d2d62cdf17ffaaf3cf0c6e3ca06ec2e20a63d05c54d12
-ARISA_SHA256_switch2        := ad0041e8daf45fdaa3152bb38ee54e478f1eda1afcbcef429358d7662285045f
+ARISA_SHA256_switch2        := 0ff449f4a34cec0bf741f2d3cc653956d21f536f3828ea59ae14453da5e7e962
 ARISA_RECIPE_switch         := make package TARGET=switch
 ARISA_RECIPE_switch2        := make package-switch2
 ARISA_PACKAGE_DIR  ?= $(abspath $(CURDIR)/../arisa/build/package)
@@ -71,7 +71,7 @@ ARISA_PREFIX        = $(ARISA_UNPACK)/$(ARISA_NAME)
 ARISA_BUILD_NAME    = arisa-$(PLATFORM)$(if $(filter ounce_vulkan,$(PLATFORM)_$(ARISA_GPU)),-vulkan)
 ARISA_NRO_FILE      = $(CURDIR)/build/$(ARISA_BUILD_NAME)/akira-arisa.nro
 ARISA_HOST_NAME    := arisa-$(ARISA_VERSION)-macos-arm64
-ARISA_HOST_SHA256  := ed4fad397822ba213f98e310eafade0d3c1fa0faa32ca3fe6b678b5ec0f4ea70
+ARISA_HOST_SHA256  := f8680a022e4ed4a9c860a797d0b048d7f917b520d00aeef5645690b02fe58271
 ARISA_HOST_ARCHIVE  = $(ARISA_PACKAGE_DIR)/$(ARISA_HOST_NAME).tar.gz
 ARISA_HOST_UNPACK   = $(CURDIR)/build/arisa-package/$(ARISA_HOST_SHA256)
 ARISA_HOST_PREFIX   = $(ARISA_HOST_UNPACK)/$(ARISA_HOST_NAME)
@@ -438,36 +438,63 @@ test: platform
 	@printf "$(GREEN)[*]$(NC) Running host tests...\n"
 	@"$(TEST_BIN)"
 
+ARISA_TEST_OBJ      = $(ARISA_TEST_DIR)/obj
+ARISA_TEST_GEN      = $(ARISA_TEST_DIR)/generated
+ARISA_TEST_INCLUDES = -I"$(CURDIR)/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(ARISA_TEST_GEN)" \
+                      -I"$(CURDIR)/library/tomlplusplus/include" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include"
+ARISA_MODEL_FLAGS   = -std=c++23 -O0 -g -DAKIRA_CLOUD=1 -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
+                      $(ARISA_TEST_INCLUDES) -I"$(CURDIR)/library/qrcodegen"
+ARISA_SCREEN_FLAGS  = -std=c++23 -O0 -g -fno-rtti -DAKIRA_CLOUD=1 -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
+                      -DAKIRA_RESOURCES_DIR=\"$(CURDIR)/resources\" -DARISA_ASSETS_DIR=\"$(ARISA_HOST_PREFIX)/share/arisa/assets\" \
+                      -DAKIRA_SHOTS_DIR=\"$(CURDIR)/work/shots\" -I"$(CURDIR)/tests" -I"$(ARISA_HOST_PREFIX)/include" \
+                      $(ARISA_TEST_INCLUDES) -isystem "$(ARISA_TEST_STB)"
+ARISA_SCREEN_SOURCES = $(CURDIR)/tests/test_main.cpp $(wildcard $(CURDIR)/tests/arisa/*.cpp) \
+                      $(CURDIR)/source/app/arisa/dispatcher.cpp $(CURDIR)/source/app/arisa/string_catalog.cpp $(ARISA_TEST_SCREENS)
+ARISA_MODEL_OBJECTS  = $(patsubst /%.cpp,$(ARISA_TEST_OBJ)/models/%.o,$(abspath $(ARISA_TEST_MODELS)))
+ARISA_SCREEN_OBJECTS = $(patsubst /%.cpp,$(ARISA_TEST_OBJ)/screens/%.o,$(abspath $(ARISA_SCREEN_SOURCES)))
+ARISA_TEST_HEADERS   = $(ARISA_TEST_GEN)/akira_version.h $(ARISA_TEST_GEN)/version_config.hpp
+ARISA_TEST_STAMP     = $(ARISA_TEST_DIR)/flags.stamp
+ARISA_TEST_LIB       = $(ARISA_HOST_PREFIX)/lib/libarisa.a
+
 test-arisa:
 	@test -f "$(ARISA_HOST_ARCHIVE)" || { printf "$(RED)[x]$(NC) No arisa host package at $(ARISA_HOST_ARCHIVE): build arisa $(ARISA_TAG) with make package TARGET=macos\n"; exit 1; }
 	@echo "$(ARISA_HOST_SHA256)  $(ARISA_HOST_ARCHIVE)" | shasum -a 256 -c - > /dev/null || { printf "$(RED)[x]$(NC) $(ARISA_HOST_ARCHIVE) does not match the pinned sha256\n"; exit 1; }
-	@if [ ! -f "$(ARISA_HOST_PREFIX)/lib/libarisa.a" ]; then mkdir -p "$(ARISA_HOST_UNPACK)" && tar -xzf "$(ARISA_HOST_ARCHIVE)" -C "$(ARISA_HOST_UNPACK)"; fi
-	@mkdir -p "$(ARISA_TEST_DIR)"
+	@if [ ! -f "$(ARISA_TEST_LIB)" ]; then mkdir -p "$(ARISA_HOST_UNPACK)" && tar -xzf "$(ARISA_HOST_ARCHIVE)" -C "$(ARISA_HOST_UNPACK)"; fi
 	@printf "$(GREEN)[*]$(NC) Building arisa seam and screen tests...\n"
-	@mkdir -p "$(ARISA_TEST_DIR)/generated"
-	@sed -e 's/@VERSION_MAJOR@/0/' -e 's/@VERSION_MINOR@/0/' -e 's/@VERSION_PATCH@/0/' -e 's/@APP_VERSION@/test/' \
-		-e 's/@APP_VERSION_NACP@/0.0.0/' -e 's/@BUILD_CHANNEL@/dev/' -e 's/@GIT_COMMIT@/test/' -e 's/@BUILD_DATE@/test/' \
-		"$(CURDIR)/cmake/akira_version.h.in" > "$(ARISA_TEST_DIR)/generated/akira_version.h"
-	@sed -e 's/@PROJECT_VERSION_MAJOR@/0/' -e 's/@PROJECT_VERSION_MINOR@/0/' -e 's/@PROJECT_VERSION_PATCH@/0/' \
-		-e 's/@LIBCHIAKING_VERSION_PRERELEASE@//' -e 's/@libchiaking_commit@/test/' \
-		"$(CORE_DIR)/cmake/version_config.hpp.in" > "$(ARISA_TEST_DIR)/generated/version_config.hpp"
-	@for source in $(ARISA_TEST_MODELS); do \
-		nice -n 10 $(ARISA_HOST_CXX) -std=c++23 -O0 -g -DAKIRA_CLOUD=1 -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 -I"$(CURDIR)/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(ARISA_TEST_DIR)/generated" -I"$(CURDIR)/library/qrcodegen" \
-			-I"$(CURDIR)/library/tomlplusplus/include" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" \
-			-c "$$source" -o "$(ARISA_TEST_DIR)/$$(basename "$$source" .cpp).o" || exit 1; \
-	done
-	@nice -n 10 $(ARISA_HOST_CXX) -std=c++23 -O0 -g -fno-rtti -DAKIRA_CLOUD=1 -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
-		-DAKIRA_RESOURCES_DIR=\"$(CURDIR)/resources\" -DARISA_ASSETS_DIR=\"$(ARISA_HOST_PREFIX)/share/arisa/assets\" \
-		-DAKIRA_SHOTS_DIR=\"$(CURDIR)/work/shots\" -I"$(CURDIR)/include" -I"$(CURDIR)/tests" -I"$(ARISA_HOST_PREFIX)/include" \
-		-I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(ARISA_TEST_DIR)/generated" -I"$(CURDIR)/library/tomlplusplus/include" \
-		-I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include" -isystem "$(ARISA_TEST_STB)" \
-		"$(CURDIR)/tests/test_main.cpp" $(wildcard $(CURDIR)/tests/arisa/*.cpp) \
-		"$(CURDIR)/source/app/arisa/dispatcher.cpp" "$(CURDIR)/source/app/arisa/string_catalog.cpp" $(ARISA_TEST_SCREENS) \
-		$(foreach source,$(ARISA_TEST_MODELS),"$(ARISA_TEST_DIR)/$(basename $(notdir $(source))).o") \
-		"$(ARISA_HOST_PREFIX)/lib/libarisa.a" -L"$(JSONC_PREFIX)/lib" -ljson-c -L"$(SIMDUTF_PREFIX)/lib" -lsimdutf \
-		-o "$(ARISA_TEST_DIR)/seam_tests"
+	@$(MAKE) --no-print-directory -j4 "$(ARISA_TEST_DIR)/seam_tests"
 	@printf "$(GREEN)[*]$(NC) Running arisa seam tests...\n"
 	@"$(ARISA_TEST_DIR)/seam_tests"
+
+$(ARISA_TEST_STAMP): FORCE
+	@mkdir -p "$(@D)"
+	@echo '$(ARISA_MODEL_FLAGS) | $(ARISA_SCREEN_FLAGS)' | cmp -s - "$@" || echo '$(ARISA_MODEL_FLAGS) | $(ARISA_SCREEN_FLAGS)' > "$@"
+
+$(ARISA_TEST_GEN)/akira_version.h: $(CURDIR)/cmake/akira_version.h.in
+	@mkdir -p "$(@D)"
+	@sed -e 's/@VERSION_MAJOR@/0/' -e 's/@VERSION_MINOR@/0/' -e 's/@VERSION_PATCH@/0/' -e 's/@APP_VERSION@/test/' \
+		-e 's/@APP_VERSION_NACP@/0.0.0/' -e 's/@BUILD_CHANNEL@/dev/' -e 's/@GIT_COMMIT@/test/' -e 's/@BUILD_DATE@/test/' "$<" > "$@"
+
+$(ARISA_TEST_GEN)/version_config.hpp: $(CORE_DIR)/cmake/version_config.hpp.in
+	@mkdir -p "$(@D)"
+	@sed -e 's/@PROJECT_VERSION_MAJOR@/0/' -e 's/@PROJECT_VERSION_MINOR@/0/' -e 's/@PROJECT_VERSION_PATCH@/0/' \
+		-e 's/@LIBCHIAKING_VERSION_PRERELEASE@//' -e 's/@libchiaking_commit@/test/' "$<" > "$@"
+
+$(ARISA_TEST_OBJ)/models/%.o: /%.cpp $(ARISA_TEST_STAMP) | $(ARISA_TEST_HEADERS)
+	@mkdir -p "$(@D)"
+	@nice -n 10 $(ARISA_HOST_CXX) $(ARISA_MODEL_FLAGS) -MMD -MP -c "$<" -o "$@"
+
+$(ARISA_TEST_OBJ)/screens/%.o: /%.cpp $(ARISA_TEST_STAMP) | $(ARISA_TEST_HEADERS)
+	@mkdir -p "$(@D)"
+	@nice -n 10 $(ARISA_HOST_CXX) $(ARISA_SCREEN_FLAGS) -MMD -MP -c "$<" -o "$@"
+
+$(ARISA_TEST_DIR)/seam_tests: $(ARISA_MODEL_OBJECTS) $(ARISA_SCREEN_OBJECTS) $(ARISA_TEST_LIB)
+	@nice -n 10 $(ARISA_HOST_CXX) -std=c++23 -g $(ARISA_MODEL_OBJECTS) $(ARISA_SCREEN_OBJECTS) "$(ARISA_TEST_LIB)" \
+		-L"$(JSONC_PREFIX)/lib" -ljson-c -L"$(SIMDUTF_PREFIX)/lib" -lsimdutf -o "$@"
+
+-include $(ARISA_MODEL_OBJECTS:.o=.d) $(ARISA_SCREEN_OBJECTS:.o=.d)
+
+.PHONY: FORCE
+FORCE:
 
 check-strings:
 	@python3 "$(CURDIR)/scripts/convert-i18n.py" --check
