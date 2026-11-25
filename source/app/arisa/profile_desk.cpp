@@ -304,7 +304,7 @@ void ProfileDesk::clearPsn()
 
 auto ProfileDesk::createLegacy(const std::string& accountId, const std::string& name) -> bool
 {
-    if (!validAccountId(accountId))
+    if (!validAccountId(accountId) || name.empty())
         return false;
     accounts::Profile profile;
     profile.legacy = true;

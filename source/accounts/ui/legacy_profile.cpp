@@ -56,7 +56,7 @@ auto LegacyProfile::body(composition::Context& context) const -> composition::El
                 .id(composition::ElementKey{ "legacy.account" })),
         components::LabeledContent(strings->text("akira/profile_setup/name"),
             controls::TextField(strings->text("akira/profile_setup/name"), typedName,
-                controls::TextFieldOptions{ .prompt = strings->text("akira/profile_setup/name_optional") })
+                controls::TextFieldOptions{ .prompt = strings->text("akira/profile_setup/name") })
                 .labels_hidden()
                 .id(composition::ElementKey{ "legacy.name" }))))
                        .form_style(structure::FormStyle::cards())
@@ -73,7 +73,7 @@ auto LegacyProfile::body(composition::Context& context) const -> composition::El
         components::Button(strings->text("akira/profile_setup/create"),
             [held, typedAccount, typedName] { held->createLegacy(typedAccount.get(), typedName.get()); })
             .button_style(components::ButtonStyle::glass_prominent())
-            .disabled(typedAccount.get().empty())
+            .disabled(typedAccount.get().empty() || typedName.get().empty())
             .id(composition::ElementKey{ "legacy.create" })));
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ 18.0F } },

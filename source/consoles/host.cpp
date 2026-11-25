@@ -233,6 +233,11 @@ HostRegisterError Host::registerHost(int pin, PairingCallback done)
 
     auto* accounts = core.accounts();
     auto user = accounts ? accounts->activeUser() : nullptr;
+    if (!user && accountSettings.isLegacyProfileActive() && accountSettings.psnOnlineId().empty())
+    {
+        log::error("The legacy profile has no online ID; registration needs one");
+        return HOST_REGISTER_ERROR_SETTING_PSNONLINEID;
+    }
     if (!user)
     {
         log::error("Undefined PSN account for registration (please configure the profile)");
