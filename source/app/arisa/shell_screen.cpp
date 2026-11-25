@@ -42,6 +42,7 @@
 #include "app/arisa/brand_lockup.hpp"
 #include "app/arisa/confirmation.hpp"
 #include "app/arisa/header.hpp"
+#include "network/ui/network_facts_row.hpp"
 #include "app/arisa/notice_toast.hpp"
 #include "app/arisa/rail.hpp"
 #include "app/version.hpp"
@@ -89,13 +90,13 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
         return appletNotice();
     const bool connecting = view.phase == ShellModel::Phase::Connecting;
     const bool settings = view.settings && view.phase == ShellModel::Phase::Home;
-    composition::Element shell = dnsCard(exitCard(ending(announced(home(view.page, railEdge(context)), view.phase == ShellModel::Phase::Streaming),
+    composition::Element shell = dnsCard(exitCard(ending(announced(home(view, railEdge(context), settings), view.phase == ShellModel::Phase::Streaming),
                                                       view, context.namespace_id(endingFocus)),
                                              view),
         view, context.namespace_id(dnsFocus));
     composition::Element panel = components::Group();
     if (settings)
-        panel = settingsPanel();
+        panel = settingsPanel(railEdge(context));
     composition::Element loading = components::Group();
     if (connecting)
         loading = play::ui::ConnectingScreen(view.progress, *parts->stream, *strings, loadingArt(context, view.progress.console));
@@ -140,15 +141,22 @@ auto ShellScreen::railEdge(composition::Context& context) const -> RailEdge
     return parts->settings.model->parts().app.railEdge();
 }
 
-auto ShellScreen::home(ShellModel::Page shown, RailEdge edge) const -> composition::Element
+auto ShellScreen::home(const ShellModel::View& view, RailEdge edge, bool sheet) const -> composition::Element
 {
+    const ShellModel::Page shown = view.page;
     ShellModel* held = model;
     composition::Element rail = Rail(*model, *strings, parts->settings.accounts, edge);
     std::vector<composition::Element> layers;
     layers.push_back(backdrop());
-    layers.push_back(page(shown, edge));
-    layers.push_back(hints());
+    layers.push_back(page(view, edge));
+    if (edge != RailEdge::Bottom && !sheet)
+        layers.push_back(composition::Element(network::ui::NetworkFactsRow(view.network, *strings))
+                .padding(theme::Insets{ .leading = theme::Space{ hintsTrailing },
+                    .bottom = theme::Space{ hintsBottom + railBand(edge) } })
+                .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
+                    .alignment = composition::Alignment::bottom_leading }));
     layers.push_back(std::move(rail));
+    layers.push_back(hints(edge));
     return components::ZStack(components::ZStackOptions{ .alignment = composition::Alignment::top_leading }, std::move(layers))
         .on_command(provider::Button::y, strings->text("akira/rail/menu"), [held] { held->callRail(); })
         .on_exit_command(strings->text("akira/app/exit"), [held] { held->askExit(); });
@@ -168,12 +176,13 @@ auto ShellScreen::backdrop() -> composition::Element
         .id(composition::ElementKey{ "shell.backdrop" });
 }
 
-auto ShellScreen::page(ShellModel::Page shown, RailEdge edge) const -> composition::Element
+auto ShellScreen::page(const ShellModel::View& view, RailEdge edge) const -> composition::Element
 {
+    const ShellModel::Page shown = view.page;
     const float railSide = edge == RailEdge::Right ? pageLeading - pageTrailing : 0.0F;
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::Space{ pageSpacing } },
-        Header(pageTitle(shown), *strings),
+        Header(pageTitle(shown), *strings, edge == RailEdge::Bottom ? std::optional(view.network) : std::nullopt),
         pageContent(shown)
             .padding(theme::Edge::trailing, theme::Space{ railSide })
             .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
@@ -211,17 +220,22 @@ auto ShellScreen::pageContent(ShellModel::Page shown) const -> composition::Elem
         .id(composition::ElementKey{ "shell.consoles" });
 }
 
-auto ShellScreen::hints() -> composition::Element
+auto ShellScreen::railBand(RailEdge edge) -> float
+{
+    return edge == RailEdge::Bottom ? Rail::barHeight + Rail::inset : 0.0F;
+}
+
+auto ShellScreen::hints(RailEdge edge) -> composition::Element
 {
     return composition::Element(components::HintBar())
         .foreground_style(theme::ColourRole::secondary_label)
-        .padding(theme::Insets{ .bottom = theme::Space{ hintsBottom }, .trailing = theme::Space{ hintsTrailing } })
+        .padding(theme::Insets{ .bottom = theme::Space{ hintsBottom + railBand(edge) }, .trailing = theme::Space{ hintsTrailing } })
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity,
             .alignment = composition::Alignment::bottom_trailing })
         .id(composition::ElementKey{ "shell.hints" });
 }
 
-auto ShellScreen::settingsPanel() const -> composition::Element
+auto ShellScreen::settingsPanel(RailEdge edge) const -> composition::Element
 {
     ShellModel* held = model;
     settings::ui::SettingsModel* settingsModel = parts->settings.model;
@@ -252,7 +266,7 @@ auto ShellScreen::settingsPanel() const -> composition::Element
     return components::VStack(components::VStackOptions{ .spacing = theme::space::none }, std::move(panel))
         .padding(theme::Insets{ .top = theme::Space{ settingsTop },
             .leading = theme::Space{ settingsSide },
-            .bottom = theme::Space{ settingsBottom },
+            .bottom = theme::Space{ settingsBottom + railBand(edge) },
             .trailing = theme::Space{ settingsSide } })
         .frame({ .max_width = composition::infinity, .max_height = composition::infinity })
         .background(theme::ColourValue(theme::Colour::hex(0x000000)).opacity(settingsScrim))

@@ -74,14 +74,14 @@ public:
     auto body(::arisa::composition::Context& context) const -> ::arisa::composition::Element override;
 
 private:
-    auto home(ShellModel::Page shown, RailEdge edge) const -> ::arisa::composition::Element;
+    auto home(const ShellModel::View& view, RailEdge edge, bool sheet) const -> ::arisa::composition::Element;
     auto loadingArt(::arisa::composition::Context& context, const std::string& console) const
         -> std::vector<play::ui::ConnectingScreen::Art>;
     auto railEdge(::arisa::composition::Context& context) const -> RailEdge;
-    auto page(ShellModel::Page shown, RailEdge edge) const -> ::arisa::composition::Element;
+    auto page(const ShellModel::View& view, RailEdge edge) const -> ::arisa::composition::Element;
     auto pageTitle(ShellModel::Page shown) const -> std::string;
     auto pageContent(ShellModel::Page shown) const -> ::arisa::composition::Element;
-    auto settingsPanel() const -> ::arisa::composition::Element;
+    auto settingsPanel(RailEdge edge) const -> ::arisa::composition::Element;
     auto announced(::arisa::composition::Element content, bool streaming) const -> ::arisa::composition::Element;
     auto ending(::arisa::composition::Element content, const ShellModel::View& view,
         ::arisa::composition::Namespace::ID focus) const -> ::arisa::composition::Element;
@@ -93,7 +93,8 @@ private:
         ::arisa::composition::Namespace::ID focus) const -> ::arisa::composition::Element;
     auto appletNotice() const -> ::arisa::composition::Element;
     static auto backdrop() -> ::arisa::composition::Element;
-    static auto hints() -> ::arisa::composition::Element;
+    static auto hints(RailEdge edge) -> ::arisa::composition::Element;
+    static auto railBand(RailEdge edge) -> float;
     static auto versionText() -> std::string;
 
     ShellModel* model;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "network/network_facts.hpp"
+
 #include <cstdint>
 
 #include <chrono>
@@ -45,6 +47,7 @@ public:
         bool exiting = false;
         bool exitConfirmed = false;
         std::optional<DnsWarning> dns;
+        network::NetworkFacts network;
         std::uint64_t railCalls = 0;
 
         friend bool operator==(const View&, const View&) = default;
@@ -70,6 +73,7 @@ public:
     void warnDns(std::string domain, std::string server, std::chrono::steady_clock::time_point now);
     void tick(std::chrono::steady_clock::time_point now);
     void dismissDns();
+    void learn(network::NetworkFacts facts);
 
 private:
     ::arisa::composition::Observable<View> state;

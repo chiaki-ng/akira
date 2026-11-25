@@ -84,7 +84,7 @@
     "takion_pinned": "{} now uses Takion v{}",
     "takion_follows": "{} uses the default Takion version again",
     "error_psn_account_id": "Error: PSN Account ID is required. Configure in Settings.",
-    "error_psn_online_id": "Error: PSN Online ID is required for PS4 < 7.0.",
+    "error_psn_online_id": "Error: PSN Online ID is required. Configure in Settings.",
     "error_console_type": "Error: Console type not recognized.",
     "error_registration_failed": "Error: Registration failed.",
     "register_how": "How do you want to register?",
@@ -133,7 +133,8 @@
     "edit_launch": "Launch",
     "edit_delete": "Delete console",
     "edit_save": "Save changes",
-    "edit_saved": "Changes saved"
+    "edit_saved": "Changes saved",
+    "continue": "Continue"
   },
   "cloud": {
     "title": "Cloud Library",
@@ -1088,7 +1089,14 @@
     "companion_heading": "Companion",
     "psn_tokens_heading": "PSN tokens",
     "ps_plus": "PS Plus",
-    "trophy_level_line": "Trophy level {} · {}%"
+    "trophy_level_line": "Trophy level {} · {}%",
+    "dev_loading_preview": "Loading screens only",
+    "dev_loading_preview_status": "Loading screen preview",
+    "rail_edge": "Sidebar position",
+    "rail_edge_bottom": "Bottom",
+    "rail_edge_left": "Left",
+    "rail_edge_right": "Right",
+    "rail_edge_top": "Top"
   },
   "update": {
     "channel": "Update channel",
@@ -1138,7 +1146,16 @@
     "wg_error": "Error: {}",
     "wireguard": "WireGuard",
     "wg_status_label": "Status",
-    "wg_tunnel_ip_label": "Tunnel IP"
+    "wg_tunnel_ip_label": "Tunnel IP",
+    "fact_akira_dns": "akira DNS",
+    "fact_ip": "IP",
+    "fact_none": "None",
+    "fact_psn": "PSN",
+    "fact_system_dns": "System DNS",
+    "psn_checking": "Checking",
+    "psn_reachable": "Reachable",
+    "psn_skipped": "Not checked",
+    "psn_unreachable": "Unreachable"
   },
   "benchmark": {
     "title": "GHASH Benchmark",
@@ -1260,12 +1277,24 @@
     "notice": "akira is an independent, unofficial client. Signing in gives it access to your PlayStation account for remote play, your library and trophies. Your sign-in stays on this Switch and is sent only to PlayStation’s own servers, never to akira’s developers or anyone else. The source code is available to audit under the AGPLv3.",
     "maintainer": "Maintainer",
     "community": "Community",
-    "thanks": "Thanks to the affiliated projects",
+    "thanks": "Thanks to the following affiliated projects",
     "discord_note": "Help, test builds and release news",
     "github_note": "The akira project",
     "chiaki_note": "for the original chiaki",
     "borealis_note": "akira’s first UI",
-    "license_text": "akira is free and open source software developed by hobbyists and enthusiasts under the GNU Affero General Public License, version 3. See GitHub for the full licence and source code."
+    "license_text": "akira is free and open source software developed by hobbyists and enthusiasts under the GNU Affero General Public License, version 3. See GitHub for the full licence and source code.",
+    "all_contributors": "And all contributors to chiaki-ng",
+    "core": "Core",
+    "discord_preferred": "(we prefer Discord)",
+    "discord_detail": "Join the chiaki-ng Discord for help, testing builds and release news.",
+    "discord_title": "Discord",
+    "github_detail": "The akira project",
+    "github_title": "GitHub",
+    "hide_contributors": "Hide the contributors",
+    "privacy": "Privacy",
+    "privacy_text": "akira’s developers collect nothing. Your account and consoles stay on this Switch and are sent only to PlayStation’s servers and your own consoles.",
+    "show_contributors": "Show the contributors",
+    "thanks_detail": "who collaborated on chiaki-ng, without whom this would not have been possible."
   },
   "diagnostics": {
     "title": "Diagnostics",
@@ -1375,5 +1404,8 @@
     "saved": "Screenshot saved: {}",
     "failed": "Screenshot failed: {}",
     "busy": "Still saving the last screenshot"
+  },
+  "rail": {
+    "menu": "Menu"
   }
 }

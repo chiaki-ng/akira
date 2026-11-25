@@ -137,4 +137,10 @@ void ShellModel::dismissDns()
     state.write(&View::dns, std::optional<DnsWarning>());
 }
 
+
+void ShellModel::learn(network::NetworkFacts facts)
+{
+    state.write(&View::network, std::move(facts));
+}
+
 }

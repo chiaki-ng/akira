@@ -249,10 +249,20 @@ void App::buildScreens()
 void App::checkSonyDns()
 {
     Services& services = graph->services();
-    if (services.accounts.isLegacyProfileActive())
-        return;
-    services.dispatcher.runOnWorker([&dns = services.dns, &dispatcher = services.dispatcher, &shown = model] {
-        const std::optional<network::SonyDnsFailure> failure = network::SonyDnsFailure::first(network::checkSonyDnsAtStartup(dns));
+    const bool legacy = services.accounts.isLegacyProfileActive();
+    services.dispatcher.runOnWorker([&dns = services.dns, &dispatcher = services.dispatcher, &shown = model, legacy] {
+        network::NetworkFacts facts = network::readNetworkFacts(dns);
+        if (legacy || facts.address.empty())
+        {
+            facts.psn = legacy ? network::NetworkFacts::Psn::Skipped : network::NetworkFacts::Psn::Unreachable;
+            dispatcher.post([&shown, facts = std::move(facts)]() mutable { shown.learn(std::move(facts)); });
+            return;
+        }
+        const network::SonyDnsReport report = network::checkSonyDnsAtStartup(dns);
+        facts.psn = report.servers.empty() || report.failed() ? network::NetworkFacts::Psn::Unreachable
+                                                              : network::NetworkFacts::Psn::Reachable;
+        dispatcher.post([&shown, facts = std::move(facts)]() mutable { shown.learn(std::move(facts)); });
+        const std::optional<network::SonyDnsFailure> failure = network::SonyDnsFailure::first(report);
         if (!failure)
             return;
         log::warning("[NET] Sony DNS check failed domain={} server={}", failure->domain(), failure->server());

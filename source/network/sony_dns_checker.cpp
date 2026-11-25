@@ -44,6 +44,25 @@ const char* verdictName(DnsVerdict verdict)
 
 } // namespace
 
+NetworkFacts readNetworkFacts(const CustomDns& dns)
+{
+    NetworkFacts facts;
+    for (const Ipv4Address& server : dns.resolvers())
+        facts.akiraDns.push_back(server.toString());
+    uint32_t ip = 0;
+    uint32_t mask = 0;
+    uint32_t gateway = 0;
+    uint32_t dns1 = 0;
+    uint32_t dns2 = 0;
+    if (R_FAILED(nifmGetCurrentIpConfigInfo(&ip, &mask, &gateway, &dns1, &dns2)) || ip == 0)
+        return facts;
+    facts.address = Ipv4Address::fromNetworkOrder(ip).toString();
+    for (const uint32_t server : { dns1, dns2 })
+        if (server != 0)
+            facts.systemDns.push_back(Ipv4Address::fromNetworkOrder(server).toString());
+    return facts;
+}
+
 SonyDnsReport checkSonyDnsAtStartup(const CustomDns& dns)
 {
     SonyDnsReport report;

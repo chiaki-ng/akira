@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "network/dns_client.hpp"
+#include "network/network_facts.hpp"
 #include "network/ipv4_address.hpp"
 
 namespace akira::network {
@@ -87,6 +88,7 @@ inline int secondsUntilDnsWarningOk(int64_t elapsedMilliseconds)
 // Runs on a worker thread; only numeric DNS servers configured on the Switch
 // are queried. It makes no HTTP requests and sends no account data.
 SonyDnsReport checkSonyDnsAtStartup(const CustomDns& dns);
+NetworkFacts readNetworkFacts(const CustomDns& dns);
 
 } // namespace akira::network
 
