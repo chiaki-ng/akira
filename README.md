@@ -52,31 +52,17 @@ Please read the docs at [chiaki-ng.github.io/akira](https://chiaki-ng.github.io/
 ## Screenshots
 
 <p align="center" width="100%">
-  <img src="readme/hosts.jpg" width="49%" alt="Akira home screen: a manually added PS5 in standby, a PSN Remote Play console marked ready, an Add Console tile, and the signed-in PSN profile in the corner">
-  <img src="readme/add_host_manual.jpg" width="49%" alt="Add Host screen with console name, IP address and console type fields, for adding a console by hand">
+  <img src="readme/ounce/akira-light-dark.png" width="98%" alt="Akira home screen split down the middle into the light and dark themes, with a PS5 console card, the recently played rail, and the IP, DNS and PSN reachability details">
 </p>
 
 <p align="center" width="100%">
-  <img src="readme/trophy.jpg" width="49%" alt="Trophy overview with account trophy level, platinum, gold, silver and bronze totals, and per-game cards showing playtime and completion">
-  <img src="readme/detailed_trophy.jpg" width="49%" alt="Per-game trophy list with earned versus available counts, completion percentage, and each trophy's grade and rarity">
+  <img src="readme/ounce/akira-ingame-diagnostics.png" width="49%" alt="Akira streaming Grand Theft Auto VI with the full diagnostics overlay showing network, assembly, decode, render and display stats">
+  <img src="readme/ounce/akira-loading.png" width="49%" alt="Starting a stream of Grand Theft Auto VI over the game's key art">
 </p>
 
 <p align="center" width="100%">
-  <img src="readme/new_settings.jpg" width="49%" alt="Tabbed settings screen on the Account tab, showing the linked PSN profile with trophy counts, a show trophy page toggle, the companion port and a pair with companion app button">
-  <img src="readme/pairing_screen.jpg" width="49%" alt="Pair with Companion screen showing a four digit code, the console IP and port, and a refresh countdown while it waits for the computer">
-</p>
-<p align="center" width="100%">
-  <img src="readme/remappable.jpg" width="70%" alt="Button mapping screen with a DualSense diagram beside every PlayStation button and its assigned Switch button">
-</p>
-
-<p align="center" width="100%">
-  <img src="readme/akira_ingame_ac_odyssey_20260915.jpg" width="49%" alt="Akira streaming Assassin's Creed Odyssey with the in-game stats overlay">
-  <img src="readme/akira_ingame_hogwarts_1_20260915.jpg" width="49%" alt="Akira streaming Hogwarts Legacy while flying toward the castle">
-</p>
-
-<p align="center" width="100%">
-  <img src="readme/akira_ingame_hogwarts_2_20260915.jpg" width="49%" alt="Akira streaming Hogwarts Legacy above Hogwarts castle">
-  <img src="readme/akira_ingame_spiderman_20260915.jpg" width="49%" alt="Akira streaming Marvel's Spider-Man 2 over Greenwich">
+  <img src="readme/ounce/akira-button-mapping.png" width="49%" alt="Button mapping settings with every PlayStation button labelled around a DualSense diagram">
+  <img src="readme/ounce/akira-trophies.png" width="49%" alt="Trophy overview with the account trophy level, grade totals and per-game progress">
 </p>
 
 <p align="center">

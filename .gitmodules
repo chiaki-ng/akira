@@ -29,3 +29,6 @@
 	path = library/uam
 	url = https://github.com/RSDuck/uam.git
 	branch = library-target
+[submodule "library/arisa"]
+	path = library/arisa
+	url = https://github.com/xlanor/arisa.git

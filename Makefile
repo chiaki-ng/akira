@@ -14,7 +14,7 @@
 #   make fetch-devkit OUNCE_DEVKIT_URL=u Download the pinned ounce devkit and check its sha256
 #   make ounce-deps                      Build ../native-deps-ounce inside devkita64-ounce
 
-.PHONY: help build build-arisa arisa-package test-arisa deploy crash test check-strings lint-structure rebuild shell clean docker-image devkit-image fetch-devkit devkit-pin release-notes ounce-deps ounce-deps-check image-tag submodules backup platform
+.PHONY: help build build-arisa arisa-library test-arisa deploy crash test check-strings lint-structure rebuild shell clean docker-image devkit-image fetch-devkit devkit-pin release-notes ounce-deps ounce-deps-check image-tag submodules backup platform
 
 PLATFORM ?=
 
@@ -51,24 +51,16 @@ TEST_PLATFORM_SRC := $(CURDIR)/source/platform/pads/extended/rumble_keys.cpp \
 endif
 DOCKER_IMAGE ?= akira-builder:$(IMAGE_HASH)
 ARISA_VERSION      := 0.0.1
-ARISA_TAG          := c082daa
+ARISA_SOURCE       ?= $(CURDIR)/library/arisa
 ARISA_GPU          ?= drako3d
 ARISA_FLAVOUR_nx_drako3d    := switch
 ARISA_FLAVOUR_nx_vulkan     := switch
 ARISA_FLAVOUR_ounce_drako3d := switch2
 ARISA_FLAVOUR_ounce_vulkan  := switch2
-ARISA_SHA256_switch         := f4c0845de15252aa801d2d62cdf17ffaaf3cf0c6e3ca06ec2e20a63d05c54d12
-ARISA_SHA256_switch2        := 0ff449f4a34cec0bf741f2d3cc653956d21f536f3828ea59ae14453da5e7e962
-ARISA_RECIPE_switch         := make package TARGET=switch
-ARISA_RECIPE_switch2        := make package-switch2
-ARISA_PACKAGE_URL  ?= https://github.com/xlanor/arisa/releases/download/package-$(ARISA_TAG)
-ARISA_PACKAGE_DIR  ?= $(if $(wildcard $(CURDIR)/../arisa/build/package),$(abspath $(CURDIR)/../arisa/build/package),$(CURDIR)/.cache/arisa-package)
+ARISA_PACKAGE_DIR  ?= $(abspath $(CURDIR)/../arisa/build/package)
 ARISA_FLAVOUR       = $(ARISA_FLAVOUR_$(PLATFORM)_$(ARISA_GPU))
-ARISA_SHA256        = $(ARISA_SHA256_$(ARISA_FLAVOUR))
-ARISA_NAME          = arisa-$(ARISA_VERSION)-$(ARISA_FLAVOUR)-aarch64
-ARISA_ARCHIVE       = $(ARISA_PACKAGE_DIR)/$(ARISA_NAME).tar.gz
-ARISA_UNPACK        = $(CURDIR)/build/arisa-package/$(ARISA_SHA256)
-ARISA_PREFIX        = $(ARISA_UNPACK)/$(ARISA_NAME)
+ARISA_LIB_DIR       = $(CURDIR)/build/arisa-lib/$(ARISA_FLAVOUR)
+ARISA_PREFIX        = $(ARISA_LIB_DIR)/prefix
 ARISA_BUILD_NAME    = arisa-$(PLATFORM)$(if $(filter ounce_vulkan,$(PLATFORM)_$(ARISA_GPU)),-vulkan)
 ARISA_NRO_FILE      = $(CURDIR)/build/$(ARISA_BUILD_NAME)/akira-arisa.nro
 ARISA_HOST_NAME    := arisa-$(ARISA_VERSION)-macos-arm64
@@ -363,8 +355,8 @@ help:
 	@echo "  shell-nx, shell-ounce            Open shell in build container"
 	@echo "  crash-nx, crash-ounce            Symbolicate the latest Switch crash report (SWITCH_IP or LOG)"
 	@echo "  test-nx, test-ounce              Run the host-side unit tests"
-	@echo "  build-arisa-nx, build-arisa-ounce  Build akira-arisa.nro on the pinned arisa package (ARISA_GPU=drako3d|vulkan on ounce)"
-	@echo "  arisa-package-nx, arisa-package-ounce  Check and extract the pinned arisa package"
+	@echo "  build-arisa-nx, build-arisa-ounce  Build akira-arisa.nro on the arisa submodule (ARISA_GPU=drako3d|vulkan on ounce)"
+	@echo "  arisa-library-nx, arisa-library-ounce  Build the arisa submodule into build/arisa-lib"
 	@echo "  test-arisa     Run the arisa shell seam tests on the headless arisa macOS package"
 	@echo "  image-tag-nx, image-tag-ounce    Print the builder image tag for this checkout"
 	@echo "  check-strings  Check resources/strings matches the borealis catalogs"
@@ -458,7 +450,7 @@ ARISA_TEST_STAMP     = $(ARISA_TEST_DIR)/flags.stamp
 ARISA_TEST_LIB       = $(ARISA_HOST_PREFIX)/lib/libarisa.a
 
 test-arisa:
-	@test -f "$(ARISA_HOST_ARCHIVE)" || { printf "$(RED)[x]$(NC) No arisa host package at $(ARISA_HOST_ARCHIVE): build arisa $(ARISA_TAG) with make package TARGET=macos\n"; exit 1; }
+	@test -f "$(ARISA_HOST_ARCHIVE)" || { printf "$(RED)[x]$(NC) No arisa host package at $(ARISA_HOST_ARCHIVE): build arisa with make package TARGET=macos\n"; exit 1; }
 	@echo "$(ARISA_HOST_SHA256)  $(ARISA_HOST_ARCHIVE)" | shasum -a 256 -c - > /dev/null || { printf "$(RED)[x]$(NC) $(ARISA_HOST_ARCHIVE) does not match the pinned sha256\n"; exit 1; }
 	@if [ ! -f "$(ARISA_TEST_LIB)" ]; then mkdir -p "$(ARISA_HOST_UNPACK)" && tar -xzf "$(ARISA_HOST_ARCHIVE)" -C "$(ARISA_HOST_UNPACK)"; fi
 	@printf "$(GREEN)[*]$(NC) Building arisa seam and screen tests...\n"
@@ -572,22 +564,18 @@ build: platform docker-image
 	fi
 	@printf "$(GREEN)[*]$(NC) Build successful: $(NRO_FILE)\n"
 
-arisa-package: platform
+arisa-library: platform docker-image
 	@test -n "$(ARISA_FLAVOUR)" || { printf "$(RED)[x]$(NC) ARISA_GPU must be drako3d or vulkan, not $(ARISA_GPU)\n"; exit 1; }
-	@if [ ! -f "$(ARISA_ARCHIVE)" ]; then \
-		test -n "$(ARISA_PACKAGE_URL)" || { printf "$(RED)[x]$(NC) No arisa package at $(ARISA_ARCHIVE): build arisa $(ARISA_TAG) with $(ARISA_RECIPE_$(ARISA_FLAVOUR)), or pass ARISA_PACKAGE_DIR\n"; exit 1; }; \
-		printf "$(GREEN)[*]$(NC) Downloading $(ARISA_NAME) ($(ARISA_TAG))...\n"; \
-		mkdir -p "$(ARISA_PACKAGE_DIR)"; \
-		curl -fsSL --retry 3 -o "$(ARISA_ARCHIVE)" "$(ARISA_PACKAGE_URL)/$(ARISA_NAME).tar.gz" || { rm -f "$(ARISA_ARCHIVE)"; exit 1; }; \
-	fi
-	@echo "$(ARISA_SHA256)  $(ARISA_ARCHIVE)" | shasum -a 256 -c - > /dev/null || { printf "$(RED)[x]$(NC) $(ARISA_ARCHIVE) does not match the pinned sha256 $(ARISA_SHA256)\n"; exit 1; }
-	@if [ ! -f "$(ARISA_PREFIX)/lib/libarisa.a" ]; then \
-		printf "$(GREEN)[*]$(NC) Extracting $(ARISA_NAME) ($(ARISA_TAG))...\n"; \
-		mkdir -p "$(ARISA_UNPACK)"; \
-		tar -xzf "$(ARISA_ARCHIVE)" -C "$(ARISA_UNPACK)"; \
-	fi
+	@test -f "$(ARISA_SOURCE)/CMakePresets.json" || { printf "$(RED)[x]$(NC) No arisa sources at $(ARISA_SOURCE): run git submodule update --init library/arisa\n"; exit 1; }
+	@printf "$(GREEN)[*]$(NC) Building arisa $$(git -C "$(ARISA_SOURCE)" rev-parse --short HEAD 2>/dev/null) for $(ARISA_FLAVOUR)...\n"
+	@$(DOCKER_RUN) -w "$(ARISA_SOURCE)" $(DOCKER_IMAGE) sh -c '\
+		cmake --preset package-$(ARISA_FLAVOUR) -B "$(ARISA_LIB_DIR)/build" \
+			-DCMAKE_C_COMPILER_LAUNCHER= -DCMAKE_CXX_COMPILER_LAUNCHER= -DCMAKE_INSTALL_PREFIX="$(ARISA_PREFIX)" > /dev/null && \
+		nice -n 10 cmake --build "$(ARISA_LIB_DIR)/build" -j4 && \
+		cmake --install "$(ARISA_LIB_DIR)/build" > /dev/null'
+	@test -f "$(ARISA_PREFIX)/lib/libarisa.a" || { printf "$(RED)[x]$(NC) arisa did not install to $(ARISA_PREFIX)\n"; exit 1; }
 
-build-arisa: platform docker-image arisa-package
+build-arisa: platform docker-image arisa-library
 	@printf "$(GREEN)[*]$(NC) Building akira-arisa for $(PLATFORM) with $(DOCKER_IMAGE)...\n"
 	@$(DOCKER_RUN) \
 		-e AKIRA_PLATFORM="$(PLATFORM)" \
