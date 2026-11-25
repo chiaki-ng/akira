@@ -63,7 +63,7 @@ if (NOT BUILD_METADATA STREQUAL "")
 endif()
 
 set(APP_TITLE "Akira")
-set(PROJECT_AUTHOR "xlanor")
+set(PROJECT_AUTHOR "xlanor, streetpea, kkwong, the chiaki-ng project")
 set(PACKAGE_NAME "io.github.akira")
 set(PROJECT_ICON ${CMAKE_CURRENT_SOURCE_DIR}/resources/img/icon.jpg)
 set(PROJECT_RESOURCES ${CMAKE_CURRENT_SOURCE_DIR}/resources)
