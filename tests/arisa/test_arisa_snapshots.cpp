@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <array>
+#include <tuple>
 #include <atomic>
 #include <functional>
 #include <cstdio>
@@ -991,6 +992,27 @@ TEST(arisa_shot_consoles)
     CHECK(shots.write("consoles"));
 }
 
+TEST(arisa_shot_network_facts)
+{
+    const provider::SurfaceSize switch2{ .width = provider::SurfaceWidth{ 1920 }, .height = provider::SurfaceHeight{ 1080 } };
+    const akira::network::NetworkFacts reachable{ .address = "192.168.20.50",
+        .systemDns = { "192.168.20.1" },
+        .akiraDns = { "1.1.1.1", "8.8.8.8" },
+        .psn = akira::network::NetworkFacts::Psn::Reachable };
+    akira::network::NetworkFacts unreachable = reachable;
+    unreachable.psn = akira::network::NetworkFacts::Psn::Unreachable;
+    for (const auto& [facts, scheme, name] : { std::tuple{ reachable, appearance::ColorSchemePreference::light, "network_facts_light" },
+             std::tuple{ unreachable, appearance::ColorSchemePreference::dark, "network_facts_unreachable_dark" } })
+    {
+        Shots shots;
+        shots.model.ready();
+        shots.showHouse();
+        shots.model.learn(facts);
+        REQUIRE(shots.start(shots.shell(), ThemePacks::standard, scheme, switch2));
+        CHECK(shots.write(name));
+    }
+}
+
 TEST(arisa_shot_card_focus_walk)
 {
     const provider::SurfaceSize switch2{ .width = provider::SurfaceWidth{ 1920 }, .height = provider::SurfaceHeight{ 1080 } };
@@ -1280,6 +1302,25 @@ TEST(arisa_settings_stay_inside_their_box_at_every_scale)
             }
         }
     CHECK(failures == 0);
+}
+
+TEST(arisa_shot_mapping_board)
+{
+    const provider::SurfaceSize switch2{ .width = provider::SurfaceWidth{ 1920 }, .height = provider::SurfaceHeight{ 1080 } };
+    for (const auto scheme : { appearance::ColorSchemePreference::light, appearance::ColorSchemePreference::dark })
+    {
+        const std::string tone = scheme == appearance::ColorSchemePreference::light ? "light" : "dark";
+        Shots shots;
+        shots.model.ready();
+        shots.showHouse();
+        shots.model.showSettings(true);
+        shots.settingsModel().open(akira::settings::ui::SettingsModel::Detail::Mapping);
+        REQUIRE(shots.start(shots.shell(), ThemePacks::standard, scheme, switch2));
+        CHECK(shots.write("mapping_board_" + tone));
+        for (int step = 0; step < 12; ++step)
+            REQUIRE(shots.pad(provider::Buttons{ provider::Button::dpad_down }));
+        CHECK(shots.write("mapping_board_lower_" + tone));
+    }
 }
 
 TEST(arisa_shot_settings_details)
