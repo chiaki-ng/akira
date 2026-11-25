@@ -1,55 +1,16 @@
-# Akira
+# Akira-ounce
+![KaiHEN](https://img.shields.io/badge/kaiHEN-0.0.4-green) [![chiaki-ng discord](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Fv10%2Finvites%2FtAMbRuwXDH%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&label=chiaki-ng%20discord&logo=discord&color=5865F2)](https://discord.gg/tAMbRuwXDH)
 
-![HOS-Supported](https://img.shields.io/badge/HOS_Version-23.1.0-green) ![Atmosphere](https://img.shields.io/badge/Atmosphere-1.12.1-cyan) ![libnx](https://img.shields.io/badge/libnx-4.12.0-magenta) [![chiaki-ng discord](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Fv10%2Finvites%2FtAMbRuwXDH%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&label=chiaki-ng%20discord&logo=discord&color=5865F2)](https://discord.gg/tAMbRuwXDH)
+## Disclaimer ⚠️
 
-Akira is a hombrew application built with xfangfang's fork of [borealis](https://github.com/xfangfang/borealis) that utilises a forked variant of [chiaki-ng](https://github.com/streetpea/chiaki-ng) on the Nintendo Switch.
+> [!WARNING]  
+> **This is an unofficial project that is not endorsed or certified by Sony Interactive Entertainment LLC.**
 
-## Maintainers
-xlanor, kkwong
+> [!WARNING]  
+> **Please do NOT use this on your switch 2 UNLESS you are able to accept any of the risks and/or disclaimers that the ouncebrew project has mentioned. Switch 2 CFW is in its infancy.**
 
-## Disclaimer
-This project is not endorsed or certified by Sony Interactive Entertainment LLC. This project is free and open-source, and licensed under the same license as the core library it uses, chiaki-ng.
+### You MUST own a PS4/5 to use this. 
 
-## Read the documentation
-
-Please read the docs at [chiaki-ng.github.io/akira](https://chiaki-ng.github.io/akira)
-
-## Issues
-
-Akira is a personal project developed for myself primarily as the main user. Please don't come in and treat me like your personal slave, because I'm getting very tired of debugging people's networks with almost no information at all other than "this doesnt work". If I had a crystal ball, I would use it to win the Euromillions.
-
-I am present on chiaki-ng discord's switch-support channel, where StreetPea has graciously allowed me to seed akira amongst existing chiaki-ng users. 
-
-I will not respond to direct pings, please try to use the search button and/or [read the docs](https://chiaki-ng.github.io/akira) first and then post a message with details of what you've tried. 
-
-I'd also love to hear if you're using this application and it works well for you.
-
-If you find a bug or have a feature request, please help out and open a PR with the fix/implemented feature. 
-
-## Features
-
-- **Basic remote play over an external network.** Same caveats as chiaki-ng, PSPlay, PSPortal, and the rest: you have to punch through to PSN for initiation. 
-- **Multiple PSN profiles**
-- **Select bitrate.**
-- **Hidden menu** (think unlocking developer settings on Android) to raise the bitrate cap to 30k. You *request* a bitrate. The PS5 may or may not give it to you. It's not constant-bitrate encoding.
-- Gyro support and reset including the ability to pick which controller drives gyro (default left)
-- After many nights debugging with kkwong, input latency is comparable with running android on your switch.
-- Switch away from mbedTLS to libnx crypto
-- Stream debug menu with stats
-- Stream disconnection ability
-- **Fully supported in-app wireguard.** (No tailscale support will be forthcoming, stop asking)
-- **Fully Remappble input bindings**
-- Ability to sleep the console on exit
-- **FSR 1.0** with configurable filters
-- Trophy page support
-- Auto-registration over PSN, requires holepunching.
-- Cross-subnet discovery (swept by unicast)
-- AIA chain repair (when encountering a PSN node with only leaf TLS certs)
-
-## How to get started
-Please read the docs at [chiaki-ng.github.io/akira](https://chiaki-ng.github.io/akira)
-
-## Screenshots
 
 <p align="center" width="100%">
   <img src="readme/ounce/akira-light-dark.png" width="98%" alt="Akira home screen split down the middle into the light and dark themes, with a PS5 console card, the recently played rail, and the IP, DNS and PSN reachability details">
@@ -65,13 +26,36 @@ Please read the docs at [chiaki-ng.github.io/akira](https://chiaki-ng.github.io/
   <img src="readme/ounce/akira-trophies.png" width="49%" alt="Trophy overview with the account trophy level, grade totals and per-game progress">
 </p>
 
-<p align="center">
-And some horribly compressed encodes to fit < 10mb:
-</p>
+Akira comes with the following features that are carried over from the switch 1 build
 
-<p align="center" width="100%">
-<video src="https://github.com/user-attachments/assets/13bff761-42a8-43d6-901c-4aca7dbc26f0" width="80%" controls></video>
-</p>
+- Support for launching directly to a recently played game
+- FSR 1.0, with tunable RCAS and dithering values
+- Upscale up to 4k (at your own performance penalty)
+- PSN Trophy fetching
+- Button remapping, touchpad remapping if you're lazy.
+- In-game diagnostic menus.
+- Hardware h264 decode with SW HEVC decode
+- PSN registration by QR code, registration by legacy base64 profile, or via the companion app (to be deprecated)
+- Lan discovery / manual discovery
+
+Akira has been tested by Red_Night to run well on fw 13.6 and by me to run well on latest.
+
+If you cannot connect, please drop the takion version and pin it to a lower version.
+
+Additional credits to the following individuals:
+
+- [XITRIX](https://github.com/XITRIX) over from switch 1 moonlight who helped to test this on PS4
+- [aveao](https://github.com/aveao) who was helping with getting my env to a testable state.
+- [ouncebrew](https://github.com/ouncebrew) for providing a homebrew development environment.
+- [ouncebrew](https://github.com/ouncebrew/drako3d) PalindromicBreadLoaf and souldbminer for drako3d, together with the underlying work on deko3d done by finCS
+- [uam2](https://github.com/ouncebrew/uam2) uam2, for providing shader compilation
+
+
+## Issues
+
+Issues are disabled as homebrew users usually turn up to report unreproducible issues which cannot be diagnosed without having a proper conversation, but they don't ever come back to help solve those issues
+
+Please come to discord to chat if you have an issue. The link is above. Please provide logs
 
 ---
 
