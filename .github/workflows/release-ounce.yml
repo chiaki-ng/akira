@@ -72,6 +72,17 @@ jobs:
           ( cd build/arisa-ounce && zip -9 "../../dist/akira-ounce-${VERSION}-debug-symbols.zip" akira.elf )
           ( cd dist && sha256sum "akira-ounce-${VERSION}.zip" akira.nro "akira-ounce-${VERSION}-debug-symbols.zip" > SHA256SUMS )
 
+      - name: Write the HPAK package file
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RELEASE=$(gh release view "${GITHUB_REF_NAME}" --json body,publishedAt)
+          jq --arg version "${VERSION%%-*}" \
+            --arg date "$(date -u -d "$(jq -r .publishedAt <<< "${RELEASE}")" '+%d/%m/%Y %H:%M')" \
+            --arg changelog "$(jq -r .body <<< "${RELEASE}")" \
+            '.version = $version | .date = $date | .changelog = $changelog' resources/hpak/package.json > dist/package.json
+          cp resources/img/icon.jpg dist/icon.jpg
+
       - name: Add the build versions to the release notes
         env:
           GH_TOKEN: ${{ github.token }}
@@ -88,4 +99,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${GITHUB_REF_NAME}" --clobber \
-            "dist/akira-ounce-${VERSION}.zip" dist/akira.nro "dist/akira-ounce-${VERSION}-debug-symbols.zip" dist/SHA256SUMS
+            "dist/akira-ounce-${VERSION}.zip" dist/akira.nro "dist/akira-ounce-${VERSION}-debug-symbols.zip" dist/SHA256SUMS dist/package.json dist/icon.jpg
