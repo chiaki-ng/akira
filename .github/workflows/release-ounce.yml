@@ -61,15 +61,15 @@ jobs:
         run: make ounce-deps
 
       - name: Build akira
-        run: make build-ounce CLOUD=false
+        run: make build-arisa-ounce CLOUD=false
 
       - name: Package for the SD card
         run: |
           mkdir -p dist/switch
-          cp build/ounce/akira.nro dist/switch/akira.nro
+          cp build/arisa-ounce/akira-arisa.nro dist/switch/akira.nro
           ( cd dist && zip -r "akira-ounce-${VERSION}.zip" switch )
-          cp build/ounce/akira.nro dist/akira.nro
-          ( cd build/ounce && zip -9 "../../dist/akira-ounce-${VERSION}-debug-symbols.zip" akira.elf )
+          cp build/arisa-ounce/akira-arisa.nro dist/akira.nro
+          ( cd build/arisa-ounce && zip -9 "../../dist/akira-ounce-${VERSION}-debug-symbols.zip" akira-arisa.elf )
           ( cd dist && sha256sum "akira-ounce-${VERSION}.zip" akira.nro "akira-ounce-${VERSION}-debug-symbols.zip" > SHA256SUMS )
 
       - name: Add the build versions to the release notes

@@ -61,7 +61,8 @@ ARISA_SHA256_switch         := f4c0845de15252aa801d2d62cdf17ffaaf3cf0c6e3ca06ec2
 ARISA_SHA256_switch2        := 0ff449f4a34cec0bf741f2d3cc653956d21f536f3828ea59ae14453da5e7e962
 ARISA_RECIPE_switch         := make package TARGET=switch
 ARISA_RECIPE_switch2        := make package-switch2
-ARISA_PACKAGE_DIR  ?= $(abspath $(CURDIR)/../arisa/build/package)
+ARISA_PACKAGE_URL  ?= https://github.com/xlanor/arisa/releases/download/package-$(ARISA_TAG)
+ARISA_PACKAGE_DIR  ?= $(if $(wildcard $(CURDIR)/../arisa/build/package),$(abspath $(CURDIR)/../arisa/build/package),$(CURDIR)/.cache/arisa-package)
 ARISA_FLAVOUR       = $(ARISA_FLAVOUR_$(PLATFORM)_$(ARISA_GPU))
 ARISA_SHA256        = $(ARISA_SHA256_$(ARISA_FLAVOUR))
 ARISA_NAME          = arisa-$(ARISA_VERSION)-$(ARISA_FLAVOUR)-aarch64
@@ -573,7 +574,12 @@ build: platform docker-image
 
 arisa-package: platform
 	@test -n "$(ARISA_FLAVOUR)" || { printf "$(RED)[x]$(NC) ARISA_GPU must be drako3d or vulkan, not $(ARISA_GPU)\n"; exit 1; }
-	@test -f "$(ARISA_ARCHIVE)" || { printf "$(RED)[x]$(NC) No arisa package at $(ARISA_ARCHIVE): build arisa $(ARISA_TAG) with $(ARISA_RECIPE_$(ARISA_FLAVOUR)), or pass ARISA_PACKAGE_DIR\n"; exit 1; }
+	@if [ ! -f "$(ARISA_ARCHIVE)" ]; then \
+		test -n "$(ARISA_PACKAGE_URL)" || { printf "$(RED)[x]$(NC) No arisa package at $(ARISA_ARCHIVE): build arisa $(ARISA_TAG) with $(ARISA_RECIPE_$(ARISA_FLAVOUR)), or pass ARISA_PACKAGE_DIR\n"; exit 1; }; \
+		printf "$(GREEN)[*]$(NC) Downloading $(ARISA_NAME) ($(ARISA_TAG))...\n"; \
+		mkdir -p "$(ARISA_PACKAGE_DIR)"; \
+		curl -fsSL --retry 3 -o "$(ARISA_ARCHIVE)" "$(ARISA_PACKAGE_URL)/$(ARISA_NAME).tar.gz" || { rm -f "$(ARISA_ARCHIVE)"; exit 1; }; \
+	fi
 	@echo "$(ARISA_SHA256)  $(ARISA_ARCHIVE)" | shasum -a 256 -c - > /dev/null || { printf "$(RED)[x]$(NC) $(ARISA_ARCHIVE) does not match the pinned sha256 $(ARISA_SHA256)\n"; exit 1; }
 	@if [ ! -f "$(ARISA_PREFIX)/lib/libarisa.a" ]; then \
 		printf "$(GREEN)[*]$(NC) Extracting $(ARISA_NAME) ($(ARISA_TAG))...\n"; \
