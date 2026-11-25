@@ -1,0 +1,13 @@
+{
+    "title": "Akira",
+    "author": "xlanor, streetpea, kkwong, the chiaki-ng project",
+    "version": "",
+    "description": "PS4 and PS5 Remote Play for the Switch 2.",
+    "details": "Akira streams your own PS4 or PS5 to the Switch 2 over Remote Play. You MUST own a PS4/5 to use this.\n\nFeatures:\n- Launch straight into a recently played game\n- FSR 1.0 with tunable RCAS and dithering\n- Upscale up to 4K (at your own performance cost)\n- PSN trophies\n- Button and touchpad remapping\n- In-game diagnostics\n- Hardware H.264 decode, software HEVC decode\n- PSN registration by QR code, legacy base64 profile, or the companion app\n- LAN and manual console discovery\n\nIf you cannot connect, pin the console to a lower Takion version.\n\nBuilt with libounce, OunceVK, drako3d and uam2 from the ouncebrew project. Please accept the ouncebrew risks and disclaimers before using homebrew on the Switch 2.",
+    "license": "AGPLv3",
+    "changelog": "",
+    "date": "",
+    "dependencies": {},
+    "requiredDeletion": [],
+    "userDeletion": ["/switch/akira"]
+}
