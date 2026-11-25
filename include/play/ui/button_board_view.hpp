@@ -20,14 +20,18 @@ namespace akira::play::ui {
 
 class ButtonBoardView final : public ::arisa::composition::Component {
 public:
-    static constexpr float chipWidth = 216.0F;
-    static constexpr float compactChipWidth = 320.0F;
-    static constexpr float artWidth = 280.0F;
+    static constexpr float chipWidth = 214.0F;
+    static constexpr float chipHeight = 44.0F;
+    static constexpr float chipSpacing = 8.0F;
+    static constexpr float chipCorner = 11.0F;
+    static constexpr float gridMinimum = 300.0F;
+    static constexpr float artWidth = 300.0F;
     static constexpr float artAspect = 520.0F / 348.0F;
-    static constexpr float leaderGap = 24.0F;
+    static constexpr float leaderGap = 26.0F;
     static constexpr std::chrono::milliseconds resetHold{ 750 };
     static constexpr float glyphSize = 22.0F;
-    static constexpr float targetSize = 26.0F;
+    static constexpr float targetSize = 22.0F;
+    static constexpr float bottomRoom = 40.0F;
 
     ButtonBoardView(Mapping& mapping, const app::Strings& strings, bool art);
 
@@ -36,10 +40,11 @@ public:
     auto body(::arisa::composition::Context& context) const -> ::arisa::composition::Element override;
 
 private:
-    auto column(ButtonBoard::Side side) const -> ::arisa::composition::Element;
+    auto grid(std::vector<::arisa::composition::Element> chips) const -> ::arisa::composition::Element;
+    auto toggles(const settings::ui::ControlOptions::Values& values) const -> ::arisa::composition::Element;
     auto callouts() const -> ::arisa::composition::Element;
     static auto anchor(std::uint32_t key) -> ::arisa::motion::UnitPoint;
-    auto chip(const ButtonBoard::Target& target) const -> ::arisa::composition::Element;
+    auto chip(const ButtonBoard::Target& target, bool leading) const -> ::arisa::composition::Element;
     static auto glyphs(const app::Strings& strings, const std::vector<std::uint64_t>& combo, float size)
         -> ::arisa::composition::Element;
     auto touchpad(const settings::ui::ControlOptions::Values& values) const -> ::arisa::composition::Element;
