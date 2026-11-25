@@ -122,13 +122,13 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: akira-ounce-nro-${{ steps.sha.outputs.short }}
-          path: build/arisa-ounce/akira-arisa.nro
+          path: build/arisa-ounce/akira.nro
 
       - name: Upload ELF artifact (debug symbols)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: akira-ounce-elf-${{ steps.sha.outputs.short }}
-          path: build/arisa-ounce/akira-arisa.elf
+          path: build/arisa-ounce/akira.elf
 
   build-companion:
     if: github.repository == 'chiaki-ng/akira'

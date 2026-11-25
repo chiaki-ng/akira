@@ -6,16 +6,12 @@ if (NOT AKIRA_PLATFORM MATCHES "^(nx|ounce)$")
     message(FATAL_ERROR "AKIRA_PLATFORM must be nx or ounce, not ${AKIRA_PLATFORM}")
 endif()
 
-set(AKIRA_SHELL "borealis" CACHE STRING "UI shell: borealis ships as akira, arisa builds akira-arisa")
+set(AKIRA_SHELL "borealis" CACHE STRING "UI shell: borealis or arisa, both ship as akira")
 set_property(CACHE AKIRA_SHELL PROPERTY STRINGS borealis arisa)
 if (NOT AKIRA_SHELL MATCHES "^(borealis|arisa)$")
     message(FATAL_ERROR "AKIRA_SHELL must be borealis or arisa, not ${AKIRA_SHELL}")
 endif()
-if (AKIRA_SHELL STREQUAL "arisa")
-    set(AKIRA_TARGET akira-arisa)
-else()
-    set(AKIRA_TARGET akira)
-endif()
+set(AKIRA_TARGET akira)
 set(AKIRA_ARISA_GPU "drako3d" CACHE STRING "GPU API of the arisa Switch 2 package: drako3d or vulkan")
 set_property(CACHE AKIRA_ARISA_GPU PROPERTY STRINGS drako3d vulkan)
 if (NOT AKIRA_ARISA_GPU MATCHES "^(drako3d|vulkan)$")
@@ -89,9 +85,6 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 # Project metadata + git-derived version
 include(version)
-if (AKIRA_SHELL STREQUAL "arisa")
-    set(APP_TITLE "akira-arisa")
-endif()
 
 # Platform options
 list(APPEND APP_PLATFORM_OPTION

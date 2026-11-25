@@ -62,7 +62,7 @@ ARISA_FLAVOUR       = $(ARISA_FLAVOUR_$(PLATFORM)_$(ARISA_GPU))
 ARISA_LIB_DIR       = $(CURDIR)/build/arisa-lib/$(ARISA_FLAVOUR)
 ARISA_PREFIX        = $(ARISA_LIB_DIR)/prefix
 ARISA_BUILD_NAME    = arisa-$(PLATFORM)$(if $(filter ounce_vulkan,$(PLATFORM)_$(ARISA_GPU)),-vulkan)
-ARISA_NRO_FILE      = $(CURDIR)/build/$(ARISA_BUILD_NAME)/akira-arisa.nro
+ARISA_NRO_FILE      = $(CURDIR)/build/$(ARISA_BUILD_NAME)/akira.nro
 ARISA_HOST_NAME    := arisa-$(ARISA_VERSION)-macos-arm64
 ARISA_HOST_SHA256  := f8680a022e4ed4a9c860a797d0b048d7f917b520d00aeef5645690b02fe58271
 ARISA_HOST_ARCHIVE  = $(ARISA_PACKAGE_DIR)/$(ARISA_HOST_NAME).tar.gz
@@ -355,7 +355,7 @@ help:
 	@echo "  shell-nx, shell-ounce            Open shell in build container"
 	@echo "  crash-nx, crash-ounce            Symbolicate the latest Switch crash report (SWITCH_IP or LOG)"
 	@echo "  test-nx, test-ounce              Run the host-side unit tests"
-	@echo "  build-arisa-nx, build-arisa-ounce  Build akira-arisa.nro on the arisa submodule (ARISA_GPU=drako3d|vulkan on ounce)"
+	@echo "  build-arisa-nx, build-arisa-ounce  Build akira.nro on the arisa submodule (ARISA_GPU=drako3d|vulkan on ounce)"
 	@echo "  arisa-library-nx, arisa-library-ounce  Build the arisa submodule into build/arisa-lib"
 	@echo "  test-arisa     Run the arisa shell seam tests on the headless arisa macOS package"
 	@echo "  image-tag-nx, image-tag-ounce    Print the builder image tag for this checkout"
@@ -576,7 +576,7 @@ arisa-library: platform docker-image
 	@test -f "$(ARISA_PREFIX)/lib/libarisa.a" || { printf "$(RED)[x]$(NC) arisa did not install to $(ARISA_PREFIX)\n"; exit 1; }
 
 build-arisa: platform docker-image arisa-library
-	@printf "$(GREEN)[*]$(NC) Building akira-arisa for $(PLATFORM) with $(DOCKER_IMAGE)...\n"
+	@printf "$(GREEN)[*]$(NC) Building akira on arisa for $(PLATFORM) with $(DOCKER_IMAGE)...\n"
 	@$(DOCKER_RUN) \
 		-e AKIRA_PLATFORM="$(PLATFORM)" \
 		-e AKIRA_SHELL=arisa \
