@@ -1,18 +1,25 @@
 #include "platform/video/vulkan/provider.hpp"
+#include "log/log.hpp"
 
-#include <borealis.hpp>
-
-#include "core/settings_manager.hpp"
+#include "play/stream_settings.hpp"
 #include "platform/video/software/hevc_decoder.hpp"
 #include "platform/video/viddec/decoder.hpp"
 #include "platform/video/vulkan/renderer.hpp"
 
-using namespace brls::literals;
-
 namespace akira::platform::vulkan
 {
 
-VulkanVideoProvider::VulkanVideoProvider() = default;
+VulkanVideoProvider::VulkanVideoProvider(GpuHost& gpu, play::StreamSettings& stream,
+    const play::StreamState& streamState, const settings::DeveloperSettings& developer,
+    const network::WireGuardManager& wireGuard, const video::OverlayPalette& palette)
+    : m_gpu(gpu)
+    , m_stream(stream)
+    , m_stream_state(streamState)
+    , m_developer(developer)
+    , m_wire_guard(wireGuard)
+    , m_palette(palette)
+{
+}
 
 VulkanVideoProvider::~VulkanVideoProvider() = default;
 
@@ -24,22 +31,6 @@ std::string_view VulkanVideoProvider::decoderName() const
 std::string_view VulkanVideoProvider::decoderStat() const
 {
     return m_software ? "SW" : "HW";
-}
-
-bool VulkanVideoProvider::addSettings(brls::Box& group) const
-{
-    akira::platform::software::HevcDecoder::addSetting(group);
-
-    auto* settings = SettingsManager::getInstance();
-    auto* zeroCopy = new brls::BooleanCell();
-    zeroCopy->init("akira/settings/zero_copy"_i18n, settings->getZeroCopyVideo(), [settings](bool isOn) {
-        settings->setZeroCopyVideo(isOn);
-        settings->writeFile();
-        brls::Logger::info("Zero-copy video set to {}", isOn ? "on" : "off");
-    });
-    zeroCopy->setId("settings/zeroCopy");
-    group.addView(zeroCopy);
-    return true;
 }
 
 VideoDecoder* VulkanVideoProvider::decoder()
@@ -54,7 +45,7 @@ VideoDecoder& VulkanVideoProvider::ensureDecoder()
     if (m_software)
         return *m_software;
     if (!m_decoder)
-        m_decoder = std::make_unique<akira::platform::viddec::ViddecDecoder>();
+        m_decoder = std::make_unique<akira::platform::viddec::ViddecDecoder>(m_developer);
     return *m_decoder;
 }
 
@@ -78,8 +69,8 @@ VideoRenderer* VulkanVideoProvider::renderer()
 
 bool VulkanVideoProvider::startRenderer(int width, int height, FrameHooks hooks)
 {
-    brls::Logger::info("Creating {} renderer", name());
-    auto renderer = std::make_unique<VulkanRenderer>();
+    log::info("Creating {} renderer", name());
+    auto renderer = std::make_unique<VulkanRenderer>(m_gpu, m_stream, m_stream_state, m_wire_guard, m_palette);
     if (!renderer->initialize(width, height))
         return false;
 
@@ -98,10 +89,10 @@ bool VulkanVideoProvider::startRenderer(int width, int height, FrameHooks hooks)
         return true;
     }
 
-    if (SettingsManager::getInstance()->getZeroCopyVideo())
+    if (m_stream.zeroCopyVideo())
         m_decoder->setOutputMemory(m_renderer->decoderOutputMemory());
     else
-        brls::Logger::info("Zero-copy video is off, decoded frames are copied");
+        log::info("Zero-copy video is off, decoded frames are copied");
     m_decoder->setFrameReadyCallback(std::move(present));
     return true;
 }

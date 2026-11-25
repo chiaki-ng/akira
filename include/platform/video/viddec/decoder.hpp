@@ -17,6 +17,10 @@
 #include "util/av_wrappers.hpp"
 #include "platform/video/decoder.hpp"
 
+namespace akira::settings {
+class DeveloperSettings;
+}
+
 namespace akira::platform::viddec
 {
 
@@ -26,7 +30,7 @@ public:
     using Frame = akira::platform::viddec::HardwareDecoder::Frame;
     using FrameReadyCallback = std::function<void(Frame)>;
 
-    ViddecDecoder();
+    explicit ViddecDecoder(const settings::DeveloperSettings& developer);
     ~ViddecDecoder() override;
 
     // Disable copy
@@ -64,6 +68,7 @@ public:
     bool lastDecodeCorrupt() const override { return false; }
 
 private:
+    const settings::DeveloperSettings& m_developer;
     static constexpr std::uint8_t NalSlice = 1;
     static constexpr std::uint8_t NalIdr = 5;
     static constexpr std::uint8_t NalSps = 7;

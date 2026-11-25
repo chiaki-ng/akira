@@ -4,7 +4,7 @@
 #include <cctype>
 #include <ranges>
 
-namespace cloud {
+namespace akira::cloud {
 
 void LibraryListing::setGames(const std::vector<Game>& listedGames)
 {
@@ -122,6 +122,22 @@ auto LibraryListing::matching() const -> std::vector<Game>
     return matched;
 }
 
+auto LibraryListing::ordered(LibraryOrder order) const -> std::vector<Game>
+{
+    std::vector<Game> filtered = matching();
+    const bool recencyOrder = current == LibraryFilter::Recent && searchText.empty();
+    if (!recencyOrder && order == LibraryOrder::AToZ)
+        std::sort(filtered.begin(), filtered.end(),
+            [](const Game& a, const Game& b) { return nameBefore(a.name, b.name); });
+    else if (!recencyOrder && order == LibraryOrder::ZToA)
+        std::sort(filtered.begin(), filtered.end(),
+            [](const Game& a, const Game& b) { return nameBefore(b.name, a.name); });
+    else if (!recencyOrder)
+        std::stable_sort(filtered.begin(), filtered.end(),
+            [](const Game& a, const Game& b) { return a.streamableNow() && !b.streamableNow(); });
+    return filtered;
+}
+
 auto LibraryListing::find(std::string_view productId) const -> const Game*
 {
     auto it = std::ranges::find(games, productId, &Game::productId);
@@ -135,6 +151,16 @@ auto LibraryListing::nextUnlock() const -> std::optional<int64_t>
         if (auto unlock = game.unlockAfter(nowMs); unlock && (!next || *unlock < *next))
             next = unlock;
     return next;
+}
+
+auto LibraryListing::unlockDelay() const -> std::optional<int64_t>
+{
+    constexpr int64_t margin = 2000;
+    constexpr int64_t longest = 24LL * 3600 * 1000;
+    const auto next = nextUnlock();
+    if (!next)
+        return std::nullopt;
+    return std::min(*next - nowMs + margin, longest);
 }
 
 auto LibraryListing::lastPlayed(const Game& game) const -> std::optional<int64_t>
@@ -167,6 +193,16 @@ auto LibraryListing::filterNamed(std::string_view name) -> std::optional<Library
     return std::nullopt;
 }
 
+auto LibraryListing::orderOf(int state) -> LibraryOrder
+{
+    switch (state)
+    {
+        case 1: return LibraryOrder::AToZ;
+        case 2: return LibraryOrder::ZToA;
+        default: return LibraryOrder::Playable;
+    }
+}
+
 bool LibraryListing::admits(PlatformFilter platform, std::string_view gamePlatform)
 {
     switch (platform)
@@ -179,10 +215,16 @@ bool LibraryListing::admits(PlatformFilter platform, std::string_view gamePlatfo
     return true;
 }
 
+bool LibraryListing::nameBefore(const std::string& a, const std::string& b)
+{
+    return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(),
+        [](unsigned char c1, unsigned char c2) { return std::tolower(c1) < std::tolower(c2); });
+}
+
 bool LibraryListing::nameContains(std::string_view name, std::string_view text)
 {
     const auto lower = [](unsigned char c) { return static_cast<char>(std::tolower(c)); };
     return !std::ranges::search(name, text, {}, lower, lower).empty();
 }
 
-} // namespace cloud
+} // namespace akira::cloud

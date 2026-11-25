@@ -1,13 +1,12 @@
 #include "platform/pads/extended/pad_path_mc.hpp"
+#include "log/log.hpp"
 
 #include <algorithm>
 #include <cstring>
 
 #include "platform/pads/extended/extended_input_manager.hpp"
 #include "platform/pads/extended/ps_output.hpp"
-#include "core/settings_manager.hpp"
-
-#include <borealis.hpp>
+#include "play/controller_settings.hpp"
 
 namespace akira::platform::extended {
 
@@ -40,19 +39,18 @@ constexpr ButtonMap kButtons[] = {
 } // namespace
 
 McGenericPath::McGenericPath(HidNpadIdType npad, ExtendedInputManager& extended,
-                             uint16_t vendor_id, uint16_t product_id)
-    : HosPadPath(npad, HidNpadStyleTag_NpadFullKey)
+                             const play::ControllerSettings& controllers, uint16_t vendor_id, uint16_t product_id)
+    : HosPadPath(npad, HidNpadStyleTag_NpadFullKey, controllers, extended.rumble())
     , m_extended(extended)
     , m_vendor_id(vendor_id)
     , m_product_id(product_id)
 {
-    if (auto* input = brls::Application::getPlatform()->getInputManager())
-        input->refreshRumbleHandles((unsigned int)npad);
+    m_rumble.refresh(static_cast<unsigned>(npad));
 }
 
-input::PadCapabilities McGenericPath::capabilities() const
+platform::PadCapabilities McGenericPath::capabilities() const
 {
-    input::PadCapabilities caps;
+    platform::PadCapabilities caps;
     caps.gyro            = true;
     caps.rumble          = true;
     caps.analog_triggers = false;
@@ -74,13 +72,12 @@ void McGenericPath::sendRumble(float left, float right, float freqLow, float fre
             (uint32_t)(armTicksToNs(armGetSystemTick()) / 1000000ull);
         if (now >= m_rumble_log_next) {
             m_rumble_log_next = now + 1000;
-            brls::Logger::info("generic rumble: npad {} lo={:.3f} hi={:.3f}",
+            log::info("generic rumble: npad {} lo={:.3f} hi={:.3f}",
                                (int)m_npad, lo, hi);
         }
     }
 
-    auto* inputMgr = brls::Application::getPlatform()->getInputManager();
-    inputMgr->sendRumbleToNpad((unsigned int)m_npad, freqLow, freqHigh, lo, hi);
+    m_rumble.npad(static_cast<unsigned>(m_npad), { .freqLow = freqLow, .freqHigh = freqHigh, .ampLow = lo, .ampHigh = hi });
 }
 
 void McGenericPath::readTriggers(libchiaking::controllers::ControllerState& state)
@@ -93,8 +90,8 @@ void McGenericPath::readTriggers(libchiaking::controllers::ControllerState& stat
 }
 
 McPsNativePath::McPsNativePath(HidNpadIdType npad, ExtendedInputManager& extended,
-                               const PsModel& model, const uint8_t* bt_addr)
-    : McGenericPath(npad, extended, model.vendor_id, model.product_id)
+                               const play::ControllerSettings& controllers, const PsModel& model, const uint8_t* bt_addr)
+    : McGenericPath(npad, extended, controllers, model.vendor_id, model.product_id)
     , m_model(&model)
 {
     if (bt_addr != nullptr) {
@@ -110,7 +107,7 @@ McPsNativePath::McPsNativePath(HidNpadIdType npad, ExtendedInputManager& extende
     m_direct_output = PadTakesDirectOutput(model.vendor_id, model.product_id);
     m_extended.setDirectOutput(m_direct_output);
 
-    brls::Logger::info("McPsNativePath: home blocking short={} direct rumble={}",
+    log::info("McPsNativePath: home blocking short={} direct rumble={}",
                        m_home_blocked, m_direct_output);
 }
 
@@ -125,9 +122,9 @@ McPsNativePath::~McPsNativePath()
     }
 }
 
-input::PadCapabilities McPsNativePath::capabilities() const
+platform::PadCapabilities McPsNativePath::capabilities() const
 {
-    input::PadCapabilities caps = McGenericPath::capabilities();
+    platform::PadCapabilities caps = McGenericPath::capabilities();
     caps.touchpad = m_model->has_touchpad;
 
     caps.analog_triggers = true;
@@ -162,12 +159,10 @@ void McPsNativePath::readButtons(libchiaking::controllers::ControllerState& stat
     if (!m_report_valid)
         return;
 
-    auto* settings = SettingsManager::getInstance();
-
     for (const ButtonMap& m : kButtons) {
         if (!(m_report.buttons & m.ps))
             continue;
-        if (!settings->isButtonEnabled(m.button))
+        if (!m_controllers.isButtonEnabled(m.button))
             continue;
         state.buttons |= m.button;
     }
@@ -175,11 +170,11 @@ void McPsNativePath::readButtons(libchiaking::controllers::ControllerState& stat
 
 void McPsNativePath::sendRumble(float left, float right, float freqLow, float freqHigh)
 {
-    const bool direct = m_direct_output && ExtendedInputManager::directStreamAllowed();
+    const bool direct = m_direct_output && ExtendedInputManager::directStreamAllowed(m_controllers);
 
     if (!m_rumble_source_logged && (left > 0.0f || right > 0.0f)) {
         m_rumble_source_logged = true;
-        brls::Logger::info("rumble source: {}",
+        log::info("rumble source: {}",
                            direct ? "DIRECT - written to the pad by us"
                                   : (m_direct_output
                                         ? "MissionControl - direct path present but the stream toggle is off"
@@ -211,8 +206,8 @@ void McPsNativePath::sendEffectIntensity(uint8_t vibration, uint8_t trigger)
     if (!m_direct_output)
         return;
 
-    m_extended.setConsoleIntensity(akira::input::Ds5IntensityFromWire(vibration),
-                                   akira::input::Ds5IntensityFromWire(trigger));
+    m_extended.setConsoleIntensity(play::Ds5IntensityFromWire(vibration),
+                                   play::Ds5IntensityFromWire(trigger));
 }
 
 void McPsNativePath::sendLightbar(uint8_t red, uint8_t green, uint8_t blue)

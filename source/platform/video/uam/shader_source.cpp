@@ -1,20 +1,21 @@
 #include "platform/video/uam/shader_source.hpp"
+#include "log/log.hpp"
 
 #include <cstdlib>
 #include <format>
 #include <utility>
 #include <memory>
 
-#include <borealis.hpp>
 #include <uam.h>
 
-#include "core/settings_manager.hpp"
+#include "play/stream_settings.hpp"
 
 namespace akira::platform::uam
 {
 
-UamShaderSource::UamShaderSource(std::string directory)
+UamShaderSource::UamShaderSource(std::string directory, const play::StreamSettings& stream)
     : m_directory(std::move(directory))
+    , m_stream(stream)
 {
     uam_init();
 }
@@ -43,19 +44,19 @@ std::optional<deko3d::ShaderSource::Code> UamShaderSource::compile(const std::st
 
     const std::string glsl = injectDefines(std::move(*source), defines);
     const char* kind = vertex ? "vertex" : "fragment";
-    brls::Logger::info("UamShaderSource: compiling {} shader {} ({} bytes)", kind, path, glsl.size());
+    log::info("UamShaderSource: compiling {} shader {} ({} bytes)", kind, path, glsl.size());
 
     std::uint8_t* raw = nullptr;
     std::uint32_t size = 0;
     if (!uam_compileDksh(vertex ? uam_pipeline_stage_vertex : uam_pipeline_stage_fragment,
             glsl.c_str(), 3, &raw, &size))
     {
-        brls::Logger::error("UamShaderSource: failed to compile {} shader {}", kind, path);
+        log::error("UamShaderSource: failed to compile {} shader {}", kind, path);
         return std::nullopt;
     }
     std::unique_ptr<std::uint8_t, decltype(&std::free)> owned(raw, &std::free);
 
-    brls::Logger::info("UamShaderSource: {} shader compiled ({} bytes dksh)", kind, size);
+    log::info("UamShaderSource: {} shader compiled ({} bytes dksh)", kind, size);
     return Code(owned.get(), owned.get() + size);
 }
 
@@ -73,7 +74,7 @@ std::string UamShaderSource::injectDefines(std::string source, const std::string
     return source;
 }
 
-std::string UamShaderSource::fragmentDefines(const deko3d::VideoFragmentVariant& variant)
+std::string UamShaderSource::fragmentDefines(const deko3d::VideoFragmentVariant& variant) const
 {
     std::string defines;
     if (variant.fsrEasu)
@@ -84,7 +85,7 @@ std::string UamShaderSource::fragmentDefines(const deko3d::VideoFragmentVariant&
         defines += "#define FSR_PASS\n";
     if (variant.dithering)
         defines += std::format("#define DITHER_NOISE\n#define DITHER_STRENGTH {:.1f}\n",
-            SettingsManager::getInstance()->getDitheringStrength());
+            m_stream.ditheringStrength());
     return defines;
 }
 

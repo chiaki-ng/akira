@@ -7,7 +7,7 @@
 
 #include <libchiaking/play_types.hpp>
 
-namespace akira::input {
+namespace akira::platform {
 
 enum class PadPathKind {
     JoyCon,

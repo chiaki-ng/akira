@@ -9,24 +9,25 @@ namespace akira::platform::hid
 class HidPadSettingsProvider final : public PadSettingsProvider
 {
 public:
-    explicit HidPadSettingsProvider(const input::PadDescription& pad);
+    explicit HidPadSettingsProvider(const platform::PadDescription& pad);
 
-    static std::string resolveKey(const SettingsManager& settings, bool joycon);
+    static std::string resolveKey(const play::ControllerSettings& settings, bool joycon);
 
-    std::string rumbleKey(SettingsManager& settings) override;
-    std::string currentKey(const SettingsManager& settings) const override;
-    std::optional<std::string> outputSummary(const SettingsManager&) const override { return std::nullopt; }
-    void useProfile(const input::RumbleProfile&) override {}
+    std::string rumbleKey(play::ControllerSettings& settings) override;
+    std::string currentKey(const play::ControllerSettings& settings) const override;
+    std::optional<play::PadOutputMode> outputMode(const play::ControllerSettings&) const override { return std::nullopt; }
+    void useProfile(const play::RumbleProfile&) override {}
     bool isUnitKey(const std::string&) const override { return false; }
     bool directOutput() const override { return false; }
     bool tunesMotors() const override { return true; }
 
-    void addOutputRows(brls::Box&, input::RumbleProfile&, const Action&, const Action&) override {}
-    void addLightbarRows(brls::Box&, input::RumbleProfile&, const Action&, const Action&) override {}
-    bool previewDirect(const input::RumbleProfile&) override { return false; }
+    bool outputReleased() const override { return false; }
+    bool drivesLightbar() const override { return false; }
+    void refreshOutputGates() override {}
+    std::optional<DirectPreview> previewDirect(const play::RumbleProfile&) override { return std::nullopt; }
 
 private:
-    input::PadDescription m_pad;
+    platform::PadDescription m_pad;
 };
 
 }

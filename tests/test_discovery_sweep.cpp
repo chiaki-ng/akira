@@ -1,12 +1,12 @@
 #include "test_util.hpp"
 
-#include "core/discovery_sweep.hpp"
+#include "consoles/discovery_sweep.hpp"
 
 #include <arpa/inet.h>
 #include <cstdint>
 #include <string>
 
-using namespace akira::discovery;
+using namespace akira::consoles;
 
 namespace {
 

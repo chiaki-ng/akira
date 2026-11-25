@@ -1,11 +1,11 @@
 #include "platform/feedback/hid/provider.hpp"
 
-#include "stream/haptic_manager.hpp"
+#include "play/haptic_manager.hpp"
 
 namespace akira::platform::hid
 {
 
-HidFeedbackProvider::HidFeedbackProvider(HapticManager& haptics)
+HidFeedbackProvider::HidFeedbackProvider(play::HapticManager& haptics)
     : m_haptics(haptics)
 {
 }

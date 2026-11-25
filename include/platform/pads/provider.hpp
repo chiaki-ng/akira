@@ -8,10 +8,14 @@
 #include <libchiaking/play.hpp>
 
 #include "platform/pads/pad.hpp"
-#include "input/rumble_profile.hpp"
+#include "play/rumble_profile.hpp"
 
+namespace akira::play {
 class InputManager;
+}
+namespace akira::play {
 struct StreamStats;
+}
 
 namespace akira::platform
 {
@@ -27,15 +31,15 @@ public:
 
     virtual void open() = 0;
     virtual void close() = 0;
-    virtual input::Pad* acquire(Callbacks& callbacks) = 0;
-    virtual input::Pad* current() = 0;
-    virtual std::vector<input::PadDescription> scanPads() const = 0;
-    virtual input::RumbleProfile primaryRumbleProfile() const = 0;
+    virtual platform::Pad* acquire(Callbacks& callbacks) = 0;
+    virtual platform::Pad* current() = 0;
+    virtual std::vector<platform::PadDescription> scanPads() const = 0;
+    virtual play::RumbleProfile primaryRumbleProfile() const = 0;
 
-    virtual void readSecondaryPads(InputManager& input, std::span<libchiaking::controllers::ControllerInput> states,
+    virtual void readSecondaryPads(play::InputManager& input, std::span<libchiaking::controllers::ControllerInput> states,
                                    uint8_t& count) = 0;
     virtual void routeSeatFeedback(uint8_t slot, const libchiaking::controllers::ControllerFeedback& feedback) = 0;
-    virtual void fillStreamStats(StreamStats& stats) = 0;
+    virtual void fillStreamStats(play::StreamStats& stats) = 0;
 
 private:
     mutable std::mutex m_mutex;

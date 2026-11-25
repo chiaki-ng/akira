@@ -30,5 +30,5 @@ akira_vulkan_shader(pass_frag pass.frag)
 akira_vulkan_shader(overlay_frag overlay.frag)
 akira_vulkan_shader(border_frag border.frag)
 
-target_sources(${PROJECT_NAME} PRIVATE ${AKIRA_SHADER_HEADERS})
-target_include_directories(${PROJECT_NAME} PRIVATE ${AKIRA_SHADER_OUTPUT_DIR})
+target_sources(${AKIRA_TARGET} PRIVATE ${AKIRA_SHADER_HEADERS})
+target_include_directories(${AKIRA_TARGET} PRIVATE ${AKIRA_SHADER_OUTPUT_DIR})

@@ -1,0 +1,95 @@
+schema = 1
+name = "akira-default"
+extends = "default"
+accent = "#0091FF"
+
+[colours]
+window_background = { light = "#F5F5F7", dark = "#1E1E1E" }
+system_grouped_background = { light = "#F5F5F7", dark = "#1E1E1E" }
+label = { light = "#262626", dark = "#DFDFE0" }
+secondary_label = { light = "#6F6F6F", dark = "#A0A0A1" }
+tertiary_label = { light = "#A8A8AD", dark = "#616162" }
+control_background = { light = "#FFFFFF", dark = "#2C2C2E" }
+green = { light = "#28CD41", dark = "#30D158" }
+orange = { light = "#FF8D28", dark = "#FF9230" }
+red = { light = "#FF383C", dark = "#FF4245" }
+
+[focus]
+style = "highlight"
+
+[radii]
+control = 9
+card = 12
+sheet = 28
+continuous = true
+
+[glass]
+sidebar = { variant = "regular" }
+toolbar = { variant = "regular" }
+sheet = { variant = "regular" }
+control = { variant = "clear" }
+panel = { variant = "regular" }
+
+[liquid_glass]
+tint = { light = "#FFFFFF9E", dark = "#3030329E" }
+
+[type.large_title]
+size = 28
+weight = "bold"
+tracking = -0.4
+line_height = 34
+
+[type.title]
+size = 26
+weight = "semibold"
+tracking = -0.7
+line_height = 32
+
+[type.title2]
+size = 22
+weight = "semibold"
+line_height = 28
+
+[type.title3]
+size = 20
+weight = "semibold"
+line_height = 25
+
+[type.headline]
+size = 17
+weight = "semibold"
+line_height = 22
+
+[type.subheadline]
+size = 14
+weight = "medium"
+line_height = 19
+
+[type.body]
+size = 15
+weight = "regular"
+line_height = 20
+
+[type.callout]
+size = 14
+weight = "regular"
+line_height = 19
+
+[type.footnote]
+size = 13
+weight = "regular"
+line_height = 17
+
+[type.caption]
+size = 12
+weight = "regular"
+line_height = 16
+
+[type.caption2]
+size = 10.5
+weight = "medium"
+line_height = 13
+
+[preferences]
+handheld_scale = 1.0
+docked_scale = 1.0

@@ -6,9 +6,11 @@
 #include <string>
 #include <vector>
 
+#include <libchiaking/catalog_types.hpp>
+
 #include "cloud/models.hpp"
 
-namespace cloud {
+namespace akira::cloud {
 
 class LaunchChecks {
 public:
@@ -63,6 +65,7 @@ public:
     auto mark(Step step) const -> Mark;
 
     static auto stepOf(Check check) -> std::optional<Step>;
+    static auto checkOf(libchiaking::catalog::LaunchCheck check) -> Check;
     static auto rowFor(const Game& game) -> std::vector<Step>;
 
 private:
@@ -76,6 +79,6 @@ private:
     std::optional<std::string> refusal;
 };
 
-} // namespace cloud
+} // namespace akira::cloud
 
 #endif // AKIRA_CLOUD_LAUNCH_CHECKS_HPP

@@ -1,7 +1,5 @@
 #include "cloud/service.hpp"
-
-#include <borealis.hpp>
-#include <borealis/core/i18n.hpp>
+#include "log/log.hpp"
 
 #include <chrono>
 #include <algorithm>
@@ -13,30 +11,23 @@
 #include <system_error>
 #include <utility>
 
-#include "core/chiaki_core.hpp"
-#include "core/settings_manager.hpp"
+#include "play/chiaki_core.hpp"
+#include "accounts/account_settings.hpp"
 #include "util/http_pool.hpp"
 
-using namespace brls::literals;
-
-namespace cloud {
+namespace akira::cloud {
 
 namespace catalog = libchiaking::catalog;
 namespace platform = libchiaking::platform;
 
-Service& Service::instance()
+Service::Service(const accounts::AccountSettings& accountSettings, HttpPool& http, app::UiDispatcher& dispatcher,
+                 const app::Strings& strings, play::ChiakiCore& core)
+    : accountSettings(accountSettings), http(http), dispatcher(dispatcher), strings(strings), core(core)
 {
-    static Service instance;
-    return instance;
-}
-
-Service::Service()
-{
-    settings = SettingsManager::getInstance();
     std::error_code ignored;
     if (std::filesystem::remove_all(LEGACY_CACHE_DIR, ignored) > 0)
-        brls::Logger::info("Cloud: removed the old catalog cache");
-    backgroundSubscription = akira::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
+        log::info("Cloud: removed the old catalog cache");
+    backgroundSubscription = app::BackgroundWork::subscribe([this](bool paused) { followBackgroundWork(paused); });
 }
 
 void Service::followBackgroundWork(bool nowPaused)
@@ -59,7 +50,7 @@ void Service::followBackgroundWork(bool nowPaused)
             }
         }
         if (stopped)
-            brls::Logger::info("Cloud: catalog refresh stopped for the stream");
+            log::info("Cloud: catalog refresh stopped for the stream");
         return;
     }
 
@@ -71,7 +62,7 @@ void Service::followBackgroundWork(bool nowPaused)
     }
     if (!resumed.wanted)
         return;
-    brls::Logger::info("Cloud: catalog refresh resumed after the stream");
+    log::info("Cloud: catalog refresh resumed after the stream");
     if (resumed.waiters.empty())
     {
         refreshActiveProfile(resumed.force);
@@ -85,21 +76,21 @@ void Service::followBackgroundWork(bool nowPaused)
     }
 }
 
-auto Service::catalogOf() -> catalog::Catalog&
+auto Service::catalogOf() const -> catalog::Catalog&
 {
-    return akira::ChiakiCore::current().chiaki().catalog();
+    return core.chiaki().catalog();
 }
 
 auto Service::activeUser() const -> User
 {
-    psn::Accounts* accounts = akira::ChiakiCore::current().accounts();
+    accounts::Accounts* accounts = core.accounts();
     User user = accounts ? accounts->activeUser() : nullptr;
     return user && user->has_psn_account() ? user : nullptr;
 }
 
 std::optional<int64_t> Service::trustedNowMs() const
 {
-    if (!akira::ChiakiCore::current().opened())
+    if (!core.opened())
         return std::nullopt;
     const auto now = catalogOf().trusted_time();
     if (!now)
@@ -107,33 +98,33 @@ std::optional<int64_t> Service::trustedNowMs() const
     return now->time_since_epoch().count();
 }
 
-Snapshot Service::defaultSnapshotForProfile(bool hasProfile, bool paired)
+Snapshot Service::defaultSnapshotForProfile(bool hasProfile, bool paired) const
 {
     Snapshot snapshot;
     if (!hasProfile)
     {
         snapshot.status.availability = Availability::NoProfile;
-        snapshot.status.title = "akira/cloud/status_no_profile_title"_i18n;
-        snapshot.status.detail = "akira/cloud/status_no_profile_detail"_i18n;
+        snapshot.status.title = strings.text("akira/cloud/status_no_profile_title");
+        snapshot.status.detail = strings.text("akira/cloud/status_no_profile_detail");
         return snapshot;
     }
 
     if (!paired)
     {
         snapshot.status.availability = Availability::NeedsPairing;
-        snapshot.status.title = "akira/cloud/status_pair_title"_i18n;
-        snapshot.status.detail = "akira/cloud/status_pair_detail"_i18n;
+        snapshot.status.title = strings.text("akira/cloud/status_pair_title");
+        snapshot.status.detail = strings.text("akira/cloud/status_pair_detail");
         snapshot.status.canPair = true;
         return snapshot;
     }
 
     snapshot.status.availability = Availability::Checking;
-    snapshot.status.title = "akira/cloud/status_checking_title"_i18n;
-    snapshot.status.detail = "akira/cloud/status_checking_detail"_i18n;
+    snapshot.status.title = strings.text("akira/cloud/status_checking_title");
+    snapshot.status.detail = strings.text("akira/cloud/status_checking_detail");
     return snapshot;
 }
 
-Status Service::statusOf(const Catalog& catalog, PlusMembership plusMembership)
+Status Service::statusOf(const Catalog& catalog, PlusMembership plusMembership) const
 {
     Status status;
     status.gameCount = catalog.launchableCount();
@@ -142,8 +133,8 @@ Status Service::statusOf(const Catalog& catalog, PlusMembership plusMembership)
     if (status.gameCount == 0)
     {
         status.availability = Availability::Empty;
-        status.title = "akira/cloud/status_empty_title"_i18n;
-        status.detail = "akira/cloud/status_empty_detail"_i18n;
+        status.title = strings.text("akira/cloud/status_empty_title");
+        status.detail = strings.text("akira/cloud/status_empty_detail");
         status.canBrowse = true;
         return status;
     }
@@ -151,16 +142,16 @@ Status Service::statusOf(const Catalog& catalog, PlusMembership plusMembership)
     if (plusMembership == PlusMembership::None)
     {
         status.availability = Availability::SubscriptionRequired;
-        status.title = "akira/cloud/status_subscription_title"_i18n;
-        status.detail = "akira/cloud/status_subscription_detail"_i18n;
+        status.title = strings.text("akira/cloud/status_subscription_title");
+        status.detail = strings.text("akira/cloud/status_subscription_detail");
         status.canBrowse = true;
         status.degraded = true;
         return status;
     }
 
     status.availability = Availability::CatalogAvailable;
-    status.title = brls::getStr("akira/cloud/status_catalog_title", status.gameCount);
-    status.detail = "akira/cloud/status_catalog_detail"_i18n;
+    status.title = strings.counted("akira/cloud/status_catalog_title", status.gameCount);
+    status.detail = strings.text("akira/cloud/status_catalog_detail");
     status.canBrowse = true;
     return status;
 }
@@ -262,12 +253,12 @@ Standing Service::standingOf(catalog::Standing standing)
     return Standing::MayStream;
 }
 
-auto Service::recentlyPlayedOf(libchiaking::users::PsUser& user) -> std::vector<RecentlyPlayed>
+auto Service::recentlyPlayedOf(libchiaking::users::PsUser& user) const -> std::vector<RecentlyPlayed>
 {
     auto played = catalogOf().recently_played(user);
     if (!played)
     {
-        brls::Logger::warning("Cloud: recently played unanswered (reason {})", static_cast<int>(played.error().reason()));
+        log::warning("Cloud: recently played unanswered (reason {})", static_cast<int>(played.error().reason()));
         return {};
     }
     std::vector<RecentlyPlayed> out;
@@ -279,7 +270,7 @@ auto Service::recentlyPlayedOf(libchiaking::users::PsUser& user) -> std::vector<
 }
 
 Snapshot Service::snapshotOf(const catalog::MyGames& games, catalog::Catalog& catalog,
-                             libchiaking::users::PsUser& user, PlusMembership plusMembership)
+                             libchiaking::users::PsUser& user, PlusMembership plusMembership) const
 {
     Snapshot snapshot;
     snapshot.catalog.games.reserve(games.visible().size());
@@ -380,7 +371,7 @@ auto Service::progressOf(const catalog::FetchState& state) -> FetchProgress
                          std::move(passed), std::move(failure), state.time_server());
 }
 
-Snapshot Service::snapshotOf(const FetchFailure& failure)
+Snapshot Service::snapshotOf(const FetchFailure& failure) const
 {
     Snapshot snapshot;
     Status& status = snapshot.status;
@@ -388,8 +379,8 @@ Snapshot Service::snapshotOf(const FetchFailure& failure)
     if (failure.needsSignIn())
     {
         status.availability = Availability::Warning;
-        status.title = "akira/cloud/status_relink_title"_i18n;
-        status.detail = "akira/cloud/status_relink_detail"_i18n;
+        status.title = strings.text("akira/cloud/status_relink_title");
+        status.detail = strings.text("akira/cloud/status_relink_detail");
         status.canPair = true;
         status.degraded = true;
         return snapshot;
@@ -398,21 +389,21 @@ Snapshot Service::snapshotOf(const FetchFailure& failure)
     if (failure.reason() == FetchFailure::Reason::RegionUnsupported)
     {
         status.availability = Availability::Warning;
-        status.title = "akira/cloud/status_region_title"_i18n;
-        status.detail = "akira/cloud/status_region_detail"_i18n;
+        status.title = strings.text("akira/cloud/status_region_title");
+        status.detail = strings.text("akira/cloud/status_region_detail");
         status.degraded = true;
         return snapshot;
     }
 
     status.availability = Availability::Error;
-    status.title = "akira/cloud/status_error_title"_i18n;
-    status.detail = "akira/cloud/status_error_detail"_i18n;
+    status.title = strings.text("akira/cloud/status_error_title");
+    status.detail = strings.text("akira/cloud/status_error_detail");
     return snapshot;
 }
 
 Snapshot Service::snapshotForActiveProfile() const
 {
-    const Profile* profile = settings->getActiveProfile();
+    const accounts::Profile* profile = accountSettings.activeProfile();
     if (!profile)
         return defaultSnapshotForProfile(false, false);
 
@@ -426,7 +417,7 @@ Snapshot Service::snapshotForActiveProfile() const
 
 void Service::markActiveProfileDirty()
 {
-    const Profile* profile = settings->getActiveProfile();
+    const accounts::Profile* profile = accountSettings.activeProfile();
     if (!profile)
         return;
 
@@ -438,7 +429,7 @@ void Service::markActiveProfileDirty()
 
 void Service::clearCatalogCache()
 {
-    const Profile* profile = settings->getActiveProfile();
+    const accounts::Profile* profile = accountSettings.activeProfile();
     if (!profile)
         return;
 
@@ -453,16 +444,16 @@ void Service::clearCatalogCache()
 
 void Service::refreshInBackground()
 {
-    if (!akira::ChiakiCore::current().opened())
+    if (!core.opened())
         return;
-    if (const Profile* profile = settings->getActiveProfile())
+    if (const accounts::Profile* profile = accountSettings.activeProfile())
     {
         std::lock_guard<std::mutex> lock(mutex);
         const auto it = entries.find(profile->id);
         if (it != entries.end() && it->second.fetchedAt)
             return;
     }
-    brls::Logger::info("Cloud: background catalog refresh after the PSN keep-alive");
+    log::info("Cloud: background catalog refresh after the PSN keep-alive");
     refreshActiveProfile(false);
 }
 
@@ -480,17 +471,17 @@ void Service::refreshActiveProfile(bool force, SnapshotCallback onDone, FetchCal
         }
     }
 
-    const Profile* profile = settings->getActiveProfile();
+    const accounts::Profile* profile = accountSettings.activeProfile();
     if (!profile)
     {
         Snapshot snapshot = defaultSnapshotForProfile(false, false);
         if (onDone)
-            brls::sync([onDone, snapshot]() { onDone(snapshot); });
+            dispatcher.post([onDone, snapshot]() { onDone(snapshot); });
         return;
     }
 
     const int64_t profileId = profile->id;
-    User user = akira::ChiakiCore::current().opened() ? activeUser() : nullptr;
+    User user = core.opened() ? activeUser() : nullptr;
     if (!user)
     {
         Snapshot snapshot = defaultSnapshotForProfile(true, false);
@@ -499,7 +490,7 @@ void Service::refreshActiveProfile(bool force, SnapshotCallback onDone, FetchCal
             entries[profileId].snapshot = snapshot;
         }
         if (onDone)
-            brls::sync([onDone, snapshot]() { onDone(snapshot); });
+            dispatcher.post([onDone, snapshot]() { onDone(snapshot); });
         return;
     }
 
@@ -538,9 +529,9 @@ void Service::refreshActiveProfile(bool force, SnapshotCallback onDone, FetchCal
 
     if (fresh)
     {
-        brls::Logger::debug("Cloud: catalog is fresh, not refreshing");
+        log::debug("Cloud: catalog is fresh, not refreshing");
         if (onDone)
-            brls::sync([onDone = std::move(onDone), snapshot = std::move(*fresh)]() { onDone(snapshot); });
+            dispatcher.post([onDone = std::move(onDone), snapshot = std::move(*fresh)]() { onDone(snapshot); });
         return;
     }
 
@@ -550,7 +541,7 @@ void Service::refreshActiveProfile(bool force, SnapshotCallback onDone, FetchCal
         if (onFetch && state.is_running())
         {
             FetchProgress current = progressOf(state);
-            brls::sync([this, profileId, generation, onFetch, current = std::move(current)]() {
+            dispatcher.post([this, profileId, generation, onFetch, current = std::move(current)]() {
                 if (isCurrent(profileId, generation))
                     onFetch(current);
             });
@@ -558,7 +549,7 @@ void Service::refreshActiveProfile(bool force, SnapshotCallback onDone, FetchCal
         return;
     }
 
-    HttpPool::instance().submit([this, profileId, generation, user = std::move(user), force, stop = *started](HttpSession&) {
+    http.submit([this, profileId, generation, user = std::move(user), force, stop = *started](HttpSession&) {
         runRefresh(profileId, generation, user, force, stop);
     });
 }
@@ -602,7 +593,7 @@ void Service::runRefresh(int64_t profileId, uint64_t generation, User user, bool
         FetchProgress progress = progressOf(state);
         if (!progress.begunAfter(superseded))
             return;
-        brls::sync([this, profileId, generation, stop, progress = std::move(progress)]() {
+        dispatcher.post([this, profileId, generation, stop, progress = std::move(progress)]() {
             if (stop.stop_requested())
                 return;
             for (const FetchCallback& callback : fetchCallbacksOf(profileId, generation))
@@ -615,7 +606,7 @@ void Service::runRefresh(int64_t profileId, uint64_t generation, User user, bool
         return;
     if (!games)
     {
-        brls::Logger::warning("Cloud: catalog unanswered (reason {}, HTTP {})",
+        log::warning("Cloud: catalog unanswered (reason {}, HTTP {})",
             static_cast<int>(games.error().reason()), games.error().http_status());
         Snapshot failed = snapshotOf(failureOf(games.error()));
         failed.status.plusMembership = plusMembership;
@@ -625,7 +616,7 @@ void Service::runRefresh(int64_t profileId, uint64_t generation, User user, bool
 
     Snapshot snapshot = snapshotOf(*games.value(), catalogOf(), *user, plusMembership);
     snapshot.recentlyPlayed = recentlyPlayedOf(*user);
-    brls::Logger::info("Cloud: catalog has {} visible title(s), {} launchable",
+    log::info("Cloud: catalog has {} visible title(s), {} launchable",
         snapshot.catalog.games.size(), snapshot.status.gameCount);
     finishRefresh(profileId, generation, std::move(snapshot), true);
 }
@@ -646,7 +637,7 @@ void Service::finishRefresh(int64_t profileId, uint64_t generation, Snapshot sna
         entry.refresh.reset();
     }
 
-    brls::sync([waiters = std::move(waiters), snapshot = std::move(snapshot)]() {
+    dispatcher.post([waiters = std::move(waiters), snapshot = std::move(snapshot)]() {
         for (const Waiter& waiter : waiters)
             if (waiter.onDone)
                 waiter.onDone(snapshot);
@@ -655,7 +646,7 @@ void Service::finishRefresh(int64_t profileId, uint64_t generation, Snapshot sna
 
 bool Service::signedIn() const
 {
-    return akira::ChiakiCore::current().opened() && activeUser() != nullptr;
+    return core.opened() && activeUser() != nullptr;
 }
 
 auto Service::detailOf(const catalog::GameDetails& details) -> GameDetail
@@ -711,10 +702,10 @@ void Service::detailsOf(const Game& game, const platform::StopToken& stop, Detai
     const auto product = catalog::ProductId::parse(game.productId);
     if (!user || !product)
     {
-        brls::sync([onDone]() { onDone(std::nullopt); });
+        dispatcher.post([onDone]() { onDone(std::nullopt); });
         return;
     }
-    HttpPool::instance().submit([user = std::move(user), product = *product, stop, onDone](HttpSession&) {
+    http.submit([this, user = std::move(user), product = *product, stop, onDone](HttpSession&) {
         auto details = catalogOf().details_of(*user, product, stop);
         if (stop.stop_requested())
             return;
@@ -722,9 +713,9 @@ void Service::detailsOf(const Game& game, const platform::StopToken& stop, Detai
         if (details)
             detail = detailOf(*details);
         else
-            brls::Logger::warning("Cloud: details of {} unanswered (reason {})", product.text(),
+            log::warning("Cloud: details of {} unanswered (reason {})", product.text(),
                 static_cast<int>(details.error().reason()));
-        brls::sync([onDone, stop, detail = std::move(detail)]() {
+        dispatcher.post([onDone, stop, detail = std::move(detail)]() {
             if (!stop.stop_requested())
                 onDone(detail);
         });
@@ -733,21 +724,20 @@ void Service::detailsOf(const Game& game, const platform::StopToken& stop, Detai
 
 auto Service::sizedImage(const std::string& url, int width) -> std::optional<catalog::ImageRef>
 {
-    if (width > 0 && url.find('?') == std::string::npos && url.starts_with("https://image.api.playstation.com/"))
-        if (auto sized = catalog::ImageRef::at(url + "?w=" + std::to_string(width)))
-            return sized;
+    if (auto sized = catalog::ImageRef::at(Game::sizedArt(url, width)))
+        return sized;
     return catalog::ImageRef::at(url);
 }
 
 void Service::imageOf(const std::string& url, int width, const platform::StopToken& stop, ImageCallback onDone)
 {
     auto image = sizedImage(url, width);
-    if (!image || !akira::ChiakiCore::current().opened())
+    if (!image || !core.opened())
     {
-        brls::sync([onDone]() { onDone({}); });
+        dispatcher.post([onDone]() { onDone({}); });
         return;
     }
-    HttpPool::instance().submit([image = *image, stop, onDone](HttpSession&) {
+    http.submit([this, image = *image, stop, onDone](HttpSession&) {
         auto bytes = catalogOf().image_of(image, stop);
         if (stop.stop_requested())
             return;
@@ -758,8 +748,8 @@ void Service::imageOf(const std::string& url, int width, const platform::StopTok
             std::ranges::transform(*bytes, out.begin(), [](std::byte b) { return std::to_integer<uint8_t>(b); });
         }
         else
-            brls::Logger::warning("Cloud: image {} unanswered", image.url());
-        brls::sync([onDone, stop, out = std::move(out)]() mutable {
+            log::warning("Cloud: image {} unanswered", image.url());
+        dispatcher.post([onDone, stop, out = std::move(out)]() mutable {
             if (!stop.stop_requested())
                 onDone(std::move(out));
         });
@@ -772,18 +762,18 @@ void Service::checkStorefront(const Game& game, const platform::StopToken& stop,
     const auto product = catalog::ProductId::parse(game.productId);
     if (!user || !product)
     {
-        brls::sync([onDone]() { onDone(CardCheck::unavailable("akira/cloud/check_no_sign_in"_i18n)); });
+        dispatcher.post([this, onDone]() { onDone(CardCheck::unavailable(strings.text("akira/cloud/check_no_sign_in"))); });
         return;
     }
-    HttpPool::instance().submit([user = std::move(user), product = *product, stop, onDone](HttpSession&) {
+    http.submit([this, user = std::move(user), product = *product, stop, onDone](HttpSession&) {
         auto answer = catalogOf().check_title_against_storefront(*user, product, stop);
         if (stop.stop_requested())
             return;
-        CardCheck check = CardCheck::unavailable("akira/cloud/check_no_answer"_i18n);
+        CardCheck check = CardCheck::unavailable(strings.text("akira/cloud/check_no_answer"));
         if (!answer)
         {
             if (answer.error().needs_sign_in())
-                check = CardCheck::unavailable("akira/cloud/check_no_sign_in"_i18n);
+                check = CardCheck::unavailable(strings.text("akira/cloud/check_no_sign_in"));
         }
         else
         {
@@ -792,14 +782,14 @@ void Service::checkStorefront(const Game& game, const platform::StopToken& stop,
                 case catalog::StorefrontAnswer::Streaming::streams: check = CardCheck::streams(); break;
                 case catalog::StorefrontAnswer::Streaming::not_streamable: check = CardCheck::notStreamable(); break;
                 case catalog::StorefrontAnswer::Streaming::edition_missing:
-                    check = CardCheck::unavailable("akira/cloud/check_edition_missing"_i18n);
+                    check = CardCheck::unavailable(strings.text("akira/cloud/check_edition_missing"));
                     break;
                 case catalog::StorefrontAnswer::Streaming::no_notice:
-                    check = CardCheck::unavailable("akira/cloud/check_no_notice"_i18n);
+                    check = CardCheck::unavailable(strings.text("akira/cloud/check_no_notice"));
                     break;
             }
         }
-        brls::sync([onDone, stop, check]() {
+        dispatcher.post([onDone, stop, check]() {
             if (!stop.stop_requested())
                 onDone(check);
         });
@@ -819,23 +809,23 @@ void Service::replaceGame(int64_t profileId, const Game& game)
 
 void Service::refreshTitle(const Game& game, const platform::StopToken& stop, TitleCallback onDone)
 {
-    const Profile* profile = settings->getActiveProfile();
+    const accounts::Profile* profile = accountSettings.activeProfile();
     User user = profile && signedIn() ? activeUser() : nullptr;
     const auto product = catalog::ProductId::parse(game.productId);
     if (!user || !product)
     {
-        brls::sync([onDone]() { onDone(TitleRefresh{TitleRefresh::Outcome::Failed, {}, "akira/cloud/status_relink_detail"_i18n}); });
+        dispatcher.post([this, onDone]() { onDone(TitleRefresh{TitleRefresh::Outcome::Failed, {}, strings.text("akira/cloud/status_relink_detail")}); });
         return;
     }
-    HttpPool::instance().submit([this, profileId = profile->id, user = std::move(user), product = *product, stop,
+    http.submit([this, profileId = profile->id, user = std::move(user), product = *product, stop,
                                  onDone](HttpSession&) {
         auto answer = catalogOf().recheck_ownership(*user, product, stop);
         if (stop.stop_requested())
             return;
         TitleRefresh refresh;
         if (!answer)
-            refresh.message = answer.error().needs_sign_in() ? "akira/cloud/status_relink_detail"_i18n
-                                                             : "akira/cloud/title_refresh_failed"_i18n;
+            refresh.message = answer.error().needs_sign_in() ? strings.text("akira/cloud/status_relink_detail")
+                                                             : strings.text("akira/cloud/title_refresh_failed");
         else if (const catalog::MyGame* owned = answer->game())
         {
             Game updated = gameOf(*owned, catalogOf(), *user);
@@ -845,7 +835,7 @@ void Service::refreshTitle(const Game& game, const platform::StopToken& stop, Ti
         }
         else
             refresh.outcome = TitleRefresh::Outcome::NotInLibrary;
-        brls::sync([onDone, stop, refresh = std::move(refresh)]() {
+        dispatcher.post([onDone, stop, refresh = std::move(refresh)]() {
             if (!stop.stop_requested())
                 onDone(refresh);
         });
@@ -864,16 +854,16 @@ void Service::clearForLaunch(const Game& game, const platform::StopToken& stop, 
     if (launchLeftOut(game.serviceType))
     {
         if (onError)
-            brls::sync([onError]() { onError("akira/cloud/launch_not_built"_i18n); });
+            dispatcher.post([this, onError]() { onError(strings.text("akira/cloud/launch_not_built")); });
         return;
     }
 
-    const Profile* profile = settings->getActiveProfile();
-    User user = profile && akira::ChiakiCore::current().opened() ? activeUser() : nullptr;
+    const accounts::Profile* profile = accountSettings.activeProfile();
+    User user = profile && core.opened() ? activeUser() : nullptr;
     if (!user)
     {
         if (onError)
-            brls::sync([onError]() { onError("akira/cloud/status_pair_detail"_i18n); });
+            dispatcher.post([this, onError]() { onError(strings.text("akira/cloud/status_pair_detail")); });
         return;
     }
 
@@ -881,7 +871,7 @@ void Service::clearForLaunch(const Game& game, const platform::StopToken& stop, 
     if (!product)
     {
         if (onError)
-            brls::sync([onError]() { onError("akira/cloud/launch_unavailable"_i18n); });
+            dispatcher.post([this, onError]() { onError(strings.text("akira/cloud/launch_unavailable")); });
         return;
     }
 
@@ -894,16 +884,16 @@ void Service::clearForLaunch(const Game& game, const platform::StopToken& stop, 
     if (noPlus)
     {
         if (onError)
-            brls::sync([onError]() { onError("akira/cloud/status_subscription_detail"_i18n); });
+            dispatcher.post([this, onError]() { onError(strings.text("akira/cloud/status_subscription_detail")); });
         return;
     }
 
-    HttpPool::instance().submit([this, user = std::move(user), product = *product, name = game.name,
+    http.submit([this, user = std::move(user), product = *product, name = game.name,
                                  stop, onCleared, onError,
                                  onProgress](HttpSession&) {
-        const auto observer = [onProgress, stop](catalog::LaunchCheck check) {
+        const auto observer = [this, onProgress, stop](catalog::LaunchCheck check) {
             if (onProgress)
-                brls::sync([onProgress, stop, check]() {
+                dispatcher.post([onProgress, stop, check]() {
                     if (!stop.stop_requested())
                         onProgress(check);
                 });
@@ -915,28 +905,28 @@ void Service::clearForLaunch(const Game& game, const platform::StopToken& stop, 
 
         if (const catalog::LaunchRefusal* refused = verdict.refusal())
         {
-            brls::Logger::warning("CloudLaunch: {} ({}) refused by the catalog, kind {}",
+            log::warning("CloudLaunch: {} ({}) refused by the catalog, kind {}",
                 name, product.text(), static_cast<int>(refused->kind()));
-            const std::string message = CloudLaunch::clearanceText(*refused, name);
+            const std::string message = CloudLaunch::clearanceText(strings, *refused, name);
             if (onError)
-                brls::sync([onError, message]() { onError(message); });
+                dispatcher.post([onError, message]() { onError(message); });
             return;
         }
 
         const catalog::ClearedLaunch* cleared = verdict.cleared_launch();
         if (!cleared)
         {
-            brls::Logger::error("CloudLaunch: {} allowed without a cleared launch", product.text());
+            log::error("CloudLaunch: {} allowed without a cleared launch", product.text());
             if (onError)
-                brls::sync([onError]() { onError("akira/cloud/launch_failed"_i18n); });
+                dispatcher.post([this, onError]() { onError(strings.text("akira/cloud/launch_failed")); });
             return;
         }
 
         auto launch = std::make_shared<CloudLaunch>(user, *cleared, name);
-        brls::Logger::info("CloudLaunch: {} cleared for launch", product.text());
+        log::info("CloudLaunch: {} cleared for launch", product.text());
         if (onCleared)
-            brls::sync([onCleared, launch]() { onCleared(launch); });
+            dispatcher.post([onCleared, launch]() { onCleared(launch); });
     });
 }
 
-} // namespace cloud
+} // namespace akira::cloud

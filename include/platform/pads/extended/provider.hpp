@@ -11,12 +11,15 @@
 #include <switch.h>
 
 #include "platform/pads/extended/controller_timing.hpp"
-#include "input/sample_cadence.hpp"
+#include "play/couch_seats.hpp"
+#include "play/sample_cadence.hpp"
 #include "platform/pads/extended/extended_input_manager.hpp"
 #include "platform/pads/extended/pad_path.hpp"
 #include "platform/pads/provider.hpp"
 
+namespace akira::play {
 class InputManager;
+}
 
 namespace akira::platform::extended
 {
@@ -24,7 +27,7 @@ namespace akira::platform::extended
 struct PadPathInfo {
     bool available = false;
     uint64_t generation = 0;
-    akira::input::PadPathKind kind = akira::input::PadPathKind::JoyCon;
+    akira::platform::PadPathKind kind = akira::platform::PadPathKind::JoyCon;
     HidNpadIdType npad = HidNpadIdType_No1;
     HidNpadStyleTag style = HidNpadStyleTag_NpadFullKey;
     uint16_t vendorId = 0;
@@ -35,44 +38,46 @@ struct PadPathInfo {
     bool switchNative = true;
 };
 
-class ExtendedPadProvider final : public PadProvider
+class ExtendedPadProvider final : public PadProvider, public play::CouchSeats
 {
 public:
-    static constexpr uint8_t kNoCouchSlot = 0xff;
+    ExtendedPadProvider(const play::ControllerSettings& controllers,
+                        libchiaking::platform::ThreadingProvider& threading, platform::PadRumble& rumble);
 
     void open() override;
     void close() override;
-    input::Pad* acquire(Callbacks& callbacks) override;
-    input::Pad* current() override;
-    std::vector<input::PadDescription> scanPads() const override;
-    input::RumbleProfile primaryRumbleProfile() const override;
+    platform::Pad* acquire(Callbacks& callbacks) override;
+    platform::Pad* current() override;
+    std::vector<platform::PadDescription> scanPads() const override;
+    play::RumbleProfile primaryRumbleProfile() const override;
 
-    void readSecondaryPads(InputManager& input, std::span<libchiaking::controllers::ControllerInput> states,
+    void readSecondaryPads(play::InputManager& input, std::span<libchiaking::controllers::ControllerInput> states,
                            uint8_t& count) override;
     void routeSeatFeedback(uint8_t slot, const libchiaking::controllers::ControllerFeedback& feedback) override;
-    void fillStreamStats(StreamStats& stats) override;
+    void fillStreamStats(play::StreamStats& stats) override;
 
     uint8_t couchJoin(HidNpadIdType npad);
-    void couchLeave(HidNpadIdType npad);
-    std::map<HidNpadIdType, uint8_t> couchRoster() const;
+    void couchLeave(HidNpadIdType npad) override;
+    std::map<HidNpadIdType, uint8_t> couchRoster() const override;
     uint8_t couchPadCount() const;
 
-    uint8_t CouchPadIndexForController(HidNpadIdType npad);
+    uint8_t CouchPadIndexForController(HidNpadIdType npad) override;
 
-    bool couchSlotOutputTarget(uint8_t slot, uint8_t out_addr[6], uint16_t* vendor_id, uint16_t* product_id);
+    bool couchSlotOutputTarget(uint8_t slot, uint8_t out_addr[6], uint16_t* vendor_id, uint16_t* product_id) override;
+    void unregisterCouchOutput(const uint8_t* bt_addr) override;
 
-    void beginCouchJoin();
-    void cancelCouchJoin();
-    void tickCouchClaim();
+    void beginCouchJoin() override;
+    void cancelCouchJoin() override;
+    void tickCouchClaim() override;
     bool couchClaimActive() const;
-    float couchClaimProgress() const;
-    void setOnCouchJoined(std::function<void(HidNpadIdType, uint8_t)> cb);
-    void setOnCouchDisconnected(std::function<void(HidNpadIdType, uint8_t)> cb);
-    void setOnPadArrived(std::function<void(HidNpadIdType)> cb);
+    float couchClaimProgress() const override;
+    void setOnCouchJoined(std::function<void(HidNpadIdType, uint8_t)> cb) override;
+    void setOnCouchDisconnected(std::function<void(HidNpadIdType, uint8_t)> cb) override;
+    void setOnPadArrived(std::function<void(HidNpadIdType)> cb) override;
     void promptControllerSetup();
-    bool isClaimableNpad(HidNpadIdType npad) const;
-    HidNpadIdType boundNpad() const;
-    void resolvePadArrival();
+    bool isClaimableNpad(HidNpadIdType npad) const override;
+    HidNpadIdType boundNpad() const override;
+    void resolvePadArrival() override;
 
     void setPath(std::unique_ptr<PadPath> path);
     PadPathInfo pathInfo() const;
@@ -82,16 +87,20 @@ public:
     void sendEffectIntensity(uint8_t vibration, uint8_t trigger);
     void sendLightbar(uint8_t red, uint8_t green, uint8_t blue);
 
-    void selectNpad(HidNpadIdType npad);
+    void selectNpad(HidNpadIdType npad) override;
 
-    std::vector<input::PadDescription> describePads();
+    std::vector<platform::PadDescription> describePads() override;
+
+    bool backendAvailable() const override;
+    void logBackendDevices() override;
+    bool consumeDegradedNotice() override;
 
     ExtendedInputManager& extendedInput() { return m_extended; }
 
 private:
     void setPathLocked(std::unique_ptr<PadPath> path);
     PadPathInfo pathInfoLocked() const;
-    std::vector<input::PadDescription> describePadsLocked();
+    std::vector<platform::PadDescription> describePadsLocked();
     uint8_t couchJoinLocked(HidNpadIdType npad);
     void couchLeaveLocked(HidNpadIdType npad);
     uint8_t couchPadCountLocked() const;
@@ -107,6 +116,7 @@ private:
 
     uint64_t couchNpadMask() const;
 
+    const play::ControllerSettings& m_controllers;
     ExtendedInputManager m_extended;
 
     std::unique_ptr<PadPath> m_path;
@@ -117,7 +127,7 @@ private:
     std::map<HidNpadIdType, uint8_t> m_couch_roster;
     std::map<HidNpadIdType, std::unique_ptr<PadPath>> m_secondary_paths;
     std::map<HidNpadIdType, timing::TimePoint> m_secondary_missing_since;
-    std::vector<input::PadDescription> m_couch_pads;
+    std::vector<platform::PadDescription> m_couch_pads;
     timing::TimePoint m_couch_pads_read{};
     bool m_couch_claim_active = false;
     std::map<HidNpadIdType, timing::TimePoint> m_claim_started_at;
@@ -128,7 +138,7 @@ private:
     uint32_t m_announced_mask = 0;
     bool     m_arrival_primed = false;
     bool     m_arrival_pending = false;
-    input::SampleCadence m_arrival_cadence{timing::ArrivalPollPeriod};
+    play::SampleCadence m_arrival_cadence{timing::ArrivalPollPeriod};
     bool          m_identify_done  = false;
     uint32_t      m_identify_next  = 0;
     uint32_t      m_identify_until = 0;

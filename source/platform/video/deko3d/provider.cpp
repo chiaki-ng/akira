@@ -1,15 +1,15 @@
 #include "platform/video/deko3d/provider.hpp"
-
-#include <borealis.hpp>
+#include "log/log.hpp"
 
 #include "platform/video/deko3d/renderer.hpp"
 
 namespace akira::platform::deko3d
 {
 
-Deko3dVideoProvider::Deko3dVideoProvider(const char* name, DecoderChoice decoder, ShaderFactory makeShaders,
-    std::optional<DecoderChoice> hevcDecoder)
+Deko3dVideoProvider::Deko3dVideoProvider(const char* name, Presentation presentation, DecoderChoice decoder,
+    ShaderFactory makeShaders, std::optional<DecoderChoice> hevcDecoder)
     : m_name(name)
+    , m_presentation(presentation)
     , m_primary_decoder(std::move(decoder))
     , m_hevc_decoder(std::move(hevcDecoder))
     , m_make_shaders(std::move(makeShaders))
@@ -47,8 +47,9 @@ VideoRenderer* Deko3dVideoProvider::renderer()
 
 bool Deko3dVideoProvider::startRenderer(int width, int height, FrameHooks hooks)
 {
-    brls::Logger::info("Creating {} renderer", name());
-    auto renderer = std::make_unique<Deko3dRenderer>(m_make_shaders(), std::string(decoderStat()));
+    log::info("Creating {} renderer", name());
+    auto renderer = std::make_unique<Deko3dRenderer>(m_presentation.gpu, m_make_shaders(), std::string(decoderStat()),
+        m_presentation.stream, m_presentation.streamState, m_presentation.wireGuard, m_presentation.palette);
     if (!renderer->initialize(width, height))
         return false;
     m_renderer = std::move(renderer);

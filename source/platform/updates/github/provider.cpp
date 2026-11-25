@@ -2,25 +2,17 @@
 
 #include <array>
 
-#include <borealis.hpp>
-
-#include "platform/updates/github/settings_updates_view.hpp"
-#include "platform/updates/github/update_flow.hpp"
-#include "platform/updates/github/update_manager.hpp"
-
-using namespace brls::literals;
-
 namespace akira::platform::github
 {
 
-void GithubUpdateProvider::prepare(int argc, char* argv[])
+GithubUpdateProvider::GithubUpdateProvider(const app::AppSettings& app)
+    : m_manager(app)
 {
-    UpdateManager::setSelfPath(argc > 0 && argv[0] ? argv[0] : "");
 }
 
-void GithubUpdateProvider::launched()
+void GithubUpdateProvider::prepare(int argc, char* argv[])
 {
-    UpdateFlow::checkOnLaunch();
+    m_manager.setSelfPath(argc > 0 && argv[0] ? argv[0] : "");
 }
 
 std::span<const char* const> GithubUpdateProvider::helpFiles() const
@@ -29,18 +21,32 @@ std::span<const char* const> GithubUpdateProvider::helpFiles() const
     return files;
 }
 
-std::vector<SettingsMenu> GithubUpdateProvider::settingsMenus() const
+UpdateInfo GithubUpdateProvider::checkForUpdate(const std::string& channel)
 {
-    return {{"akira/settings/menu_updates"_i18n, []() -> brls::Box* { return new SettingsUpdatesView(); }}};
+    return m_manager.checkForUpdate(channel);
 }
 
-void GithubUpdateProvider::initSimulateRow(brls::DetailCell& cell) const
+std::string GithubUpdateProvider::fetchExpectedSha256(const UpdateInfo& info)
 {
-    cell.setText("akira/settings/simulate_update"_i18n);
-    cell.registerClickAction([](brls::View*) {
-        UpdateFlow::simulate();
-        return true;
-    });
+    return m_manager.fetchExpectedSha256(info);
+}
+
+std::expected<std::string, std::string> GithubUpdateProvider::download(const UpdateInfo& info,
+                                                                       const ProgressCallback& progress)
+{
+    return m_manager.download(info, progress);
+}
+
+std::expected<void, std::string> GithubUpdateProvider::verify(const std::string& path,
+                                                              const std::string& expectedSha256Hex,
+                                                              int64_t expectedSize)
+{
+    return m_manager.verify(path, expectedSha256Hex, expectedSize);
+}
+
+std::expected<void, std::string> GithubUpdateProvider::applyDownloaded(const std::string& tempPath)
+{
+    return m_manager.applyDownloaded(tempPath);
 }
 
 }

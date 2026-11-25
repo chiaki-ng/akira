@@ -1,32 +1,32 @@
 #include "platform/pad_settings/hid/provider.hpp"
 
-#include "core/settings_manager.hpp"
+#include "play/controller_settings.hpp"
 
 namespace akira::platform::hid
 {
 
-HidPadSettingsProvider::HidPadSettingsProvider(const input::PadDescription& pad)
+HidPadSettingsProvider::HidPadSettingsProvider(const platform::PadDescription& pad)
     : m_pad(pad)
 {
 }
 
-std::string HidPadSettingsProvider::resolveKey(const SettingsManager& settings, bool joycon)
+std::string HidPadSettingsProvider::resolveKey(const play::ControllerSettings& settings, bool joycon)
 {
-    const std::string category = joycon ? input::kRumbleKeyJoyCon : input::kRumbleKeySwitchPro;
+    const std::string category = joycon ? play::kRumbleKeyJoyCon : play::kRumbleKeySwitchPro;
     if (settings.hasRumbleProfile(category))
         return category;
 
-    return input::kRumbleKeyDefault;
+    return play::kRumbleKeyDefault;
 }
 
-std::string HidPadSettingsProvider::rumbleKey(SettingsManager& settings)
+std::string HidPadSettingsProvider::rumbleKey(play::ControllerSettings& settings)
 {
     return currentKey(settings);
 }
 
-std::string HidPadSettingsProvider::currentKey(const SettingsManager& settings) const
+std::string HidPadSettingsProvider::currentKey(const play::ControllerSettings& settings) const
 {
-    return resolveKey(settings, m_pad.kind == input::PadPathKind::JoyCon);
+    return resolveKey(settings, m_pad.kind == platform::PadPathKind::JoyCon);
 }
 
 }

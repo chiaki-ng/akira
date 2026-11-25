@@ -8,8 +8,24 @@ case "${AKIRA_PLATFORM}" in
     *) echo "AKIRA_PLATFORM must be nx or ounce, not ${AKIRA_PLATFORM}"; exit 1 ;;
 esac
 
+AKIRA_SHELL="${AKIRA_SHELL:-borealis}"
+AKIRA_ARISA_GPU="${AKIRA_ARISA_GPU:-drako3d}"
+case "${AKIRA_ARISA_GPU}" in
+    drako3d|vulkan) ;;
+    *) echo "AKIRA_ARISA_GPU must be drako3d or vulkan, not ${AKIRA_ARISA_GPU}"; exit 1 ;;
+esac
+case "${AKIRA_SHELL}" in
+    borealis) BUILD_NAME="${AKIRA_PLATFORM}"; NRO_TARGET=akira ;;
+    arisa) BUILD_NAME="arisa-${AKIRA_PLATFORM}"; NRO_TARGET=akira-arisa ;;
+    *) echo "AKIRA_SHELL must be borealis or arisa, not ${AKIRA_SHELL}"; exit 1 ;;
+esac
+
+if [ "${AKIRA_SHELL}" = arisa ] && [ "${AKIRA_PLATFORM}" = ounce ] && [ "${AKIRA_ARISA_GPU}" = vulkan ]; then
+    BUILD_NAME="arisa-ounce-vulkan"
+fi
+
 SOURCE_DIR="${AKIRA_SOURCE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-BUILD_DIR="${SOURCE_DIR}/build/${AKIRA_PLATFORM}"
+BUILD_DIR="${SOURCE_DIR}/build/${BUILD_NAME}"
 DOCKER_SCRIPTS="${SOURCE_DIR}/scripts/docker"
 ENVIRONMENT_FILE="${BUILD_DIR}/.akira-environment"
 
@@ -36,7 +52,7 @@ LIBRARY_SUFFIX=""
 if [ "${AKIRA_PLATFORM}" = "ounce" ]; then
     LIBRARY_SUFFIX="-ounce"
 fi
-CORE_DIR="${WITH_CORE:-${SOURCE_DIR}/library/libchiaki-core${LIBRARY_SUFFIX}}"
+CORE_DIR="${WITH_CORE:-${SOURCE_DIR}/library/libchiaki-core}"
 BOREALIS_DIR="${WITH_BOREALIS:-${SOURCE_DIR}/library/borealis${LIBRARY_SUFFIX}}"
 WIREGUARD_DIR="${WITH_WIREGUARD:-${SOURCE_DIR}/library/switch-wireguard${LIBRARY_SUFFIX}}"
 LWIP_DIR="${WITH_LWIP:-${SOURCE_DIR}/library/lwip}"
@@ -48,7 +64,7 @@ for override in CORE BOREALIS WIREGUARD LWIP UAM NX_DEPS CURL FFMPEG NGHTTP2 SIM
     fi
 done
 
-ENVIRONMENT="platform=${AKIRA_PLATFORM} image=${AKIRA_IMAGE} source=${SOURCE_DIR} borealis=${BOREALIS_DIR} nx_deps=${WITH_NX_DEPS} curl=${WITH_CURL} ffmpeg=${WITH_FFMPEG} nghttp2=${WITH_NGHTTP2} simdutf=${WITH_SIMDUTF} uam=${WITH_UAM}"
+ENVIRONMENT="platform=${AKIRA_PLATFORM} shell=${AKIRA_SHELL} arisa=${AKIRA_ARISA_PREFIX} arisa_gpu=${AKIRA_ARISA_GPU} image=${AKIRA_IMAGE} source=${SOURCE_DIR} borealis=${BOREALIS_DIR} nx_deps=${WITH_NX_DEPS} curl=${WITH_CURL} ffmpeg=${WITH_FFMPEG} nghttp2=${WITH_NGHTTP2} simdutf=${WITH_SIMDUTF} uam=${WITH_UAM}"
 if [ "$(cat "${ENVIRONMENT_FILE}" 2>/dev/null)" != "${ENVIRONMENT}" ]; then
     echo "=== Build environment changed, starting a clean build ==="
     rm -rf "${BUILD_DIR}"
@@ -89,9 +105,12 @@ cmake -G Ninja -S "${SOURCE_DIR}" -B "${BUILD_DIR}" \
     -DAKIRA_CORE_DIR="${CORE_DIR}" \
     -DBOREALIS_DIR="${BOREALIS_DIR}" \
     -DWIREGUARD_DIR="${WIREGUARD_DIR}" \
-    -DLWIP_DIR="${LWIP_DIR}"
+    -DLWIP_DIR="${LWIP_DIR}" \
+    -DAKIRA_SHELL="${AKIRA_SHELL}" \
+    -DAKIRA_ARISA_PREFIX="${AKIRA_ARISA_PREFIX}" \
+    -DAKIRA_ARISA_GPU="${AKIRA_ARISA_GPU}"
 echo "${ENVIRONMENT}" > "${ENVIRONMENT_FILE}"
 
-cmake --build "${BUILD_DIR}" --target akira.nro
+cmake --build "${BUILD_DIR}" --target "${NRO_TARGET}.nro"
 
 ls -la "${BUILD_DIR}"/*.nro

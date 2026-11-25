@@ -1,8 +1,7 @@
 #include "platform/pads/extended/pad_path_hos.hpp"
+#include "log/log.hpp"
 
-#include "core/settings_manager.hpp"
-
-#include <borealis.hpp>
+#include "play/controller_settings.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -40,7 +39,7 @@ void StartSixAxisSensorShared(HidSixAxisSensorHandle handle)
     const Result rc = hidStartSixAxisSensor(handle);
     if (R_FAILED(rc)) {
         SensorRefs().erase(SensorKey(handle));
-        brls::Logger::warning("PadPath: six-axis start failed for handle 0x{:x}: 0x{:x}",
+        log::warning("PadPath: six-axis start failed for handle 0x{:x}: 0x{:x}",
             SensorKey(handle), rc);
     }
 }
@@ -58,8 +57,11 @@ void StopSixAxisSensorShared(HidSixAxisSensorHandle handle)
     SensorRefs().erase(it);
 }
 
-HosPadPath::HosPadPath(HidNpadIdType npad, HidNpadStyleTag style)
-    : m_npad(npad)
+HosPadPath::HosPadPath(HidNpadIdType npad, HidNpadStyleTag style, const play::ControllerSettings& controllers,
+                       platform::PadRumble& rumble)
+    : m_controllers(controllers)
+    , m_rumble(rumble)
+    , m_npad(npad)
     , m_style(style)
 {
     padInitialize(&m_pad, npad);
@@ -78,7 +80,7 @@ void HosPadPath::acquireHandles()
     m_sixaxis_count = SixAxisSensorCount(m_style);
     Result rc = hidGetSixAxisSensorHandles(&m_sixaxis[0], m_sixaxis_count, m_npad, m_style);
     if (R_FAILED(rc)) {
-        brls::Logger::warning("PadPath: six-axis handles failed for npad {} style 0x{:x}: 0x{:x}",
+        log::warning("PadPath: six-axis handles failed for npad {} style 0x{:x}: 0x{:x}",
             (int)m_npad, (uint32_t)m_style, rc);
         m_sixaxis_count = 0;
     } else {
@@ -103,7 +105,7 @@ bool HosPadPath::poll()
 
     uint64_t styleSet = padGetStyleSet(&m_pad);
     if (styleSet != m_style_set_at_acquire) {
-        brls::Logger::info("PadPath: npad {} style set changed 0x{:x} -> 0x{:x}, rebuilding handles",
+        log::info("PadPath: npad {} style set changed 0x{:x} -> 0x{:x}, rebuilding handles",
             (int)m_npad, m_style_set_at_acquire, styleSet);
 
         if (styleSet & m_style) {
@@ -148,16 +150,16 @@ std::optional<HidSixAxisSensorState> HosPadPath::readGyro()
         bool leftConnected  = attrib & HidNpadAttribute_IsLeftConnected;
         bool rightConnected = attrib & HidNpadAttribute_IsRightConnected;
 
-        switch (SettingsManager::getInstance()->getGyroSource()) {
-            case GyroSource::Left:
+        switch (m_controllers.gyroSource()) {
+            case play::GyroSource::Left:
                 if (!leftConnected) return std::nullopt;
                 index = 0;
                 break;
-            case GyroSource::Right:
+            case play::GyroSource::Right:
                 if (!rightConnected) return std::nullopt;
                 index = 1;
                 break;
-            case GyroSource::Auto:
+            case play::GyroSource::Auto:
             default:
                 if (leftConnected)       index = 0;
                 else if (rightConnected) index = 1;
@@ -179,8 +181,7 @@ void HosPadPath::sendRumble(float left, float right, float freqLow, float freqHi
 {
     const float amp = std::clamp(std::max(left, right), 0.0f, 1.0f);
 
-    auto* inputMgr = brls::Application::getPlatform()->getInputManager();
-    inputMgr->sendRumbleToNpad((unsigned int)m_npad, freqLow, freqHigh, amp, amp);
+    m_rumble.npad(static_cast<unsigned>(m_npad), { .freqLow = freqLow, .freqHigh = freqHigh, .ampLow = amp, .ampHigh = amp });
 }
 
 } // namespace akira::platform::extended

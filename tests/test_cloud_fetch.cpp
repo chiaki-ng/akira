@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-using namespace cloud;
+using namespace akira::cloud;
 
 namespace {
 

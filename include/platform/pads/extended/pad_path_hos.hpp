@@ -2,6 +2,7 @@
 #define AKIRA_INPUT_PAD_PATH_HOS_HPP
 
 #include "platform/pads/extended/pad_path.hpp"
+#include "platform/pads/rumble.hpp"
 
 namespace akira::platform::extended {
 
@@ -10,7 +11,8 @@ void StopSixAxisSensorShared(HidSixAxisSensorHandle handle);
 
 class HosPadPath : public PadPath {
 public:
-    HosPadPath(HidNpadIdType npad, HidNpadStyleTag style);
+    HosPadPath(HidNpadIdType npad, HidNpadStyleTag style, const play::ControllerSettings& controllers,
+               platform::PadRumble& rumble);
     ~HosPadPath() override;
 
     HidNpadIdType   npad()  const override { return m_npad; }
@@ -29,6 +31,8 @@ protected:
     void acquireHandles();
     void releaseHandles();
 
+    const play::ControllerSettings& m_controllers;
+    platform::PadRumble& m_rumble;
     PadState        m_pad{};
     HidNpadIdType   m_npad;
     HidNpadStyleTag m_style;

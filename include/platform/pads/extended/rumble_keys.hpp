@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <string>
 
-#include "input/rumble_profile.hpp"
+#include "play/rumble_profile.hpp"
 #include "platform/pads/extended/ps_output.hpp"
 
 namespace akira::platform::extended {
@@ -19,12 +19,12 @@ enum class PadCategory {
 inline const char* RumbleKeyForCategory(PadCategory category)
 {
     switch (category) {
-        case PadCategory::DualSense: return input::kRumbleKeyDualSense;
-        case PadCategory::JoyCon:    return input::kRumbleKeyJoyCon;
-        case PadCategory::SwitchPro: return input::kRumbleKeySwitchPro;
-        case PadCategory::Generic:   return input::kRumbleKeyGeneric;
+        case PadCategory::DualSense: return play::kRumbleKeyDualSense;
+        case PadCategory::JoyCon:    return play::kRumbleKeyJoyCon;
+        case PadCategory::SwitchPro: return play::kRumbleKeySwitchPro;
+        case PadCategory::Generic:   return play::kRumbleKeyGeneric;
     }
-    return input::kRumbleKeyGeneric;
+    return play::kRumbleKeyGeneric;
 }
 
 inline PadCategory PadCategoryFor(std::uint16_t vendor_id, std::uint16_t product_id,
@@ -74,6 +74,6 @@ inline constexpr std::uint16_t kHapticMotorFloor = 3u << 8;
 inline constexpr int kHapticBlockFloor = 0;
 
 HapticRumble HapticAudioToRumble(const std::int16_t* stereo, std::size_t frames,
-                                 input::HapticIntensity intensity, bool motor_stalls = true);
+                                 play::HapticIntensity intensity, bool motor_stalls = true);
 
 }

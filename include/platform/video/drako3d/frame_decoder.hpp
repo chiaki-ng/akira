@@ -21,7 +21,11 @@ template <class Decoder>
 class Nv12FrameDecoder final : public Nv12FrameSource
 {
 public:
-    Nv12FrameDecoder() = default;
+    template <class... Args>
+    explicit Nv12FrameDecoder(Args&&... args)
+        : m_decoder(std::forward<Args>(args)...)
+    {
+    }
     Nv12FrameDecoder(const Nv12FrameDecoder&) = delete;
     Nv12FrameDecoder& operator=(const Nv12FrameDecoder&) = delete;
 

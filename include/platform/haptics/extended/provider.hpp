@@ -8,6 +8,16 @@
 #include "platform/haptics/provider.hpp"
 
 
+namespace akira::play
+{
+class ControllerSettings;
+}
+
+namespace akira::settings
+{
+class DeveloperSettings;
+}
+
 namespace akira::platform::extended
 {
 
@@ -16,23 +26,26 @@ class ExtendedPadProvider;
 class ExtendedHapticsProvider final : public HapticsProvider
 {
 public:
-    explicit ExtendedHapticsProvider(ExtendedPadProvider& pads);
+    ExtendedHapticsProvider(ExtendedPadProvider& pads, const play::ControllerSettings& controllers,
+        const settings::DeveloperSettings& developer);
 
-    input::RumbleSource effectiveSource(input::RumbleSource configured) const override;
-    void prepare(HapticManager& haptics) override;
-    bool play(HapticManager& haptics, std::span<const std::int16_t> stereo) override;
+    play::RumbleSource effectiveSource(play::RumbleSource configured) const override;
+    void prepare(play::HapticManager& haptics) override;
+    bool play(play::HapticManager& haptics, std::span<const std::int16_t> stereo) override;
 
 private:
     bool nativeRumble() const;
     bool tunedForPad() const;
-    bool streamNativeHaptics(HapticManager& haptics, std::span<const std::int16_t> stereo);
-    void emitMotorsFromWaveform(HapticManager& haptics, std::span<const std::int16_t> stereo);
+    bool streamNativeHaptics(play::HapticManager& haptics, std::span<const std::int16_t> stereo);
+    void emitMotorsFromWaveform(play::HapticManager& haptics, std::span<const std::int16_t> stereo);
 
     static constexpr float kNativeRelease = 0.75f;
     static constexpr float kNativeSilence = 2.0f / 255.0f;
     static constexpr std::uint32_t kNativeHapticLogInterval = 60;
 
     ExtendedPadProvider& m_pads;
+    const play::ControllerSettings& m_controllers;
+    const settings::DeveloperSettings& m_developer;
 
     std::uint64_t m_profile_generation = 0;
     float m_native_env_left = 0.0f;

@@ -1,15 +1,16 @@
 #include "platform/stats/nxext/ipc_service.hpp"
-#include "stream/session.hpp"
-#include "core/wireguard_manager.hpp"
+#include "play/session.hpp"
+#include "network/wireguard_manager.hpp"
 #include <akira/ipc.h>
 #include <cstring>
-#include <borealis.hpp>
+#include "log/log.hpp"
 
 namespace akira::platform::nxext
 {
 
-IpcStatsService::IpcStatsService(Session* session)
+IpcStatsService::IpcStatsService(play::Session* session, const network::WireGuardManager& wireGuard)
     : m_session(session)
+    , m_wire_guard(wireGuard)
 {
     memset(&m_server, 0, sizeof(m_server));
     memset(&m_thread, 0, sizeof(m_thread));
@@ -28,7 +29,7 @@ void IpcStatsService::Start()
     Result rc = ipcServerInit(&m_server, AKIRA_IPC_SERVICE_NAME, 4);
     if (R_FAILED(rc))
     {
-        brls::Logger::error("IpcStatsService: failed to init server: 0x{:X}", rc);
+        log::error("IpcStatsService: failed to init server: 0x{:X}", rc);
         return;
     }
 
@@ -36,7 +37,7 @@ void IpcStatsService::Start()
     rc = svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
     if (R_FAILED(rc))
     {
-        brls::Logger::error("IpcStatsService: failed to get thread priority: 0x{:X}", rc);
+        log::error("IpcStatsService: failed to get thread priority: 0x{:X}", rc);
         ipcServerExit(&m_server);
         return;
     }
@@ -44,7 +45,7 @@ void IpcStatsService::Start()
     rc = threadCreate(&m_thread, &ProcessThreadFunc, this, NULL, 0x2000, priority, -2);
     if (R_FAILED(rc))
     {
-        brls::Logger::error("IpcStatsService: failed to create thread: 0x{:X}", rc);
+        log::error("IpcStatsService: failed to create thread: 0x{:X}", rc);
         ipcServerExit(&m_server);
         return;
     }
@@ -52,14 +53,14 @@ void IpcStatsService::Start()
     rc = threadStart(&m_thread);
     if (R_FAILED(rc))
     {
-        brls::Logger::error("IpcStatsService: failed to start thread: 0x{:X}", rc);
+        log::error("IpcStatsService: failed to start thread: 0x{:X}", rc);
         threadClose(&m_thread);
         ipcServerExit(&m_server);
         return;
     }
 
     m_running = true;
-    brls::Logger::info("IpcStatsService: started on service '{}'", AKIRA_IPC_SERVICE_NAME);
+    log::info("IpcStatsService: started on service '{}'", AKIRA_IPC_SERVICE_NAME);
 }
 
 void IpcStatsService::Stop()
@@ -72,7 +73,7 @@ void IpcStatsService::Stop()
     threadWaitForExit(&m_thread);
     threadClose(&m_thread);
     ipcServerExit(&m_server);
-    brls::Logger::info("IpcStatsService: stopped");
+    log::info("IpcStatsService: stopped");
 }
 
 void IpcStatsService::ProcessThreadFunc(void* arg)
@@ -123,7 +124,7 @@ Result IpcStatsService::ServiceHandler(void* userdata, const IpcServerRequest* r
                 break;
 
             AkiraStreamStats* out = (AkiraStreamStats*)hipcGetBufferAddress(r->hipc.data.recv_buffers);
-            StreamStats stats = self->m_session->getStreamStats();
+            play::StreamStats stats = self->m_session->getStreamStats();
 
             out->requested_width = stats.requested_width;
             out->requested_height = stats.requested_height;
@@ -150,7 +151,7 @@ Result IpcStatsService::ServiceHandler(void* userdata, const IpcServerRequest* r
 
             out->ghash_mode = 1;
 
-            auto& wg = WireGuardManager::instance();
+            const auto& wg = self->m_wire_guard;
             out->vpn_connected = wg.isConnected() ? 1 : 0;
             memset(out->vpn_ip, 0, sizeof(out->vpn_ip));
             if (wg.isConnected())

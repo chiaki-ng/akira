@@ -1,9 +1,11 @@
 #include "test_util.hpp"
-#include "util/sony_dns_checker.hpp"
+#include "network/sony_dns_checker.hpp"
+#include "network/sony_dns_failure.hpp"
 
+#include <string>
 #include <vector>
 
-using akira::net::DnsVerdict;
+using akira::network::DnsVerdict;
 
 static std::vector<uint8_t> dnsAnswer(const std::vector<uint8_t>& addresses)
 {
@@ -28,9 +30,9 @@ TEST(sony_dns_classifies_loopback_and_null_answers_as_blocked)
 {
     auto loopback = dnsAnswer({127, 0, 0, 1});
     auto nullAddress = dnsAnswer({0, 0, 0, 0});
-    CHECK(akira::net::classifyDnsAResponse(loopback.data(), loopback.size(), 0x1234)
+    CHECK(akira::network::classifyDnsAResponse(loopback.data(), loopback.size(), 0x1234)
         == DnsVerdict::Blocked);
-    CHECK(akira::net::classifyDnsAResponse(nullAddress.data(), nullAddress.size(), 0x1234)
+    CHECK(akira::network::classifyDnsAResponse(nullAddress.data(), nullAddress.size(), 0x1234)
         == DnsVerdict::Blocked);
 }
 
@@ -38,45 +40,78 @@ TEST(sony_dns_prefers_reachable_answer_over_mixed_poisoned_answer)
 {
     auto reachable = dnsAnswer({1, 2, 3, 4});
     auto mixed = dnsAnswer({127, 0, 0, 1, 1, 2, 3, 4});
-    CHECK(akira::net::classifyDnsAResponse(reachable.data(), reachable.size(), 0x1234)
+    CHECK(akira::network::classifyDnsAResponse(reachable.data(), reachable.size(), 0x1234)
         == DnsVerdict::Reachable);
-    CHECK(akira::net::classifyDnsAResponse(mixed.data(), mixed.size(), 0x1234)
+    CHECK(akira::network::classifyDnsAResponse(mixed.data(), mixed.size(), 0x1234)
         == DnsVerdict::Reachable);
 }
 
 TEST(sony_dns_rejects_malformed_or_unrelated_responses)
 {
     auto packet = dnsAnswer({127, 0, 0, 1});
-    CHECK(akira::net::classifyDnsAResponse(packet.data(), packet.size(), 0x1235)
+    CHECK(akira::network::classifyDnsAResponse(packet.data(), packet.size(), 0x1235)
         == DnsVerdict::Inconclusive);
-    CHECK(akira::net::classifyDnsAResponse(packet.data(), packet.size() - 1, 0x1234)
+    CHECK(akira::network::classifyDnsAResponse(packet.data(), packet.size() - 1, 0x1234)
         == DnsVerdict::Inconclusive);
     packet[2] = 0x83; // Truncated response
-    CHECK(akira::net::classifyDnsAResponse(packet.data(), packet.size(), 0x1234)
+    CHECK(akira::network::classifyDnsAResponse(packet.data(), packet.size(), 0x1234)
         == DnsVerdict::Inconclusive);
 }
 
 TEST(sony_dns_warns_if_any_domain_fails_on_either_server)
 {
-    akira::net::DnsServerStatus status{"207.246.121.77",
+    akira::network::DnsServerStatus status{"207.246.121.77",
         {DnsVerdict::Blocked, DnsVerdict::Inconclusive, DnsVerdict::Reachable}};
     CHECK(status.hasSonyFailure());
     CHECK_EQ(status.failedCount(), 2);
-    akira::net::SonyDnsReport report{{status}};
+    akira::network::SonyDnsReport report{{status}};
     CHECK(report.failed());
     status.domains = {DnsVerdict::Reachable, DnsVerdict::Reachable, DnsVerdict::Reachable};
     CHECK(!status.hasSonyFailure());
-    CHECK(!akira::net::SonyDnsReport{{status}}.failed());
+    CHECK(!akira::network::SonyDnsReport{{status}}.failed());
     status.domains[1] = DnsVerdict::Inconclusive;
     CHECK(status.hasSonyFailure());
 }
 
 TEST(sony_dns_warning_ok_unlocks_only_after_five_seconds)
 {
-    CHECK_EQ(akira::net::secondsUntilDnsWarningOk(0), 5);
-    CHECK_EQ(akira::net::secondsUntilDnsWarningOk(999), 5);
-    CHECK_EQ(akira::net::secondsUntilDnsWarningOk(1000), 4);
-    CHECK_EQ(akira::net::secondsUntilDnsWarningOk(4999), 1);
-    CHECK_EQ(akira::net::secondsUntilDnsWarningOk(5000), 0);
-    CHECK_EQ(akira::net::secondsUntilDnsWarningOk(5001), 0);
+    CHECK_EQ(akira::network::secondsUntilDnsWarningOk(0), 5);
+    CHECK_EQ(akira::network::secondsUntilDnsWarningOk(999), 5);
+    CHECK_EQ(akira::network::secondsUntilDnsWarningOk(1000), 4);
+    CHECK_EQ(akira::network::secondsUntilDnsWarningOk(4999), 1);
+    CHECK_EQ(akira::network::secondsUntilDnsWarningOk(5000), 0);
+    CHECK_EQ(akira::network::secondsUntilDnsWarningOk(5001), 0);
+}
+
+TEST(sony_dns_failure_prefers_a_blocked_answer_over_a_timeout)
+{
+    akira::network::SonyDnsReport report;
+    report.servers.push_back({ .address = "1.1.1.1",
+        .domains = { DnsVerdict::Reachable, DnsVerdict::Inconclusive, DnsVerdict::Reachable } });
+    report.servers.push_back({ .address = "9.9.9.9",
+        .domains = { DnsVerdict::Reachable, DnsVerdict::Reachable, DnsVerdict::Blocked } });
+    const auto failure = akira::network::SonyDnsFailure::first(report);
+    REQUIRE(failure.has_value());
+    CHECK(failure->domain() == std::string("psnow.playstation.com"));
+    CHECK(failure->server() == std::string("9.9.9.9"));
+}
+
+TEST(sony_dns_failure_falls_back_to_the_first_timeout)
+{
+    akira::network::SonyDnsReport report;
+    report.servers.push_back({ .address = "8.8.8.8",
+        .domains = { DnsVerdict::Inconclusive, DnsVerdict::Reachable, DnsVerdict::Reachable } });
+    const auto failure = akira::network::SonyDnsFailure::first(report);
+    REQUIRE(failure.has_value());
+    CHECK(failure->domain() == std::string("auth.api.sonyentertainmentnetwork.com"));
+    CHECK(failure->server() == std::string("8.8.8.8"));
+}
+
+TEST(sony_dns_failure_is_empty_when_every_answer_is_reachable)
+{
+    akira::network::SonyDnsReport report;
+    report.servers.push_back({ .address = "8.8.8.8",
+        .domains = { DnsVerdict::Reachable, DnsVerdict::Reachable, DnsVerdict::Reachable } });
+    CHECK(!akira::network::SonyDnsFailure::first(report).has_value());
+    CHECK(!akira::network::SonyDnsFailure::first(akira::network::SonyDnsReport{}).has_value());
 }

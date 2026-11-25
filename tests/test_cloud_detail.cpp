@@ -6,7 +6,7 @@
 
 #include <vector>
 
-using namespace cloud;
+using namespace akira::cloud;
 
 namespace {
 

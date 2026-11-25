@@ -6,8 +6,19 @@
 #include <string_view>
 
 #include "platform/video/deko3d/frame_decoder.hpp"
+#include "platform/video/deko3d/gpu_host.hpp"
 #include "platform/video/deko3d/shader_source.hpp"
+#include "platform/video/overlay_palette.hpp"
 #include "platform/video/provider.hpp"
+
+namespace akira::network {
+class WireGuardManager;
+}
+
+namespace akira::play {
+class StreamSettings;
+class StreamState;
+}
 
 namespace akira::platform::deko3d
 {
@@ -27,7 +38,16 @@ public:
         DecoderFactory make;
     };
 
-    Deko3dVideoProvider(const char* name, DecoderChoice decoder, ShaderFactory makeShaders,
+    struct Presentation
+    {
+        GpuHost& gpu;
+        play::StreamSettings& stream;
+        const play::StreamState& streamState;
+        const network::WireGuardManager& wireGuard;
+        const video::OverlayPalette& palette;
+    };
+
+    Deko3dVideoProvider(const char* name, Presentation presentation, DecoderChoice decoder, ShaderFactory makeShaders,
         std::optional<DecoderChoice> hevcDecoder = std::nullopt);
     ~Deko3dVideoProvider() override;
     Deko3dVideoProvider(const Deko3dVideoProvider&) = delete;
@@ -36,7 +56,7 @@ public:
     const char* name() const override { return m_name; }
     std::string_view decoderName() const override { return active().name; }
     std::string_view decoderStat() const override { return active().stat; }
-    bool addSettings(brls::Box&) const override { return false; }
+    VideoOptions options() const override { return {}; }
 
     VideoDecoder* decoder() override;
     VideoDecoder& ensureDecoder() override;
@@ -51,6 +71,7 @@ private:
     const DecoderChoice& active() const { return m_hevc_active ? *m_hevc_decoder : m_primary_decoder; }
 
     const char* m_name;
+    Presentation m_presentation;
     DecoderChoice m_primary_decoder;
     std::optional<DecoderChoice> m_hevc_decoder;
     ShaderFactory m_make_shaders;

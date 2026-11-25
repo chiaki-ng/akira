@@ -1,10 +1,10 @@
 
 #include "test_util.hpp"
 
-#include "input/rumble_profile.hpp"
+#include "play/rumble_profile.hpp"
 
 
-using namespace akira::input;
+using namespace akira::play;
 
 
 TEST(rumble_profile_switch_defaults_preserve_todays_joycon_feel)

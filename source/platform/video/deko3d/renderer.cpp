@@ -1,14 +1,12 @@
-#ifdef BOREALIS_USE_DEKO3D
-
 #include "platform/video/deko3d/renderer.hpp"
+#include "log/log.hpp"
 
-#include <borealis/core/assets.hpp>
+#if AKIRA_STATS_OVERLAY
 #include <nanovg_dk.h>
-#include "core/wireguard_manager.hpp"
-#include "core/settings_manager.hpp"
-#include "ui/theme.hpp"
-#include <borealis.hpp>
-#include <borealis/platforms/switch/switch_platform.hpp>
+#endif
+#include "network/wireguard_manager.hpp"
+#include "play/stream_settings.hpp"
+#include "play/stream_state.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -77,15 +75,41 @@ namespace
     }
 }
 
+#if AKIRA_STATS_OVERLAY
 void Deko3dRenderer::setConnectionContext(const std::string& context)
 {
     m_connection_context = context;
     m_ovl_dirty = true;
 }
+#endif
 
-Deko3dRenderer::Deko3dRenderer(std::unique_ptr<ShaderSource> shaders, std::string decoderLabel)
-    : m_shaders(std::move(shaders))
+auto Deko3dRenderer::upscaling() const -> play::UpscalingSummary
+{
+    if (!m_fsr_enabled)
+        return {};
+    return play::UpscalingSummary{
+        .active = true,
+        .easu = m_easu_enabled,
+        .rcas = m_rcas_enabled,
+        .supersampling = m_fsr_supersampling,
+        .sharpness = m_fsr_sharpness,
+        .inputHeight = m_frame_height,
+        .targetHeight = m_easu_enabled ? m_fsr_target_height : m_display_height,
+        .displayHeight = m_display_height,
+    };
+}
+
+Deko3dRenderer::Deko3dRenderer(GpuHost& gpu, std::unique_ptr<ShaderSource> shaders, std::string decoderLabel,
+    play::StreamSettings& stream, const play::StreamState& streamState, const network::WireGuardManager& wireGuard,
+    const video::OverlayPalette& palette)
+    : m_gpu(gpu)
+    , m_palette(palette)
+    , m_shaders(std::move(shaders))
     , m_decoder_label(std::move(decoderLabel))
+    , m_stream(stream)
+    , m_stream_state(streamState)
+    , m_wire_guard(wireGuard)
+    , m_colour(stream.colour())
 {
 }
 
@@ -110,20 +134,13 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
 
     m_frame_width = frame_width;
     m_frame_height = frame_height;
-    m_display_width = brls::Application::windowWidth;
-    m_display_height = brls::Application::windowHeight;
+    m_display_width = m_gpu.displaySize().width;
+    m_display_height = m_gpu.displaySize().height;
 
-    brls::Logger::info("Deko3dRenderer::initialize: frame={}x{}", frame_width, frame_height);
+    log::info("Deko3dRenderer::initialize: frame={}x{}", frame_width, frame_height);
 
-    m_vctx = static_cast<brls::SwitchDeko3dVideoContext*>(brls::Application::getPlatform()->getVideoContext());
-    if (!m_vctx)
-    {
-        brls::Logger::error("Failed to get SwitchVideoContext");
-        return false;
-    }
-
-    m_device = m_vctx->getDeko3dDevice();
-    m_queue = m_vctx->getQueue();
+    m_device = m_gpu.device();
+    m_queue = m_gpu.queue();
 
     m_pool_code.emplace(m_device, DkMemBlockFlags_CpuUncached | DkMemBlockFlags_GpuCached | DkMemBlockFlags_Code, 128 * 1024);
     m_pool_data.emplace(m_device, DkMemBlockFlags_CpuUncached | DkMemBlockFlags_GpuCached, 1 * 1024 * 1024);
@@ -133,14 +150,14 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
     m_cmdbuf.addMemory(cmdmem.getMemBlock(), cmdmem.getOffset(), cmdmem.getSize());
 
     m_update_cmdbuf = dk::CmdBufMaker{m_device}.create();
-    m_update_cmdmem = m_pool_data->allocate(UpdateCmdSliceSize * brls::FRAMEBUFFERS_COUNT, DK_CMDMEM_ALIGNMENT);
+    m_update_cmdmem = m_pool_data->allocate(UpdateCmdSliceSize * m_gpu.framesInFlight(), DK_CMDMEM_ALIGNMENT);
 
     m_overlay_cmdbuf = dk::CmdBufMaker{m_device}.create();
     m_overlay_cmdmem.emplace();
     m_overlay_cmdmem->allocate(*m_pool_data, OverlayCmdSliceSize);
 
-    float saved_x = SettingsManager::getInstance()->getStatsOverlayX();
-    float saved_y = SettingsManager::getInstance()->getStatsOverlayY();
+    float saved_x = m_stream.statsOverlayX();
+    float saved_y = m_stream.statsOverlayY();
     if (saved_x >= 0.0f && saved_y >= 0.0f)
     {
         m_overlay_norm_x.store(saved_x, std::memory_order_relaxed);
@@ -153,23 +170,30 @@ bool Deko3dRenderer::initialize(int frame_width, int frame_height)
         writeDitherUniform();
     }
 
-    bool dithering = SettingsManager::getInstance()->getEnableDithering();
+    m_colour_uniform = m_pool_data->allocate(DK_UNIFORM_BUF_ALIGNMENT, DK_UNIFORM_BUF_ALIGNMENT);
+    m_colour_dirty.store(true, std::memory_order_release);
+    writeColourUniform();
+
+    bool dithering = m_stream.ditheringEnabled();
+    m_dithering_wanted.store(dithering, std::memory_order_relaxed);
     if (!compileVideoShaders(dithering))
     {
-        brls::Logger::error("Failed to compile video shaders");
+        log::error("Failed to compile video shaders");
         return false;
     }
 
     m_vertex_buffer = m_pool_data->allocate(sizeof(QuadVertexData), alignof(Vertex));
     memcpy(m_vertex_buffer.getCpuAddr(), QuadVertexData.data(), m_vertex_buffer.getSize());
 
+#if AKIRA_STATS_OVERLAY
     if (!ensureOverlayShaders())
-        brls::Logger::warning("Deko3dRenderer: overlay blit shaders unavailable");
+        log::warning("Deko3dRenderer: overlay blit shaders unavailable");
+#endif
 
-    brls::Logger::info("Deko3dRenderer: shaders and vertex buffer initialized");
-
+    log::info("Deko3dRenderer: shaders and vertex buffer initialized");
 
     m_initialized = true;
+    m_presentation = m_gpu.present(*this);
     return true;
 }
 
@@ -204,24 +228,24 @@ bool Deko3dRenderer::setupTextures(const VideoFrame& frame)
         return true;
 
     m_frame_format = formatOf(frame);
-    brls::Logger::info("Deko3dRenderer::setupTextures: frame={}x{}, pitch_linear={}, pitch={}/{}",
+    log::info("Deko3dRenderer::setupTextures: frame={}x{}, pitch_linear={}, pitch={}/{}",
         frame.width, frame.height, frame.layout == PlaneLayout::PitchLinear,
         m_frame_format.lumaPitch, m_frame_format.chromaPitch);
 
     m_frame_width = frame.width;
     m_frame_height = frame.height;
 
-    m_luma_texture_id = m_vctx->allocateImageIndex();
-    m_chroma_texture_id = m_vctx->allocateImageIndex();
+    m_luma_texture_id = m_gpu.allocateImageSlot();
+    m_chroma_texture_id = m_gpu.allocateImageSlot();
 
     initializePlaneLayout(m_luma_layout, DkImageFormat_R8_Unorm,
         m_frame_width, m_frame_height, m_frame_format.lumaPitch);
     initializePlaneLayout(m_chroma_layout, DkImageFormat_RG8_Unorm,
         m_frame_width / 2, m_frame_height / 2, m_frame_format.chromaPitch);
 
-    bool easuSetting = SettingsManager::getInstance()->getEasuEnabled();
-    bool rcasSetting = SettingsManager::getInstance()->getRcasEnabled();
-    int targetH = SettingsManager::getInstance()->getEasuTargetHeight();
+    bool easuSetting = m_stream_state.easuEnabled();
+    bool rcasSetting = m_stream.rcasEnabled();
+    int targetH = m_stream_state.easuTargetHeight();
     int targetW = (targetH * 16) / 9;
     bool easuNeeded = easuSetting && targetH > 0 && (m_frame_width < targetW || m_frame_height < targetH);
     m_fsr_pending = easuNeeded || rcasSetting;
@@ -229,30 +253,27 @@ bool Deko3dRenderer::setupTextures(const VideoFrame& frame)
     recordStaticVideoCommands();
 
     m_textures_initialized = true;
-    brls::Logger::info("Deko3dRenderer::setupTextures: luma_id={}, chroma_id={}, fsr={}",
+    log::info("Deko3dRenderer::setupTextures: luma_id={}, chroma_id={}, fsr={}",
         m_luma_texture_id, m_chroma_texture_id, m_fsr_enabled);
     return true;
 }
 
 void Deko3dRenderer::releaseTextures()
 {
-    m_queue.waitIdle();
+    m_gpu.waitIdle();
 
     m_frame_mappings.clear();
     m_current_mapping_index = -1;
-
-    m_current_frame.reset();
-    m_frame_bound = false;
 
     cleanupFsr();
     m_fsr_pending = false;
 
     if (m_luma_texture_id) {
-        m_vctx->freeImageIndex(m_luma_texture_id);
+        m_gpu.freeImageSlot(m_luma_texture_id);
         m_luma_texture_id = 0;
     }
     if (m_chroma_texture_id) {
-        m_vctx->freeImageIndex(m_chroma_texture_id);
+        m_gpu.freeImageSlot(m_chroma_texture_id);
         m_chroma_texture_id = 0;
     }
 
@@ -279,6 +300,7 @@ void Deko3dRenderer::recordStaticVideoCommands()
     m_cmdbuf.bindTextures(DkStage_Fragment, 0, dkMakeTextureHandle(m_luma_texture_id, 0));
     m_cmdbuf.bindTextures(DkStage_Fragment, 1, dkMakeTextureHandle(m_chroma_texture_id, 0));
     bindDitherUniform(m_cmdbuf);
+    bindColourUniform(m_cmdbuf);
 
     m_cmdbuf.bindVtxBuffer(0, m_vertex_buffer.getGpuAddr(), m_vertex_buffer.getSize());
     m_cmdbuf.bindVtxAttribState(VertexAttribState);
@@ -287,7 +309,7 @@ void Deko3dRenderer::recordStaticVideoCommands()
     m_cmdbuf.draw(DkPrimitive_Quads, QuadVertexData.size(), 1, 0, 0);
 
     m_video_cmdlist = m_cmdbuf.finishList();
-    brls::Logger::info("Deko3dRenderer: static video command list recorded");
+    log::info("Deko3dRenderer: static video command list recorded");
 }
 
 bool Deko3dRenderer::loadShader(CShader& shader, std::optional<ShaderSource::Code> code)
@@ -298,7 +320,7 @@ bool Deko3dRenderer::loadShader(CShader& shader, std::optional<ShaderSource::Cod
     shader.destroy();
     if (!shader.loadFromMemory(*m_pool_code, code->data(), static_cast<uint32_t>(code->size())))
     {
-        brls::Logger::error("Deko3dRenderer: failed to load shader into GPU memory");
+        log::error("Deko3dRenderer: failed to load shader into GPU memory");
         return false;
     }
     return true;
@@ -338,7 +360,7 @@ void Deko3dRenderer::writeDitherUniform()
     if (!m_dither_uniform)
         return;
 
-    const std::array<float, 4> constants{ SettingsManager::getInstance()->getDitheringStrength(), 0.0f, 0.0f, 0.0f };
+    const std::array<float, 4> constants{ m_stream.ditheringStrength(), 0.0f, 0.0f, 0.0f };
     memcpy(m_dither_uniform.getCpuAddr(), constants.data(), sizeof(constants));
 }
 
@@ -349,9 +371,35 @@ void Deko3dRenderer::bindDitherUniform(dk::CmdBuf cmdbuf)
             m_dither_uniform.getGpuAddr(), m_dither_uniform.getSize());
 }
 
+void Deko3dRenderer::setColour(const play::ColourAdjustments& colour)
+{
+    const std::scoped_lock lock(m_colour_mutex);
+    m_colour = colour;
+    m_colour_dirty.store(true, std::memory_order_release);
+}
+
+void Deko3dRenderer::writeColourUniform()
+{
+    if (!m_colour_uniform || !m_colour_dirty.exchange(false, std::memory_order_acq_rel))
+        return;
+    std::array<float, 4> constants{};
+    {
+        const std::scoped_lock lock(m_colour_mutex);
+        constants = m_colour.shaderConstants();
+    }
+    memcpy(m_colour_uniform.getCpuAddr(), constants.data(), sizeof(constants));
+}
+
+void Deko3dRenderer::bindColourUniform(dk::CmdBuf cmdbuf)
+{
+    if (m_colour_uniform)
+        cmdbuf.bindUniformBuffer(DkStage_Fragment, ColourUniformBinding, m_colour_uniform.getGpuAddr(),
+            m_colour_uniform.getSize());
+}
+
 bool Deko3dRenderer::compileVideoShaders(bool dithering)
 {
-    brls::Logger::info("Deko3dRenderer: compiling video shaders (dithering={})", dithering);
+    log::info("Deko3dRenderer: compiling video shaders (dithering={})", dithering);
 
     if (!ensureVertexShaderCompiled())
         return false;
@@ -364,35 +412,26 @@ bool Deko3dRenderer::compileVideoShaders(bool dithering)
 
     m_dithering_enabled = dithering;
     writeDitherUniform();
-    brls::Logger::info("Deko3dRenderer: video shaders compiled successfully");
+    log::info("Deko3dRenderer: video shaders compiled successfully");
     return true;
 }
 
 void Deko3dRenderer::setDithering(bool enabled)
 {
-    if (enabled == m_dithering_enabled)
-        return;
-
-    if (!m_initialized || !m_pool_code)
-        return;
-
-    brls::Logger::info("Deko3dRenderer: switching dithering to {}", enabled);
-
-    if (compileVideoShaders(enabled) && m_textures_initialized)
-        recordStaticVideoCommands();
+    m_dithering_wanted.store(enabled, std::memory_order_relaxed);
 }
 
 void Deko3dRenderer::initFsr()
 {
-    m_queue.waitIdle();
+    m_gpu.waitIdle();
 
     m_easu_enabled = false;
-    m_rcas_enabled = SettingsManager::getInstance()->getRcasEnabled();
-    m_fsr_sharpness = SettingsManager::getInstance()->getRcasSharpness();
+    m_rcas_enabled = m_stream.rcasEnabled();
+    m_fsr_sharpness = m_stream.rcasSharpness();
 
-    int targetH = SettingsManager::getInstance()->getEasuTargetHeight();
+    int targetH = m_stream_state.easuTargetHeight();
     int targetW = (targetH * 16) / 9;
-    if (SettingsManager::getInstance()->getEasuEnabled() && targetH > 0 &&
+    if (m_stream_state.easuEnabled() && targetH > 0 &&
         (m_frame_width < targetW || m_frame_height < targetH))
     {
         m_easu_enabled = true;
@@ -410,7 +449,7 @@ void Deko3dRenderer::initFsr()
 
     m_fsr_supersampling = (m_fsr_target_width > m_display_width || m_fsr_target_height > m_display_height);
 
-    brls::Logger::info("Deko3dRenderer::initFsr: input={}x{} target={}x{} display={}x{} ss={} ratio={:.2f}x{:.2f}",
+    log::info("Deko3dRenderer::initFsr: input={}x{} target={}x{} display={}x{} ss={} ratio={:.2f}x{:.2f}",
         m_frame_width, m_frame_height, m_fsr_target_width, m_fsr_target_height,
         m_display_width, m_display_height, m_fsr_supersampling,
         (float)m_fsr_target_width / m_frame_width, (float)m_fsr_target_height / m_frame_height);
@@ -418,7 +457,7 @@ void Deko3dRenderer::initFsr()
     if (!ensureVertexShaderCompiled())
         return;
 
-    bool dithering = SettingsManager::getInstance()->getEnableDithering();
+    bool dithering = m_stream.ditheringEnabled();
 
     if (m_easu_enabled)
     {
@@ -443,10 +482,10 @@ void Deko3dRenderer::initFsr()
     if (!m_fsr_pass_shader)
         return;
 
-    CMemPool* imagesPool = m_vctx->getImagesPool();
+    CMemPool* imagesPool = &m_gpu.images();
     if (!imagesPool)
     {
-        brls::Logger::error("initFsr: no images pool available");
+        log::error("initFsr: no images pool available");
         return;
     }
 
@@ -460,14 +499,14 @@ void Deko3dRenderer::initFsr()
     m_rt_easu_handle = imagesPool->allocate(m_rt_easu_layout.getSize(), m_rt_easu_layout.getAlignment());
     m_rt_easu_image.initialize(m_rt_easu_layout, m_rt_easu_handle.getMemBlock(), m_rt_easu_handle.getOffset());
     m_rt_easu_desc.initialize(m_rt_easu_image, true);
-    m_rt_easu_texture_id = m_vctx->allocateImageIndex();
+    m_rt_easu_texture_id = m_gpu.allocateImageSlot();
 
     if (m_fsr_supersampling && m_rcas_enabled)
     {
         m_rt_rcas_handle = imagesPool->allocate(m_rt_easu_layout.getSize(), m_rt_easu_layout.getAlignment());
         m_rt_rcas_image.initialize(m_rt_easu_layout, m_rt_rcas_handle.getMemBlock(), m_rt_rcas_handle.getOffset());
         m_rt_rcas_desc.initialize(m_rt_rcas_image, true);
-        m_rt_rcas_texture_id = m_vctx->allocateImageIndex();
+        m_rt_rcas_texture_id = m_gpu.allocateImageSlot();
     }
 
     m_fsr_uniform_buffer = m_pool_data->allocate(512, DK_UNIFORM_BUF_ALIGNMENT);
@@ -478,28 +517,28 @@ void Deko3dRenderer::initFsr()
     m_fsr_static_cmdbuf.addMemory(m_fsr_static_cmdmem.getMemBlock(), m_fsr_static_cmdmem.getOffset(), m_fsr_static_cmdmem.getSize());
 
     m_fsr_rcas_cmdbuf = dk::CmdBufMaker{m_device}.create();
-    m_fsr_rcas_cmdmem = m_pool_data->allocate(FsrRcasCmdSize);
+    m_fsr_rcas_cmdmem = m_pool_data->allocate(FsrRcasCmdSize * m_gpu.framesInFlight());
 
     m_update_cmdbuf.clear();
     m_update_cmdbuf.addMemory(
         m_update_cmdmem.getMemBlock(),
         m_update_cmdmem.getOffset(),
         UpdateCmdSliceSize);
-    if (!m_vctx->updateImageDescriptor(m_update_cmdbuf, m_rt_easu_texture_id, m_rt_easu_desc))
-        brls::Logger::error("Deko3dRenderer::initFsr: failed to bind EASU descriptor (id={})", m_rt_easu_texture_id);
+    if (!m_gpu.writeImageSlot(m_update_cmdbuf, m_rt_easu_texture_id, m_rt_easu_desc))
+        log::error("Deko3dRenderer::initFsr: failed to bind EASU descriptor (id={})", m_rt_easu_texture_id);
     if (m_rt_rcas_texture_id)
     {
-        if (!m_vctx->updateImageDescriptor(m_update_cmdbuf, m_rt_rcas_texture_id, m_rt_rcas_desc))
-            brls::Logger::error("Deko3dRenderer::initFsr: failed to bind RCAS descriptor (id={})", m_rt_rcas_texture_id);
+        if (!m_gpu.writeImageSlot(m_update_cmdbuf, m_rt_rcas_texture_id, m_rt_rcas_desc))
+            log::error("Deko3dRenderer::initFsr: failed to bind RCAS descriptor (id={})", m_rt_rcas_texture_id);
     }
-    m_vctx->invalidateImageDescriptors(m_update_cmdbuf);
+    m_gpu.invalidateImageSlots(m_update_cmdbuf);
     m_queue.submitCommands(m_update_cmdbuf.finishList());
-    m_queue.waitIdle();
+    m_gpu.waitIdle();
 
     recordFsrCommands();
 
     m_fsr_enabled = true;
-    brls::Logger::info("Deko3dRenderer::initFsr: initialized, sharpness={}", m_fsr_sharpness);
+    log::info("Deko3dRenderer::initFsr: initialized, sharpness={}", m_fsr_sharpness);
 }
 
 void Deko3dRenderer::computeFsrConstants()
@@ -581,6 +620,7 @@ void Deko3dRenderer::recordFsrCommands()
         m_fsr_static_cmdbuf.bindUniformBuffer(DkStage_Fragment, 0,
             m_fsr_uniform_buffer.getGpuAddr(), 64);
         bindDitherUniform(m_fsr_static_cmdbuf);
+        bindColourUniform(m_fsr_static_cmdbuf);
     }
     else
     {
@@ -588,6 +628,7 @@ void Deko3dRenderer::recordFsrCommands()
         m_fsr_static_cmdbuf.bindTextures(DkStage_Fragment, 0, dkMakeTextureHandle(m_luma_texture_id, 0));
         m_fsr_static_cmdbuf.bindTextures(DkStage_Fragment, 1, dkMakeTextureHandle(m_chroma_texture_id, 0));
         bindDitherUniform(m_fsr_static_cmdbuf);
+        bindColourUniform(m_fsr_static_cmdbuf);
     }
     m_fsr_static_cmdbuf.bindVtxBuffer(0, m_vertex_buffer.getGpuAddr(), m_vertex_buffer.getSize());
     m_fsr_static_cmdbuf.bindVtxAttribState(VertexAttribState);
@@ -596,7 +637,7 @@ void Deko3dRenderer::recordFsrCommands()
 
     m_fsr_easu_cmdlist = m_fsr_static_cmdbuf.finishList();
 
-    brls::Logger::info("Deko3dRenderer: FSR EASU command list recorded");
+    log::info("Deko3dRenderer: FSR EASU command list recorded");
 }
 
 void Deko3dRenderer::cleanupFsr()
@@ -604,7 +645,7 @@ void Deko3dRenderer::cleanupFsr()
     if (!m_fsr_enabled)
         return;
 
-    brls::Logger::info("Deko3dRenderer::cleanupFsr");
+    log::info("Deko3dRenderer::cleanupFsr");
 
     m_fsr_easu_cmdlist = 0;
 
@@ -613,11 +654,11 @@ void Deko3dRenderer::cleanupFsr()
     m_fsr_uniform_buffer.destroy();
 
     if (m_rt_easu_texture_id) {
-        m_vctx->freeImageIndex(m_rt_easu_texture_id);
+        m_gpu.freeImageSlot(m_rt_easu_texture_id);
         m_rt_easu_texture_id = 0;
     }
     if (m_rt_rcas_texture_id) {
-        m_vctx->freeImageIndex(m_rt_rcas_texture_id);
+        m_gpu.freeImageSlot(m_rt_rcas_texture_id);
         m_rt_rcas_texture_id = 0;
     }
 
@@ -634,6 +675,13 @@ void Deko3dRenderer::cleanupFsr()
     m_fsr_enabled = false;
 }
 
+void Deko3dRenderer::setPaused(bool paused)
+{
+    m_paused.store(paused, std::memory_order_relaxed);
+    if (m_presentation)
+        m_presentation->paused(paused);
+}
+
 void Deko3dRenderer::draw(const VideoFrame& frame)
 {
     if (!m_initialized)
@@ -642,39 +690,27 @@ void Deko3dRenderer::draw(const VideoFrame& frame)
     if (!frame.storage || frame.width <= 0 || frame.height <= 0)
         return;
 
-    if (m_textures_initialized && formatOf(frame) != m_frame_format)
-    {
-        brls::Logger::info("Deko3dRenderer: frame format changed from {}x{} to {}x{}, rebuilding textures",
-            m_frame_width, m_frame_height, frame.width, frame.height);
-        releaseTextures();
-    }
-
-    if (!m_textures_initialized)
-    {
-        if (!setupTextures(frame))
-            return;
-    }
-
     if (m_paused.load(std::memory_order_relaxed))
         return;
 
+    std::lock_guard lock(m_frame_ring_mutex);
     m_current_frame = frame;
-    m_frame_bound = true;
+    m_frame_bound.store(true, std::memory_order_release);
 }
 
 void Deko3dRenderer::presentFrame(const VideoFrame& frame)
 {
     draw(frame);
 
-    if (!m_frame_bound || m_paused.load(std::memory_order_relaxed))
+    if (!m_frame_bound.load(std::memory_order_acquire) || m_paused.load(std::memory_order_relaxed))
         return;
 
-    VideoContext* videoContext = brls::Application::getPlatform()->getVideoContext();
-    videoContext->beginFrame();
-    renderVideo();
-    videoContext->endFrame();
+    m_presentation->frameReady();
+}
 
-    recordPresentedFrame();
+void Deko3dRenderer::record(FrameRecorder& frame)
+{
+    renderVideo(frame);
 }
 
 void Deko3dRenderer::recordPresentedFrame()
@@ -692,19 +728,53 @@ void Deko3dRenderer::recordPresentedFrame()
     if (elapsed >= 1000)
     {
         m_render_fps = (m_render_frame_count * 1000.0f) / elapsed;
+        log::info("Deko3dRenderer: {} frames presented, 0 copied on the CPU, {} decoder surfaces mapped, {} rebinds in {} ms",
+            m_render_frame_count, m_frame_mappings.size(), m_bound_mappings, elapsed);
         m_render_frame_count = 0;
+        m_bound_mappings = 0;
         m_render_fps_start = now;
     }
 }
 
-void Deko3dRenderer::renderVideo()
+void Deko3dRenderer::renderVideo(FrameRecorder& frame)
 {
-    if (!m_initialized || !m_textures_initialized || !m_frame_bound || !m_current_frame)
+    if (!m_initialized || !m_frame_bound.load(std::memory_order_acquire))
         return;
+
+    std::optional<VideoFrame> arriving;
+    {
+        std::lock_guard lock(m_frame_ring_mutex);
+        arriving = std::move(m_current_frame);
+        m_current_frame.reset();
+    }
+
+    if (arriving)
+    {
+        if (m_textures_initialized && formatOf(*arriving) != m_frame_format)
+        {
+            log::info("Deko3dRenderer: frame format changed from {}x{} to {}x{}, rebuilding textures",
+                m_frame_width, m_frame_height, arriving->width, arriving->height);
+            releaseTextures();
+        }
+        if (!m_textures_initialized && !setupTextures(*arriving))
+            return;
+    }
+
+    if (!m_textures_initialized)
+        return;
+
+    if (const bool dithering = m_dithering_wanted.load(std::memory_order_relaxed); dithering != m_dithering_enabled)
+    {
+        log::info("Deko3dRenderer: switching dithering to {}", dithering);
+        if (compileVideoShaders(dithering))
+            recordStaticVideoCommands();
+    }
+
+    writeColourUniform();
 
     if (m_fsr_pending)
     {
-        m_queue.waitIdle();
+        m_gpu.waitIdle();
         initFsr();
         m_fsr_pending = false;
     }
@@ -712,125 +782,102 @@ void Deko3dRenderer::renderVideo()
     if (!m_fsr_enabled && !m_video_cmdlist)
         return;
 
-    const VideoFrame* bound = nullptr;
+    if (arriving)
     {
-        std::lock_guard lock(m_frame_ring_mutex);
-        auto& slot = m_frame_ring[m_frame_ring_index];
-        slot = std::move(m_current_frame);
-        m_current_frame.reset();
-        bound = &*slot;
-        m_frame_ring_index = (m_frame_ring_index + 1) % FRAME_RING_SIZE;
+        const VideoFrame* bound = nullptr;
+        {
+            std::lock_guard lock(m_frame_ring_mutex);
+            auto& slot = m_frame_ring[m_frame_ring_index];
+            slot = std::move(arriving);
+            bound = &*slot;
+            m_frame_ring_index = (m_frame_ring_index + 1) % FRAME_RING_SIZE;
+        }
+        updateFrameBindings(*bound, frame);
     }
 
-    updateFrameBindings(*bound);
+    if (m_current_mapping_index < 0)
+        return;
 
     if (m_fsr_enabled)
     {
-        m_queue.submitCommands(m_fsr_easu_cmdlist);
-        m_queue.waitIdle();
+        frame.run(m_fsr_easu_cmdlist);
+        frame.settle();
 
-        dk::Image* framebuffer = m_vctx->getFramebuffer();
-        if (framebuffer)
+        dk::Image& framebuffer = frame.target();
+        m_fsr_rcas_cmdbuf.clear();
+        m_fsr_rcas_cmdbuf.addMemory(m_fsr_rcas_cmdmem.getMemBlock(),
+            m_fsr_rcas_cmdmem.getOffset() + m_fsr_rcas_cmdmem_slice * FsrRcasCmdSize, FsrRcasCmdSize);
+        m_fsr_rcas_cmdmem_slice = (m_fsr_rcas_cmdmem_slice + 1) % m_gpu.framesInFlight();
+
+        dk::ImageView colorTarget{framebuffer};
+        m_fsr_rcas_cmdbuf.bindRenderTargets(&colorTarget);
+        m_fsr_rcas_cmdbuf.setViewports(0, {{ 0.0f, 0.0f, (float)m_display_width, (float)m_display_height, 0.0f, 1.0f }});
+        m_fsr_rcas_cmdbuf.setScissors(0, {{ 0, 0, (uint32_t)m_display_width, (uint32_t)m_display_height }});
+
+        m_fsr_rcas_cmdbuf.bindRasterizerState(dk::RasterizerState{}.setCullMode(DkFace_None));
+        m_fsr_rcas_cmdbuf.bindDepthStencilState(dk::DepthStencilState{}
+            .setDepthTestEnable(false)
+            .setDepthWriteEnable(false)
+            .setStencilTestEnable(false));
+        m_fsr_rcas_cmdbuf.bindColorState(dk::ColorState{});
+        m_fsr_rcas_cmdbuf.bindColorWriteState(dk::ColorWriteState{});
+
+        if (m_rcas_enabled)
         {
-            m_fsr_rcas_cmdbuf.clear();
-            m_fsr_rcas_cmdbuf.addMemory(m_fsr_rcas_cmdmem.getMemBlock(), m_fsr_rcas_cmdmem.getOffset(), m_fsr_rcas_cmdmem.getSize());
+            m_fsr_rcas_cmdbuf.bindShaders(DkStageFlag_GraphicsMask, { m_vertex_shader, *m_fsr_rcas_shader });
+            m_fsr_rcas_cmdbuf.bindTextures(DkStage_Fragment, 0, dkMakeTextureHandle(m_rt_easu_texture_id, 0));
+            m_fsr_rcas_cmdbuf.bindUniformBuffer(DkStage_Fragment, 0,
+                m_fsr_uniform_buffer.getGpuAddr() + 256, 16);
+        }
+        else
+        {
+            m_fsr_rcas_cmdbuf.bindShaders(DkStageFlag_GraphicsMask, { m_vertex_shader, *m_fsr_pass_shader });
+            m_fsr_rcas_cmdbuf.bindTextures(DkStage_Fragment, 0, dkMakeTextureHandle(m_rt_easu_texture_id, 0));
+        }
+        m_fsr_rcas_cmdbuf.bindVtxBuffer(0, m_vertex_buffer.getGpuAddr(), m_vertex_buffer.getSize());
+        m_fsr_rcas_cmdbuf.bindVtxAttribState(VertexAttribState);
+        m_fsr_rcas_cmdbuf.bindVtxBufferState(VertexBufferState);
 
-            dk::ImageView colorTarget{*framebuffer};
-            m_fsr_rcas_cmdbuf.bindRenderTargets(&colorTarget);
+        if (m_fsr_supersampling && m_rcas_enabled)
+        {
+            dk::ImageView rcasTarget{m_rt_rcas_image};
+            m_fsr_rcas_cmdbuf.bindRenderTargets(&rcasTarget);
+            m_fsr_rcas_cmdbuf.setViewports(0, {{ 0.0f, 0.0f, (float)m_fsr_target_width, (float)m_fsr_target_height, 0.0f, 1.0f }});
+            m_fsr_rcas_cmdbuf.setScissors(0, {{ 0, 0, (uint32_t)m_fsr_target_width, (uint32_t)m_fsr_target_height }});
+            m_fsr_rcas_cmdbuf.draw(DkPrimitive_Quads, QuadVertexData.size(), 1, 0, 0);
+
+            dk::ImageView finalTarget{framebuffer};
+            m_fsr_rcas_cmdbuf.bindRenderTargets(&finalTarget);
             m_fsr_rcas_cmdbuf.setViewports(0, {{ 0.0f, 0.0f, (float)m_display_width, (float)m_display_height, 0.0f, 1.0f }});
             m_fsr_rcas_cmdbuf.setScissors(0, {{ 0, 0, (uint32_t)m_display_width, (uint32_t)m_display_height }});
-
-            m_fsr_rcas_cmdbuf.bindRasterizerState(dk::RasterizerState{}.setCullMode(DkFace_None));
-            m_fsr_rcas_cmdbuf.bindDepthStencilState(dk::DepthStencilState{}
-                .setDepthTestEnable(false)
-                .setDepthWriteEnable(false)
-                .setStencilTestEnable(false));
-            m_fsr_rcas_cmdbuf.bindColorState(dk::ColorState{});
-            m_fsr_rcas_cmdbuf.bindColorWriteState(dk::ColorWriteState{});
-
-            if (m_rcas_enabled)
-            {
-                m_fsr_rcas_cmdbuf.bindShaders(DkStageFlag_GraphicsMask, { m_vertex_shader, *m_fsr_rcas_shader });
-                m_fsr_rcas_cmdbuf.bindTextures(DkStage_Fragment, 0, dkMakeTextureHandle(m_rt_easu_texture_id, 0));
-                m_fsr_rcas_cmdbuf.bindUniformBuffer(DkStage_Fragment, 0,
-                    m_fsr_uniform_buffer.getGpuAddr() + 256, 16);
-            }
-            else
-            {
-                m_fsr_rcas_cmdbuf.bindShaders(DkStageFlag_GraphicsMask, { m_vertex_shader, *m_fsr_pass_shader });
-                m_fsr_rcas_cmdbuf.bindTextures(DkStage_Fragment, 0, dkMakeTextureHandle(m_rt_easu_texture_id, 0));
-            }
-            m_fsr_rcas_cmdbuf.bindVtxBuffer(0, m_vertex_buffer.getGpuAddr(), m_vertex_buffer.getSize());
-            m_fsr_rcas_cmdbuf.bindVtxAttribState(VertexAttribState);
-            m_fsr_rcas_cmdbuf.bindVtxBufferState(VertexBufferState);
-
-            if (m_fsr_supersampling && m_rcas_enabled)
-            {
-                dk::ImageView rcasTarget{m_rt_rcas_image};
-                m_fsr_rcas_cmdbuf.bindRenderTargets(&rcasTarget);
-                m_fsr_rcas_cmdbuf.setViewports(0, {{ 0.0f, 0.0f, (float)m_fsr_target_width, (float)m_fsr_target_height, 0.0f, 1.0f }});
-                m_fsr_rcas_cmdbuf.setScissors(0, {{ 0, 0, (uint32_t)m_fsr_target_width, (uint32_t)m_fsr_target_height }});
-                m_fsr_rcas_cmdbuf.draw(DkPrimitive_Quads, QuadVertexData.size(), 1, 0, 0);
-
-                dk::ImageView finalTarget{*framebuffer};
-                m_fsr_rcas_cmdbuf.bindRenderTargets(&finalTarget);
-                m_fsr_rcas_cmdbuf.setViewports(0, {{ 0.0f, 0.0f, (float)m_display_width, (float)m_display_height, 0.0f, 1.0f }});
-                m_fsr_rcas_cmdbuf.setScissors(0, {{ 0, 0, (uint32_t)m_display_width, (uint32_t)m_display_height }});
-                m_fsr_rcas_cmdbuf.bindShaders(DkStageFlag_GraphicsMask, { m_vertex_shader, *m_fsr_pass_shader });
-                m_fsr_rcas_cmdbuf.bindTextures(DkStage_Fragment, 0, dkMakeTextureHandle(m_rt_rcas_texture_id, 0));
-                m_fsr_rcas_cmdbuf.draw(DkPrimitive_Quads, QuadVertexData.size(), 1, 0, 0);
-            }
-            else
-            {
-                m_fsr_rcas_cmdbuf.draw(DkPrimitive_Quads, QuadVertexData.size(), 1, 0, 0);
-            }
-
-            m_queue.submitCommands(m_fsr_rcas_cmdbuf.finishList());
+            m_fsr_rcas_cmdbuf.bindShaders(DkStageFlag_GraphicsMask, { m_vertex_shader, *m_fsr_pass_shader });
+            m_fsr_rcas_cmdbuf.bindTextures(DkStage_Fragment, 0, dkMakeTextureHandle(m_rt_rcas_texture_id, 0));
+            m_fsr_rcas_cmdbuf.draw(DkPrimitive_Quads, QuadVertexData.size(), 1, 0, 0);
         }
+        else
+        {
+            m_fsr_rcas_cmdbuf.draw(DkPrimitive_Quads, QuadVertexData.size(), 1, 0, 0);
+        }
+
+        frame.run(m_fsr_rcas_cmdbuf.finishList());
     }
     else
     {
-        m_queue.submitCommands(m_video_cmdlist);
+        frame.run(m_video_cmdlist);
     }
-    m_queue.flush();
+    frame.flush();
 
-    compositeOverlay();
+#if AKIRA_STATS_OVERLAY
+    compositeOverlay(frame);
 
     if (m_border_flash_frames.load(std::memory_order_acquire) > 0)
-        renderBorderFlash();
+        renderBorderFlash(frame);
+#endif
+
+    recordPresentedFrame();
 }
 
-void Deko3dRenderer::registerCallback()
-{
-    if (m_callback_registered)
-        return;
-
-    brls::Application::setPostRenderCallback([this]() {
-        if (m_tick_callback)
-            m_tick_callback();
-
-        if (m_frame_bound && !m_paused.load(std::memory_order_relaxed))
-        {
-            renderVideo();
-        }
-    });
-
-    m_callback_registered = true;
-    brls::Logger::info("Deko3dRenderer: post-render callback registered");
-}
-
-void Deko3dRenderer::unregisterCallback()
-{
-    if (!m_callback_registered)
-        return;
-
-    brls::Application::setExclusiveRender(false);
-    brls::Application::setPostRenderCallback(nullptr);
-    m_callback_registered = false;
-    brls::Logger::info("Deko3dRenderer: post-render callback unregistered");
-}
-
-void Deko3dRenderer::updateFrameBindings(const VideoFrame& frame)
+void Deko3dRenderer::updateFrameBindings(const VideoFrame& frame, FrameRecorder& recorder)
 {
     const auto match = std::ranges::find_if(m_frame_mappings, [&](const FrameMapping& m) {
         return m.cacheKey == frame.cacheKey && m.storage == frame.storage
@@ -870,39 +917,42 @@ void Deko3dRenderer::updateFrameBindings(const VideoFrame& frame)
         m_update_cmdmem.getMemBlock(),
         m_update_cmdmem.getOffset() + m_update_cmdmem_slice * UpdateCmdSliceSize,
         UpdateCmdSliceSize);
-    m_update_cmdmem_slice = (m_update_cmdmem_slice + 1) % brls::FRAMEBUFFERS_COUNT;
+    m_update_cmdmem_slice = (m_update_cmdmem_slice + 1) % m_gpu.framesInFlight();
 
     auto& active = m_frame_mappings[mappingIndex];
-    const bool updatedLuma = m_vctx->updateImageDescriptor(m_update_cmdbuf, m_luma_texture_id, active.lumaDesc);
-    const bool updatedChroma = m_vctx->updateImageDescriptor(m_update_cmdbuf, m_chroma_texture_id, active.chromaDesc);
+    const bool updatedLuma = m_gpu.writeImageSlot(m_update_cmdbuf, m_luma_texture_id, active.lumaDesc);
+    const bool updatedChroma = m_gpu.writeImageSlot(m_update_cmdbuf, m_chroma_texture_id, active.chromaDesc);
 
     if (!updatedLuma || !updatedChroma)
     {
-        brls::Logger::error("Deko3dRenderer::updateFrameMapping: failed to bind luma/chroma descriptors (luma={}, chroma={})",
+        log::error("Deko3dRenderer::updateFrameMapping: failed to bind luma/chroma descriptors (luma={}, chroma={})",
                             updatedLuma, updatedChroma);
     }
     else
     {
-        m_vctx->invalidateImageDescriptors(m_update_cmdbuf);
+        m_gpu.invalidateImageSlots(m_update_cmdbuf);
         m_current_mapping_index = mappingIndex;
+        ++m_bound_mappings;
     }
 
-    m_queue.submitCommands(m_update_cmdbuf.finishList());
+    recorder.run(m_update_cmdbuf.finishList());
 }
 
 void Deko3dRenderer::cleanup()
 {
+#if AKIRA_STATS_OVERLAY
     destroyOverlayTarget();
     destroyOverlayContext();
+#endif
 
     if (!m_initialized)
         return;
 
-    brls::Logger::info("Deko3dRenderer::cleanup");
+    log::info("Deko3dRenderer::cleanup");
 
-    unregisterCallback();
+    m_presentation.reset();
 
-    m_queue.waitIdle();
+    m_gpu.waitIdle();
 
     m_frame_mappings.clear();
     m_current_mapping_index = -1;
@@ -919,13 +969,14 @@ void Deko3dRenderer::cleanup()
 
     m_vertex_buffer.destroy();
     m_dither_uniform.destroy();
+    m_colour_uniform.destroy();
 
     if (m_luma_texture_id) {
-        m_vctx->freeImageIndex(m_luma_texture_id);
+        m_gpu.freeImageSlot(m_luma_texture_id);
         m_luma_texture_id = 0;
     }
     if (m_chroma_texture_id) {
-        m_vctx->freeImageIndex(m_chroma_texture_id);
+        m_gpu.freeImageSlot(m_chroma_texture_id);
         m_chroma_texture_id = 0;
     }
 
@@ -937,7 +988,7 @@ void Deko3dRenderer::cleanup()
     m_chroma_layout = dk::ImageLayout{};
     m_frame_format = FrameFormat{};
 
-    m_frame_bound = false;
+    m_frame_bound.store(false, std::memory_order_release);
 
     m_initialized = false;
     m_textures_initialized = false;
@@ -947,8 +998,26 @@ void Deko3dRenderer::waitIdle()
 {
     if (m_initialized)
     {
-        m_queue.waitIdle();
+        m_gpu.waitIdle();
     }
+}
+
+#if AKIRA_STATS_OVERLAY
+Deko3dRenderer::OverlayColours Deko3dRenderer::colours() const
+{
+    const video::OverlayPalette::Colours source = m_palette.colours();
+    const auto convert = [](video::OverlayPalette::Colour colour) {
+        return nvgRGBAf(colour.r, colour.g, colour.b, colour.a);
+    };
+    return OverlayColours{
+        .accent = convert(source.accent),
+        .warning = convert(source.warning),
+        .danger = convert(source.danger),
+        .success = convert(source.success),
+        .text = convert(source.text),
+        .backgroundDeep = convert(source.backgroundDeep),
+        .media = convert(source.media),
+    };
 }
 
 
@@ -976,12 +1045,12 @@ void Deko3dRenderer::warmFontAtlas(NVGcontext* vg)
 
 void Deko3dRenderer::rebuildOverlayText()
 {
-    const StreamStats m_stats = readStreamStats();
+    const play::StreamStats m_stats = readStreamStats();
 
     uint64_t mins = m_stats.stream_duration_seconds / 60;
     uint64_t secs = m_stats.stream_duration_seconds % 60;
 
-    auto& wg = WireGuardManager::instance();
+    const auto& wg = m_wire_guard;
 
     m_ov.fps = std::format("{:.1f}", m_render_fps);
     m_ov.rate = std::format("{:.1f}", m_stats.measured_bitrate_mbps);
@@ -1065,7 +1134,8 @@ namespace
 {
     NVGcolor ovl(NVGcolor c, unsigned char a)
     {
-        return akira::ui::withAlpha(c, a);
+        return nvgRGBA(static_cast<unsigned char>(c.r * 255.0f), static_cast<unsigned char>(c.g * 255.0f),
+            static_cast<unsigned char>(c.b * 255.0f), a);
     }
 }
 
@@ -1117,9 +1187,9 @@ NVGcolor Deko3dRenderer::toneColor(Tone tone) const
 {
     switch (tone)
     {
-        case Tone::Warn: return akira::ui::active().warning;
-        case Tone::Bad:  return akira::ui::active().danger;
-        default:         return ovl(akira::ui::active().text, 242);
+        case Tone::Warn: return colours().warning;
+        case Tone::Bad:  return colours().danger;
+        default:         return ovl(colours().text, 242);
     }
 }
 
@@ -1128,17 +1198,17 @@ void Deko3dRenderer::drawOverlayPanel(NVGcontext* vg, float x, float y, float w,
     float s = m_overlay_scale;
     nvgBeginPath(vg);
     nvgRoundedRect(vg, x, y, w, h, 10.0f * s);
-    nvgFillColor(vg, ovl(akira::ui::active().backgroundDeep, 148));
+    nvgFillColor(vg, ovl(colours().backgroundDeep, 148));
     nvgFill(vg);
     nvgStrokeWidth(vg, 1.0f);
-    nvgStrokeColor(vg, ovl(akira::ui::active().text, 38));
+    nvgStrokeColor(vg, ovl(colours().text, 38));
     nvgStroke(vg);
 }
 
 void Deko3dRenderer::drawLatencyStrip(NVGcontext* vg, float x, float y, float w, float h)
 {
     float s = m_overlay_scale;
-    const akira::ui::Palette& p = akira::ui::active();
+    const OverlayColours p = colours();
     (void)h;
 
     nvgFontSize(vg, ovlSize(9.5f * s));
@@ -1236,7 +1306,7 @@ void Deko3dRenderer::drawStatRow(NVGcontext* vg, float x, float y, float w,
 
     nvgFontSize(vg, ovlSize(11.5f * s));
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-    nvgFillColor(vg, ovl(akira::ui::active().text, 117));
+    nvgFillColor(vg, ovl(colours().text, 117));
     nvgText(vg, x, y, label, nullptr);
 
     float right = x + w;
@@ -1244,7 +1314,7 @@ void Deko3dRenderer::drawStatRow(NVGcontext* vg, float x, float y, float w,
     {
         nvgFontSize(vg, ovlSize(10.0f * s));
         nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
-        nvgFillColor(vg, ovl(akira::ui::active().text, 117));
+        nvgFillColor(vg, ovl(colours().text, 117));
         nvgText(vg, right, y, unit, nullptr);
         right -= nvgTextBounds(vg, 0, 0, unit, nullptr, nullptr) + 3.0f * s;
     }
@@ -1258,7 +1328,7 @@ void Deko3dRenderer::drawStatRow(NVGcontext* vg, float x, float y, float w,
 void Deko3dRenderer::drawFsrRow(NVGcontext* vg, float x, float y, float w)
 {
     float s = m_overlay_scale;
-    const auto& p = akira::ui::active();
+    const OverlayColours p = colours();
 
     nvgFontSize(vg, ovlSize(11.5f * s));
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
@@ -1294,7 +1364,7 @@ void Deko3dRenderer::drawCompactCell(NVGcontext* vg, float& cursorX, float cente
         nvgMoveTo(vg, cursorX, centerY - 10.0f * s);
         nvgLineTo(vg, cursorX, centerY + 10.0f * s);
         nvgStrokeWidth(vg, 1.0f);
-        nvgStrokeColor(vg, ovl(akira::ui::active().text, 26));
+        nvgStrokeColor(vg, ovl(colours().text, 26));
         nvgStroke(vg);
         cursorX += pad;
     }
@@ -1302,7 +1372,7 @@ void Deko3dRenderer::drawCompactCell(NVGcontext* vg, float& cursorX, float cente
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
 
     nvgFontSize(vg, ovlSize(10.0f * s));
-    nvgFillColor(vg, ovl(akira::ui::active().text, 117));
+    nvgFillColor(vg, ovl(colours().text, 117));
     nvgText(vg, cursorX, centerY, label, nullptr);
     cursorX += nvgTextBounds(vg, 0, 0, label, nullptr, nullptr) + 7.0f * s;
 
@@ -1315,7 +1385,7 @@ void Deko3dRenderer::drawCompactCell(NVGcontext* vg, float& cursorX, float cente
     {
         cursorX += 3.0f * s;
         nvgFontSize(vg, ovlSize(10.5f * s));
-        nvgFillColor(vg, ovl(akira::ui::active().text, 117));
+        nvgFillColor(vg, ovl(colours().text, 117));
         nvgText(vg, cursorX, centerY, unit, nullptr);
         cursorX += nvgTextBounds(vg, 0, 0, unit, nullptr, nullptr);
     }
@@ -1326,7 +1396,7 @@ void Deko3dRenderer::drawCompactCell(NVGcontext* vg, float& cursorX, float cente
 void Deko3dRenderer::drawCompactFsrLine(NVGcontext* vg, float x, float centerY)
 {
     float s = m_overlay_scale;
-    const auto& p = akira::ui::active();
+    const OverlayColours p = colours();
 
     nvgBeginPath(vg);
     nvgCircle(vg, x + 2.5f * s, centerY, 2.5f * s);
@@ -1362,8 +1432,8 @@ void Deko3dRenderer::updateOverlayPlacement()
     if (w <= 0.0f || h <= 0.0f)
         return;
 
-    const float sw = (float)brls::Application::windowWidth;
-    const float sh = (float)brls::Application::windowHeight;
+    const float sw = (float)m_gpu.displaySize().width;
+    const float sh = (float)m_gpu.displaySize().height;
     const float margin = 24.0f * m_overlay_scale;
 
     const float nx = m_overlay_norm_x.load(std::memory_order_relaxed);
@@ -1382,7 +1452,7 @@ void Deko3dRenderer::updateOverlayPlacement()
 bool Deko3dRenderer::overlayTouchBegin(float x, float y)
 {
     std::lock_guard<std::mutex> lock(m_overlay_touch_mutex);
-    if (m_stats_mode.load(std::memory_order_relaxed) == StatsOverlayMode::Off)
+    if (m_stats_mode.load(std::memory_order_relaxed) == play::StatsOverlayMode::Off)
         return false;
 
     float ox = m_overlay_x.load(std::memory_order_relaxed);
@@ -1410,8 +1480,8 @@ void Deko3dRenderer::overlayTouchMove(float x, float y)
     if (!m_overlay_drag)
         return;
 
-    float sw = (float)brls::Application::windowWidth;
-    float sh = (float)brls::Application::windowHeight;
+    float sw = (float)m_gpu.displaySize().width;
+    float sh = (float)m_gpu.displaySize().height;
     if (sw <= 0.0f || sh <= 0.0f)
         return;
 
@@ -1426,12 +1496,12 @@ void Deko3dRenderer::overlayTouchEnd()
         return;
     m_overlay_drag = false;
 
-    float sw = (float)brls::Application::windowWidth;
-    float sh = (float)brls::Application::windowHeight;
+    float sw = (float)m_gpu.displaySize().width;
+    float sh = (float)m_gpu.displaySize().height;
     if (sw <= 0.0f || sh <= 0.0f)
         return;
 
-    SettingsManager::getInstance()->setStatsOverlayPosition(
+    m_stream.setStatsOverlayPosition(
         m_overlay_x.load(std::memory_order_relaxed) / sw,
         m_overlay_y.load(std::memory_order_relaxed) / sh);
     m_overlay_pos_dirty.store(true, std::memory_order_relaxed);
@@ -1471,7 +1541,7 @@ void Deko3dRenderer::drawCompactOverlay(NVGcontext* vg)
     float dotX = ox + 14.0f * s + 3.5f * s;
     nvgBeginPath(vg);
     nvgCircle(vg, dotX, centerY, 3.5f * s);
-    nvgFillColor(vg, overall == Tone::Good ? akira::ui::active().success : toneColor(overall));
+    nvgFillColor(vg, overall == Tone::Good ? colours().success : toneColor(overall));
     nvgFill(vg);
 
     float cursorX = ox + 14.0f * s + 20.0f * s;
@@ -1488,7 +1558,7 @@ void Deko3dRenderer::drawCompactOverlay(NVGcontext* vg)
         nvgMoveTo(vg, ox + 14.0f * s, dividerY);
         nvgLineTo(vg, ox + width - 14.0f * s, dividerY);
         nvgStrokeWidth(vg, 1.0f);
-        nvgStrokeColor(vg, ovl(akira::ui::active().text, 26));
+        nvgStrokeColor(vg, ovl(colours().text, 26));
         nvgStroke(vg);
         drawCompactFsrLine(vg, ox + 14.0f * s, oy + 47.0f * s);
     }
@@ -1514,24 +1584,24 @@ void Deko3dRenderer::drawFullOverlay(NVGcontext* vg)
 
     nvgFontSize(vg, ovlSize(12.5f * s));
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-    nvgFillColor(vg, akira::ui::active().accent);
+    nvgFillColor(vg, colours().accent);
     nvgText(vg, ox + padX, oy + headH * 0.5f, "AKIRA", nullptr);
     float bx = ox + padX + nvgTextBounds(vg, 0, 0, "AKIRA", nullptr, nullptr) + 9.0f * s;
-    nvgFillColor(vg, ovl(akira::ui::active().text, 56));
+    nvgFillColor(vg, ovl(colours().text, 56));
     nvgText(vg, bx, oy + headH * 0.5f, "/", nullptr);
-    nvgFillColor(vg, ovl(akira::ui::active().text, 184));
+    nvgFillColor(vg, ovl(colours().text, 184));
     nvgText(vg, bx + 12.0f * s, oy + headH * 0.5f, m_ov.context.c_str(), nullptr);
 
     nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_MIDDLE);
     nvgFontSize(vg, ovlSize(12.0f * s));
-    nvgFillColor(vg, ovl(akira::ui::active().text, 117));
+    nvgFillColor(vg, ovl(colours().text, 117));
     nvgText(vg, ox + width - padX, oy + headH * 0.5f, m_ov.uptime.c_str(), nullptr);
 
     nvgBeginPath(vg);
     nvgMoveTo(vg, ox, oy + headH);
     nvgLineTo(vg, ox + width, oy + headH);
     nvgStrokeWidth(vg, 1.0f);
-    nvgStrokeColor(vg, ovl(akira::ui::active().text, 26));
+    nvgStrokeColor(vg, ovl(colours().text, 26));
     nvgStroke(vg);
 
     float colW = (width - padX * 2.0f - 28.0f * s) / 3.0f;
@@ -1547,13 +1617,13 @@ void Deko3dRenderer::drawFullOverlay(NVGcontext* vg)
             nvgMoveTo(vg, cx - 7.0f * s, colTop - 14.0f * s);
             nvgLineTo(vg, cx - 7.0f * s, colTop + rowH * rowCount - 4.0f * s);
             nvgStrokeWidth(vg, 1.0f);
-            nvgStrokeColor(vg, ovl(akira::ui::active().text, 26));
+            nvgStrokeColor(vg, ovl(colours().text, 26));
             nvgStroke(vg);
         }
 
         nvgFontSize(vg, ovlSize(9.5f * s));
         nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-        nvgFillColor(vg, ovl(akira::ui::active().text, 87));
+        nvgFillColor(vg, ovl(colours().text, 87));
         nvgText(vg, cx, colTop - 14.0f * s, headers[c], nullptr);
 
         for (int r = 0; r < rowCount; r++)
@@ -1590,7 +1660,7 @@ void Deko3dRenderer::drawFullOverlay(NVGcontext* vg)
     nvgMoveTo(vg, ox, latY);
     nvgLineTo(vg, ox + width, latY);
     nvgStrokeWidth(vg, 1.0f);
-    nvgStrokeColor(vg, ovl(akira::ui::active().text, 26));
+    nvgStrokeColor(vg, ovl(colours().text, 26));
     nvgStroke(vg);
 
     drawLatencyStrip(vg, ox + padX, latY + 6.0f * s, width - padX * 2.0f, latH);
@@ -1600,7 +1670,7 @@ void Deko3dRenderer::drawFullOverlay(NVGcontext* vg)
     nvgMoveTo(vg, ox, footY);
     nvgLineTo(vg, ox + width, footY);
     nvgStrokeWidth(vg, 1.0f);
-    nvgStrokeColor(vg, ovl(akira::ui::active().text, 26));
+    nvgStrokeColor(vg, ovl(colours().text, 26));
     nvgStroke(vg);
 
     nvgFontSize(vg, ovlSize(10.5f * s));
@@ -1617,10 +1687,10 @@ void Deko3dRenderer::drawFullOverlay(NVGcontext* vg)
 
     for (const auto& f : foot)
     {
-        nvgFillColor(vg, ovl(akira::ui::active().text, 117));
+        nvgFillColor(vg, ovl(colours().text, 117));
         nvgText(vg, fx, fy, f.k, nullptr);
         fx += nvgTextBounds(vg, 0, 0, f.k, nullptr, nullptr) + 6.0f * s;
-        nvgFillColor(vg, ovl(akira::ui::active().text, 189));
+        nvgFillColor(vg, ovl(colours().text, 189));
         nvgText(vg, fx, fy, f.v.c_str(), nullptr);
         fx += nvgTextBounds(vg, 0, 0, f.v.c_str(), nullptr, nullptr) + 18.0f * s;
     }
@@ -1628,10 +1698,10 @@ void Deko3dRenderer::drawFullOverlay(NVGcontext* vg)
 
 void Deko3dRenderer::updateOverlayTexture()
 {
-    if (m_stats_mode.load(std::memory_order_relaxed) == StatsOverlayMode::Off)
+    if (m_stats_mode.load(std::memory_order_relaxed) == play::StatsOverlayMode::Off)
         return;
 
-    unsigned screenH = brls::Application::windowHeight;
+    unsigned screenH = static_cast<unsigned>(m_gpu.displaySize().height);
     if (screenH == 0)
         return;
 
@@ -1683,7 +1753,7 @@ void Deko3dRenderer::updateOverlayTexture()
     nvgFontFaceId(m_ovl_vg, m_overlay_font);
     warmFontAtlas(m_ovl_vg);
 
-    if (m_stats_mode.load(std::memory_order_relaxed) == StatsOverlayMode::Compact)
+    if (m_stats_mode.load(std::memory_order_relaxed) == play::StatsOverlayMode::Compact)
         drawCompactOverlay(m_ovl_vg);
     else
         drawFullOverlay(m_ovl_vg);
@@ -1712,7 +1782,7 @@ bool Deko3dRenderer::ensureOverlayShaders()
         !loadShader(m_ovl_fragment_shader, m_shaders->load(StaticShader::OverlayFragment)) ||
         !loadShader(m_border_fragment_shader, m_shaders->load(StaticShader::BorderFragment)))
     {
-        brls::Logger::error("overlay: blit shader compilation failed");
+        log::error("overlay: blit shader compilation failed");
         return false;
     }
 
@@ -1747,14 +1817,14 @@ bool Deko3dRenderer::ensureOverlayContext()
     m_ovl_vg = nvgCreateDk(&*m_ovl_renderer, NVG_ANTIALIAS | NVG_STENCIL_STROKES);
     if (!m_ovl_vg)
     {
-        brls::Logger::error("overlay: private nanovg context creation failed");
+        log::error("overlay: private nanovg context creation failed");
         return false;
     }
 
-    m_overlay_font = nvgCreateFont(m_ovl_vg, "mono", BRLS_ASSET("font/Cousine-Regular.ttf"));
+    m_overlay_font = nvgCreateFont(m_ovl_vg, "mono", "romfs:/font/Cousine-Regular.ttf");
     if (m_overlay_font < 0)
     {
-        brls::Logger::error("overlay: private context could not load the mono font");
+        log::error("overlay: private context could not load the mono font");
         return false;
     }
 
@@ -1763,7 +1833,7 @@ bool Deko3dRenderer::ensureOverlayContext()
     m_ovl_rt_cmdmem->allocate(*m_ovl_data_pool, 8 * 1024);
 
     m_ovl_ctx_ready = true;
-    brls::Logger::info("overlay: private queue and nanovg context ready");
+    log::info("overlay: private queue and nanovg context ready");
     return true;
 }
 
@@ -1823,7 +1893,7 @@ bool Deko3dRenderer::ensureOverlayTarget()
     m_ovl_ds_handle = m_ovl_images_pool->allocate(m_ovl_ds_layout.getSize(), m_ovl_ds_layout.getAlignment());
     if (!m_ovl_ds_handle)
     {
-        brls::Logger::error("overlay: could not allocate depth target");
+        log::error("overlay: could not allocate depth target");
         return false;
     }
     m_ovl_ds_image.initialize(m_ovl_ds_layout, m_ovl_ds_handle.getMemBlock(), m_ovl_ds_handle.getOffset());
@@ -1836,23 +1906,23 @@ bool Deko3dRenderer::ensureOverlayTarget()
         m_ovl_rt_handle[i] = m_ovl_images_pool->allocate(m_ovl_rt_layout.getSize(), m_ovl_rt_layout.getAlignment());
         if (!m_ovl_rt_handle[i])
         {
-            brls::Logger::error("overlay: could not allocate {}x{} render target", wantW, wantH);
+            log::error("overlay: could not allocate {}x{} render target", wantW, wantH);
             destroyOverlayTarget();
             return false;
         }
         m_ovl_rt_image[i].initialize(m_ovl_rt_layout, m_ovl_rt_handle[i].getMemBlock(), m_ovl_rt_handle[i].getOffset());
         m_ovl_rt_desc[i].initialize(m_ovl_rt_image[i], true);
-        m_ovl_rt_texture_id[i] = m_vctx->allocateImageIndex();
+        m_ovl_rt_texture_id[i] = m_gpu.allocateImageSlot();
 
-        if (!m_vctx->updateImageDescriptor(m_ovl_desc_cmdbuf, m_ovl_rt_texture_id[i], m_ovl_rt_desc[i]))
+        if (!m_gpu.writeImageSlot(m_ovl_desc_cmdbuf, m_ovl_rt_texture_id[i], m_ovl_rt_desc[i]))
         {
-            brls::Logger::error("overlay: failed to bind render target descriptor");
+            log::error("overlay: failed to bind render target descriptor");
             destroyOverlayTarget();
             return false;
         }
     }
 
-    m_vctx->invalidateImageDescriptors(m_ovl_desc_cmdbuf);
+    m_gpu.invalidateImageSlots(m_ovl_desc_cmdbuf);
     m_ovl_desc_list = m_ovl_desc_cmdbuf.finishList();
     m_ovl_desc_live = false;
     m_ovl_desc_pending.store(true, std::memory_order_release);
@@ -1864,7 +1934,7 @@ bool Deko3dRenderer::ensureOverlayTarget()
     m_ovl_rt_scale = s;
     m_ovl_dirty = true;
 
-    brls::Logger::info("overlay: render targets {}x{} ready (tex={},{})",
+    log::info("overlay: render targets {}x{} ready (tex={},{})",
                        wantW, wantH, m_ovl_rt_texture_id[0], m_ovl_rt_texture_id[1]);
     return true;
 }
@@ -1882,7 +1952,7 @@ void Deko3dRenderer::destroyOverlayTarget()
     {
         if (m_ovl_rt_texture_id[i])
         {
-            m_vctx->freeImageIndex(m_ovl_rt_texture_id[i]);
+            m_gpu.freeImageSlot(m_ovl_rt_texture_id[i]);
             m_ovl_rt_texture_id[i] = 0;
         }
         m_ovl_rt_handle[i].destroy();
@@ -1894,12 +1964,12 @@ void Deko3dRenderer::destroyOverlayTarget()
     m_ovl_rt_h = 0;
 }
 
-void Deko3dRenderer::compositeOverlay()
+void Deko3dRenderer::compositeOverlay(FrameRecorder& frame)
 {
     if (m_ovl_desc_pending.exchange(false, std::memory_order_acquire))
     {
         if (m_ovl_desc_list)
-            m_queue.submitCommands(m_ovl_desc_list);
+            frame.run(m_ovl_desc_list);
         m_ovl_desc_live = true;
     }
 
@@ -1910,12 +1980,10 @@ void Deko3dRenderer::compositeOverlay()
     if (front < 0 || !m_ovl_rt_texture_id[front])
         return;
 
-    dk::Image* framebuffer = m_vctx->getFramebuffer();
-    if (!framebuffer)
-        return;
+    dk::Image* framebuffer = &frame.target();
 
-    const float sw = (float)brls::Application::windowWidth;
-    const float sh = (float)brls::Application::windowHeight;
+    const float sw = (float)m_gpu.displaySize().width;
+    const float sh = (float)m_gpu.displaySize().height;
     if (sw <= 0.0f || sh <= 0.0f)
         return;
 
@@ -1969,11 +2037,11 @@ void Deko3dRenderer::compositeOverlay()
 
     DkCmdList list = m_ovl_cmdmem->end(m_ovl_cmdbuf);
     if (list)
-        m_queue.submitCommands(list);
-    m_queue.flush();
+        frame.run(list);
+    frame.flush();
 }
 
-void Deko3dRenderer::renderBorderFlash()
+void Deko3dRenderer::renderBorderFlash(FrameRecorder& frame)
 {
     int before = m_border_flash_frames.load(std::memory_order_acquire);
     while (before > 0
@@ -1987,12 +2055,10 @@ void Deko3dRenderer::renderBorderFlash()
     if (!m_ovl_shaders_ready)
         return;
 
-    dk::Image* framebuffer = m_vctx->getFramebuffer();
-    if (!framebuffer)
-        return;
+    dk::Image* framebuffer = &frame.target();
 
-    const float sw = (float)brls::Application::windowWidth;
-    const float sh = (float)brls::Application::windowHeight;
+    const float sw = (float)m_gpu.displaySize().width;
+    const float sh = (float)m_gpu.displaySize().height;
     if (sw <= 0.0f || sh <= 0.0f)
         return;
 
@@ -2001,7 +2067,7 @@ void Deko3dRenderer::renderBorderFlash()
     if (alpha <= 0.002f)
         return;
 
-    NVGcolor accent = ovl(akira::ui::active().accent, 255);
+    NVGcolor accent = ovl(colours().accent, 255);
 
     float uniforms[8] = {
         accent.r, accent.g, accent.b, alpha,
@@ -2042,9 +2108,11 @@ void Deko3dRenderer::renderBorderFlash()
 
     DkCmdList list = m_ovl_cmdmem->end(m_ovl_cmdbuf);
     if (list)
-        m_queue.submitCommands(list);
-    m_queue.flush();
+        frame.run(list);
+    frame.flush();
 }
+
+#endif
 
 bool Deko3dRenderer::captureLastFrame(std::vector<uint8_t>& rgba, int& width, int& height)
 {
@@ -2155,5 +2223,3 @@ size_t Deko3dRenderer::blockLinearOffset(uint32_t x, uint32_t y, uint32_t pitch,
 
 
 }
-
-#endif // BOREALIS_USE_DEKO3D

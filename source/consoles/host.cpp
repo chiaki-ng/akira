@@ -1,0 +1,476 @@
+#include "consoles/host.hpp"
+#include "play/chiaki_core.hpp"
+#include "accounts/account_settings.hpp"
+#include "app/app_settings.hpp"
+#include "play/takion_pins.hpp"
+#include "network/wireguard_manager.hpp"
+#include "log/log.hpp"
+
+#include <algorithm>
+#include <ranges>
+
+namespace akira::consoles {
+
+Host::Host(HostRecord record, const accounts::AccountSettings& accounts, const app::AppSettings& app,
+           app::UiDispatcher& dispatcher, play::ChiakiCore& core)
+    : accountSettings(accounts),
+      appSettings(app),
+      dispatcher(dispatcher),
+      core(core),
+      haptic(record.haptic),
+      consolePIN(std::move(record.consolePin)),
+      pinnedTakionVersion(record.pinnedTakionVersion),
+      hostName(std::move(record.nickname)),
+      hardwareId(record.hardwareId),
+      hostAddr(std::move(record.hostAddr)),
+      serverNickname(std::move(record.serverNickname)),
+      remoteDuid(std::move(record.remoteDuid)),
+      firmware(record.firmware),
+      consoleId(record.consoleId),
+      legacyRegistrations(std::move(record.legacyRegistrations)),
+      hostType(record.hostType)
+{
+}
+
+HostRecord Host::record() const
+{
+    HostRecord saved;
+    saved.nickname = hostName;
+    saved.serverNickname = serverNickname;
+    saved.consoleId = consoleId;
+    saved.hostType = hostType;
+    saved.hostAddr = getHostAddr();
+    saved.firmware = getFirmware();
+    saved.hardwareId = hardwareId;
+    saved.consolePin = consolePIN;
+    saved.haptic = haptic;
+    saved.pinnedTakionVersion = pinnedTakionVersion;
+    saved.remoteDuid = remoteDuid;
+    for (const Registration& registration : legacyRegistrations)
+        saved.legacyRegistrations.push_back(registration.clone());
+    return saved;
+}
+
+ConsoleFacts Host::facts() const
+{
+    return ConsoleFacts{
+        .catalogName = hostName,
+        .name = hostName,
+        .type = hostType,
+        .cloud = isCloud(),
+        .paired = hasRpKey(),
+        .discovered = discovered,
+        .needsLink = needsLinking,
+        .ps5 = isPS5(),
+        .standby = isStandby(),
+        .ready = isReady(),
+        .canPairOverInternet = canPairOverInternet(),
+        .hasAddress = !getHostAddr().empty(),
+        .presence = getStateString(),
+        .address = getHostAddr(),
+        .remotePlayDisabled = psnRemotePlayDisabled,
+    };
+}
+
+Host::~Host()
+{
+    pairingGeneration->fetch_add(1);
+}
+
+std::string Host::getHostAddr() const
+{
+    if (console) {
+        if (const auto address = console->last_address())
+            return address->text();
+    }
+    return hostAddr;
+}
+
+std::optional<Host::Firmware> Host::getFirmware() const
+{
+    if (console)
+        return console->firmware();
+    return firmware;
+}
+
+void Host::linkConsole(std::shared_ptr<libchiaking::consoles::Console> linked)
+{
+    console = std::move(linked);
+    if (console)
+        hardwareId = console->hardware_id();
+}
+
+bool Host::isPS5() const
+{
+    const auto known = getFirmware();
+    return known && known->generation() == libchiaking::consoles::Generation::ps5;
+}
+
+std::expected<void, Host::AddressRefusal> Host::moveTo(const std::string& address)
+{
+    namespace consoles = libchiaking::consoles;
+    auto created = consoles::Host::create(address, isPS5() ? consoles::Generation::ps5 : consoles::Generation::ps4);
+    if (!created)
+        return std::unexpected(AddressRefusal::Invalid);
+    if (console)
+    {
+        if (auto moved = console->moved_to(created.value()); !moved)
+            return std::unexpected(moved.error() == consoles::Console::Unchanged::address_not_for_generation
+                    ? AddressRefusal::Invalid
+                    : AddressRefusal::NotSaved);
+    }
+    hostAddr = address;
+    return {};
+}
+
+std::span<const std::uint32_t> Host::pinnableTakionVersions() const
+{
+    return play::TakionPins::pinnable(isPS5());
+}
+
+bool Host::isPinnableTakionVersion(std::uint32_t version) const
+{
+    return play::TakionPins::isPinnable(isPS5(), version);
+}
+
+bool Host::needsAccountId() const
+{
+    const auto known = getFirmware();
+    return known && known->family() != Firmware::Family::ps4_8;
+}
+
+bool Host::hasRpKey() const
+{
+    const accounts::Profile* profile = accountSettings.activeProfile();
+    if (!profile)
+        return false;
+    if (hasLegacyRegistration(profile->id))
+        return true;
+    if (!console)
+        return false;
+    const auto account = libchiaking::AccountId::from_base64(profile->accountId);
+    if (!account)
+        return false;
+    return std::ranges::contains(console->paired_accounts(), *account);
+}
+
+std::string Host::getStateString() const
+{
+    switch (presence)
+    {
+        case Presence::ready:
+            return "Ready";
+        case Presence::rest_mode:
+            return "Standby";
+        default:
+            return "Unknown";
+    }
+}
+
+std::string Host::getTargetString() const
+{
+    return isPS5() ? "PS5" : "PS4";
+}
+
+bool Host::hasLegacyRegistration(int64_t profileId) const
+{
+    return std::ranges::any_of(legacyRegistrations,
+        [profileId](const Registration& reg) { return reg.profileId == profileId; });
+}
+
+void Host::removeRegistrationsForProfile(int64_t profileId)
+{
+    std::erase_if(legacyRegistrations,
+        [profileId](const Registration& reg) { return reg.profileId == profileId; });
+}
+
+void Host::copyRegistrationFrom(const Host* other)
+{
+    if (!other) return;
+
+    linkConsole(other->console);
+    for (const Registration& reg : other->legacyRegistrations) {
+        removeRegistrationsForProfile(reg.profileId);
+        legacyRegistrations.push_back(reg.clone());
+    }
+
+    consolePIN = other->consolePIN;
+
+    log::info("Copied registration data from '{}' to '{}'", other->hostName, hostName);
+}
+
+libchiaking::Expected<void, Host::WakeRefusal> Host::wake(network::WireGuardManager& wireGuard)
+{
+    auto* accounts = core.accounts();
+    const auto user = accounts ? accounts->activeUser() : nullptr;
+    if (!console || !user)
+    {
+        log::error("Host::wake: {} has no paired console or no user to wake it as", hostName);
+        return libchiaking::unexpected(WakeRefusal::not_paired);
+    }
+
+    const auto network = homeNetwork(wireGuard);
+    auto woken = console->wake(*user, network);
+    if (!woken)
+        log::error("Host::wake: {} refused (reason {})", hostName, static_cast<int>(woken.error()));
+    else
+        log::info("Host::wake: wake packet sent to {}{}", hostName,
+            network.network() ? " through the WireGuard tunnel" : "");
+    return woken;
+}
+
+libchiaking::consoles::HomeNetwork Host::homeNetwork(network::WireGuardManager& wireGuard) const
+{
+    if (isRemote() || isCloud())
+        return {};
+    return wireGuard.homeNetwork(getHostAddr());
+}
+
+HostRegisterError Host::registerHost(int pin, PairingCallback done)
+{
+    namespace consoles = libchiaking::consoles;
+    namespace platform = libchiaking::platform;
+
+    auto* accounts = core.accounts();
+    auto user = accounts ? accounts->activeUser() : nullptr;
+    if (!user && accountSettings.isLegacyProfileActive() && accountSettings.psnOnlineId().empty())
+    {
+        log::error("The legacy profile has no online ID; registration needs one");
+        return HOST_REGISTER_ERROR_SETTING_PSNONLINEID;
+    }
+    if (!user)
+    {
+        log::error("Undefined PSN account for registration (please configure the profile)");
+        return needsAccountId() ? HOST_REGISTER_ERROR_SETTING_PSNACCOUNTID : HOST_REGISTER_ERROR_SETTING_PSNONLINEID;
+    }
+
+    const auto known = getFirmware();
+    if (!known)
+    {
+        log::error("Undefined PS4 system version (please run discover first)");
+        return HOST_REGISTER_ERROR_UNDEFINED_TARGET;
+    }
+
+    auto parsedPin = consoles::PairingPin::create(static_cast<uint32_t>(pin));
+    if (!parsedPin)
+    {
+        log::error("Registration PIN for {} is out of range", hostName);
+        return HOST_REGISTER_ERROR_UNDEFINED_TARGET;
+    }
+
+    std::optional<consoles::Host> address;
+    if (!console)
+    {
+        auto created = consoles::Host::create(hostAddr, known->generation());
+        if (!created)
+        {
+            log::error("Registration address {} is not usable", hostAddr);
+            return HOST_REGISTER_ERROR_UNDEFINED_TARGET;
+        }
+        address = std::move(created.value());
+    }
+
+    const uint64_t generation = pairingGeneration->fetch_add(1) + 1;
+    pairingThread = platform::Thread{};
+
+    log::info("Registering to host `{}` `{}` as `{}`", hostName, getHostAddr(),
+        appSettings.maskAccountName(user->online_id()));
+
+    auto work = [this, user, found = console, address = std::move(address), firmware = *known,
+                 pinHolder = std::make_shared<consoles::PairingPin>(std::move(*parsedPin)), generation,
+                 name = hostName, done](platform::StopToken stop) {
+        auto& known = core.chiaki().consoles();
+        auto paired = found
+            ? known.pair_at_home(*user, *found, std::move(*pinHolder), stop)
+            : known.pair_at_home(*user, *address, firmware.generation(), std::move(*pinHolder), stop);
+
+        PairingOutcome outcome = PairingOutcome::Paired;
+        std::shared_ptr<consoles::Console> console;
+        if (paired)
+        {
+            console = std::move(paired).value();
+        }
+        else
+        {
+            const auto reason = paired.error().reason;
+            log::error("Registration with {} failed (reason {})", name, static_cast<int>(reason));
+            outcome = reason == consoles::PairingFailure::Reason::cancelled ? PairingOutcome::Canceled
+                : reason == consoles::PairingFailure::Reason::refused       ? PairingOutcome::Refused
+                                                                            : PairingOutcome::Failed;
+        }
+
+        dispatcher.post([this, alive = std::weak_ptr<std::atomic<uint64_t>>(pairingGeneration), generation, outcome,
+                    console = std::move(console), done]() {
+            const auto token = alive.lock();
+            if (!token || token->load() != generation)
+                return;
+            finishPairing(outcome, console, done);
+        });
+    };
+
+    auto started = platform::Thread::start(core.threading(), "registration", platform::ThreadRole::registration,
+        std::move(work));
+    if (!started)
+    {
+        log::error("Registration thread could not start");
+        return HOST_REGISTER_ERROR_UNDEFINED_TARGET;
+    }
+    pairingThread = std::move(started).value();
+    return HOST_REGISTER_OK;
+}
+
+bool Host::canPairOverInternet() const
+{
+    if (accountSettings.isLegacyProfileActive())
+        return false;
+    auto* accounts = core.accounts();
+    if (!accounts || accounts->state() != accounts::SessionState::Valid)
+        return false;
+    return !accountSettings.psnAccountId().empty();
+}
+
+HostRegisterError Host::registerOverInternet(PairingStageCallback stage, PairingCallback done)
+{
+    namespace consoles = libchiaking::consoles;
+    namespace platform = libchiaking::platform;
+
+    auto* accounts = core.accounts();
+    auto user = accounts ? accounts->activeUser() : nullptr;
+    if (!user || accountSettings.isLegacyProfileActive())
+        return HOST_REGISTER_ERROR_SETTING_PSNACCOUNTID;
+
+    const uint64_t generation = pairingGeneration->fetch_add(1) + 1;
+    pairingThread = platform::Thread{};
+
+    const auto consoleGeneration = isPS5() ? consoles::Generation::ps5 : consoles::Generation::ps4;
+    log::info("Pairing {} over the internet", hostName);
+
+    auto work = [this, accounts, user, generation, consoleGeneration, name = hostName,
+                 duid = consoles::DeviceUid::parse(remoteDuid), stage, done](platform::StopToken stop) {
+        const std::weak_ptr<std::atomic<uint64_t>> alive = pairingGeneration;
+        auto& known = core.chiaki().consoles();
+        auto finish = [this, alive, generation, done](PairingOutcome outcome,
+                                                       std::shared_ptr<consoles::Console> paired) {
+            dispatcher.post([this, alive, generation, outcome, paired = std::move(paired), done]() {
+                const auto token = alive.lock();
+                if (!token || token->load() != generation)
+                    return;
+                finishPairing(outcome, paired, done);
+            });
+        };
+
+        const bool signedIn = accounts->staySignedIn(stop);
+        log::info("Internet pairing: sign-in renewed (valid={})", signedIn);
+        postStage(dispatcher, alive, generation, stage, 2);
+
+        auto listed = known.consoles_on_account(*user, consoleGeneration, stop);
+        if (!listed)
+        {
+            log::error("Internet pairing: PSN did not list the consoles (reason {})",
+                static_cast<int>(listed.error().reason));
+            finish(stop.stop_requested() ? PairingOutcome::Canceled : PairingOutcome::Failed, nullptr);
+            return;
+        }
+
+        const auto match = std::ranges::find_if(listed.value(), [&](const consoles::AccountConsole& entry) {
+            return (duid && entry.device_uid() == *duid) || entry.name() == name;
+        });
+        if (match == listed.value().end())
+        {
+            log::error("Internet pairing: {} is not on the PSN account", name);
+            finish(PairingOutcome::Failed, nullptr);
+            return;
+        }
+
+        postStage(dispatcher, alive, generation, stage, 3);
+        InternetPairingWatcher watcher(dispatcher, alive, generation, stage);
+        auto paired = known.pair_over_the_internet(*user, *match, &watcher, stop);
+        if (!paired)
+        {
+            const auto reason = paired.error().reason;
+            log::error("Internet pairing with {} failed (reason {})", name, static_cast<int>(reason));
+            finish(reason == consoles::PairingFailure::Reason::cancelled ? PairingOutcome::Canceled
+                : reason == consoles::PairingFailure::Reason::refused    ? PairingOutcome::Refused
+                                                                         : PairingOutcome::Failed,
+                nullptr);
+            return;
+        }
+        finish(PairingOutcome::Paired, std::move(paired).value());
+    };
+
+    auto started = platform::Thread::start(core.threading(), "internet-pairing", platform::ThreadRole::registration,
+        std::move(work));
+    if (!started)
+    {
+        log::error("Internet pairing thread could not start");
+        return HOST_REGISTER_ERROR_HOLEPUNCH;
+    }
+    pairingThread = std::move(started).value();
+    return HOST_REGISTER_OK;
+}
+
+void Host::postStage(app::UiDispatcher& dispatcher, const std::weak_ptr<std::atomic<uint64_t>>& alive,
+                     uint64_t generation, const PairingStageCallback& stage, int index)
+{
+    if (!stage)
+        return;
+    dispatcher.post([alive, generation, stage, index]() {
+        const auto token = alive.lock();
+        if (!token || token->load() != generation)
+            return;
+        stage(index, internetPairingStages);
+    });
+}
+
+Host::InternetPairingWatcher::InternetPairingWatcher(app::UiDispatcher& dispatcher,
+                                                     std::weak_ptr<std::atomic<uint64_t>> alive, uint64_t generation,
+                                                     PairingStageCallback stage)
+    : dispatcher(dispatcher)
+    , alive(std::move(alive))
+    , generation(generation)
+    , stage(std::move(stage))
+{
+}
+
+void Host::InternetPairingWatcher::on_stage(libchiaking::consoles::InternetPairingStage reached)
+{
+    using libchiaking::consoles::InternetPairingStage;
+    log::info("Internet pairing stage {}", static_cast<int>(reached));
+    if (reached == InternetPairingStage::pairing)
+        postStage(dispatcher, alive, generation, stage, internetPairingStages);
+}
+
+void Host::cancelRegistration()
+{
+    pairingGeneration->fetch_add(1);
+    static_cast<void>(pairingThread.request_stop());
+}
+
+void Host::abandonRegistration()
+{
+    cancelRegistration();
+    pairingThread = libchiaking::platform::Thread{};
+}
+
+void Host::releaseConsole()
+{
+    console.reset();
+}
+
+void Host::finishPairing(PairingOutcome outcome, std::shared_ptr<libchiaking::consoles::Console> paired,
+                         const PairingCallback& done)
+{
+    if (outcome == PairingOutcome::Paired && paired)
+    {
+        linkConsole(paired);
+        firmware = paired->firmware();
+        serverNickname = paired->name();
+        if (const accounts::Profile* profile = accountSettings.activeProfile())
+            removeRegistrationsForProfile(profile->id);
+        log::info("Register Success {}", hostName);
+    }
+    if (done)
+        done(outcome);
+}
+
+}

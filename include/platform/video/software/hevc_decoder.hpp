@@ -14,13 +14,6 @@
 #include "platform/video/software/frame_pool.hpp"
 #include "util/av_wrappers.hpp"
 
-namespace brls
-{
-
-class Box;
-
-}
-
 namespace akira::platform::software
 {
 
@@ -35,7 +28,6 @@ public:
     HevcDecoder(const HevcDecoder&) = delete;
     HevcDecoder& operator=(const HevcDecoder&) = delete;
 
-    static void addSetting(brls::Box& group);
 
     void setFrameReadyCallback(FrameReadyCallback callback) { m_frame_ready_callback = std::move(callback); }
 

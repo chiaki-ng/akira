@@ -2,7 +2,7 @@
 
 #include <utility>
 
-namespace cloud {
+namespace akira::cloud {
 
 FetchFailure::FetchFailure(Reason reason, uint16_t httpStatus, bool needsSignIn)
     : why(reason), status(httpStatus), signIn(needsSignIn)
@@ -131,4 +131,4 @@ auto FollowedFetch::observe(uint64_t operation, FetchProgress progress) -> Chang
     return stepMoved ? Change::Step : Change::Lines;
 }
 
-} // namespace cloud
+} // namespace akira::cloud

@@ -5,13 +5,22 @@
 
 #include "platform/video/deko3d/provider.hpp"
 
+namespace akira::settings
+{
+
+class DeveloperSettings;
+
+}
+
 namespace akira::platform::drako3d
 {
 
 class Drako3dVideoProvider final : public VideoProvider
 {
 public:
-    Drako3dVideoProvider();
+    Drako3dVideoProvider(deko3d::GpuHost& gpu, play::StreamSettings& stream, const play::StreamState& streamState,
+        const settings::DeveloperSettings& developer, const network::WireGuardManager& wireGuard,
+        const video::OverlayPalette& palette);
     Drako3dVideoProvider(const Drako3dVideoProvider&) = delete;
     Drako3dVideoProvider& operator=(const Drako3dVideoProvider&) = delete;
 
@@ -20,7 +29,7 @@ public:
     const char* name() const override { return m_deko3d.name(); }
     std::string_view decoderName() const override { return m_deko3d.decoderName(); }
     std::string_view decoderStat() const override { return m_deko3d.decoderStat(); }
-    bool addSettings(brls::Box& group) const override;
+    VideoOptions options() const override { return { .softwareHevc = true }; }
 
     VideoDecoder* decoder() override { return m_deko3d.decoder(); }
     VideoDecoder& ensureDecoder() override { return m_deko3d.ensureDecoder(); }

@@ -1,14 +1,10 @@
 #include "util/http_pool.hpp"
-
-#include <borealis.hpp>
-
-#include "core/chiaki_core.hpp"
+#include "log/log.hpp"
 
 
-HttpPool& HttpPool::instance()
+HttpPool::HttpPool(libchiaking::platform::ThreadingProvider& threading)
+    : threading(threading)
 {
-    static HttpPool* pool = new HttpPool();
-    return *pool;
 }
 
 HttpPool::~HttpPool()
@@ -36,16 +32,16 @@ void HttpPool::ensureStarted()
     if (!threads.empty())
         return;
 
-    brls::Logger::info("HttpPool starting {} worker(s)", THREAD_COUNT);
+    akira::log::info("HttpPool starting {} worker(s)", THREAD_COUNT);
 
     threads.reserve(THREAD_COUNT);
     for (int i = 0; i < THREAD_COUNT; i++)
     {
-        auto started = libchiaking::platform::Thread::start(akira::ChiakiCore::current().threading(),
+        auto started = libchiaking::platform::Thread::start(threading,
             WORKER_NAMES[static_cast<size_t>(i)], libchiaking::platform::ThreadRole::unspecified, [this, i]() { run(i); });
         if (!started)
         {
-            brls::Logger::error("HttpPool worker {} could not start", i);
+            akira::log::error("HttpPool worker {} could not start", i);
             continue;
         }
         threads.push_back(std::move(started).value());
@@ -92,5 +88,5 @@ void HttpPool::run(int index)
         task(session);
     }
 
-    brls::Logger::info("HttpPool worker {} exiting", index);
+    akira::log::info("HttpPool worker {} exiting", index);
 }

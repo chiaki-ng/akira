@@ -10,13 +10,16 @@
 #include "platform/haptics/provider.hpp"
 #include "platform/pad_settings/provider.hpp"
 #include "platform/pads/provider.hpp"
+#include "platform/platform_services.hpp"
 #include "platform/stats/provider.hpp"
-#include "platform/stream/provider.hpp"
 #include "platform/updates/provider.hpp"
 #include "platform/video/provider.hpp"
 #include "platform/video/renderer_choice.hpp"
 
+namespace akira::play {
+class CouchSeats;
 class HapticManager;
+}
 
 namespace akira::platform
 {
@@ -24,7 +27,8 @@ namespace akira::platform
 class PlatformFactory
 {
 public:
-    static PlatformFactory& instance();
+    static std::unique_ptr<PlatformFactory> create(PlatformServices services);
+    static PlatformCapability fixedCapabilities() noexcept;
 
     virtual ~PlatformFactory() = default;
 
@@ -43,14 +47,14 @@ public:
     virtual UpdateProvider& updates() = 0;
     virtual StatsProvider& stats() = 0;
     virtual PadProvider& pads() = 0;
+    virtual play::CouchSeats* couchSeats() = 0;
 
     virtual void prepareVideo() = 0;
     virtual std::vector<RendererChoice> rendererChoices() const = 0;
     virtual std::unique_ptr<VideoProvider> createVideo() = 0;
     virtual std::unique_ptr<HapticsProvider> createHaptics() = 0;
-    virtual std::unique_ptr<FeedbackProvider> createFeedback(HapticManager& haptics) = 0;
-    virtual std::unique_ptr<StreamControlsProvider> createStreamControls(std::weak_ptr<StreamControlsHost> host) = 0;
-    virtual std::unique_ptr<PadSettingsProvider> createPadSettings(const input::PadDescription& pad) = 0;
+    virtual std::unique_ptr<FeedbackProvider> createFeedback(play::HapticManager& haptics) = 0;
+    virtual std::unique_ptr<PadSettingsProvider> createPadSettings(const platform::PadDescription& pad) = 0;
 
 protected:
     PlatformFactory() = default;

@@ -1,12 +1,12 @@
 #include "test_util.hpp"
 
-#include "input/gesture_timing.hpp"
+#include "play/gesture_timing.hpp"
 
 using namespace std::chrono_literals;
 
 TEST(gesture_durations_preserve_legacy_60hz_behavior)
 {
-    using namespace akira::input::gesture;
+    using namespace akira::play::gesture;
 
     CHECK_EQ(std::chrono::duration_cast<std::chrono::milliseconds>(SwipeDuration).count(), 300);
     CHECK_EQ(std::chrono::duration_cast<std::chrono::milliseconds>(BorderTapCommitDelay).count(), 66);
@@ -17,7 +17,7 @@ TEST(gesture_durations_preserve_legacy_60hz_behavior)
 
 TEST(gesture_interpolation_uses_elapsed_progress)
 {
-    using akira::input::gesture::interpolate;
+    using akira::play::gesture::interpolate;
 
     CHECK_EQ(interpolate(0, 1920, 0ms, 300ms), 0);
     CHECK_EQ(interpolate(0, 1920, 150ms, 300ms), 960);

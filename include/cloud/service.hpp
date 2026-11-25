@@ -19,47 +19,23 @@
 #include "cloud/game_actions.hpp"
 #include "cloud/library_listing.hpp"
 #include "cloud/models.hpp"
-#include "core/background_work.hpp"
+#include "cloud/status.hpp"
+#include "cloud/title_refresh.hpp"
+#include "app/background_work.hpp"
+#include "app/strings.hpp"
+#include "app/ui_dispatcher.hpp"
 
-class SettingsManager;
+class HttpPool;
 
-namespace cloud {
+namespace akira::accounts {
+class AccountSettings;
+}
 
-enum class Availability {
-    NoProfile,
-    NeedsPairing,
-    Checking,
-    CatalogAvailable,
-    SubscriptionRequired,
-    Ready,
-    Warning,
-    Empty,
-    Error,
-    LaunchBlocked
-};
+namespace akira::play {
+class ChiakiCore;
+}
 
-struct Status {
-    Availability availability = Availability::NoProfile;
-    std::string title;
-    std::string detail;
-    bool canBrowse = false;
-    bool canPair = false;
-    bool degraded = false;
-    int gameCount = 0;
-    PlusMembership plusMembership = PlusMembership::Unknown;
-};
-
-struct TitleRefresh {
-    enum class Outcome {
-        Added,
-        NotInLibrary,
-        Failed
-    };
-
-    Outcome outcome = Outcome::Failed;
-    std::optional<Game> game;
-    std::string message;
-};
+namespace akira::cloud {
 
 struct Snapshot {
     Status status;
@@ -80,7 +56,11 @@ public:
     using TitleCallback = std::function<void(TitleRefresh)>;
     using FetchCallback = std::function<void(const FetchProgress&)>;
 
-    static Service& instance();
+    Service(const accounts::AccountSettings& accountSettings, HttpPool& http, app::UiDispatcher& dispatcher,
+            const app::Strings& strings, play::ChiakiCore& core);
+
+    Service(const Service&) = delete;
+    Service& operator=(const Service&) = delete;
 
     Snapshot snapshotForActiveProfile() const;
 
@@ -101,7 +81,7 @@ public:
     std::optional<int64_t> trustedNowMs() const;
     bool signedIn() const;
 
-    static Snapshot snapshotOf(const FetchFailure& failure);
+    Snapshot snapshotOf(const FetchFailure& failure) const;
 
 private:
     using User = std::shared_ptr<libchiaking::users::PsUser>;
@@ -134,11 +114,9 @@ private:
     static constexpr std::chrono::hours freshFor{1};
     static constexpr const char* LEGACY_CACHE_DIR = "sdmc:/switch/akira/cache/cloud";
 
-    Service();
-
-    static Snapshot defaultSnapshotForProfile(bool hasProfile, bool paired);
-    static Snapshot snapshotOf(const libchiaking::catalog::MyGames& games, libchiaking::catalog::Catalog& catalog,
-                               libchiaking::users::PsUser& user, PlusMembership plusMembership);
+    Snapshot defaultSnapshotForProfile(bool hasProfile, bool paired) const;
+    Snapshot snapshotOf(const libchiaking::catalog::MyGames& games, libchiaking::catalog::Catalog& catalog,
+                        libchiaking::users::PsUser& user, PlusMembership plusMembership) const;
     static auto failureOf(const libchiaking::catalog::GamesFailure& cause) -> FetchFailure;
     static auto progressOf(const libchiaking::catalog::FetchState& state) -> FetchProgress;
     static auto stepOf(libchiaking::catalog::FetchStep step) -> FetchProgress::Step;
@@ -148,12 +126,12 @@ private:
                        libchiaking::users::PsUser& user);
     static bool launchLeftOut(std::string_view serviceType);
     static Standing standingOf(libchiaking::catalog::Standing standing);
-    static auto recentlyPlayedOf(libchiaking::users::PsUser& user) -> std::vector<RecentlyPlayed>;
-    static Status statusOf(const Catalog& catalog, PlusMembership plusMembership);
+    auto recentlyPlayedOf(libchiaking::users::PsUser& user) const -> std::vector<RecentlyPlayed>;
+    Status statusOf(const Catalog& catalog, PlusMembership plusMembership) const;
     static auto detailOf(const libchiaking::catalog::GameDetails& details) -> GameDetail;
     static auto sizedImage(const std::string& url, int width) -> std::optional<libchiaking::catalog::ImageRef>;
     void replaceGame(int64_t profileId, const Game& game);
-    static auto catalogOf() -> libchiaking::catalog::Catalog&;
+    auto catalogOf() const -> libchiaking::catalog::Catalog&;
 
     auto activeUser() const -> User;
     void runRefresh(int64_t profileId, uint64_t generation, User user, bool force,
@@ -163,15 +141,19 @@ private:
     bool isCurrent(int64_t profileId, uint64_t generation) const;
     void followBackgroundWork(bool paused);
 
-    SettingsManager* settings = nullptr;
+    const accounts::AccountSettings& accountSettings;
+    HttpPool& http;
+    app::UiDispatcher& dispatcher;
+    const app::Strings& strings;
+    play::ChiakiCore& core;
 
     mutable std::mutex mutex;
     std::map<int64_t, Entry> entries;
     bool paused = false;
     Held held;
-    akira::BackgroundWork::Subscription backgroundSubscription;
+    app::BackgroundWork::Subscription backgroundSubscription;
 };
 
-} // namespace cloud
+} // namespace akira::cloud
 
 #endif // AKIRA_CLOUD_SERVICE_HPP

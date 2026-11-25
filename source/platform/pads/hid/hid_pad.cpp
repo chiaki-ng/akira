@@ -1,15 +1,16 @@
 #include "platform/pads/hid/hid_pad.hpp"
+#include "log/log.hpp"
 
 #include <algorithm>
 
-#include <borealis.hpp>
-
-#include "core/settings_manager.hpp"
+#include "play/controller_settings.hpp"
 
 namespace akira::platform::hid
 {
 
-HidPad::HidPad()
+HidPad::HidPad(const play::ControllerSettings& controllers, platform::PadRumble& rumble)
+    : m_controllers(controllers)
+    , m_rumble(rumble)
 {
     padInitializeDefault(&m_pad);
     padUpdate(&m_pad);
@@ -22,7 +23,7 @@ HidPad::HidPad()
         const Result rc = hidStartSixAxisSensor(m_sixaxis[i]);
         m_started[i] = R_SUCCEEDED(rc);
         if (!m_started[i])
-            brls::Logger::warning("PadPath: six-axis start failed for sensor {}: 0x{:x}", i, rc);
+            log::warning("PadPath: six-axis start failed for sensor {}: 0x{:x}", i, rc);
     }
 }
 
@@ -65,12 +66,12 @@ std::optional<HidSixAxisSensorState> HidPad::readGyro()
     const bool leftConnected  = attrib & HidNpadAttribute_IsLeftConnected;
     const bool rightConnected = attrib & HidNpadAttribute_IsRightConnected;
 
-    switch (SettingsManager::getInstance()->getGyroSource()) {
-        case GyroSource::Left:
+    switch (m_controllers.gyroSource()) {
+        case play::GyroSource::Left:
             return leftConnected ? readSixAxis(m_sixaxis[JoyDualLeft]) : std::nullopt;
-        case GyroSource::Right:
+        case play::GyroSource::Right:
             return rightConnected ? readSixAxis(m_sixaxis[JoyDualRight]) : std::nullopt;
-        case GyroSource::Auto:
+        case play::GyroSource::Auto:
         default:
             if (leftConnected)
                 return readSixAxis(m_sixaxis[JoyDualLeft]);
@@ -89,7 +90,7 @@ void HidPad::resetMotion()
 void HidPad::sendRumble(float left, float right, float freqLow, float freqHigh)
 {
     const float amp = std::clamp(std::max(left, right), 0.0f, 1.0f);
-    brls::Application::getPlatform()->getInputManager()->sendRumbleRaw(0, freqLow, freqHigh, amp, amp);
+    m_rumble.playerOne({ .freqLow = freqLow, .freqHigh = freqHigh, .ampLow = amp, .ampHigh = amp });
 }
 
 }

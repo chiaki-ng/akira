@@ -1,7 +1,7 @@
 #include "test_util.hpp"
-#include "util/custom_dns.hpp"
+#include "network/custom_dns.hpp"
 
-using akira::net::CustomDns;
+using akira::network::CustomDns;
 
 TEST(custom_dns_matches_sony_domains_and_subdomains)
 {

@@ -5,35 +5,35 @@
 #include <string>
 #include <string_view>
 
-#include "core/migrations/m000_baseline.hpp"
-#include "core/migrations/m001_unify_psn_auth.hpp"
-#include "core/migrations/m002_multi_profile.hpp"
-#include "core/migrations/m003_drop_hardened_nat.hpp"
-#include "core/migrations/m004_cloud_datacenter_tables.hpp"
-#include "core/migrations/m005_group_settings_tables.hpp"
-#include "core/migrations/m006_split_cloud_video_by_service.hpp"
-#include "core/migrations/m007_split_psn_sign_ins.hpp"
-#include "core/migrations/registry.hpp"
+#include "settings/migrations/m000_baseline.hpp"
+#include "settings/migrations/m001_unify_psn_auth.hpp"
+#include "settings/migrations/m002_multi_profile.hpp"
+#include "settings/migrations/m003_drop_hardened_nat.hpp"
+#include "settings/migrations/m004_cloud_datacenter_tables.hpp"
+#include "settings/migrations/m005_group_settings_tables.hpp"
+#include "settings/migrations/m006_split_cloud_video_by_service.hpp"
+#include "settings/migrations/m007_split_psn_sign_ins.hpp"
+#include "settings/migrations/registry.hpp"
 
 namespace {
 
 toml::table run_migrate(std::string_view src)
 {
-    tomlmigrate::Options opts;
+    akira::settings::tomlmigrate::Options opts;
     opts.version_key = "version";
     opts.assume_missing_version = 0;
 
-    tomlmigrate::Migrator m(opts);
-    chiaki_migrations::register_m000_baseline(m);
-    chiaki_migrations::register_m001_unify_psn_auth(m);
-    chiaki_migrations::register_m002_multi_profile(m);
-    chiaki_migrations::register_m003_drop_hardened_nat(m);
-    chiaki_migrations::register_m004_cloud_datacenter_tables(m);
-    chiaki_migrations::register_m005_group_settings_tables(m);
-    chiaki_migrations::register_m006_split_cloud_video_by_service(m);
-    chiaki_migrations::register_m007_split_psn_sign_ins(m);
+    akira::settings::tomlmigrate::Migrator m(opts);
+    akira::settings::migrations::register_m000_baseline(m);
+    akira::settings::migrations::register_m001_unify_psn_auth(m);
+    akira::settings::migrations::register_m002_multi_profile(m);
+    akira::settings::migrations::register_m003_drop_hardened_nat(m);
+    akira::settings::migrations::register_m004_cloud_datacenter_tables(m);
+    akira::settings::migrations::register_m005_group_settings_tables(m);
+    akira::settings::migrations::register_m006_split_cloud_video_by_service(m);
+    akira::settings::migrations::register_m007_split_psn_sign_ins(m);
 
-    toml::table doc = toml::parse(src);
+    toml::table doc = toml::parse(src).table();
     m.migrate(doc);
     return doc;
 }
@@ -669,8 +669,8 @@ hardware_id = "aabbccddeeff"
 name = "PS5"
 )";
 
-    toml::table doc = toml::parse(src);
-    chiaki_migrations::buildSettingsMigrator().migrate(doc);
+    toml::table doc = toml::parse(src).table();
+    akira::settings::migrations::buildSettingsMigrator().migrate(doc);
 
     CHECK_EQ(version_of(doc), 12);
     CHECK(!doc.contains("sign_ins"));
@@ -702,8 +702,8 @@ version = 9
 [stream]
 takion_version = 15
 packet_loss_max = 0.05
-)");
-    chiaki_migrations::buildSettingsMigrator().migrate(doc);
+)").table();
+    akira::settings::migrations::buildSettingsMigrator().migrate(doc);
 
     CHECK_EQ(version_of(doc), 12);
     const toml::table* stream = doc["stream"].as_table();
@@ -713,8 +713,8 @@ packet_loss_max = 0.05
     for (const char* target : {"ps4", "ps5", "ps5_cloud", "ps_now"})
         CHECK_EQ(tint(versions, target), int64_t(15));
 
-    toml::table untouched = toml::parse("version = 9\n[stream]\npacket_loss_max = 0.05\n");
-    chiaki_migrations::buildSettingsMigrator().migrate(untouched);
+    toml::table untouched = toml::parse("version = 9\n[stream]\npacket_loss_max = 0.05\n").table();
+    akira::settings::migrations::buildSettingsMigrator().migrate(untouched);
     CHECK(!untouched["stream"].as_table()->contains("takion_versions"));
 }
 
@@ -734,8 +734,8 @@ fsr_enabled = true
 [video.vpn]
 resolution = "720p"
 fsr_enabled = false
-)");
-    chiaki_migrations::buildSettingsMigrator().migrate(doc);
+)").table();
+    akira::settings::migrations::buildSettingsMigrator().migrate(doc);
 
     CHECK_EQ(version_of(doc), 12);
     const toml::table* video = doc["video"].as_table();
@@ -743,21 +743,21 @@ fsr_enabled = false
     CHECK_EQ(tint((*video)["remote"].as_table(), "fsr_target"), int64_t(1080));
     CHECK(!(*video)["vpn"].as_table()->contains("fsr_target"));
 
-    toml::table kept = toml::parse("version = 10\n[video.local]\nresolution = \"1080p\"\nfsr_enabled = true\nfsr_target = 2160\n");
-    chiaki_migrations::buildSettingsMigrator().migrate(kept);
+    toml::table kept = toml::parse("version = 10\n[video.local]\nresolution = \"1080p\"\nfsr_enabled = true\nfsr_target = 2160\n").table();
+    akira::settings::migrations::buildSettingsMigrator().migrate(kept);
     CHECK_EQ(tint(kept["video"]["local"].as_table(), "fsr_target"), int64_t(2160));
 }
 
 TEST(m011_makes_drako3d_the_renderer)
 {
-    toml::table doc = toml::parse("version = 11\n[video]\nrenderer = \"vulkan\"\nzero_copy = true\n");
-    chiaki_migrations::buildSettingsMigrator().migrate(doc);
+    toml::table doc = toml::parse("version = 11\n[video]\nrenderer = \"vulkan\"\nzero_copy = true\n").table();
+    akira::settings::migrations::buildSettingsMigrator().migrate(doc);
 
     CHECK_EQ(version_of(doc), 12);
     CHECK_EQ(doc["video"]["renderer"].value_or(std::string()), std::string("drako3d"));
     CHECK(doc["video"]["zero_copy"].value_or(false));
 
-    toml::table fresh = toml::parse("version = 11\n");
-    chiaki_migrations::buildSettingsMigrator().migrate(fresh);
+    toml::table fresh = toml::parse("version = 11\n").table();
+    akira::settings::migrations::buildSettingsMigrator().migrate(fresh);
     CHECK(!fresh.contains("video"));
 }

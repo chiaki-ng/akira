@@ -1,6 +1,6 @@
 #include "util/http.hpp"
+#include "log/log.hpp"
 
-#include <borealis.hpp>
 #include <curl/curl.h>
 #include <switch.h>
 
@@ -139,7 +139,7 @@ static void logNetworkStateThrottled(const std::string& host)
     const Result initRc = nifmInitialize(NifmServiceType_User);
     if (R_FAILED(initRc))
     {
-        brls::Logger::warning("[NET] state host={} nifm_init=0x{:08x}", host,
+        akira::log::warning("[NET] state host={} nifm_init=0x{:08x}", host,
             static_cast<unsigned int>(initRc));
         return;
     }
@@ -157,7 +157,7 @@ static void logNetworkStateThrottled(const std::string& host)
     const Result configRc = nifmGetCurrentIpConfigInfo(&address, &mask, &gateway, &dns1, &dns2);
     nifmExit();
 
-    brls::Logger::warning(
+    akira::log::warning(
         "[NET] state host={} status_rc=0x{:08x} config_rc=0x{:08x} type={} status={} strength={} "
         "ip={} mask={} gateway={} dns1={} dns2={}",
         host, static_cast<unsigned int>(statusRc), static_cast<unsigned int>(configRc),
@@ -188,7 +188,7 @@ static void logCurlFailure(CURL* curl, CURLcode result, const char* detail,
     const std::string host = urlHost(request.url);
     const std::string osText = osErrno != 0
         ? safeDiagnosticText(std::strerror(static_cast<int>(osErrno))) : "-";
-    brls::Logger::error(
+    akira::log::error(
         "[NET] curl_fail host={} code={} reason=\"{}\" detail=\"{}\" os_errno={} os_error=\"{}\" "
         "http={} primary={}:{} local={}:{} reused={} fresh={} new_connections={} "
         "dns_us={} tcp_us={} tls_us={} total_us={}",

@@ -8,8 +8,7 @@ namespace akira::platform::none
 class NoStatsProvider final : public StatsProvider
 {
 public:
-    void initToggle(brls::BooleanCell&) const override {}
-    void streamStarted(Session&) override {}
+    void streamStarted(play::Session&) override {}
     void streamStopped() override {}
 };
 

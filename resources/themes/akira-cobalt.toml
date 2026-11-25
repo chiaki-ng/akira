@@ -1,0 +1,18 @@
+schema = 1
+name = "akira-cobalt"
+extends = "akira-default"
+accent = "#4C9BFF"
+
+[colours]
+window_background = "#0B1A3A"
+system_grouped_background = "#0B1A3A"
+label = "#FFFFFF"
+secondary_label = "#AEC2E6"
+tertiary_label = "#6B7CA0"
+control_background = "#16307A"
+
+[liquid_glass]
+tint = "#16307A8C"
+
+[preferences]
+color_scheme = "dark"

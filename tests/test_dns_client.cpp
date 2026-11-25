@@ -1,5 +1,5 @@
 #include "test_util.hpp"
-#include "util/dns_client.hpp"
+#include "network/dns_client.hpp"
 
 #include <array>
 #include <span>
@@ -7,8 +7,8 @@
 #include <utility>
 #include <vector>
 
-using akira::net::DnsClient;
-using akira::net::Ipv4Address;
+using akira::network::DnsClient;
+using akira::network::Ipv4Address;
 
 static std::vector<uint8_t> answerPacket(uint16_t flags, std::vector<std::pair<std::array<uint8_t, 4>, uint32_t>> answers)
 {

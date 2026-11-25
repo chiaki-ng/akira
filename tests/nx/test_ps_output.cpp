@@ -5,7 +5,7 @@
 
 #include <cstring>
 
-using namespace akira::input;
+using namespace akira::play;
 using namespace akira::platform::extended;
 
 namespace {

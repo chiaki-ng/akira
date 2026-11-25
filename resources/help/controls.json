@@ -1,5 +1,9 @@
 {
   "settings/sleepOnExit":         { "title": "Sleep on exit", "body": "Put the PlayStation console into rest mode when you leave a Remote Play session.", "image": "" },
   "settings/connectedControllers": { "title": "Connected controllers", "body": "Open per-controller output, lightbar, haptics, and rumble settings. Wake a controller first so Akira can detect it.", "image": "" },
-  "settings/buttonMapping":       { "title": "Button mapping", "body": "Open the button-remapping screen for Remote Play controls.", "image": "" }
+  "settings/buttonMapping":       { "title": "Button mapping", "body": "Open the button-remapping screen for Remote Play controls.", "image": "" },
+  "settings/touchpad": { "title": "Touchpad", "body": "Use the Switch touch screen as the DualSense touchpad during a stream.", "image": "" },
+  "settings/swipeGestures": { "title": "Swipe gestures", "body": "Turn each touch-screen swipe direction on or off. A swipe sends the matching touchpad gesture to the console.", "image": "" },
+  "settings/rumbleSource": { "title": "Rumble source", "body": "Off disables vibration. Haptic track derives rumble from the console's haptic signal. Game rumble plays the rumble the game asked for.", "image": "" },
+  "settings/hapticIntensity": { "title": "Haptic intensity", "body": "Scale how strongly haptics play on the Switch controllers.", "image": "" }
 }

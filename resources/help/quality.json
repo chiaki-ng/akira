@@ -17,5 +17,7 @@
   "settings/rcasEnabled":        { "title": "RCAS sharpening", "body": "Apply contrast-adaptive sharpening to the decoded image.", "image": "" },
   "settings/rcasSharpness":      { "title": "RCAS strength", "body": "Set sharpening in 5-percentage-point steps. High values can emphasize compression artifacts.", "image": "" },
   "settings/zeroCopy":           { "title": "Zero-copy video", "body": "The hardware decoder writes each frame straight into memory the GPU draws from, instead of copying every frame. Off by default: on some consoles this has caused a black screen during streams, and the cause is not known yet.", "image": "" },
-  "settings/rendererChoice":     { "title": "Renderer", "body": "Choose the graphics API for the app and the stream. The change applies after akira restarts. If drako3d cannot start, akira falls back to Vulkan.", "image": "" }
+  "settings/rendererChoice":     { "title": "Renderer", "body": "Choose the graphics API for the app and the stream. The change applies after akira restarts. If drako3d cannot start, akira falls back to Vulkan.", "image": "" },
+  "settings/streamProfile": { "title": "Stream settings for", "body": "Choose which connection these picture settings apply to: your home network, or Remote Play over the internet.", "image": "" },
+  "settings/upscaleTarget": { "title": "Upscale to", "body": "The size FSR upscales to. akira asks the console for a lower resolution and fills the rest. On Switch 2, 1440p and 2160p are available for a 4K TV.", "image": "" }
 }

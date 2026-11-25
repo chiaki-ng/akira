@@ -10,7 +10,7 @@
 
 #include "cloud/models.hpp"
 
-namespace cloud {
+namespace akira::cloud {
 
 enum class LibraryFilter {
     Recent,
@@ -26,6 +26,12 @@ enum class PlatformFilter {
     PS5,
     PS4,
     PS3
+};
+
+enum class LibraryOrder {
+    Playable,
+    AToZ,
+    ZToA
 };
 
 enum class FilterChoice {
@@ -58,9 +64,11 @@ public:
 
     auto filters() const -> std::vector<LibraryFilter>;
     auto matching() const -> std::vector<Game>;
+    auto ordered(LibraryOrder order) const -> std::vector<Game>;
     auto listed() const -> const std::vector<Game>& { return games; }
     auto find(std::string_view productId) const -> const Game*;
     auto nextUnlock() const -> std::optional<int64_t>;
+    auto unlockDelay() const -> std::optional<int64_t>;
     auto lastPlayed(const Game& game) const -> std::optional<int64_t>;
 
     auto filter() const -> LibraryFilter { return current; }
@@ -73,12 +81,14 @@ public:
 
     static auto key(LibraryFilter filter) -> std::string_view;
     static auto filterNamed(std::string_view key) -> std::optional<LibraryFilter>;
+    static auto orderOf(int state) -> LibraryOrder;
     static bool admits(PlatformFilter platform, std::string_view gamePlatform);
 
 private:
     bool isRecent(const Game& game) const;
     bool passes(const Game& game) const;
     static bool nameContains(std::string_view name, std::string_view text);
+    static bool nameBefore(const std::string& a, const std::string& b);
 
     std::vector<Game> games;
     std::vector<RecentlyPlayed> recentlyPlayed;
@@ -90,6 +100,6 @@ private:
     FilterChoice chosen = FilterChoice::Automatic;
 };
 
-} // namespace cloud
+} // namespace akira::cloud
 
 #endif // AKIRA_CLOUD_LIBRARY_LISTING_HPP

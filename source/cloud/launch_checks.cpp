@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace cloud {
+namespace akira::cloud {
 
 LaunchChecks::LaunchChecks(std::string productId, uint64_t attempt, const Game& game)
     : product(std::move(productId)), attemptId(attempt), row(rowFor(game))
@@ -14,6 +14,23 @@ auto LaunchChecks::rowFor(const Game& game) -> std::vector<Step>
     if (game.streamServiceType == "psnow")
         return {Step::Membership, Step::Release};
     return {Step::Premium, Step::YourCopy, Step::CloudGame, Step::Restrictions, Step::Release};
+}
+
+auto LaunchChecks::checkOf(libchiaking::catalog::LaunchCheck check) -> Check
+{
+    using Core = libchiaking::catalog::LaunchCheck;
+    switch (check)
+    {
+        case Core::loading_library: return Check::LoadingLibrary;
+        case Core::membership: return Check::Membership;
+        case Core::cloud_streaming: return Check::CloudStreaming;
+        case Core::ownership: return Check::Ownership;
+        case Core::entitlement: return Check::Entitlement;
+        case Core::cloud_game: return Check::CloudGame;
+        case Core::exclusions: return Check::Exclusions;
+        case Core::release: return Check::Release;
+    }
+    return Check::LoadingLibrary;
 }
 
 auto LaunchChecks::stepOf(Check check) -> std::optional<Step>
@@ -99,4 +116,4 @@ auto LaunchChecks::mark(Step step) const -> Mark
     return Mark::Unchecked;
 }
 
-} // namespace cloud
+} // namespace akira::cloud

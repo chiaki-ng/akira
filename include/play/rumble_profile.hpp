@@ -1,0 +1,109 @@
+#ifndef AKIRA_INPUT_RUMBLE_PROFILE_HPP
+#define AKIRA_INPUT_RUMBLE_PROFILE_HPP
+
+#include <cstdint>
+
+
+namespace akira::play {
+
+
+inline constexpr const char* kRumbleKeyDefault = "default";
+
+inline constexpr const char* kRumbleKeySwitch = "switch";
+
+inline constexpr const char* kRumbleKeyDualSense = "dualsense";
+inline constexpr const char* kRumbleKeyJoyCon    = "joycon";
+inline constexpr const char* kRumbleKeySwitchPro = "switchpro";
+inline constexpr const char* kRumbleKeyGeneric   = "generic";
+
+enum class PadOutputMode {
+    Native = 0,
+    Basic,
+};
+
+
+enum class RumbleSource {
+    Off = 0,
+    Derived,
+    Game,
+};
+
+enum class HapticIntensity {
+    Off = 0,
+    VeryWeak,
+    Weak,
+    Normal,
+    Strong,
+    VeryStrong,
+};
+
+struct RumbleProfile {
+    float strength  = 1.0f;
+    float ceiling   = 1.0f;
+
+    bool  per_motor = true;
+
+    float freq_low  = 160.0f;
+    float freq_high = 320.0f;
+
+    float envelope_attack = 0.60f;
+    float envelope_decay  = 0.85f;
+
+    HapticIntensity haptic_intensity = HapticIntensity::Normal;
+
+    PadOutputMode output_mode = PadOutputMode::Native;
+
+    RumbleSource rumble_source = RumbleSource::Derived;
+
+    bool          lightbar_enabled = false;
+    std::uint8_t  lightbar_r = 0x00;
+    std::uint8_t  lightbar_g = 0x80;
+    std::uint8_t  lightbar_b = 0xff;
+};
+
+inline RumbleProfile DefaultRumbleProfile()
+{
+    RumbleProfile p;
+    p.strength  = 1.0f;
+    p.ceiling   = 1.0f;
+    p.per_motor = true;
+    return p;
+}
+
+inline RumbleProfile SwitchRumbleProfile()
+{
+    RumbleProfile p;
+    p.strength  = 1.0f;
+    p.ceiling   = 0.63f;
+    p.per_motor = false;
+    p.freq_low  = 160.0f;
+    p.freq_high = 320.0f;
+    return p;
+}
+
+
+inline float HapticSampleGain(HapticIntensity intensity)
+{
+    switch (intensity) {
+        case HapticIntensity::Off:        return 0.0f;
+        case HapticIntensity::VeryWeak:   return 0.4f;
+        case HapticIntensity::Weak:       return 0.7f;
+        case HapticIntensity::Normal:     return 1.0f;
+        case HapticIntensity::Strong:     return 1.6f;
+        case HapticIntensity::VeryStrong: return 2.4f;
+    }
+    return 1.0f;
+}
+
+inline int HapticBaseForIntensity(HapticIntensity intensity)
+{
+    const float gain = HapticSampleGain(intensity);
+    if (gain <= 0.0f)
+        return 400;
+    return (int)(50.0f / gain);
+}
+
+
+} // namespace akira::play
+
+#endif // AKIRA_INPUT_RUMBLE_PROFILE_HPP

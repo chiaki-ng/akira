@@ -1,0 +1,86 @@
+#pragma once
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <mutex>
+#include <optional>
+
+#include "play/touch_claim.hpp"
+
+namespace akira::play {
+
+class StatsHudPlacement final : public TouchClaim {
+public:
+    struct Point {
+        float x = 0.0f;
+        float y = 0.0f;
+
+        friend bool operator==(const Point&, const Point&) = default;
+    };
+
+    enum class Tap { Compact, Standard, Full, Layout, Glass };
+
+    struct Area {
+        float x = 0.0f;
+        float y = 0.0f;
+        float width = 0.0f;
+        float height = 0.0f;
+
+        friend bool operator==(const Area&, const Area&) = default;
+    };
+
+    struct Size {
+        float width = 0.0f;
+        float height = 0.0f;
+
+        friend bool operator==(const Size&, const Size&) = default;
+    };
+
+    static constexpr float margin = 24.0f;
+    static constexpr float slop = 12.0f;
+    static constexpr float widthShare = 0.5f;
+    static constexpr float heightShare = 0.7f;
+
+    explicit StatsHudPlacement(std::optional<Fraction> saved = std::nullopt);
+
+    void show(bool shown);
+    void restore(std::optional<Fraction> saved);
+    void measureScreen(Size measured);
+    void measurePanel(Size measured);
+    auto origin() const -> Point;
+    auto scale() const -> float;
+    void measureTarget(Tap tap, Area area);
+    auto takeTapped() -> std::optional<Tap>;
+    auto revision() const -> std::uint64_t;
+    auto takeSettled() -> std::optional<Fraction>;
+
+    auto grab(Fraction at) -> bool override;
+    void drag(Fraction at) override;
+    void release() override;
+
+private:
+    auto placed() const -> Point;
+    auto fitted() const -> float;
+    auto drawn() const -> Size;
+    auto target(Point finger) const -> std::optional<Tap>;
+    static constexpr std::size_t tapCount = 5;
+    auto touched(Fraction at) const -> Point;
+    void changed();
+
+    mutable std::mutex lock;
+    std::optional<Fraction> saved;
+    std::optional<Fraction> settled;
+    Size screen;
+    Size panel;
+    Point grabOffset;
+    Point grabbedAt;
+    std::array<std::optional<Area>, tapCount> targets;
+    std::optional<Tap> tapped;
+    bool moved = false;
+    bool shown = false;
+    bool dragging = false;
+    std::uint64_t revisions = 0;
+};
+
+}

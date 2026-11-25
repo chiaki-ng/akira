@@ -13,13 +13,13 @@ class ExtendedInputManager;
 
 class McGenericPath : public HosPadPath {
 public:
-    McGenericPath(HidNpadIdType npad, ExtendedInputManager& extended,
+    McGenericPath(HidNpadIdType npad, ExtendedInputManager& extended, const play::ControllerSettings& controllers,
                   uint16_t vendor_id, uint16_t product_id);
 
-    input::PadPathKind kind() const override { return input::PadPathKind::McGeneric; }
+    platform::PadPathKind kind() const override { return platform::PadPathKind::McGeneric; }
     const char* label() const override { return m_label; }
 
-    input::PadCapabilities capabilities() const override;
+    platform::PadCapabilities capabilities() const override;
 
     bool poll() override;
     void readTriggers(libchiaking::controllers::ControllerState& state) override;
@@ -41,12 +41,12 @@ protected:
 
 class McPsNativePath : public McGenericPath {
 public:
-    McPsNativePath(HidNpadIdType npad, ExtendedInputManager& extended,
+    McPsNativePath(HidNpadIdType npad, ExtendedInputManager& extended, const play::ControllerSettings& controllers,
                    const PsModel& model, const uint8_t* bt_addr);
 
-    input::PadPathKind kind() const override { return input::PadPathKind::McPsNative; }
+    platform::PadPathKind kind() const override { return platform::PadPathKind::McPsNative; }
 
-    input::PadCapabilities capabilities() const override;
+    platform::PadCapabilities capabilities() const override;
 
     bool poll() override;
 

@@ -12,6 +12,12 @@
 #include "akira_input/ipc.h"
 #include "platform/pads/extended/pad_output_state.hpp"
 #include "platform/pads/extended/ps_output.hpp"
+#include "platform/pads/rumble.hpp"
+
+namespace akira::play
+{
+class ControllerSettings;
+}
 
 namespace akira::platform::extended
 {
@@ -27,8 +33,11 @@ public:
         Failed,
     };
 
-    ExtendedInputManager() = default;
+    ExtendedInputManager(const play::ControllerSettings& controllers,
+                         libchiaking::platform::ThreadingProvider& threading, platform::PadRumble& rumble);
     ~ExtendedInputManager();
+
+    platform::PadRumble& rumble() { return m_rumble; }
 
     ExtendedInputManager(const ExtendedInputManager&) = delete;
     ExtendedInputManager& operator=(const ExtendedInputManager&) = delete;
@@ -44,12 +53,12 @@ public:
     static bool writeOutputReportOnce(const uint8_t* address, const uint8_t* data, uint16_t length);
 
     static void setDirectStreamAllowed(bool allowed);
-    static bool directStreamAllowed();
+    static bool directStreamAllowed(const play::ControllerSettings& controllers);
 
     akira::platform::extended::PadOutputState outputState() const;
 
-    static void refreshDirectGates(uint16_t vendor_id, uint16_t product_id,
-                                   const uint8_t* address);
+    static void refreshDirectGates(const play::ControllerSettings& controllers, uint16_t vendor_id,
+                                   uint16_t product_id, const uint8_t* address);
 
     static bool outputOwnershipRefused()
     {
@@ -63,23 +72,26 @@ public:
         return s_backend_released.load(std::memory_order_acquire);
     }
     static void setDirectHapticsAllowed(bool allowed);
-    static bool directHapticsAllowed();
+    static bool directHapticsAllowed(const play::ControllerSettings& controllers);
 
     static bool probeAudio(const uint8_t* address, AkiraInputAudioProbe* out);
     static bool readRawReportOnce(AkiraInputRawReport* out);
-    static std::string describeDirectState();
+    static std::string describeDirectState(const play::ControllerSettings& controllers);
 
     static bool probeDirectWrite(const uint8_t* address, uint8_t method,
                                  const uint8_t* frame, uint16_t length,
                                  uint32_t* out_rc, uint32_t* out_init_rc);
 
 private:
-    static void loadDirectGatesOnce();
+    static void loadDirectGatesOnce(const play::ControllerSettings& controllers);
     static std::atomic<bool> s_direct_stream_allowed;
     static std::atomic<bool> s_direct_haptics_allowed;
 
 
     bool                     m_direct_gate_logged = false;
+    const play::ControllerSettings& m_controllers;
+    libchiaking::platform::ThreadingProvider& m_threading;
+    platform::PadRumble& m_rumble;
 
 public:
 
@@ -115,10 +127,10 @@ public:
     void setGameLightbar(uint8_t red, uint8_t green, uint8_t blue);
     void clearGameLightbar();
 
-    void setConsoleIntensity(akira::input::Ds5EffectIntensity vibration,
-                             akira::input::Ds5EffectIntensity trigger);
-    akira::input::Ds5EffectIntensity consoleVibrationIntensity() const;
-    akira::input::Ds5EffectIntensity consoleTriggerIntensity() const;
+    void setConsoleIntensity(play::Ds5EffectIntensity vibration,
+                             play::Ds5EffectIntensity trigger);
+    play::Ds5EffectIntensity consoleVibrationIntensity() const;
+    play::Ds5EffectIntensity consoleTriggerIntensity() const;
 
     static std::atomic<uint32_t> s_direct_vid_pid;
 
@@ -245,9 +257,9 @@ private:
     uint32_t m_direct_failures   = 0;
     bool     m_direct_logged     = false;
     std::atomic<uint8_t> m_console_vibration{
-        (uint8_t)akira::input::Ds5EffectIntensity::Strong};
+        (uint8_t)play::Ds5EffectIntensity::Strong};
     std::atomic<uint8_t> m_console_trigger{
-        (uint8_t)akira::input::Ds5EffectIntensity::Strong};
+        (uint8_t)play::Ds5EffectIntensity::Strong};
 
     static constexpr uint32_t kGameLightbarSet = 0x01000000u;
     std::atomic<uint32_t> m_game_lightbar{0};

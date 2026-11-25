@@ -15,12 +15,15 @@
 namespace akira::platform::drako3d
 {
 
-Drako3dVideoProvider::Drako3dVideoProvider()
+Drako3dVideoProvider::Drako3dVideoProvider(deko3d::GpuHost& gpu, play::StreamSettings& stream,
+    const play::StreamState& streamState, const settings::DeveloperSettings& developer,
+    const network::WireGuardManager& wireGuard, const video::OverlayPalette& palette)
     : m_deko3d("drako3d",
+          { .gpu = gpu, .stream = stream, .streamState = streamState, .wireGuard = wireGuard, .palette = palette },
           deko3d::Deko3dVideoProvider::DecoderChoice{ .name = "Switch 2 hardware decoder", .stat = "HW",
               .make =
-                  [] {
-                      auto decoder = std::make_unique<Nv12FrameDecoder<viddec::ViddecDecoder>>();
+                  [&developer] {
+                      auto decoder = std::make_unique<Nv12FrameDecoder<viddec::ViddecDecoder>>(developer);
                       decoder->decoder().setOutputMemory(std::make_shared<HostOutputMemory>());
                       return decoder;
                   } },
@@ -30,22 +33,19 @@ Drako3dVideoProvider::Drako3dVideoProvider()
 {
 }
 
-bool Drako3dVideoProvider::addSettings(brls::Box& group) const
-{
-    software::HevcDecoder::addSetting(group);
-    return true;
-}
-
 bool Drako3dVideoProvider::shadersPresent()
 {
-    static constexpr auto required = std::to_array<std::string_view>({
-        "romfs:/shaders/fill_vsh.dksh",
-        "romfs:/shaders/fill_fsh.dksh",
+    static constexpr auto video = std::to_array<std::string_view>({
         "romfs:/shaders/drako3d/video_vsh.dksh",
         "romfs:/shaders/drako3d/video_fsh.dksh",
     });
+    static constexpr auto statsOverlay = std::to_array<std::string_view>({
+        "romfs:/shaders/fill_vsh.dksh",
+        "romfs:/shaders/fill_fsh.dksh",
+    });
     std::error_code error;
-    return std::ranges::all_of(required, [&](std::string_view path) { return std::filesystem::exists(path, error); });
+    const auto present = [&](std::string_view path) { return std::filesystem::exists(path, error); };
+    return std::ranges::all_of(video, present) && (!AKIRA_STATS_OVERLAY || std::ranges::all_of(statsOverlay, present));
 }
 
 }

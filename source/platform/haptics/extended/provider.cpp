@@ -1,31 +1,34 @@
 #include "platform/haptics/extended/provider.hpp"
 #include "platform/pad_settings/extended/provider.hpp"
+#include "log/log.hpp"
 
-#include <borealis.hpp>
-
-#include "core/settings_manager.hpp"
+#include "play/controller_settings.hpp"
+#include "settings/developer_settings.hpp"
 #include "platform/pads/extended/rumble_keys.hpp"
-#include "stream/haptic_manager.hpp"
+#include "play/haptic_manager.hpp"
 #include "platform/pads/extended/provider.hpp"
 
 namespace akira::platform::extended
 {
 
-ExtendedHapticsProvider::ExtendedHapticsProvider(ExtendedPadProvider& pads)
+ExtendedHapticsProvider::ExtendedHapticsProvider(ExtendedPadProvider& pads, const play::ControllerSettings& controllers,
+    const settings::DeveloperSettings& developer)
     : m_pads(pads)
+    , m_controllers(controllers)
+    , m_developer(developer)
 {
 }
 
-input::RumbleSource ExtendedHapticsProvider::effectiveSource(input::RumbleSource configured) const
+play::RumbleSource ExtendedHapticsProvider::effectiveSource(play::RumbleSource configured) const
 {
-    if (configured == input::RumbleSource::Off)
-        return input::RumbleSource::Off;
+    if (configured == play::RumbleSource::Off)
+        return play::RumbleSource::Off;
     if (tunedForPad())
-        return input::RumbleSource::Derived;
+        return play::RumbleSource::Derived;
     return configured;
 }
 
-void ExtendedHapticsProvider::prepare(HapticManager& haptics)
+void ExtendedHapticsProvider::prepare(play::HapticManager& haptics)
 {
     const PadPathInfo path = m_pads.pathInfo();
     if (path.generation == m_profile_generation)
@@ -34,12 +37,12 @@ void ExtendedHapticsProvider::prepare(HapticManager& haptics)
     if (!path.available)
         return;
 
-    haptics.setProfile(akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(*SettingsManager::getInstance(), 
+    haptics.setProfile(akira::platform::extended::ExtendedPadSettingsProvider::resolveProfile(m_controllers, 
         path.vendorId, path.productId, path.hasAddress ? path.address.data() : nullptr,
-        path.switchNative, path.kind == input::PadPathKind::JoyCon));
+        path.switchNative, path.kind == platform::PadPathKind::JoyCon));
 }
 
-bool ExtendedHapticsProvider::play(HapticManager& haptics, std::span<const std::int16_t> stereo)
+bool ExtendedHapticsProvider::play(play::HapticManager& haptics, std::span<const std::int16_t> stereo)
 {
     if (nativeRumble() && streamNativeHaptics(haptics, stereo))
         return true;
@@ -63,19 +66,19 @@ bool ExtendedHapticsProvider::tunedForPad() const
     return path.available && PadTakesDirectOutput(path.vendorId, path.productId);
 }
 
-bool ExtendedHapticsProvider::streamNativeHaptics(HapticManager& haptics, std::span<const std::int16_t> stereo)
+bool ExtendedHapticsProvider::streamNativeHaptics(play::HapticManager& haptics, std::span<const std::int16_t> stereo)
 {
     ExtendedInputManager& extended = m_pads.extendedInput();
     if (!extended.directHapticsReady()) {
         if (!m_haptic_stopped_logged && m_haptic_sent != 0) {
             m_haptic_stopped_logged = true;
-            brls::Logger::info("haptic stream: stopped after {} frames - handing the"
+            log::info("haptic stream: stopped after {} frames - handing the"
                                " signal back to the motors", m_haptic_sent);
         }
         return false;
     }
 
-    const float gain = input::HapticSampleGain(haptics.profile().haptic_intensity)
+    const float gain = play::HapticSampleGain(haptics.profile().haptic_intensity)
                      * haptics.consoleVibrationScale();
 
     for (const std::int16_t sample : stereo) {
@@ -129,7 +132,7 @@ bool ExtendedHapticsProvider::streamNativeHaptics(HapticManager& haptics, std::s
             }
             const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                 m_haptic_last_send - m_haptic_first_send).count();
-            brls::Logger::info("haptic stream: {} sent, {} skipped,"
+            log::info("haptic stream: {} sent, {} skipped,"
                                " {} ms elapsed, {} per sec",
                                m_haptic_sent, m_haptic_skipped,
                                (long long)ms,
@@ -138,14 +141,14 @@ bool ExtendedHapticsProvider::streamNativeHaptics(HapticManager& haptics, std::s
 
         if (!m_haptic_logged) {
             m_haptic_logged = true;
-            brls::Logger::info("haptic stream: writing to the pad's actuators ({} bytes)", len);
+            log::info("haptic stream: writing to the pad's actuators ({} bytes)", len);
         }
     }
 
     return true;
 }
 
-void ExtendedHapticsProvider::emitMotorsFromWaveform(HapticManager& haptics, std::span<const std::int16_t> stereo)
+void ExtendedHapticsProvider::emitMotorsFromWaveform(play::HapticManager& haptics, std::span<const std::int16_t> stereo)
 {
     const HapticRumble r =
         HapticAudioToRumble(stereo.data(), stereo.size() / 2, haptics.profile().haptic_intensity,
@@ -166,8 +169,8 @@ void ExtendedHapticsProvider::emitMotorsFromWaveform(HapticManager& haptics, std
 
     if (++m_native_logged >= kNativeHapticLogInterval) {
         m_native_logged = 0;
-        if (SettingsManager::getInstance()->getDebugChiakiLog()) {
-            brls::Logger::info("haptic->rumble: raw={}/{} scaled={}/{} out={}/{}{}",
+        if (m_developer.chiakiDebugLogging()) {
+            log::info("haptic->rumble: raw={}/{} scaled={}/{} out={}/{}{}",
                                r.raw_left, r.raw_right, r.left, r.right,
                                (int)(m_native_env_left * 255.0f),
                                (int)(m_native_env_right * 255.0f),
