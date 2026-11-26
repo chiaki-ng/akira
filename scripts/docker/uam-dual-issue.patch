@@ -1,0 +1,11 @@
+--- a/mesa-imported/codegen/nv50_ir_target_gm107.cpp
++++ b/mesa-imported/codegen/nv50_ir_target_gm107.cpp
+@@ -291,7 +291,7 @@
+ bool
+ TargetGM107::canDualIssue(const Instruction *a, const Instruction *b) const
+ {
+-   if (!a->canCommuteDefDef(b) || !a->canCommuteDefSrc(b))
++   if (!a->isCommutationLegal(b))
+       return false;
+ 
+    DualIssueClass ac = getDualIssueClass(a);
