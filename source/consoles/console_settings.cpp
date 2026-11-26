@@ -72,6 +72,8 @@ void ConsoleSettings::read(const toml::table& config)
             if (auto val = (*row)["takion_version"].value<int64_t>();
                 val && *val > 0 && play::TakionPins::isPinnable(ps5, static_cast<std::uint32_t>(*val)))
                 record.pinnedTakionVersion = static_cast<std::uint32_t>(*val);
+            if (auto val = (*row)["video_codec"].value<std::string_view>())
+                record.codec = codecNamed(*val);
             if (auto val = (*row)["remote_duid"].value<std::string>())
                 record.remoteDuid = *val;
         }
@@ -157,6 +159,7 @@ toml::table ConsoleSettings::rowOf(const HostRecord& record)
     if (!record.remoteDuid.empty()) row.insert("remote_duid", record.remoteDuid);
     if (record.haptic >= 0) row.insert("haptic", record.haptic);
     if (record.pinnedTakionVersion) row.insert("takion_version", static_cast<int64_t>(*record.pinnedTakionVersion));
+    if (record.codec) row.insert("video_codec", codecName(*record.codec));
     return row;
 }
 
@@ -172,6 +175,20 @@ std::optional<ConsoleSettings::Firmware> ConsoleSettings::firmwareFromTarget(int
     if (target >= 800)
         return Firmware{Family::ps4_8};
     return std::nullopt;
+}
+
+std::optional<libchiaking::media::VideoCodec> ConsoleSettings::codecNamed(std::string_view name)
+{
+    if (name == "h264")
+        return libchiaking::media::VideoCodec::h264;
+    if (name == "h265")
+        return libchiaking::media::VideoCodec::h265;
+    return std::nullopt;
+}
+
+std::string_view ConsoleSettings::codecName(libchiaking::media::VideoCodec codec)
+{
+    return codec == libchiaking::media::VideoCodec::h264 ? "h264" : "h265";
 }
 
 int64_t ConsoleSettings::targetOf(const std::optional<Firmware>& firmware)

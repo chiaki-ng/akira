@@ -599,6 +599,9 @@
 "akira/hosts/recent_start_failed" = "{0} could not start"
 "akira/hosts/recent_starting" = "Starting {0}"
 "akira/hosts/recent_title" = "Recently played on {0}"
+"akira/hosts/use_as_console_art" = "Use as console art"
+"akira/hosts/video_codec" = "Video codec"
+"akira/hosts/video_codec_auto" = "Automatic"
 "akira/hosts/recent_today" = "Today"
 "akira/hosts/recent_weeks" = { one = "{0} week ago", other = "{0} weeks ago" }
 "akira/hosts/recent_years" = { one = "{0} year ago", other = "{0} years ago" }

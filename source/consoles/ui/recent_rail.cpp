@@ -11,11 +11,13 @@
 #include <arisa/components/vstack.hpp>
 #include <arisa/components/zstack.hpp>
 #include <arisa/composition/axis.hpp>
+#include <arisa/provider/input/buttons.hpp>
 #include <arisa/theme/glass.hpp>
 #include <arisa/theme/shape.hpp>
 #include <arisa/theme/space.hpp>
 #include <arisa/theme/typography.hpp>
 
+#include <algorithm>
 #include <span>
 #include <utility>
 #include <vector>
@@ -27,6 +29,7 @@ namespace akira::consoles::ui {
 namespace components = ::arisa::components;
 namespace composition = ::arisa::composition;
 namespace theme = ::arisa::theme;
+namespace provider = ::arisa::provider;
 
 RecentRail::RecentRail(RecentShelf& shelf, ConsoleCommands& commands, const app::Strings& strings, bool continuing)
     : shelf(&shelf)
@@ -47,7 +50,8 @@ auto RecentRail::body(composition::Context& context) const -> composition::Eleme
     const auto focus = context.state(tileFocus);
     std::vector<composition::Element> tiles;
     for (const RecentPlay::Title& title : shown)
-        tiles.push_back(tile(view.catalogName, title, now, focus));
+        tiles.push_back(tile(view.catalogName, title, now, focus,
+            std::ranges::contains(view.gallery, title.titleId, &RecentShelf::Banner::titleId)));
     return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                   .spacing = theme::space::md },
         components::Text(strings->format("akira/hosts/recent_title", view.console))
@@ -64,7 +68,7 @@ auto RecentRail::body(composition::Context& context) const -> composition::Eleme
 }
 
 auto RecentRail::tile(const std::string& catalogName, const RecentPlay::Title& title,
-    RecentPlay::Clock::time_point now, const composition::FocusBinding<std::string>& focus) const
+    RecentPlay::Clock::time_point now, const composition::FocusBinding<std::string>& focus, bool featurable) const
     -> composition::Element
 {
     const bool focused = focus.get() == std::optional<std::string>{ title.titleId };
@@ -99,12 +103,19 @@ auto RecentRail::tile(const std::string& catalogName, const RecentPlay::Title& t
                 .foreground_style(theme::ColourRole::secondary_label))
             .frame({ .width = artSize, .alignment = composition::Alignment::leading });
     ConsoleCommands* held = commands;
-    return components::Button([held, catalogName, titleId = title.titleId] { held->launchTitle(catalogName, titleId); },
-        std::move(label))
-        .button_style(components::ButtonStyle::plain())
-        .focus_effect_disabled()
-        .focused(focus, title.titleId)
-        .id(composition::ElementKey{ "consoles.recent." + title.titleId });
+    composition::Element button =
+        components::Button([held, catalogName, titleId = title.titleId] { held->launchTitle(catalogName, titleId); },
+            std::move(label))
+            .button_style(components::ButtonStyle::plain())
+            .focus_effect_disabled()
+            .focused(focus, title.titleId);
+    if (featurable)
+    {
+        RecentShelf* featured = shelf;
+        button = std::move(button).on_command(provider::Button::y, strings->text("akira/hosts/use_as_console_art"),
+            [featured, titleId = title.titleId] { featured->feature(titleId); });
+    }
+    return std::move(button).id(composition::ElementKey{ "consoles.recent." + title.titleId });
 }
 
 auto RecentRail::when(const RecentPlay::Title& title, RecentPlay::Clock::time_point now) const -> std::string

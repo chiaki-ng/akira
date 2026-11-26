@@ -99,6 +99,7 @@ private:
     std::string consolePIN;  // 4-digit login PIN for auto-login (optional)
 
     std::optional<std::uint32_t> pinnedTakionVersion;
+    std::optional<libchiaking::media::VideoCodec> codec;
 
     // Host identification
     std::string hostName;
@@ -164,6 +165,8 @@ public:
     bool isPinnableTakionVersion(std::uint32_t version) const;
     std::optional<std::uint32_t> getPinnedTakionVersion() const { return pinnedTakionVersion; }
     void pinTakionVersion(std::optional<std::uint32_t> version) { pinnedTakionVersion = version; }
+    std::optional<libchiaking::media::VideoCodec> getCodec() const { return codec; }
+    void chooseCodec(std::optional<libchiaking::media::VideoCodec> chosen) { codec = chosen; }
 
     // Status checks
     bool isDiscovered() const { return discovered; }

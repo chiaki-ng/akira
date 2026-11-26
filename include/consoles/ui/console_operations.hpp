@@ -101,6 +101,10 @@ private:
     auto saveAddress(Host& target, const std::string& address) -> std::optional<std::string>;
     void saveTakion(Host& target, int choice);
     auto takionLabels(Host& target) -> std::vector<std::string>;
+    void saveCodec(Host& target, int choice);
+    auto codecLabels() const -> std::vector<std::string>;
+    static auto codecChoice(std::optional<libchiaking::media::VideoCodec> codec) -> int;
+    static auto codecAt(int choice) -> std::optional<libchiaking::media::VideoCodec>;
     auto refusalText(RegisterFlow::Refusal refusal) const -> std::string;
     auto manualRefusalText(ConsoleActions::ManualRefusal refusal) const -> std::string;
 

@@ -78,6 +78,7 @@ public:
         std::string address;
         std::string pin;
         int takion = 0;
+        int codec = 0;
 
         friend bool operator==(const Edit&, const Edit&) = default;
     };
@@ -91,6 +92,7 @@ public:
         bool address = false;
         bool pin = false;
         std::vector<std::string> takion;
+        std::vector<std::string> codec;
         bool deletable = false;
 
         friend bool operator==(const Editing&, const Editing&) = default;

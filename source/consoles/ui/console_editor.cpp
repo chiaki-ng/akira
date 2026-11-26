@@ -115,6 +115,24 @@ auto ConsoleEditor::body(composition::Context& context) const -> composition::El
             })
                              .id(composition::ElementKey{ "console-editor.takion" }));
     }
+    if (!editing.codec.empty())
+    {
+        const std::vector<std::string> labels = editing.codec;
+        launch.push_back(controls::Picker(strings->text("akira/hosts/video_codec"),
+            composition::Binding<int>([values] { return values.get().codec; },
+                [values](int chosen) {
+                    ConsoleShelf::Edit next = values.get();
+                    next.codec = chosen;
+                    values.set(next);
+                }),
+            [labels] {
+                std::vector<composition::Element> items;
+                for (std::size_t index = 0; index < labels.size(); ++index)
+                    items.push_back(components::Text(labels[index]).tag(static_cast<int>(index)));
+                return composition::Element(components::Group(std::move(items)));
+            })
+                             .id(composition::ElementKey{ "console-editor.codec" }));
+    }
     if (!launch.empty())
         sections.push_back(structure::Section(
             structure::Section::Labels{ .header = components::Text(strings->text("akira/hosts/edit_launch")) }, std::move(launch)));

@@ -5,6 +5,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "consoles/host_record.hpp"
@@ -42,6 +43,8 @@ private:
 
     static std::optional<Firmware> firmwareFromTarget(int64_t target);
     static int64_t targetOf(const std::optional<Firmware>& firmware);
+    static std::optional<libchiaking::media::VideoCodec> codecNamed(std::string_view name);
+    static std::string_view codecName(libchiaking::media::VideoCodec codec);
     static std::optional<Registration> registrationOf(const toml::table& row);
     static toml::table rowOf(const HostRecord& record);
     static void writeRecords(toml::table& config, const std::vector<const HostRecord*>& records);
