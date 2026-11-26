@@ -10,6 +10,7 @@
 #include <cstring>
 #include <algorithm>
 #include <array>
+#include <utility>
 #include "log/log.hpp"
 
 namespace akira::play {
@@ -96,6 +97,8 @@ void InputManager::cleanup()
 
     m_pads.close();
     m_overlay_drag_finger = -1;
+    m_rumble_pending.reset();
+    m_rumble_sent.reset();
 }
 
 
@@ -110,7 +113,18 @@ void InputManager::sendRumble(float left, float right, float freqLow, float freq
         left *= nonNativeScale;
         right *= nonNativeScale;
     }
-    pad->sendRumble(left, right, freqLow, freqHigh);
+    m_rumble_pending = RumbleWave{ left, right, freqLow, freqHigh };
+}
+
+void InputManager::flushRumble(akira::platform::Pad& pad)
+{
+    if (!m_rumble_pending)
+        return;
+    const RumbleWave wave = *std::exchange(m_rumble_pending, std::nullopt);
+    if (m_rumble_sent == wave)
+        return;
+    m_rumble_sent = wave;
+    pad.sendRumble(wave.left, wave.right, wave.freqLow, wave.freqHigh);
 }
 
 
@@ -239,6 +253,7 @@ void InputManager::update(libchiaking::controllers::ControllerInput& input, std:
     const auto now = gesture::Clock::now();
 
     pad->poll();
+    flushRumble(*pad);
     m_menu_held.store(pad->menuHeld(), std::memory_order_release);
 
     m_chord.update(m_screenshot_chord.load(std::memory_order_acquire) ? pad->heldButtons() : 0);

@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <switch.h>
 
 #include "app/ui_window.hpp"
@@ -83,7 +84,17 @@ public:
     void applyPadInput(akira::platform::Pad& pad, libchiaking::controllers::ControllerState& state);
 
 private:
+    struct RumbleWave {
+        float left = 0.0f;
+        float right = 0.0f;
+        float freqLow = 0.0f;
+        float freqHigh = 0.0f;
+
+        bool operator==(const RumbleWave&) const = default;
+    };
+
     static std::uint32_t button(libchiaking::controllers::ControllerButton held) noexcept;
+    void flushRumble(akira::platform::Pad& pad);
     static int8_t startTouch(libchiaking::controllers::ControllerInput& input, uint16_t x, uint16_t y) noexcept;
 
     bool readTouchScreen(libchiaking::controllers::ControllerInput& input, std::map<uint32_t, int8_t>* finger_id_touch_id,
@@ -113,6 +124,8 @@ private:
     std::atomic<bool> m_screenshot_chord{false};
     play::ScreenshotChord m_chord;
     u64 m_swallowed = 0;
+    std::optional<RumbleWave> m_rumble_pending;
+    std::optional<RumbleWave> m_rumble_sent;
 
     SyntheticSwipe m_swipes[4];
 
