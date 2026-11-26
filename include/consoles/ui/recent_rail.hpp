@@ -36,7 +36,8 @@ public:
 
 private:
     auto tile(const std::string& catalogName, const RecentPlay::Title& title, RecentPlay::Clock::time_point now,
-        const ::arisa::composition::FocusBinding<std::string>& focus) const -> ::arisa::composition::Element;
+        const ::arisa::composition::FocusBinding<std::string>& focus, bool featurable) const
+        -> ::arisa::composition::Element;
     auto when(const RecentPlay::Title& title, RecentPlay::Clock::time_point now) const -> std::string;
 
     RecentShelf* shelf;

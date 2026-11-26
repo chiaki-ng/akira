@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+
+#include <libchiaking/play_types.hpp>
 #include <vector>
 
 #include <libchiaking/consoles_types.hpp>
@@ -23,6 +25,7 @@ struct HostRecord {
     std::string consolePin;
     int haptic = -1;
     std::optional<std::uint32_t> pinnedTakionVersion;
+    std::optional<libchiaking::media::VideoCodec> codec;
     std::string remoteDuid;
     std::vector<Registration> legacyRegistrations;
 };

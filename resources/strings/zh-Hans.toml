@@ -603,6 +603,9 @@
 "akira/hosts/recent_start_failed" = "{0} could not start"
 "akira/hosts/recent_starting" = "Starting {0}"
 "akira/hosts/recent_title" = "Recently played on {0}"
+"akira/hosts/use_as_console_art" = "设为主机封面"
+"akira/hosts/video_codec" = "视频编码"
+"akira/hosts/video_codec_auto" = "自动"
 "akira/hosts/recent_today" = "Today"
 "akira/hosts/recent_weeks" = { one = "{0} week ago", other = "{0} weeks ago" }
 "akira/hosts/recent_weeks/one" = "{0} week ago"

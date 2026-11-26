@@ -62,6 +62,16 @@ void RecentShelf::showBanner(Banner banner)
     state.write(&View::banner, std::optional<Banner>{ std::move(banner) });
 }
 
+auto RecentShelf::feature(const std::string& titleId) -> bool
+{
+    const View& shown = state.get();
+    const auto chosen = std::ranges::find(shown.gallery, titleId, &Banner::titleId);
+    if (chosen == shown.gallery.end())
+        return false;
+    showBanner(*chosen);
+    return true;
+}
+
 void RecentShelf::launch(std::string titleId)
 {
     state.write(&View::launching, std::optional<std::string>{ std::move(titleId) });

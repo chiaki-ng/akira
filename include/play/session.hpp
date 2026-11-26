@@ -16,6 +16,7 @@
 
 #include "app/exception.hpp"
 #include "app/ui_window.hpp"
+#include "play/audio_worker.hpp"
 #include "play/colour_adjustments.hpp"
 #include "play/rumble_profile.hpp"
 #include "platform/feedback/provider.hpp"
@@ -59,6 +60,8 @@ private:
     std::unique_ptr<akira::platform::VideoProvider> m_video;
     std::unique_ptr<VideoWorker> m_video_worker;
     std::optional<libchiaking::media::AudioDecoder> m_audio_decoder;
+    std::mutex m_audio_decode_mutex;
+    std::unique_ptr<AudioWorker> m_audio_worker;
 
     StatsOverlayMode m_stats_overlay_mode = StatsOverlayMode::Off;
     std::atomic<float> m_present_ms{0.0f};
@@ -90,11 +93,17 @@ private:
     mutable std::mutex m_play_mutex;
     std::weak_ptr<libchiaking::play::Session> m_play;
     std::chrono::steady_clock::time_point m_stream_start_time;
+    std::uint64_t m_bitrate_bytes = 0;
+    std::chrono::steady_clock::time_point m_bitrate_since{};
+    float m_bitrate_mbps = 0.0f;
 
     static constexpr std::uint32_t StallPackets = 60;
+    static constexpr std::chrono::seconds BitrateWindow{ 1 };
 
     void frameArriving(const akira::platform::FrameInfo& frame);
     void checkForStall(akira::platform::VideoDecoder& decoder);
+    float countedBitrate(std::uint64_t videoBytes);
+    void playAudio(std::span<const std::byte> packet);
     bool configureAudio(const libchiaking::media::AudioFormat& format, bool raw_pcm);
     std::shared_ptr<libchiaking::play::Session> attached() const;
     static const char* refusalName(libchiaking::play::InputRefusal refusal);

@@ -427,6 +427,11 @@ void ConsoleOperations::edit(const std::string& catalogName)
     {
         editing.takion = takionLabels(*target);
         editing.values.takion = actions().takionPins(*target).selected();
+        if (target->isPS5())
+        {
+            editing.codec = codecLabels();
+            editing.values.codec = codecChoice(target->getCodec());
+        }
     }
     shelf.edit(std::move(editing));
 }
@@ -462,6 +467,8 @@ void ConsoleOperations::saveEdit(const std::string& catalogName, const ConsoleSh
     }
     if (!editing->takion.empty() && values.takion != before.takion)
         saveTakion(*target, values.takion);
+    if (!editing->codec.empty() && values.codec != before.codec)
+        saveCodec(*target, values.codec);
     shelf.edit(std::nullopt);
     notifier.notify(services.strings.text("akira/hosts/edit_saved"));
     refresh();
@@ -627,6 +634,32 @@ void ConsoleOperations::saveTakion(Host& target, int index)
     const TakionPinChoice choice = actions().takionPins(target);
     if (choice.contains(index))
         actions().pinTakion(target, choice.versionAt(index));
+}
+
+void ConsoleOperations::saveCodec(Host& target, int choice)
+{
+    actions().chooseCodec(target, codecAt(choice));
+}
+
+auto ConsoleOperations::codecLabels() const -> std::vector<std::string>
+{
+    return { services.strings.text("akira/hosts/video_codec_auto"), "H.264", "H.265" };
+}
+
+auto ConsoleOperations::codecChoice(std::optional<libchiaking::media::VideoCodec> codec) -> int
+{
+    if (!codec)
+        return 0;
+    return *codec == libchiaking::media::VideoCodec::h264 ? 1 : 2;
+}
+
+auto ConsoleOperations::codecAt(int choice) -> std::optional<libchiaking::media::VideoCodec>
+{
+    if (choice == 1)
+        return libchiaking::media::VideoCodec::h264;
+    if (choice == 2)
+        return libchiaking::media::VideoCodec::h265;
+    return std::nullopt;
 }
 
 void ConsoleOperations::remove(const std::string& catalogName)

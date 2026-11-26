@@ -20,6 +20,7 @@ Host::Host(HostRecord record, const accounts::AccountSettings& accounts, const a
       haptic(record.haptic),
       consolePIN(std::move(record.consolePin)),
       pinnedTakionVersion(record.pinnedTakionVersion),
+      codec(record.codec),
       hostName(std::move(record.nickname)),
       hardwareId(record.hardwareId),
       hostAddr(std::move(record.hostAddr)),
@@ -45,6 +46,7 @@ HostRecord Host::record() const
     saved.consolePin = consolePIN;
     saved.haptic = haptic;
     saved.pinnedTakionVersion = pinnedTakionVersion;
+    saved.codec = codec;
     saved.remoteDuid = remoteDuid;
     for (const Registration& registration : legacyRegistrations)
         saved.legacyRegistrations.push_back(registration.clone());

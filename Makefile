@@ -38,7 +38,7 @@ LIBRARY_SUFFIX := -ounce
 TEST_PLATFORM_SRC :=
 else
 IMAGE_HASH   := $(shell { cat "$(CURDIR)/docker/nx/Dockerfile" "$(CURDIR)/docker/nx/Dockerfile.dockerignore" \
-                          "$(CURDIR)/scripts/docker/build-uam.sh" "$(CURDIR)/scripts/docker/install-nx-deps.sh"; \
+                          "$(CURDIR)/scripts/docker/build-uam.sh" "$(CURDIR)/scripts/docker/uam-dual-issue.patch" "$(CURDIR)/scripts/docker/install-nx-deps.sh"; \
                           git -C "$(CURDIR)/library/uam" rev-parse HEAD; \
                           git -C "$(CURDIR)/library/uam" diff HEAD; } 2>/dev/null | shasum -a 256 | cut -c1-12)
 DOCKER_BUILD  = docker build -f "$(CURDIR)/docker/nx/Dockerfile"

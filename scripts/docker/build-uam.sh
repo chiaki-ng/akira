@@ -6,15 +6,21 @@ if [ $# -ne 1 ]; then
     exit 1
 fi
 
-source /opt/devkitpro/switchvars.sh
-
 work=$(mktemp -d)
 trap 'rm -rf "${work}"' EXIT
 cp -a "$1/." "${work}"
 cd "${work}"
 
+patch -p1 < "$(dirname "$0")/uam-dual-issue.patch"
+
 echo "option('build_as_library', type : 'boolean', value : false)" > meson_options.txt
 sed -i "/static_library/,/^[[:space:]]*)/{s/include_directories: uam_incs$/include_directories: uam_incs, install: true/}" meson.build
+
+meson setup host-build -Dbuild_as_library=false
+meson compile -C host-build
+install -m 755 host-build/uam /opt/devkitpro/tools/bin/uam
+
+source /opt/devkitpro/switchvars.sh
 
 /opt/devkitpro/meson-cross.sh switch crossfile_dkp build -Dbuild_as_library=true
 meson compile -C build

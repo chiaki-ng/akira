@@ -39,6 +39,7 @@ public:
 
     void show(std::string catalogName, std::string console, const RecentPlay& played);
     void showBanner(Banner banner);
+    auto feature(const std::string& titleId) -> bool;
     void clear();
     void launch(std::string titleId);
     void landed();

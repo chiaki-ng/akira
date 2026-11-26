@@ -15,6 +15,8 @@ extern "C" void userAppInit()
     const bool application = type == AppletType_Application || type == AppletType_SystemApplication;
     config.num_bsd_sessions = application ? 12 : 2;
     config.sb_efficiency = application ? 8 : 1;
+    if (application)
+        config.udp_rx_buf_size = 0x40000;
     socketInitialize(&config);
 
     nxlinkSocket = nxlinkStdio();

@@ -8,12 +8,10 @@
 #include "app/exception.hpp"
 #include "util/av_wrappers.hpp"
 
-#ifdef BOREALIS_USE_DEKO3D
 extern "C"
 {
 #include <libavutil/hwcontext_nvtegra.h>
 }
-#endif
 
 namespace akira::platform::nvtegra
 {
@@ -30,7 +28,6 @@ NvtegraDecoder::~NvtegraDecoder()
 std::optional<deko3d::VideoFrame> NvtegraDecoder::adoptFrame(AVFrame* frame)
 {
     std::shared_ptr<AVFrame> owned(frame, [](AVFrame* f) { av_frame_free(&f); });
-#ifdef BOREALIS_USE_DEKO3D
     if (frame->format != AV_PIX_FMT_NVTEGRA || !frame->data[0] || !frame->buf[0])
         return std::nullopt;
 
@@ -54,9 +51,6 @@ std::optional<deko3d::VideoFrame> NvtegraDecoder::adoptFrame(AVFrame* frame)
         .lifetime = owned,
         .prepareCpuRead = [map, storage, size] { av_nvtegra_map_cache_op(map, NVMAP_CACHE_OP_INV, storage, size); },
     };
-#else
-    return std::nullopt;
-#endif
 }
 
 bool NvtegraDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, int height)
@@ -94,7 +88,6 @@ bool NvtegraDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, 
         m_codec_context->thread_type = FF_THREAD_SLICE;
         m_codec_context->thread_count = 1;
         m_codec_context->has_b_frames = 0;
-#ifdef BOREALIS_USE_DEKO3D
         // Create HW device context BEFORE opening codec 
 	log::info("NvtegraDecoder: Creating NVTegra hardware device context...");
         if (av_hwdevice_ctx_create(&m_hw_device_ctx, AV_HWDEVICE_TYPE_NVTEGRA, NULL, NULL, 0) < 0)
@@ -111,7 +104,6 @@ bool NvtegraDecoder::initCodec(bool hevc, [[maybe_unused]] bool ps5, int width, 
             m_codec_context->pix_fmt = AV_PIX_FMT_NVTEGRA;
             log::info("NvtegraDecoder: Setting NVTEGRA format {}x{}", width, height);
         }
-#endif
     }
     else
     {

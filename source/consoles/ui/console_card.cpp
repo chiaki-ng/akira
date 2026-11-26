@@ -207,12 +207,9 @@ auto ConsoleCard::header() const -> composition::Element
                                        .font(theme::Font::system(eyebrowSize, theme::Font::Weight::semibold))
                                        .tracking(eyebrowTracking)
                                        .foreground_style(theme::ColourRole::secondary_label);
-    if (banner)
-        return components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::center,
-                                      .spacing = theme::space::md },
-            std::move(eyebrow), badge(), components::Spacer());
-    return components::HStack(components::HStackOptions{ .spacing = theme::space::sm }, std::move(eyebrow), components::Spacer(),
-        badge());
+    return components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::center,
+                                  .spacing = theme::space::md },
+        std::move(eyebrow), badge(), components::Spacer());
 }
 
 auto ConsoleCard::badge() const -> composition::Element

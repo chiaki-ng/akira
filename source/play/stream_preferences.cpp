@@ -36,8 +36,17 @@ auto StreamPreferences::forConsole(consoles::Host& host) const -> std::optional<
     const auto bitrate = static_cast<uint32_t>(std::clamp(stream.videoBitrate(profile),
         static_cast<int>(play::PictureRequest::minimum_bitrate_kbps),
         static_cast<int>(play::PictureRequest::maximum_bitrate_kbps)));
-    const auto codec = host.isPS5() && platformFactory.supplies(akira::platform::PlatformCapability::hevc)
-        ? libchiaking::media::VideoCodec::h265 : libchiaking::media::VideoCodec::h264;
+    const bool hevc = host.isPS5() && platformFactory.supplies(akira::platform::PlatformCapability::hevc);
+    auto codec = hevc ? libchiaking::media::VideoCodec::h265 : libchiaking::media::VideoCodec::h264;
+    if (const auto chosen = host.getCodec())
+    {
+        if (*chosen == libchiaking::media::VideoCodec::h265 && !hevc)
+            log::warning("{} asks for H.265, which this console cannot decode; using H.264", host.getHostName());
+        else
+            codec = *chosen;
+        log::info("{} streams {}", host.getHostName(),
+            codec == libchiaking::media::VideoCodec::h264 ? "H.264" : "H.265");
+    }
     if (codec == libchiaking::media::VideoCodec::h264)
         height = std::min(height, play::PictureRequest::maximum_h264_height);
 

@@ -103,6 +103,7 @@ void Session::describeStream(const libchiaking::media::StreamDescription& descri
 
 bool Session::configureAudio(const libchiaking::media::AudioFormat& format, bool raw_pcm)
 {
+    const std::lock_guard lock(m_audio_decode_mutex);
     auto created = libchiaking::media::AudioDecoder::create(format, raw_pcm);
     if (!created)
     {
@@ -183,29 +184,36 @@ libchiaking::media::AudioResult Session::submitAudio(const libchiaking::media::A
     }
 
     m_audio_counts.units.fetch_add(1, std::memory_order_relaxed);
-    if (!m_audio_decoder)
+    if (!m_audio_decoder || !m_audio_worker)
     {
         m_audio_counts.without_decoder.fetch_add(1, std::memory_order_relaxed);
         return {AudioVerdict::failed, 0};
     }
 
-    const auto pcm = m_audio_decoder->decode(unit.bytes);
-    if (!pcm)
-    {
-        m_audio_counts.decode_failures.fetch_add(1, std::memory_order_relaxed);
-        return {AudioVerdict::failed, 0};
-    }
-
-    if (m_audio_open.load(std::memory_order_acquire))
-    {
-        m_audio.play(*pcm);
-        m_audio_counts.samples_queued.fetch_add(pcm->size(), std::memory_order_relaxed);
-    }
+    m_audio_worker->submit(unit.bytes);
 
     if (m_haptic_manager && m_haptic_manager->isLocked())
         CleanUpHaptic();
 
     return {};
+}
+
+void Session::playAudio(std::span<const std::byte> packet)
+{
+    const std::lock_guard lock(m_audio_decode_mutex);
+    if (!m_audio_decoder)
+        return;
+    const auto pcm = m_audio_decoder->decode(packet);
+    if (!pcm)
+    {
+        m_audio_counts.decode_failures.fetch_add(1, std::memory_order_relaxed);
+        return;
+    }
+    if (m_audio_open.load(std::memory_order_acquire))
+    {
+        m_audio.play(*pcm);
+        m_audio_counts.samples_queued.fetch_add(pcm->size(), std::memory_order_relaxed);
+    }
 }
 
 bool Session::InitVideo(int video_width, int video_height)
@@ -246,6 +254,8 @@ bool Session::InitVideo(int video_width, int video_height)
             checkForStall(*decoder);
         },
         m_threading);
+    m_audio_worker = std::make_unique<AudioWorker>(
+        [this](std::span<const std::byte> packet) { playAudio(packet); }, m_threading);
 
     return true;
 }
@@ -269,6 +279,7 @@ bool Session::FreeVideo()
     app::CrashReport::stage("stream teardown");
 
     m_video_worker.reset();
+    m_audio_worker.reset();
 
     m_video->detachFrames();
 
@@ -415,6 +426,25 @@ void Session::frameArriving(const akira::platform::FrameInfo& frame)
     }
 }
 
+float Session::countedBitrate(std::uint64_t videoBytes)
+{
+    const auto now = std::chrono::steady_clock::now();
+    if (m_bitrate_since == std::chrono::steady_clock::time_point{} || videoBytes < m_bitrate_bytes)
+    {
+        m_bitrate_since = now;
+        m_bitrate_bytes = videoBytes;
+        m_bitrate_mbps = 0.0f;
+        return m_bitrate_mbps;
+    }
+    const std::chrono::duration<float> elapsed = now - m_bitrate_since;
+    if (elapsed < BitrateWindow)
+        return m_bitrate_mbps;
+    m_bitrate_mbps = static_cast<float>(videoBytes - m_bitrate_bytes) * 8.0f / elapsed.count() / 1000000.0f;
+    m_bitrate_since = now;
+    m_bitrate_bytes = videoBytes;
+    return m_bitrate_mbps;
+}
+
 StreamStats Session::getStreamStats()
 {
     std::lock_guard lock(m_media_mutex);
@@ -459,6 +489,8 @@ StreamStats Session::getStreamStats()
         }
         if (link.video_metrics.present)
             stats.measured_bitrate_mbps = static_cast<float>(link.video_metrics.throughput_bps) / 1000000.0f;
+        else
+            stats.measured_bitrate_mbps = countedBitrate(observed.video.bytes);
         stats.rtt_valid = link.round_trip.present;
         stats.rtt_ms = static_cast<float>(link.round_trip.smoothed_us) / 1000.0f;
         stats.console_quality_valid = link.server.present;

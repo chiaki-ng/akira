@@ -53,6 +53,7 @@ public:
     [[nodiscard]] std::expected<AddressChange, Host::AddressRefusal> moveTo(Host& host, const std::string& text);
     TakionPinChoice takionPins(const Host& host) const;
     void pinTakion(Host& host, std::optional<std::uint32_t> version);
+    void chooseCodec(Host& host, std::optional<libchiaking::media::VideoCodec> codec);
     void remove(const std::string& name);
     [[nodiscard]] std::expected<void, ManualRefusal> addManual(const std::string& name, const std::string& address,
                                                                libchiaking::consoles::Generation generation);

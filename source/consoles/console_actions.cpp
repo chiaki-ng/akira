@@ -119,6 +119,12 @@ void ConsoleActions::pinTakion(Host& host, std::optional<std::uint32_t> version)
     store.save();
 }
 
+void ConsoleActions::chooseCodec(Host& host, std::optional<libchiaking::media::VideoCodec> codec)
+{
+    host.chooseCodec(codec);
+    store.save();
+}
+
 void ConsoleActions::remove(const std::string& name)
 {
     auto* signedIn = core.accounts();

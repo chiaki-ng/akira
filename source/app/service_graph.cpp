@@ -238,6 +238,19 @@ void ServiceGraph::shutDown()
 
     session->abandon();
 
+    services_.reset();
+    session.reset();
+    preferences.reset();
+    discovery.reset();
+    factory.reset();
+#if AKIRA_CLOUD
+    cloud.reset();
+#endif
+    trophies.reset();
+    art.reset();
+    wireGuard.reset();
+    http.reset();
+    hosts.reset();
     core.reset();
 
     SDL_Quit();
