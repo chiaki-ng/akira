@@ -52,7 +52,7 @@ auto AmbientBackground::body(composition::Context& context) const -> composition
         const composition::Size size = proxy.size();
         if (still)
             return held.field(0.0, size, dark);
-        return composition::Element(components::TimelineView(components::TimelineSchedule::animation(),
+        return composition::Element(components::TimelineView(components::TimelineSchedule::animation(driftInterval),
             [held, size, dark](const components::TimelineView::Context& at) {
                 const auto since = std::chrono::duration<double>(at.date.time_since_epoch()).count();
                 return held.field(std::fmod(since, 3600.0), size, dark);
