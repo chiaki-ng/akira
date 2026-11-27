@@ -210,18 +210,31 @@ jobs:
           cat manifest.json
 
       - name: Compose release body
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+          CHANNEL: ${{ needs.build.outputs.channel }}
         run: |
+          NOTES=$(gh release view "$TAG" --repo "$REPO" --json body -q .body 2>/dev/null || true)
+          NOTES=$(printf '%s\n' "$NOTES" | sed '/^<!-- akira-banner -->$/,/^<!-- \/akira-banner -->$/d' | sed '/^<!-- akira-footer -->$/,$d')
           {
-            if [ "${{ needs.build.outputs.channel }}" = "rc" ]; then
+            if [ "$CHANNEL" = "rc" ]; then
+              echo "<!-- akira-banner -->"
               echo "## Read this first"
               echo ""
               echo "- **This is a release candidate and may contain bugs.**"
               echo "- **Testers may wish to back up their configs before applying this release.**"
               echo ""
+              echo "<!-- /akira-banner -->"
             fi
-            echo "Please read the [README](https://github.com/${{ github.repository }}#readme) and the [documentation](https://chiaki-ng.github.io/akira) before getting started."
-            echo ""
+            if [ -n "$(printf '%s' "$NOTES" | tr -d '[:space:]')" ]; then
+              printf '%s\n\n' "$NOTES"
+            fi
+            echo "<!-- akira-footer -->"
+            echo "Please read the [README](https://github.com/${REPO}#readme) and the [documentation](https://chiaki-ng.github.io/akira) before getting started."
           } > RELEASE_BODY.md
+          cat RELEASE_BODY.md
 
       - name: Create Release
         uses: softprops/action-gh-release@b25b93d384199fc0fc8c2e126b2d937a0cbeb2ae # v2
@@ -234,7 +247,7 @@ jobs:
             akira-companion-*
             SHA256SUMS
             manifest.json
-          generate_release_notes: true
+          generate_release_notes: false
           draft: false
           prerelease: ${{ needs.build.outputs.channel == 'rc' }}
           body_path: RELEASE_BODY.md
