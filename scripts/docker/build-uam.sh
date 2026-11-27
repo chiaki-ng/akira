@@ -12,6 +12,7 @@ cp -a "$1/." "${work}"
 cd "${work}"
 
 patch -p1 < "$(dirname "$0")/uam-dual-issue.patch"
+patch -p1 < "$(dirname "$0")/uam-min-stall.patch"
 
 echo "option('build_as_library', type : 'boolean', value : false)" > meson_options.txt
 sed -i "/static_library/,/^[[:space:]]*)/{s/include_directories: uam_incs$/include_directories: uam_incs, install: true/}" meson.build

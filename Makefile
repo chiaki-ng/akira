@@ -38,7 +38,7 @@ LIBRARY_SUFFIX := -ounce
 TEST_PLATFORM_SRC :=
 else
 IMAGE_HASH   := $(shell { cat "$(CURDIR)/docker/nx/Dockerfile" "$(CURDIR)/docker/nx/Dockerfile.dockerignore" \
-                          "$(CURDIR)/scripts/docker/build-uam.sh" "$(CURDIR)/scripts/docker/uam-dual-issue.patch" "$(CURDIR)/scripts/docker/install-nx-deps.sh"; \
+                          "$(CURDIR)/scripts/docker/build-uam.sh" "$(CURDIR)/scripts/docker/uam-dual-issue.patch" "$(CURDIR)/scripts/docker/uam-min-stall.patch" "$(CURDIR)/scripts/docker/install-nx-deps.sh"; \
                           git -C "$(CURDIR)/library/uam" rev-parse HEAD; \
                           git -C "$(CURDIR)/library/uam" diff HEAD; } 2>/dev/null | shasum -a 256 | cut -c1-12)
 DOCKER_BUILD  = docker build -f "$(CURDIR)/docker/nx/Dockerfile"
@@ -57,6 +57,8 @@ ARISA_FLAVOUR_nx_drako3d    := switch
 ARISA_FLAVOUR_nx_vulkan     := switch
 ARISA_FLAVOUR_ounce_drako3d := switch2
 ARISA_FLAVOUR_ounce_vulkan  := switch2
+ARISA_SHADER_FLAGS_nx       := --min-stall=6
+ARISA_SHADER_FLAGS_ounce    :=
 ARISA_PACKAGE_DIR  ?= $(abspath $(CURDIR)/../arisa/build/package)
 ARISA_FLAVOUR       = $(ARISA_FLAVOUR_$(PLATFORM)_$(ARISA_GPU))
 ARISA_LIB_DIR       = $(CURDIR)/build/arisa-lib/$(ARISA_FLAVOUR)
@@ -570,7 +572,8 @@ arisa-library: platform docker-image
 	@printf "$(GREEN)[*]$(NC) Building arisa $$(git -C "$(ARISA_SOURCE)" rev-parse --short HEAD 2>/dev/null) for $(ARISA_FLAVOUR)...\n"
 	@$(DOCKER_RUN) -w "$(ARISA_SOURCE)" $(DOCKER_IMAGE) sh -c '\
 		cmake --preset package-$(ARISA_FLAVOUR) -B "$(ARISA_LIB_DIR)/build" \
-			-DCMAKE_C_COMPILER_LAUNCHER= -DCMAKE_CXX_COMPILER_LAUNCHER= -DCMAKE_INSTALL_PREFIX="$(ARISA_PREFIX)" > /dev/null && \
+			-DCMAKE_C_COMPILER_LAUNCHER= -DCMAKE_CXX_COMPILER_LAUNCHER= -DCMAKE_INSTALL_PREFIX="$(ARISA_PREFIX)" \
+			-DARISA_DEKO3D_SHADER_FLAGS="$(ARISA_SHADER_FLAGS_$(PLATFORM))" > /dev/null && \
 		nice -n 10 cmake --build "$(ARISA_LIB_DIR)/build" -j4 && \
 		cmake --install "$(ARISA_LIB_DIR)/build" > /dev/null'
 	@test -f "$(ARISA_PREFIX)/lib/libarisa.a" || { printf "$(RED)[x]$(NC) arisa did not install to $(ARISA_PREFIX)\n"; exit 1; }

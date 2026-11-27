@@ -1,0 +1,128 @@
+diff -ru a/mesa-imported/codegen/nv50_ir_driver.h b/mesa-imported/codegen/nv50_ir_driver.h
+--- a/mesa-imported/codegen/nv50_ir_driver.h	2026-11-27 21:52:56
++++ b/mesa-imported/codegen/nv50_ir_driver.h	2026-11-27 21:52:56
+@@ -82,6 +82,7 @@
+    uint8_t type; /* PIPE_SHADER */
+ 
+    uint8_t optLevel; /* optimization level (0 to 3) */
++   uint8_t minIssueDelay;
+    uint8_t dbgFlags;
+    bool omitLineNum; /* only used for printing the prog when dbgFlags is set */
+ 
+diff -ru a/mesa-imported/codegen/nv50_ir_emit_gm107.cpp b/mesa-imported/codegen/nv50_ir_emit_gm107.cpp
+--- a/mesa-imported/codegen/nv50_ir_emit_gm107.cpp	2026-11-27 21:52:56
++++ b/mesa-imported/codegen/nv50_ir_emit_gm107.cpp	2026-11-27 22:08:19
+@@ -4556,6 +4556,16 @@
+    SchedDataCalculatorGM107 sched(targGM107);
+    CodeEmitter::prepareEmission(func);
+    sched.run(func, true, true);
++
++   const uint32_t minimum = func->getProgram()->driver->minIssueDelay;
++   if (!minimum)
++      return;
++   for (int i = 0; i < func->bbCount; ++i) {
++      for (Instruction *insn = func->bbArray[i]->getEntry(); insn; insn = insn->next) {
++         if ((insn->sched & 0xf) < minimum)
++            insn->sched = (insn->sched & ~0xfu) | minimum;
++      }
++   }
+ }
+ 
+ static inline uint32_t sizeToBundlesGM107(uint32_t size)
+diff -ru a/source/compiler_iface.cpp b/source/compiler_iface.cpp
+--- a/source/compiler_iface.cpp	2026-11-27 21:52:56
++++ b/source/compiler_iface.cpp	2026-11-27 21:52:56
+@@ -200,7 +200,7 @@
+ 	return ret;
+ }
+ 
+-DekoCompiler::DekoCompiler(pipeline_stage stage, int optLevel) :
++DekoCompiler::DekoCompiler(pipeline_stage stage, int optLevel, int minIssueDelay) :
+ 	m_stage{stage}, m_glsl{}, m_tgsi{}, m_tgsiNumTokens{}, m_info{}, m_code{}, m_codeSize{},
+ 	m_nvsh{}, m_dkph{}
+ {
+@@ -258,6 +258,7 @@
+ 	m_info.bin.sourceRep = PIPE_SHADER_IR_TGSI;
+ 
+ 	m_info.optLevel = optLevel;
++	m_info.minIssueDelay = minIssueDelay;
+ 
+ 	m_info.io.auxCBSlot      = 17;            // Driver constbuf c[0x0]. Note that codegen was modified to transform constbuf ids like such: final_id = (raw_id + 1) % 18
+ 	m_info.io.drawInfoBase   = 0x000;         // This is used for gl_BaseVertex, gl_BaseInstance and gl_DrawID (in that order)
+diff -ru a/source/compiler_iface.h b/source/compiler_iface.h
+--- a/source/compiler_iface.h	2026-11-27 21:52:56
++++ b/source/compiler_iface.h	2026-11-27 21:52:56
+@@ -36,7 +36,7 @@
+ 	void FillDkshHeader(DkshHeader& hdr);
+ 
+ public:
+-	DekoCompiler(pipeline_stage stage, int optLevel = 3);
++	DekoCompiler(pipeline_stage stage, int optLevel = 3, int minIssueDelay = 0);
+ 	~DekoCompiler();
+ 
+ 	bool CompileGlsl(const char* glsl);
+diff -ru a/source/main.cpp b/source/main.cpp
+--- a/source/main.cpp	2026-11-27 21:52:56
++++ b/source/main.cpp	2026-11-27 21:52:56
+@@ -11,6 +11,7 @@
+ 		"  -t, --tgsi=<file>  Specifies the file to which output intermediary TGSI code\n"
+ 		"  -s, --stage=<name> Specifies the pipeline stage of the shader\n"
+ 		"                     (vert, tess_ctrl, tess_eval, geom, frag, comp)\n"
++		"  -m, --min-stall=<n> Issues every instruction at least n cycles apart (0-15)\n"
+ 		"  -v, --version      Displays version information\n"
+ 		, prog);
+ 	return EXIT_FAILURE;
+@@ -19,6 +20,7 @@
+ int main(int argc, char* argv[])
+ {
+ 	const char *inFile = nullptr, *outFile = nullptr, *rawFile = nullptr, *tgsiFile = nullptr, *stageName = nullptr;
++	int minStall = 0;
+ 
+ 	static struct option long_options[] =
+ 	{
+@@ -26,13 +28,14 @@
+ 		{ "raw",     required_argument, NULL, 'r' },
+ 		{ "tgsi",    required_argument, NULL, 't' },
+ 		{ "stage",   required_argument, NULL, 's' },
++		{ "min-stall", required_argument, NULL, 'm' },
+ 		{ "help",    no_argument,       NULL, '?' },
+ 		{ "version", no_argument,       NULL, 'v' },
+ 		{ NULL, 0, NULL, 0 }
+ 	};
+ 
+ 	int opt, optidx = 0;
+-	while ((opt = getopt_long(argc, argv, "o:r:t:s:?v", long_options, &optidx)) != -1)
++	while ((opt = getopt_long(argc, argv, "o:r:t:s:m:?v", long_options, &optidx)) != -1)
+ 	{
+ 		switch (opt)
+ 		{
+@@ -40,6 +43,7 @@
+ 			case 'r': rawFile = optarg; break;
+ 			case 't': tgsiFile = optarg; break;
+ 			case 's': stageName = optarg; break;
++			case 'm': minStall = atoi(optarg); break;
+ 			case '?': usage(argv[0]); return EXIT_SUCCESS;
+ 			case 'v': printf("%s - Built on %s %s\n", PACKAGE_STRING, __DATE__, __TIME__); return EXIT_SUCCESS;
+ 			default:  return usage(argv[0]);
+@@ -50,6 +54,12 @@
+ 		return usage(argv[0]);
+ 	inFile = argv[optind];
+ 
++	if (minStall < 0 || minStall > 15)
++	{
++		fprintf(stderr, "Invalid minimum stall (--min-stall): %d\n", minStall);
++		return EXIT_FAILURE;
++	}
++
+ 	if (!stageName)
+ 	{
+ 		fprintf(stderr, "Missing pipeline stage argument (--stage)\n");
+@@ -96,7 +106,7 @@
+ 
+ 	glsl_frontend_init();
+ 
+-	DekoCompiler compiler{stage};
++	DekoCompiler compiler{stage, 3, minStall};
+ 	bool rc = compiler.CompileGlsl(glsl_source);
+ 	delete[] glsl_source;
+ 
