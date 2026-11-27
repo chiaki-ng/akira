@@ -437,9 +437,9 @@ ARISA_TEST_OBJ      = $(ARISA_TEST_DIR)/obj
 ARISA_TEST_GEN      = $(ARISA_TEST_DIR)/generated
 ARISA_TEST_INCLUDES = -I"$(CURDIR)/include" -I"$(CORE_DIR)/include" -I"$(CORE_DIR)" -I"$(ARISA_TEST_GEN)" \
                       -I"$(CURDIR)/library/tomlplusplus/include" -I"$(JSONC_PREFIX)/include" -I"$(SIMDUTF_PREFIX)/include"
-ARISA_MODEL_FLAGS   = -std=c++23 -O0 -g -DAKIRA_CLOUD=1 -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
+ARISA_MODEL_FLAGS   = -std=c++23 -O0 -g -DAKIRA_CLOUD=1 -DAKIRA_PLATFORM_OUNCE=$(if $(filter ounce,$(PLATFORM)),1,0) -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
                       $(ARISA_TEST_INCLUDES) -I"$(CURDIR)/library/qrcodegen"
-ARISA_SCREEN_FLAGS  = -std=c++23 -O0 -g -fno-rtti -DAKIRA_CLOUD=1 -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
+ARISA_SCREEN_FLAGS  = -std=c++23 -O0 -g -fno-rtti -DAKIRA_CLOUD=1 -DAKIRA_PLATFORM_OUNCE=$(if $(filter ounce,$(PLATFORM)),1,0) -DAKIRA_MUTE_CORE_LOGS=0 -DTOML_EXCEPTIONS=0 \
                       -DAKIRA_RESOURCES_DIR=\"$(CURDIR)/resources\" -DARISA_ASSETS_DIR=\"$(ARISA_HOST_PREFIX)/share/arisa/assets\" \
                       -DAKIRA_SHOTS_DIR=\"$(CURDIR)/work/shots\" -I"$(CURDIR)/tests" -I"$(ARISA_HOST_PREFIX)/include" \
                       $(ARISA_TEST_INCLUDES) -isystem "$(ARISA_TEST_STB)"
