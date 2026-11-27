@@ -5,8 +5,8 @@
 namespace akira::platform::github
 {
 
-GithubUpdateProvider::GithubUpdateProvider(const app::AppSettings& app)
-    : m_manager(app)
+GithubUpdateProvider::GithubUpdateProvider(const app::AppSettings& app, std::string_view repository)
+    : m_manager(app, repository)
 {
 }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string_view>
+
 #include "platform/updates/github/update_manager.hpp"
 #include "platform/updates/provider.hpp"
 
@@ -9,7 +11,7 @@ namespace akira::platform::github
 class GithubUpdateProvider final : public UpdateProvider
 {
 public:
-    explicit GithubUpdateProvider(const app::AppSettings& app);
+    GithubUpdateProvider(const app::AppSettings& app, std::string_view repository);
 
     void prepare(int argc, char* argv[]) override;
     std::span<const char* const> helpFiles() const override;

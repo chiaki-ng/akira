@@ -30,6 +30,7 @@ PlatformCapability PlatformFactory::fixedCapabilities() noexcept
 
 OuncePlatformFactory::OuncePlatformFactory(PlatformServices services)
     : m_services(services)
+    , m_updates(services.app, "chiaki-ng/akira-ounce")
     , m_pads(services.controllers, services.rumble)
 {
 }

@@ -5,6 +5,7 @@
 #include <expected>
 #include <functional>
 #include <string>
+#include <string_view>
 
 #include "platform/updates/provider.hpp"
 
@@ -18,7 +19,7 @@ namespace akira::platform::github
 
 class UpdateManager {
 public:
-    explicit UpdateManager(const app::AppSettings& app);
+    UpdateManager(const app::AppSettings& app, std::string_view repository);
 
     UpdateManager(const UpdateManager&) = delete;
     UpdateManager& operator=(const UpdateManager&) = delete;
@@ -41,6 +42,7 @@ public:
 
 private:
     const app::AppSettings& appSettings;
+    std::string releasesUrl;
     std::string selfPath;
 };
 

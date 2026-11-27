@@ -33,7 +33,7 @@ else()
         video/viddec
         video/software
         display/per_mode
-        updates/none
+        updates/github
         stats/none
         pads/hid
         haptics/hid

@@ -5,6 +5,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+#include <format>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -28,9 +29,6 @@ namespace akira::platform::github
 {
 
 namespace {
-
-constexpr const char* kReleasesUrl =
-    "https://api.github.com/repos/chiaki-ng/akira/releases?per_page=30";
 
 constexpr const char* kDefaultInstallPath = "sdmc:/switch/akira/akira.nro";
 
@@ -67,8 +65,9 @@ bool endsWithNro(const std::string& p) {
 
 }
 
-UpdateManager::UpdateManager(const app::AppSettings& app)
+UpdateManager::UpdateManager(const app::AppSettings& app, std::string_view repository)
     : appSettings(app)
+    , releasesUrl(std::format("https://api.github.com/repos/{}/releases?per_page=30", repository))
 {
 }
 
@@ -81,7 +80,7 @@ UpdateInfo UpdateManager::checkForUpdate(const std::string& channel) {
     result.channel = channel;
 
     HttpRequest req;
-    req.url = kReleasesUrl;
+    req.url = releasesUrl;
     req.headers.push_back("User-Agent: akira-updater");
     req.headers.push_back("Accept: application/vnd.github+json");
     req.headers.push_back("X-GitHub-Api-Version: 2022-11-28");

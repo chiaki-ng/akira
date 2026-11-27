@@ -4,7 +4,7 @@
 #include "platform/factory.hpp"
 #include "platform/pads/hid/provider.hpp"
 #include "platform/stats/none/provider.hpp"
-#include "platform/updates/none/provider.hpp"
+#include "platform/updates/github/provider.hpp"
 #include "platform/video/gpu_access.hpp"
 
 namespace akira::platform
@@ -13,7 +13,7 @@ namespace akira::platform
 class OuncePlatformFactory final : public PlatformFactory
 {
 public:
-    static constexpr PlatformCapability Capabilities = PlatformCapability::fsr_4k;
+    static constexpr PlatformCapability Capabilities = PlatformCapability::fsr_4k | PlatformCapability::self_update;
 
     explicit OuncePlatformFactory(PlatformServices services);
 
@@ -21,7 +21,7 @@ public:
     std::span<const char* const> helpFiles() const override;
 
     per_mode::PerModeDisplayProvider& display() override { return m_display; }
-    none::NoUpdateProvider& updates() override { return m_updates; }
+    github::GithubUpdateProvider& updates() override { return m_updates; }
     none::NoStatsProvider& stats() override { return m_stats; }
     hid::HidPadProvider& pads() override { return m_pads; }
     play::CouchSeats* couchSeats() override { return nullptr; }
@@ -43,7 +43,7 @@ private:
 
     PlatformServices m_services;
     per_mode::PerModeDisplayProvider m_display;
-    none::NoUpdateProvider m_updates;
+    github::GithubUpdateProvider m_updates;
     none::NoStatsProvider m_stats;
     hid::HidPadProvider m_pads;
 };
