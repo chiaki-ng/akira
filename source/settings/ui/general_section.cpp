@@ -179,8 +179,7 @@ auto GeneralSection::accessibility(const appearance::AppearanceModel& look, cons
         flag("akira/settings/reduce_motion", &Settings::reduce_motion, &Overrides::reduce_motion),
             flag("akira/settings/reduce_transparency", &Settings::reduce_transparency, &Overrides::reduce_transparency),
             flag("akira/settings/increase_contrast", &Settings::increase_contrast, &Overrides::increase_contrast),
-            flag("akira/settings/bold_text", &Settings::bold_text, &Overrides::bold_text),
-            flag("akira/settings/button_shapes", &Settings::button_shapes, &Overrides::button_shapes));
+            flag("akira/settings/bold_text", &Settings::bold_text, &Overrides::bold_text));
 }
 
 auto GeneralSection::language(const SettingRows& rows) const -> composition::Element
