@@ -1,4 +1,4 @@
-ARG BASE=ghcr.io/chiaki-ng/devkita64@sha256:3a978bfec72c624aed88b8197f3f46b7288e091f3c28f0e5697b7c211df9c969
+ARG BASE=ghcr.io/chiaki-ng/devkita64@sha256:859aeab50360708e06f6bb570cfc4ed7dfcb022719bf20374e4677bbd0b83414
 FROM ${BASE}
 
 ARG NX_DEPS_RELEASE=nx-deps-241026
@@ -9,27 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && pip3 install --break-system-packages 'meson>=1.3.0'
 
-RUN dkp-pacman -Syu --noconfirm && \
-    dkp-pacman -S --noconfirm --needed \
-    switch-sdl2 \
-    switch-zlib \
-    switch-bzip2 \
-    switch-freetype \
-    switch-libass \
-    switch-libfribidi \
-    switch-harfbuzz \
-    switch-mesa \
-    switch-glfw \
-    switch-glad \
-    switch-libjson-c \
-    switch-dav1d \
-    switch-libopus \
-    switch-libssh2 \
-    switch-mbedtls \
-    && for package in switch-ffmpeg switch-libmpv switch-curl; do \
+RUN for package in switch-ffmpeg switch-libmpv switch-curl; do \
         dkp-pacman -Rdd --noconfirm "$package" || true; \
-    done \
-    && dkp-pacman -Scc --noconfirm
+    done
 
 COPY scripts/docker /opt/akira-docker
 
