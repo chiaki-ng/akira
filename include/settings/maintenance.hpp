@@ -14,6 +14,7 @@ public:
 
         Outcome outcome = Outcome::Failed;
         std::string version;
+        std::string notes;
 
         friend bool operator==(const UpdateCheck&, const UpdateCheck&) = default;
     };
@@ -22,7 +23,8 @@ public:
         enum class Stage { Downloading, Verifying, Installed, Failed };
 
         Stage stage = Stage::Downloading;
-        int percent = 0;
+        std::int64_t received = 0;
+        std::int64_t total = 0;
         std::string error;
 
         friend bool operator==(const UpdateProgress&, const UpdateProgress&) = default;

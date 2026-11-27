@@ -51,6 +51,7 @@
 #include "settings/ui/developer_section.hpp"
 #include "settings/ui/discovery_log_page.hpp"
 #include "settings/ui/entry_sheet.hpp"
+#include "settings/ui/update_sheet.hpp"
 #include "settings/ui/general_section.hpp"
 #include "settings/ui/pad_page.hpp"
 #include "settings/ui/picture_section.hpp"
@@ -244,33 +245,15 @@ auto SettingsScreen::presented(composition::Element screen, const SettingsModel:
             if (!open)
                 model->dismissRejection();
         });
-    composition::Binding<bool> offered([model] { return model->view().get().offered; },
+    composition::Binding<bool> updating([model] { return model->view().get().offered || model->view().get().install.has_value(); },
         [model](bool open) {
-            if (!open)
+            if (open)
+                return;
+            if (model->view().get().install)
+                model->dismissInstall();
+            else
                 model->dismissOffer();
         });
-    composition::Binding<bool> installing([model] { return model->view().get().install.has_value(); },
-        [model](bool open) {
-            if (!open)
-                model->dismissInstall();
-        });
-    const std::string version = status.update ? status.update->version : std::string();
-    std::string progress;
-    if (status.install)
-    {
-        switch (status.install->stage)
-        {
-            case Maintenance::UpdateProgress::Stage::Downloading:
-                progress = strings->format("akira/update/downloading", status.install->percent);
-                break;
-            case Maintenance::UpdateProgress::Stage::Verifying: progress = strings->text("akira/update/verifying"); break;
-            case Maintenance::UpdateProgress::Stage::Installed: progress = strings->text("akira/update/installed_relaunch"); break;
-            case Maintenance::UpdateProgress::Stage::Failed: progress = status.install->error; break;
-        }
-    }
-    const bool settled = status.install
-        && (status.install->stage == Maintenance::UpdateProgress::Stage::Installed
-            || status.install->stage == Maintenance::UpdateProgress::Stage::Failed);
     const std::string rejection = strings->text(EntrySheet::rejectionKey(status.rejected));
     return std::move(screen)
         .sheet(std::move(entering),
@@ -282,15 +265,11 @@ auto SettingsScreen::presented(composition::Element screen, const SettingsModel:
             [model, ok = strings->text("akira/common/ok")] {
                 return components::Button(ok, components::ButtonRole::cancel, [model] { model->dismissRejection(); });
             })
-        .alert(strings->text("akira/update/prompt_title"), std::move(offered),
-            [model, now = strings->text("akira/update/update_now"), later = strings->text("akira/update/later")] {
-                return components::Group(components::Button(later, components::ButtonRole::cancel, [model] { model->dismissOffer(); }),
-                    components::Button(now, [model] { model->installUpdate(); }));
-            },
-            [body = strings->format("akira/update/prompt_body", version, app::version::semver())] { return components::Text(body); })
-        .alert(progress, std::move(installing),
-            [model, settled, ok = strings->text("akira/common/ok"), cancel = strings->text("akira/common/cancel")] {
-                return components::Button(settled ? ok : cancel, components::ButtonRole::cancel, [model] { model->dismissInstall(); });
+        .sheet(std::move(updating),
+            [model, update = status.update.value_or(Maintenance::UpdateCheck{}), install = status.install, words = strings] {
+                return composition::Element(UpdateSheet(update, install, *model, *words))
+                    .presentation_sizing(composition::PresentationSizing::fitted)
+                    .interactive_dismiss_disabled();
             });
 }
 

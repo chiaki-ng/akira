@@ -201,7 +201,7 @@ void Upkeep::checkForUpdate(std::string channel, std::function<void(UpdateCheck)
                 return;
             }
             offered = info;
-            done(UpdateCheck{ .outcome = UpdateCheck::Outcome::Available, .version = info.version });
+            done(UpdateCheck{ .outcome = UpdateCheck::Outcome::Available, .version = info.version, .notes = info.notes });
         });
     });
 }
@@ -232,11 +232,11 @@ void Upkeep::simulateUpdate(std::string server, std::function<void(UpdateCheck)>
     info.channel = services.appSettings.updateChannel();
     info.version = "9.9.9";
     info.tag = "v9.9.9";
-    info.notes = "Developer-simulated update from " + base;
+    info.notes = std::format("### Simulated release\n\n- Served from {}\n- Stands in for the GitHub release notes\n- Long enough to check the list layout\n\n### Fixes\n\n- Installing an update no longer fails with a file-exists error\n- The download shows its size while it runs", base);
     info.nroUrl = base + "/akira.nro";
     info.sha256Url = base + "/SHA256SUMS";
     offered = info;
-    done(UpdateCheck{ .outcome = UpdateCheck::Outcome::Available, .version = info.version });
+    done(UpdateCheck{ .outcome = UpdateCheck::Outcome::Available, .version = info.version, .notes = info.notes });
 }
 
 void Upkeep::install(const platform::UpdateInfo& info, const std::function<void(UpdateProgress)>& progress)
@@ -252,7 +252,7 @@ void Upkeep::install(const platform::UpdateInfo& info, const std::function<void(
         if (percent != last)
         {
             last = percent;
-            report(UpdateProgress{ .stage = UpdateProgress::Stage::Downloading, .percent = percent });
+            report(UpdateProgress{ .stage = UpdateProgress::Stage::Downloading, .received = received, .total = total });
         }
         return true;
     });
