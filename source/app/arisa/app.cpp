@@ -38,8 +38,9 @@ namespace akira::app::arisa {
 namespace provider = ::arisa::provider;
 namespace runtime = ::arisa::runtime;
 
-App::App()
-    : threading(ThreadPlan::policy())
+App::App(std::span<char*> arguments)
+    : arguments(arguments)
+    , threading(ThreadPlan::policy())
 {
     ServiceGraph::prepareProcess();
     installCrashReporter();
@@ -130,6 +131,7 @@ void App::startServices()
     graph->startServices();
     CrashReport::stage("arisa display");
     graph->platform().display().prepare();
+    graph->platform().updates().prepare(static_cast<int>(arguments.size()), arguments.data());
     CrashReport::stage("arisa sdl");
     static_cast<void>(graph->startSdl(false));
     CrashReport::stage("arisa focus");

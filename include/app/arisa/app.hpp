@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 #include <string_view>
@@ -60,7 +61,7 @@ namespace akira::app::arisa {
 
 class App {
 public:
-    App();
+    explicit App(std::span<char*> arguments);
     ~App();
 
     App(const App&) = delete;
@@ -91,6 +92,7 @@ private:
     void offerPages();
     auto features() -> settings::DeviceFeatures;
     bool frame();
+    std::span<char*> arguments;
     bool firstFrameShown = false;
     bool quitting = false;
 
