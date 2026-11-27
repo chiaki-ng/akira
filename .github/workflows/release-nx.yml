@@ -72,19 +72,19 @@ jobs:
         env:
           BUILD_CHANNEL: ${{ steps.version.outputs.channel }}
           VERSION_PRERELEASE: ${{ steps.version.outputs.prerelease }}
-        run: make build-nx CLOUD=false
+        run: make build-arisa-nx CLOUD=false
 
       - name: Upload NRO artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: akira-nro
-          path: build/nx/akira.nro
+          path: build/arisa-nx/akira.nro
 
       - name: Upload ELF artifact (debug symbols)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: akira-elf
-          path: build/nx/akira.elf
+          path: build/arisa-nx/akira.elf
 
     outputs:
       version: ${{ steps.version.outputs.version }}

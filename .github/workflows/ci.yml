@@ -61,19 +61,19 @@ jobs:
           cache-to: type=gha,mode=max,scope=nx
 
       - name: Build Akira
-        run: make build-nx CLOUD=false
+        run: make build-arisa-nx CLOUD=false
 
       - name: Upload NRO artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: akira-nx-nro-${{ steps.sha.outputs.short }}
-          path: build/nx/akira.nro
+          path: build/arisa-nx/akira.nro
 
       - name: Upload ELF artifact (debug symbols)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: akira-nx-elf-${{ steps.sha.outputs.short }}
-          path: build/nx/akira.elf
+          path: build/arisa-nx/akira.elf
 
   build-ounce:
     runs-on: ubuntu-latest
