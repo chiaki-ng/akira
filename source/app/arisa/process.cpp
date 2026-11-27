@@ -21,7 +21,6 @@ extern "C" void userAppInit()
 
     nxlinkSocket = nxlinkStdio();
 
-    romfsInit();
     plInitialize(PlServiceType_User);
     setsysInitialize();
     setInitialize();
@@ -36,7 +35,6 @@ extern "C" void userAppExit()
     setExit();
     setsysExit();
     plExit();
-    romfsExit();
     if (nxlinkSocket != -1)
         close(nxlinkSocket);
     socketExit();
