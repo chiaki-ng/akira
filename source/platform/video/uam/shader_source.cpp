@@ -76,7 +76,7 @@ std::string UamShaderSource::injectDefines(std::string source, const std::string
 
 std::string UamShaderSource::fragmentDefines(const deko3d::VideoFragmentVariant& variant) const
 {
-    std::string defines;
+    std::string defines = "#define NO_COLOUR\n";
     if (variant.fsrEasu)
         defines += "#define FSR_EASU\n";
     if (variant.fsrRcas)

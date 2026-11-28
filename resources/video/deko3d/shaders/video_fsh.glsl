@@ -136,6 +136,12 @@ float AMax3F1(float x, float y, float z) { return max(x, max(y, z)); }
 #endif
 
 #if !defined(FSR_RCAS) && !defined(FSR_PASS)
+#ifdef NO_COLOUR
+vec3 applyColour(vec3 rgb)
+{
+    return rgb;
+}
+#else
 layout (binding = 2, std140) uniform ColourConstants {
     vec4 Colour;
 };
@@ -148,6 +154,7 @@ vec3 applyColour(vec3 rgb)
     rgb = pow(clamp(rgb, 0.0, 1.0), vec3(1.0 / Colour.w));
     return rgb;
 }
+#endif
 
 vec3 decodeYuv(float y_raw, vec2 uv_raw)
 {
