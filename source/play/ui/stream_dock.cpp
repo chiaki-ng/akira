@@ -439,10 +439,9 @@ auto StreamDock::streamPanel(const settings::ui::PictureOptions::Values& values)
                        .control_size(components::ControlSize::large)
                        .button_sizing(components::ButtonSizing::flexible)
                        .id(composition::ElementKey{ "stream-dock.restart" }));
-    return components::ScrollView(components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
-                                                         .spacing = theme::Space{ panelSpacing } },
-                                      std::move(rows)))
-        .frame({ .max_height = diagnosticsHeight });
+    return components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
+                                  .spacing = theme::Space{ panelSpacing } },
+        std::move(rows));
 }
 
 auto StreamDock::swipe(settings::ui::ControlOptions::Swipe direction, const char* key, bool enabled) const
