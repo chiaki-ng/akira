@@ -217,7 +217,7 @@ jobs:
           CHANNEL: ${{ needs.build.outputs.channel }}
         run: |
           NOTES=$(gh release view "$TAG" --repo "$REPO" --json body -q .body 2>/dev/null || true)
-          NOTES=$(printf '%s\n' "$NOTES" | sed '/^<!-- akira-banner -->$/,/^<!-- \/akira-banner -->$/d' | sed '/^<!-- akira-footer -->$/,$d')
+          NOTES=$(printf '%s\n' "$NOTES" | sed '/^<!-- akira-banner -->$/,/^<!-- \/akira-banner -->$/d' | sed '/^<!-- akira-footer -->$/,/^<!-- \/akira-footer -->$/d')
           {
             if [ "$CHANNEL" = "rc" ]; then
               echo "<!-- akira-banner -->"
@@ -228,15 +228,19 @@ jobs:
               echo ""
               echo "<!-- /akira-banner -->"
             fi
-            if [ -n "$(printf '%s' "$NOTES" | tr -d '[:space:]')" ]; then
-              printf '%s\n\n' "$NOTES"
-            fi
             echo "<!-- akira-footer -->"
             echo "Please read the [README](https://github.com/${REPO}#readme) and the [documentation](https://chiaki-ng.github.io/akira) before getting started."
             echo ""
             echo "For issues, please reach out in [![chiaki-ng discord](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fdiscord.com%2Fapi%2Fv10%2Finvites%2FtAMbRuwXDH%3Fwith_counts%3Dtrue&query=%24.approximate_member_count&label=chiaki-ng%20discord&logo=discord&color=5865F2)](https://discord.gg/tAMbRuwXDH) and prepare to submit logs when asked."
             echo ""
             echo "For Switch 2 builds, please go to the [akira-ounce releases](https://github.com/chiaki-ng/akira-ounce/releases/latest)."
+            echo ""
+            echo "---"
+            echo ""
+            echo "<!-- /akira-footer -->"
+            if [ -n "$(printf '%s' "$NOTES" | tr -d '[:space:]')" ]; then
+              printf '%s\n' "$NOTES"
+            fi
           } > RELEASE_BODY.md
           cat RELEASE_BODY.md
 
