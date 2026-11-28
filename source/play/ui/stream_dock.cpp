@@ -81,7 +81,7 @@ auto StreamDock::panels() const -> std::vector<Panel>
     std::vector<Panel> shown;
     if (picture && session.profile && *session.profile != StreamProfile::Cloud)
         shown.push_back(Panel::Stream);
-    if (picture)
+    if (picture && AKIRA_PLATFORM_OUNCE)
         shown.push_back(Panel::Colour);
     if (sound)
         shown.push_back(Panel::Sound);
