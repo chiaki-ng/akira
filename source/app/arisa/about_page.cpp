@@ -1,6 +1,7 @@
 #include "app/arisa/about_page.hpp"
 
 #include <arisa/components/button.hpp>
+#include <arisa/components/environment.hpp>
 #include <arisa/components/button_role.hpp>
 #include <arisa/components/button_sizing.hpp>
 #include <arisa/components/button_style.hpp>
@@ -12,10 +13,7 @@
 #include <arisa/components/text.hpp>
 #include <arisa/components/vstack.hpp>
 #include <arisa/components/zstack.hpp>
-#include <arisa/composition/binding.hpp>
 #include <arisa/composition/content_shape_kinds.hpp>
-#include <arisa/composition/presentation_sizing.hpp>
-#include <arisa/presentation/presentations.hpp>
 #include <arisa/structure/form.hpp>
 #include <arisa/structure/section.hpp>
 #include <arisa/theme/colour.hpp>
@@ -35,8 +33,6 @@
 #include <libchiaking/version.hpp>
 
 #include "app/arisa/artwork.hpp"
-#include "app/arisa/qr_code.hpp"
-#include "app/qr_matrix.hpp"
 #include "app/version.hpp"
 
 namespace akira::app::arisa {
@@ -47,7 +43,6 @@ namespace provider = ::arisa::provider;
 namespace structure = ::arisa::structure;
 namespace theme = ::arisa::theme;
 
-const composition::StateKey<std::string> AboutPage::shown{ "about-shown-link", std::string() };
 const composition::StateKey<bool> AboutPage::contributorsShown{ "about-contributors-shown", false };
 
 AboutPage::AboutPage(const app::Strings& strings, const std::vector<std::string>& contributors)
@@ -132,13 +127,13 @@ auto AboutPage::mark(const Tile& shown) -> composition::Element
         .accessibility_hidden(true);
 }
 
-auto AboutPage::tile(const Tile& shown, composition::StateHandle<std::string> open) const -> composition::Element
+auto AboutPage::tile(const Tile& shown, const components::OpenURLAction& open) const -> composition::Element
 {
     std::vector<composition::Element> detail;
     detail.push_back(components::Text(strings->text(shown.detailKey)).font(theme::Font::callout));
     if (!shown.captionKey.empty())
         detail.push_back(components::Text(strings->text(shown.captionKey)).font(theme::Font::caption));
-    return components::Button([open, url = std::string(shown.url)] { open.set(url); },
+    return components::Button([open, url = std::string(shown.url)] { open(url); },
         components::VStack(components::VStackOptions{ .alignment = components::HorizontalAlignment::leading,
                                .spacing = theme::Space{ 12.0F } },
             components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::center,
@@ -160,7 +155,7 @@ auto AboutPage::tile(const Tile& shown, composition::StateHandle<std::string> op
         .id(composition::ElementKey{ "about.tile." + std::string(shown.titleKey) });
 }
 
-auto AboutPage::project(const Project& shown, composition::StateHandle<std::string> open) const -> composition::Element
+auto AboutPage::project(const Project& shown, const components::OpenURLAction& open) const -> composition::Element
 {
     composition::Element logo = composition::Element(components::Group());
     if (shown.logo.starts_with("https://"))
@@ -184,7 +179,7 @@ auto AboutPage::project(const Project& shown, composition::StateHandle<std::stri
         lines.push_back(components::Text(strings->text(shown.noteKey))
                             .font(theme::Font::caption)
                             .foreground_style(theme::ColourRole::secondary_label));
-    return components::Button([open, url = std::string(shown.url)] { open.set(url); },
+    return components::Button([open, url = std::string(shown.url)] { open(url); },
         components::VStack(components::VStackOptions{ .spacing = theme::Space{ 8.0F } }, std::move(lines))
             .padding(theme::Insets::symmetric(theme::Space{ 8.0F }, theme::Space{ 14.0F }))
             .frame({ .max_width = composition::infinity, .min_height = 150.0F, .alignment = composition::Alignment::top })
@@ -205,7 +200,7 @@ auto AboutPage::rows(std::vector<composition::Element> cells, std::size_t column
         std::move(cells));
 }
 
-auto AboutPage::people(composition::StateHandle<std::string> open, composition::StateHandle<bool> expanded) const
+auto AboutPage::people(const components::OpenURLAction& open, composition::StateHandle<bool> expanded) const
     -> composition::Element
 {
     const bool showing = expanded.get();
@@ -232,7 +227,7 @@ auto AboutPage::people(composition::StateHandle<std::string> open, composition::
     {
         std::vector<composition::Element> chips;
         for (const std::string& login : *logins)
-            chips.push_back(components::Button([open, url = "https://github.com/" + login] { open.set(url); },
+            chips.push_back(components::Button([open, url = "https://github.com/" + login] { open(url); },
                 components::Text(login)
                     .font(theme::Font::caption.weight(theme::Font::Weight::medium))
                     .foreground_style(theme::ColourRole::accent)
@@ -252,7 +247,7 @@ auto AboutPage::people(composition::StateHandle<std::string> open, composition::
         std::move(parts));
 }
 
-auto AboutPage::thanks(composition::StateHandle<std::string> open, composition::StateHandle<bool> expanded) const
+auto AboutPage::thanks(const components::OpenURLAction& open, composition::StateHandle<bool> expanded) const
     -> composition::Element
 {
     std::vector<composition::Element> cells;
@@ -267,32 +262,10 @@ auto AboutPage::thanks(composition::StateHandle<std::string> open, composition::
         people(open, expanded));
 }
 
-auto AboutPage::code(const std::string& url, composition::StateHandle<std::string> open, const app::Strings& strings)
-    -> composition::Element
-{
-    std::vector<composition::Element> rows;
-    if (const std::optional<QrMatrix> matrix = QrMatrix::encode(url))
-        rows.push_back(QrCode(*matrix, codeSide));
-    rows.push_back(components::Text(url).font(theme::Font::callout.monospaced()).line_limit(2));
-    rows.push_back(components::Button(strings.text("akira/common/close"), components::ButtonRole::cancel,
-        [open] { open.set(std::string()); })
-                       .button_style(components::ButtonStyle::glass(theme::Glass::clear()))
-                       .id(composition::ElementKey{ "about.code.close" }));
-    return components::VStack(components::VStackOptions{ .spacing = theme::Space{ 16.0F } }, std::move(rows))
-        .padding(theme::Space{ 24.0F })
-        .id(composition::ElementKey{ "about.code" });
-}
-
 auto AboutPage::body(composition::Context& context) const -> composition::Element
 {
-    const auto open = context.state(shown);
+    const components::OpenURLAction& open = context.environment(components::Environment::open_url);
     const auto expanded = context.state(contributorsShown);
-    composition::Binding<bool> presented([open] { return !open.get().empty(); },
-        [open](bool visible) {
-            if (!visible)
-                open.set(std::string());
-        });
-    const std::string url = open.get();
     std::vector<composition::Element> notice;
     notice.push_back(components::HStack(components::HStackOptions{ .alignment = components::VerticalAlignment::top,
                                             .spacing = theme::space::sm },
@@ -323,12 +296,7 @@ auto AboutPage::body(composition::Context& context) const -> composition::Elemen
         structure::Section::Labels{ .header = components::Text(strings->text("akira/about/license")) }, std::move(licence)));
     sections.push_back(structure::Section(
         structure::Section::Labels{ .header = components::Text(strings->text("akira/about/privacy")) }, std::move(privacy)));
-    return composition::Element(structure::Form(std::move(sections)))
-        .sheet(std::move(presented),
-            [words = strings, url, open] {
-                return composition::Element(code(url, open, *words)).presentation_sizing(composition::PresentationSizing::fitted);
-            })
-        .id(composition::ElementKey{ "about" });
+    return composition::Element(structure::Form(std::move(sections))).id(composition::ElementKey{ "about" });
 }
 
 }

@@ -7,6 +7,7 @@
 #include <arisa/composition/context.hpp>
 #include <arisa/composition/element.hpp>
 #include <arisa/composition/namespace.hpp>
+#include <arisa/composition/state_handle.hpp>
 
 #include "app/arisa/art_session.hpp"
 #include "app/arisa/notices.hpp"
@@ -74,6 +75,10 @@ public:
     auto body(::arisa::composition::Context& context) const -> ::arisa::composition::Element override;
 
 private:
+    static const ::arisa::composition::StateKey<std::string> linkShown;
+
+    auto linking(::arisa::composition::Element content, ::arisa::composition::Context& context) const
+        -> ::arisa::composition::Element;
     auto home(const ShellModel::View& view, RailEdge edge, bool sheet) const -> ::arisa::composition::Element;
     auto loadingArt(::arisa::composition::Context& context, const std::string& console) const
         -> std::vector<play::ui::ConnectingScreen::Art>;

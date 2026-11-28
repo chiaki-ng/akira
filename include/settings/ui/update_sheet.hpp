@@ -9,6 +9,7 @@
 
 #include "app/strings.hpp"
 #include "settings/maintenance.hpp"
+#include "settings/release_notes.hpp"
 #include "settings/ui/settings_model.hpp"
 
 namespace akira::settings::ui {
@@ -28,7 +29,7 @@ private:
     auto offer() const -> ::arisa::composition::Element;
     auto installing(const Maintenance::UpdateProgress& shown) const -> ::arisa::composition::Element;
     auto stage(const Maintenance::UpdateProgress& shown) const -> ::arisa::composition::Element;
-    auto notes() const -> ::arisa::composition::Element;
+    static auto notes(const ReleaseNotes& written) -> ::arisa::composition::Element;
     auto transferred(const Maintenance::UpdateProgress& shown) const -> std::string;
     static auto settled(const Maintenance::UpdateProgress& shown) -> bool;
 

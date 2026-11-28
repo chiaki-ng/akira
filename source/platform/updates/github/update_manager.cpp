@@ -1,6 +1,7 @@
 #include "platform/updates/github/update_manager.hpp"
 #include "log/log.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <cerrno>
 #include <cstdio>
@@ -125,6 +126,12 @@ UpdateInfo UpdateManager::checkForUpdate(const std::string& channel) {
 
         std::string ver = tag[0] == 'v' ? tag.substr(1) : tag;
         if (!akira::semver::isValid(ver))
+            continue;
+
+        const nlohmann::json assets = rel.value("assets", nlohmann::json::array());
+        if (std::ranges::none_of(assets, [](const nlohmann::json& asset) {
+                return asset.value("name", std::string()) == "akira.nro";
+            }))
             continue;
 
         if (bestVersion.empty() || compareSemver(ver, bestVersion) > 0) {

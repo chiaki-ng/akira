@@ -7,6 +7,7 @@
 #include <string_view>
 #include <vector>
 
+#include <arisa/components/open_url_action.hpp>
 #include <arisa/composition/component.hpp>
 #include <arisa/composition/context.hpp>
 #include <arisa/composition/element.hpp>
@@ -39,7 +40,6 @@ public:
         std::uint32_t tint;
     };
 
-    static constexpr float codeSide = 260.0F;
     static constexpr float logoSide = 64.0F;
     static constexpr float markSide = 44.0F;
     static constexpr float tileRadius = 16.0F;
@@ -61,7 +61,6 @@ public:
         { "Pxplay", "https://streamingdv.github.io/pxplay/", "grill2010",
             "https://cdn2.steamgriddb.com/icon_thumb/5f2e8fb6fcccffa6b083f5b411e11221.png", "", "" },
     } };
-    static const ::arisa::composition::StateKey<std::string> shown;
     static const ::arisa::composition::StateKey<bool> contributorsShown;
 
     AboutPage(const app::Strings& strings, const std::vector<std::string>& contributors);
@@ -75,18 +74,16 @@ public:
 
 private:
     auto figures() const -> ::arisa::composition::Element;
-    auto tile(const Tile& shown, ::arisa::composition::StateHandle<std::string> open) const -> ::arisa::composition::Element;
-    auto project(const Project& shown, ::arisa::composition::StateHandle<std::string> open) const
+    auto tile(const Tile& shown, const ::arisa::components::OpenURLAction& open) const -> ::arisa::composition::Element;
+    auto project(const Project& shown, const ::arisa::components::OpenURLAction& open) const
         -> ::arisa::composition::Element;
-    auto people(::arisa::composition::StateHandle<std::string> open, ::arisa::composition::StateHandle<bool> expanded) const
+    auto people(const ::arisa::components::OpenURLAction& open, ::arisa::composition::StateHandle<bool> expanded) const
         -> ::arisa::composition::Element;
-    auto thanks(::arisa::composition::StateHandle<std::string> open, ::arisa::composition::StateHandle<bool> expanded) const
+    auto thanks(const ::arisa::components::OpenURLAction& open, ::arisa::composition::StateHandle<bool> expanded) const
         -> ::arisa::composition::Element;
     static auto rows(std::vector<::arisa::composition::Element> cells, std::size_t columns, float spacing)
         -> ::arisa::composition::Element;
     static auto mark(const Tile& shown) -> ::arisa::composition::Element;
-    static auto code(const std::string& url, ::arisa::composition::StateHandle<std::string> open, const app::Strings& strings)
-        -> ::arisa::composition::Element;
     static auto figure(std::string label, std::string value) -> ::arisa::composition::Element;
 
     const app::Strings* strings;

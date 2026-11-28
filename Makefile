@@ -94,6 +94,7 @@ ARISA_TEST_MODELS   = $(CURDIR)/source/log/log.cpp \
                       $(CURDIR)/source/play/picture_profile.cpp \
                       $(CURDIR)/source/settings/settings_store.cpp \
                       $(CURDIR)/source/settings/help_catalog.cpp \
+                      $(CURDIR)/source/settings/release_notes.cpp \
                       $(CURDIR)/source/network/nat_report.cpp \
                       $(CURDIR)/source/log/core_log.cpp \
                       $(CURDIR)/source/settings/developer_settings.cpp \
@@ -180,6 +181,7 @@ ARISA_TEST_SCREENS  = $(CURDIR)/source/consoles/ui/console_shelf.cpp \
                       $(CURDIR)/source/app/arisa/theme_packs.cpp \
                       $(CURDIR)/source/app/arisa/qr_code.cpp \
                       $(CURDIR)/source/app/arisa/about_page.cpp \
+                      $(CURDIR)/source/app/arisa/link_code.cpp \
                       $(CURDIR)/source/app/arisa/build_info_page.cpp \
                       $(CURDIR)/source/app/arisa/pad_capture.cpp
 ARISA_TEST_STB      = $(CURDIR)/library/borealis/library/lib/extern/glfw/deps
@@ -282,6 +284,7 @@ TEST_SRC     := $(wildcard $(CURDIR)/tests/*.cpp) \
                 $(CURDIR)/source/play/button_board.cpp \
                 $(CURDIR)/source/settings/config_listing.cpp \
                 $(CURDIR)/source/settings/help_catalog.cpp \
+                $(CURDIR)/source/settings/release_notes.cpp \
                 $(CURDIR)/source/play/controller_settings.cpp \
                 $(CURDIR)/source/cloud/cloud_settings.cpp \
                 $(CURDIR)/source/cloud/saved_datacenters.cpp \

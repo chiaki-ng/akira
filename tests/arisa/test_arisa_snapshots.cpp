@@ -1364,18 +1364,22 @@ TEST(arisa_settings_capture_assigns_the_combo)
 
 TEST(arisa_shot_stream_dock_stream_panel)
 {
+    constexpr std::size_t colourTabs = AKIRA_PLATFORM_OUNCE ? 1 : 0;
     Shots shots;
     REQUIRE(shots.start(shots.streamDock()));
     REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 0)));
     CHECK(shots.shows("stream-dock.restart"));
     CHECK(shots.write("stream_dock_stream"));
-    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 1)));
-    CHECK(shots.shows("stream-dock.akira/stream_menu/colour_gamma"));
-    CHECK(shots.write("stream_dock_colour"));
-    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 2)));
+    if constexpr (AKIRA_PLATFORM_OUNCE)
+    {
+        REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 1)));
+        CHECK(shots.shows("stream-dock.akira/stream_menu/colour_gamma"));
+        CHECK(shots.write("stream_dock_colour"));
+    }
+    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 1 + colourTabs)));
     CHECK(shots.shows("stream-dock.volume"));
     CHECK(shots.write("stream_dock_sound"));
-    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 5)));
+    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 4 + colourTabs)));
     CHECK(shots.shows("stream-dock.disconnect"));
     CHECK(shots.shows("stream-dock.home"));
     CHECK(shots.write("stream_dock_session_home"));
@@ -1387,15 +1391,18 @@ TEST(arisa_stream_dock_colour_and_volume_apply_live_and_persist)
 {
     Shots shots;
     REQUIRE(shots.start(shots.streamDock()));
-    REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 1)));
-    CHECK(shots.shows("stream-dock.colour-reset"));
-    shots.pictureOptions().setColour(akira::play::ColourAdjustments(0.1, 1.2, 0.8, 1.4));
-    REQUIRE(shots.settle());
-    CHECK(shots.write("stream_dock_colour_adjusted"));
-    REQUIRE(shots.press("stream-dock.colour-reset"));
-    CHECK(shots.streamControls().colour.isNeutral());
-    CHECK(shots.pictureOptions().view().get().colour.isNeutral());
-    CHECK(shots.streamSettings().colour().isNeutral());
+    if constexpr (AKIRA_PLATFORM_OUNCE)
+    {
+        REQUIRE(shots.press(structure::DockBar::key_of(structure::DockBar::tab_key, 1)));
+        CHECK(shots.shows("stream-dock.colour-reset"));
+        shots.pictureOptions().setColour(akira::play::ColourAdjustments(0.1, 1.2, 0.8, 1.4));
+        REQUIRE(shots.settle());
+        CHECK(shots.write("stream_dock_colour_adjusted"));
+        REQUIRE(shots.press("stream-dock.colour-reset"));
+        CHECK(shots.streamControls().colour.isNeutral());
+        CHECK(shots.pictureOptions().view().get().colour.isNeutral());
+        CHECK(shots.streamSettings().colour().isNeutral());
+    }
     shots.soundOptions().setVolume(akira::play::Volume(0.4));
     CHECK(std::abs(shots.streamSettings().volume().level() - 0.4) < 1e-9);
 }
@@ -1631,7 +1638,8 @@ TEST(arisa_shot_settings_tools)
     shots.settingsModel().close();
     REQUIRE(shots.settle());
     REQUIRE(shots.settingsTab(11));
-    REQUIRE(shots.press("about.link.chiaki-ng"));
+    REQUIRE(shots.press("about.project.chiaki-ng"));
+    CHECK(shots.shows("link-code"));
     CHECK(shots.write("settings_about_qr"));
 }
 

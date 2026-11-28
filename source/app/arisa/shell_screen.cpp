@@ -7,6 +7,7 @@
 #include <arisa/components/button_role.hpp>
 #include <arisa/components/button_style.hpp>
 #include <arisa/components/environment.hpp>
+#include <arisa/components/open_url_action.hpp>
 #include <arisa/components/glass_panel.hpp>
 #include <arisa/components/group.hpp>
 #include <arisa/components/hint_bar.hpp>
@@ -41,6 +42,7 @@
 #include "app/arisa/ambient_background.hpp"
 #include "app/arisa/brand_lockup.hpp"
 #include "app/arisa/confirmation.hpp"
+#include "app/arisa/link_code.hpp"
 #include "app/arisa/header.hpp"
 #include "network/ui/network_facts_row.hpp"
 #include "app/arisa/notice_toast.hpp"
@@ -62,6 +64,8 @@ namespace provider = ::arisa::provider;
 namespace graphics = ::arisa::graphics;
 namespace motion = ::arisa::motion;
 namespace theme = ::arisa::theme;
+
+const composition::StateKey<std::string> ShellScreen::linkShown{ "shell-shown-link", std::string() };
 
 ShellScreen::ShellScreen(ShellModel& model, Notices& notices, const Parts& parts, const app::Strings& strings)
     : model(&model)
@@ -106,13 +110,28 @@ auto ShellScreen::body(composition::Context& context) const -> composition::Elem
     composition::Element flow = components::Group();
     if (onboarding)
         flow = accounts::ui::AccountFlow(*profiles, *strings);
-    composition::Element shown = std::move(shell)
-                                     .overlay(settings, composition::OverlayLayer::sheet, std::move(panel))
-                                     .overlay(connecting, composition::OverlayLayer::sheet, std::move(loading))
-                                     .overlay(onboarding, composition::OverlayLayer::sheet, std::move(flow));
+    composition::Element shown = linking(std::move(shell)
+                                             .overlay(settings, composition::OverlayLayer::sheet, std::move(panel))
+                                             .overlay(connecting, composition::OverlayLayer::sheet, std::move(loading))
+                                             .overlay(onboarding, composition::OverlayLayer::sheet, std::move(flow)),
+        context);
     if (parts->art)
         return std::move(shown).async_image_url_session(parts->art->session());
     return shown;
+}
+
+auto ShellScreen::linking(composition::Element content, composition::Context& context) const -> composition::Element
+{
+    const auto link = context.state(linkShown);
+    const std::string url = link.get();
+    return std::move(content)
+        .overlay(!url.empty(), composition::OverlayLayer::dialog,
+            LinkCode(url, [link] { link.set(std::string()); }).dimmed(*strings))
+        .environment(components::Environment::open_url,
+            components::OpenURLAction([link](const provider::Url& opened) {
+                link.set(std::string(opened.value()));
+                return components::OpenURLAction::Result::handled;
+            }));
 }
 
 auto ShellScreen::loadingArt(composition::Context& context, const std::string& console) const

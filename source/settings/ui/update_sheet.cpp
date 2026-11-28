@@ -52,8 +52,8 @@ auto UpdateSheet::offer() const -> composition::Element
     std::vector<composition::Element> shown;
     shown.push_back(components::Text(strings->text("akira/update/prompt_title")).font(theme::Font::headline));
     shown.push_back(components::Text(strings->format("akira/update/prompt_body", update.version, app::version::semver())));
-    if (!update.notes.empty())
-        shown.push_back(notes());
+    if (const ReleaseNotes written(update.notes); !written.empty())
+        shown.push_back(notes(written));
     shown.push_back(components::HStack(components::HStackOptions{ .spacing = theme::space::md }, components::Spacer(),
         components::Button(strings->text("akira/update/later"), components::ButtonRole::cancel, [model = model] { model->dismissOffer(); })
             .button_style(components::ButtonStyle::glass(theme::Glass::clear())),
@@ -64,11 +64,9 @@ auto UpdateSheet::offer() const -> composition::Element
         components::VStackOptions{ .alignment = components::HorizontalAlignment::leading, .spacing = theme::space::lg }, std::move(shown));
 }
 
-auto UpdateSheet::notes() const -> composition::Element
+auto UpdateSheet::notes(const ReleaseNotes& written) -> composition::Element
 {
-    std::string written = update.notes;
-    std::erase(written, '\r');
-    return components::ScrollView(components::Text::markdown(written)
+    return components::ScrollView(components::Text::markdown(written.readable())
                                       .padding(theme::Space{ 14.0F })
                                       .frame({ .max_width = composition::infinity, .alignment = composition::Alignment::leading }))
         .frame({ .max_height = notesHeight })
