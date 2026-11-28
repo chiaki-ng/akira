@@ -26,6 +26,8 @@ public:
     deko3d::DitherStrength ditherStrength() const override { return deko3d::DitherStrength::Baked; }
 
 private:
+    static constexpr int kMinIssueDelay = 6;
+
     std::optional<Code> compile(const std::string& path, bool vertex, const std::string& defines) const;
     static std::string injectDefines(std::string source, const std::string& defines);
     std::string fragmentDefines(const deko3d::VideoFragmentVariant& variant) const;

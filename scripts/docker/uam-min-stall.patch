@@ -126,3 +126,30 @@ diff -ru a/source/main.cpp b/source/main.cpp
  	bool rc = compiler.CompileGlsl(glsl_source);
  	delete[] glsl_source;
  
+diff -ru a/source/uam.h b/source/uam.h
+--- a/source/uam.h	2026-11-27 21:52:56
++++ b/source/uam.h	2026-11-27 21:52:56
+@@ -20,7 +20,7 @@
+ void uam_init();
+ void uam_deinit();
+ 
+-bool uam_compileDksh(uam_pipeline_stage stage, const char* source, int optLevel, uint8_t** dkshOut, uint32_t* size);
++bool uam_compileDksh(uam_pipeline_stage stage, const char* source, int optLevel, int minIssueDelay, uint8_t** dkshOut, uint32_t* size);
+ 
+ #ifdef __cplusplus
+ }
+diff -ru a/source/uam.cpp b/source/uam.cpp
+--- a/source/uam.cpp	2026-11-27 21:52:56
++++ b/source/uam.cpp	2026-11-27 21:52:56
+@@ -12,9 +12,9 @@
+     glsl_frontend_exit();
+ }
+ 
+-bool uam_compileDksh(uam_pipeline_stage stage, const char* source, int optLevel, uint8_t** dkshOut, uint32_t* size)
++bool uam_compileDksh(uam_pipeline_stage stage, const char* source, int optLevel, int minIssueDelay, uint8_t** dkshOut, uint32_t* size)
+ {
+-    DekoCompiler compiler{::pipeline_stage(stage), optLevel};
++    DekoCompiler compiler{::pipeline_stage(stage), optLevel, minIssueDelay};
+     if (compiler.CompileGlsl(source))
+     {
+         *dkshOut = compiler.OutputDksh(*size);

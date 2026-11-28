@@ -49,7 +49,7 @@ std::optional<deko3d::ShaderSource::Code> UamShaderSource::compile(const std::st
     std::uint8_t* raw = nullptr;
     std::uint32_t size = 0;
     if (!uam_compileDksh(vertex ? uam_pipeline_stage_vertex : uam_pipeline_stage_fragment,
-            glsl.c_str(), 3, &raw, &size))
+            glsl.c_str(), 3, kMinIssueDelay, &raw, &size))
     {
         log::error("UamShaderSource: failed to compile {} shader {}", kind, path);
         return std::nullopt;
